@@ -126,6 +126,8 @@ export function createInitialState(): GameState {
     lastIncomeSettleMonth: -1,
     lastJobBoardDay: -1,
     pendingJobApp: null,
+    certifications: [],
+    pendingExam: null,
     emails: [],
     pendingControversy: null,
     market: initialMarket(),

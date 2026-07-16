@@ -416,6 +416,16 @@ export interface JobApplication {
   resultDay: number;
 }
 
+/** 자격증 시험 응시 — 결과는 3일 뒤 피메일로 통보된다. */
+export interface ExamApplication {
+  /** 응시한 자격증 id (CERTIFICATIONS 참조) */
+  certId: string;
+  /** 신청 시 확정된 합격 여부(3일 뒤 메일로 공개) */
+  passed: boolean;
+  /** 결과 메일이 도착하는 날(day) */
+  resultDay: number;
+}
+
 /**
  * 광고 메일에 딸려오는 특가 오퍼.
  * 스팸(피싱)과 달리 진짜 혜택이며, 도착 당일까지만 유효하다.
@@ -503,6 +513,10 @@ export interface GameState {
   employment: Employment | null;
   /** 결과 대기 중인 취업 지원(익일 메일 통보). 없으면 null */
   pendingJobApp: JobApplication | null;
+  /** 취득한 자격증 id 목록 */
+  certifications: string[];
+  /** 결과 대기 중인 자격증 시험(동시 1건만). 없으면 null */
+  pendingExam: ExamApplication | null;
   /** 피메일 수신함 */
   emails: Email[];
   /** 대부업체 빚(없으면 없음) */
