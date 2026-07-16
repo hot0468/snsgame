@@ -236,6 +236,13 @@ export interface DMThread {
   motelKind?: AdultKind;
   /** 티켓 양도 제안 스레드인지(콘서트/영화 GV) */
   ticketKind?: "concert" | "gv";
+  /**
+   * 팔로워 유입으로 생긴 일반 팬 DM 스레드인지.
+   * 하루 팬 DM 유입량 제한(MAX_FAN_DM_PER_DAY)을 세는 데 쓴다 — 스토리성 DM
+   * (크루/사바나/작가/터커 등)은 이 플래그가 없어 제한에 걸리지 않는다.
+   * 구 세이브에는 없다(undefined = 팬 DM 아님으로 취급, 당일 카운트만 살짝 느슨해질 뿐 무해).
+   */
+  fan?: boolean;
   /** 성기 사진을 보낸 성인 스레드면 그 크기(만남 이벤트 분기에 사용) */
   genitalSize?: DickSize;
   /** 러닝크루 가입 권유 스레드인지(운동 트윗으로 유입) */

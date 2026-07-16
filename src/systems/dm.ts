@@ -1,6 +1,7 @@
-import type { AdultKind, DickSize, DMThread, GameState, PlayerAccount } from "@/core/types";
+import type { AdultKind, AttributeId, DickSize, DMThread, GameState, PlayerAccount } from "@/core/types";
 import { getActiveAccount } from "@/core/state";
 import { makeRandomAccount } from "@/data/accounts";
+import { ATTRIBUTES } from "@/data/attributes";
 import {
   PARTNER_REPLIES,
   REPLY_LINES,
@@ -12,8 +13,56 @@ import { pick, randInt, uid, chance } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { clampResource, clampSkill } from "./stats";
 
-/** 팬이 DM을 보내올 확률(팔로워를 얻은 행동 직후 호출) */
-export const FAN_DM_CHANCE = 0.35;
+/**
+ * 팬이 DM을 보내올 확률(팔로워를 얻은 행동 직후 호출).
+ *
+ * ⚠️ 이 확률은 '하루 한 번'이 아니라 **팔로워가 오른 행동마다** 굴린다
+ * (트윗·팔로우·리트윗 → tweetSystem.ts:112, exploreSystem.ts:86,186).
+ * 보수적인 하루(트윗 3 + 팔로우 3 + 리트윗 2 = 8회)만 잡아도 기대값이
+ * 0.35 × 8 = 2.8통/일이었고, 실측 10일 시뮬에서 27.2통이 나왔다.
+ * 0.12로 낮춰 8회 기준 ≈0.96통/일 — "하루 1~2통이면 반가운" 수준으로 맞췄다.
+ * 활동량이 많은 날에도 폭주하지 않도록 MAX_FAN_DM_PER_DAY가 상한을 잡는다.
+ */
+export const FAN_DM_CHANCE = 0.12;
+
+/**
+ * 하루에 새로 유입될 수 있는 팬 DM 스레드 수 상한.
+ * 확률만으로는 행동 수에 비례해 무한정 늘어나므로(위 주석 참고) 상한을 함께 둔다.
+ * 스토리성 DM(크루/사바나/작가/터커/모텔 등)은 이 상한과 무관하다.
+ */
+export const MAX_FAN_DM_PER_DAY = 2;
+
+/** 오늘 이 계정에 도착한 팬 DM 스레드 수 (첫 메시지의 day 기준) */
+function fanDMsToday(account: PlayerAccount, day: number): number {
+  return account.dms.filter((t) => t.fan && t.messages[0]?.day === day).length;
+}
+
+/**
+ * 팬 DM 상대로 등장할 수 있는 속성 목록.
+ *
+ * 기존에는 `makeRandomAccount`가 전체 속성에서 균일 랜덤으로 뽑은 NPC의 속성을
+ * 그대로 오프너에 넘겨서(`randomOpener(npc.attribute)`), 강아지를 안 키우는데
+ * "강아지 키우시네요" 같은 내 상황과 무관한 DM이 왔다.
+ * 이제 **내가 실제로 쓰는 속성(unlockedAttributes)** 안에서만 뽑고, 아래를 제외한다:
+ * - 반려동물(dog/cat): 실제로 그 동물을 키울 때만(state.pets)
+ * - 성인 전용 속성: 성인 모드가 켜져 있을 때만
+ *
+ * 폴백: 걸러낸 결과가 비면 "daily"를 쓴다. createAccount가 모든 계정에 "daily"를
+ * 항상 넣어주고(state.ts:114), OPENERS_BY_ATTR에는 "daily" 키가 없어 범용 오프너만
+ * 나오므로 — 후보가 0이 되어 DM이 끊기는 일은 없다.
+ */
+export function fanDMAttributePool(state: GameState, account: PlayerAccount): AttributeId[] {
+  const pool = account.unlockedAttributes.filter((attr) => {
+    if (attr === "dog" && !state.pets.dog) return false;
+    if (attr === "cat" && !state.pets.cat) return false;
+    if (ATTRIBUTES[attr]?.adultOnly && !state.adultMode) return false;
+    return true;
+  });
+  if (pool.length === 0) return ["daily"];
+  // 실제로 많이 올리는 성향(계정 대표 속성)의 팬이 더 자주 오도록 가중치를 한 번 더 준다.
+  if (pool.includes(account.attribute)) pool.push(account.attribute);
+  return pool;
+}
 
 /** 후원 DM 확률의 기본값(친화력 0일 때) */
 export const DONATION_BASE_CHANCE = 0.25;
@@ -27,23 +76,27 @@ export const DONATION_SOCIABILITY_BONUS = 0.4;
 export function spawnFanDM(state: GameState): DMThread | null {
   const account = getActiveAccount(state);
   const npc = makeRandomAccount(state.adultMode, state.day);
+  // NPC의 이름/핸들만 빌리고, 속성은 내 상황에 맞는 후보에서 다시 뽑는다.
+  // (makeRandomAccount의 속성은 전체 균일 랜덤이라 내 계정과 무관하다)
+  const attr = pick(fanDMAttributePool(state, account));
   const thread: DMThread = {
     id: uid("dm"),
     partnerName: npc.name,
     partnerHandle: npc.handle,
-    attribute: npc.attribute,
-    isAdult: npc.isAdult,
+    attribute: attr,
+    isAdult: ATTRIBUTES[attr]?.adultOnly ?? false,
     messages: [
       {
         id: uid("dmm"),
         from: "partner",
-        text: randomOpener(npc.attribute),
+        text: randomOpener(attr),
         day: state.day,
       },
     ],
     unread: true,
     metOffline: false,
     wantsToMeet: false,
+    fan: true,
   };
   // 친화력이 높을수록 후원을 보내는 팬이 늘어난다(만렙에서 25%→65%)
   if (
@@ -113,13 +166,20 @@ function maybePropose(state: GameState, thread: DMThread, p: number): void {
  * @returns 생성되면 true
  */
 export function maybeSpawnFanDM(state: GameState): boolean {
+  const account = getActiveAccount(state);
+  if (fanDMsToday(account, state.day) >= MAX_FAN_DM_PER_DAY) return false;
   if (!chance(FAN_DM_CHANCE)) return false;
   spawnFanDM(state);
   return true;
 }
 
-/** 성인 트윗을 올렸을 때 모텔 제안 DM이 올 확률 */
-export const MOTEL_DM_CHANCE = 0.4;
+/**
+ * 성인 트윗을 올렸을 때 모텔 제안 DM이 올 확률.
+ * ⚠️ 성인 트윗 1건에 모텔·성기사진·사바나 DM이 **동시에** 굴려진다(tweetSystem.ts:117-120).
+ * 구값(모텔 0.4 + 성기사진 0.45)이면 성인 트윗 1건당 기대 0.85통이 쏟아졌다.
+ * 0.18로 낮춰 성인 트윗 1건당 모텔+성기사진 기대값을 ≈0.33통으로 맞춘다.
+ */
+export const MOTEL_DM_CHANCE = 0.18;
 
 /** 성인 트윗 종류별 모텔 제안 오프너 */
 const MOTEL_OPENERS: Record<AdultKind, string[]> = {
@@ -150,8 +210,12 @@ const MOTEL_OPENERS: Record<AdultKind, string[]> = {
   ],
 };
 
-/** 티켓 양도 DM 확률 */
-export const TICKET_DM_CHANCE = 0.4;
+/**
+ * 티켓 양도 DM 확률.
+ * 아이돌덕/배우덕 트윗마다 굴린다(tweetSystem.ts:123). 0.4면 해당 성향으로 파는
+ * 플레이어에게 사실상 매 트윗 양도 DM이 왔다 — 0.18로 낮춰 특별한 제안처럼 느껴지게 한다.
+ */
+export const TICKET_DM_CHANCE = 0.18;
 
 const TICKET_OPENERS: Record<"concert" | "gv", string[]> = {
   concert: [
@@ -217,8 +281,11 @@ export function maybeSpawnMotelDM(state: GameState, kind: AdultKind): boolean {
   return true;
 }
 
-/** 성기 사진 DM이 올 확률(성인 트윗을 올린 성인 계정 한정) */
-export const DICKPIC_DM_CHANCE = 0.45;
+/**
+ * 성기 사진 DM이 올 확률(성인 트윗을 올린 성인 계정 한정).
+ * MOTEL_DM_CHANCE와 같은 트윗에서 함께 굴려지므로 같은 이유로 0.45 → 0.15로 낮춘다.
+ */
+export const DICKPIC_DM_CHANCE = 0.15;
 
 /** "빨아보고 싶다" 노골적 반응이 나오는 최소 음란도 */
 export const LEWD_HORNY_MIN = 400;
