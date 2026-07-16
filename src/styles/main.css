@@ -2665,12 +2665,16 @@ body {
 }
 
 /* 작성 모달 2단계 마법사: 본문 전체(질문·선택지·안내)를 중앙정렬 */
+/* 상하 여백은 .modal__body(16px)보다 넉넉하게 — 단계마다 요소가 적어(질문 한 줄 +
+   칩 한 줄) 기본 여백으로는 내용이 위아래로 몰려 답답해 보인다. */
 .compose-step {
   text-align: center;
+  padding-top: 30px;
+  padding-bottom: 30px;
 }
 
 .compose-step__title {
-  margin: 4px 0 14px;
+  margin: 4px 0 18px;
   font-size: 16px;
   font-weight: 800;
   color: var(--text);
@@ -2680,6 +2684,11 @@ body {
 /* 선택지 칩을 가운데로 모은다(.chip-row는 기본 좌측 정렬) */
 .chip-row--center {
   justify-content: center;
+}
+
+/* 마법사에선 질문과 버튼 행 사이도 넉넉하게(기본 14px) */
+.compose-step .compose-actions {
+  margin-top: 24px;
 }
 
 /* 이벤트 선택지 버튼 */

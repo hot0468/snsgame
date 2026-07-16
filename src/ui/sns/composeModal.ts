@@ -46,7 +46,8 @@ function categoryLabel(id: AttributeId): string {
 /**
  * 새 트윗 작성 모달 — 2단계 마법사.
  * - 1단계 "어떤 글을 쓸까?" — 카테고리(속성) 선택. [취소 / 다음]
- * - 2단계 "어떤 분위기로 쓸까?" — 톤(긍정/부정)·성인 종류·창작·홍보 선택. [취소 / 등록]
+ * - 2단계 "어떤 분위기로 쓸까?" — 톤(긍정/부정)·성인 종류·창작·홍보 선택. [이전 / 등록]
+ *   (우울·기사 모드는 1단계를 건너뛰므로 '이전' 대신 [취소 / 등록])
  * - 유저는 직접 글을 쓰지 않는다. 고른 조건에 맞는 문구가 등록 시 랜덤으로 뽑힌다.
  * - 카테고리 선택지가 없는 모드(우울·기사)는 1단계를 건너뛰고 2단계로 시작한다.
  */
@@ -223,6 +224,24 @@ export function renderComposeModal(
 
   function cancelBtn(): HTMLElement {
     return el("button", { class: "btn btn--ghost", onclick: () => ctx.closeModal() }, "취소");
+  }
+
+  /**
+   * 2단계에서 1단계(카테고리)로 돌아간다.
+   * 우울·기사 모드(skipStep1)는 돌아갈 1단계가 없으므로 대신 취소를 쓴다.
+   */
+  function backBtn(): HTMLElement {
+    return el(
+      "button",
+      {
+        class: "btn btn--ghost",
+        onclick: () => {
+          step = 1;
+          paint();
+        },
+      },
+      "이전",
+    );
   }
 
   // ── 1단계: 어떤 글을 쓸까? (카테고리) ────────────────────
@@ -521,7 +540,7 @@ export function renderComposeModal(
       fanSection,
       cosmeticSection,
       toneChips,
-      el("div", { class: "compose-actions" }, cancelBtn(), postBtn),
+      el("div", { class: "compose-actions" }, skipStep1 ? cancelBtn() : backBtn(), postBtn),
     );
   }
 
