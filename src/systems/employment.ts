@@ -4,6 +4,7 @@ import { EVENING_SLOT, MORNING_SLOT } from "@/core/state";
 import { TIERS } from "@/data/jobs";
 import { chance, uid } from "@/utils/random";
 import { isWeekday } from "./calendar";
+import { certJobBonus } from "./certification";
 import { currentSalary } from "./economy";
 import { clampResource, skillTo100 } from "./stats";
 import { addSchedule, advanceTime } from "./time";
@@ -37,11 +38,14 @@ export function competence(state: GameState): number {
   return Math.round(skillTo100(weighted));
 }
 
-/** 특정 등급 공고의 합격 확률(0~1) */
+/**
+ * 특정 등급 공고의 합격 확률(0~1).
+ * 보유 자격증의 보너스가 더해지지만, 클램프(0.05~0.95)는 그대로라 상한을 뚫지 못한다.
+ */
 export function successChance(state: GameState, tier: JobPosting["tier"]): number {
   const req = TIERS[tier].requirement;
   const gap = competence(state) - req;
-  return Math.max(0.05, Math.min(0.95, 0.5 + gap / 80));
+  return Math.max(0.05, Math.min(0.95, 0.5 + gap / 80 + certJobBonus(state)));
 }
 
 /** 응답을 기다리는 합격(채용 오퍼) 메일이 있는지 */
