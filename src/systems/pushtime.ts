@@ -12,7 +12,7 @@ import { clampResource, clampSkill } from "./stats";
  */
 
 /** 푸시타임 DM이 뜨는 최소 음란도 */
-export const PUSH_LEWD_MIN = 400;
+export const PUSH_LEWD_MIN = 100;
 /** 애니덕 트윗 직후 푸시타임 DM이 올 확률 */
 export const PUSH_DM_CHANCE = 0.4;
 
