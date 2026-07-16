@@ -8,6 +8,8 @@ import {
   certById,
   examPassChance,
   hasCertification,
+  isSpecialCert,
+  pendingExams,
   specialCertificationToday,
   todaysCertifications,
 } from "@/systems/certification";
@@ -31,38 +33,65 @@ function closeSite(ctx: GameContext): void {
   ctx.refresh();
 }
 
-/** 신청 버튼이 비활성일 때의 사유. canApplyExam은 bool만 주므로 UI가 직접 판정한다. */
-function blockReason(
+/**
+ * 신청 버튼이 비활성일 때의 사유. canApplyExam은 bool만 주므로 사유는 UI가 문구로 옮긴다.
+ *
+ * ⚠️ **첫 줄의 canApplyExam 가드가 이 함수의 핵심이다.** 신청 가능한 카드에는 어떤 사유도
+ *    붙지 않음을 구조적으로 보장한다 — 예전엔 사유 판정이 enabled와 독립이라, 일반 시험
+ *    대기 중에 특별칸이 뜨면 버튼은 멀쩡히 활성인데 "다른 시험 결과 대기 중" 문구가 같이
+ *    떠서 서로 모순됐다. 활성 여부의 단일 진실은 canApplyExam 하나다.
+ *
+ * ⚠️ 대기 슬롯은 일반/특별이 따로다. 어느 슬롯이 이 카드를 막는지는 systems의 isSpecialCert로
+ *    가른다(UI에서 cert.onlyOn·randomChance를 직접 보고 재구현하지 않는다).
+ *    막은 시험의 '이름'까지 보여준다 — 특별칸(헌터·연금술사)은 기회가 드물어서, 왜 죽었는지
+ *    모르면 플레이어가 이유도 모른 채 기회를 잃는다.
+ */
+export function blockReason(
   s: import("@/core/types").GameState,
   cert: Certification,
 ): string | null {
+  if (canApplyExam(s, cert)) return null; // 신청 가능 → 사유 없음(모순 표기 원천 차단)
   if (hasCertification(s, cert.id)) return "취득 완료";
-  if (s.pendingExam) return "다른 시험 결과 대기 중";
+
+  const blocking = isSpecialCert(cert) ? s.pendingSpecialExam : s.pendingExam;
+  if (blocking) {
+    const name = certById(blocking.certId)?.name;
+    return name ? `${name} 결과 대기 중` : "다른 시험 결과 대기 중";
+  }
   if (s.money < cert.fee) return "잔고 부족";
-  return null;
+  return null; // 그 외(게임 오버 등) — 버튼만 비활성으로 두고 사유는 붙이지 않는다
 }
 
-/** 결과 대기 중인 시험 배너 */
-function pendingBanner(ctx: GameContext): HTMLElement | null {
+/**
+ * 결과 대기 중인 시험 배너들.
+ *
+ * ⚠️ 일반 슬롯과 특별 슬롯은 **동시에 각 1건씩** 찰 수 있다(pendingExam + pendingSpecialExam).
+ *    하나만 그리면 나머지 시험이 유령이 된다 — 접수했는데 어디에도 안 보인다.
+ *    두 슬롯 조회는 systems의 pendingExams가 담당한다(UI에서 슬롯을 직접 나열하지 않는다).
+ */
+export function pendingBanners(ctx: GameContext): HTMLElement[] {
   const s = ctx.store.getState();
-  const exam = s.pendingExam;
-  if (!exam) return null;
-  const cert = certById(exam.certId);
-  if (!cert) return null; // 데이터에서 사라진 자격증(구세이브) — 조용히 숨긴다
-  const left = Math.max(0, exam.resultDay - s.day);
 
-  return el(
-    "div",
-    { class: "onet-pending" },
-    el("span", { class: "onet-pending__tag" }, "접수완료"),
-    el(
-      "span",
-      { class: "onet-pending__text" },
-      `${cert.name} 결과 대기 중 · ` +
-        (left === 0 ? "오늘 발표 예정" : `${left}일 후 통보`),
-    ),
-    el("span", { class: "onet-pending__note" }, "결과는 피메일로 발송됩니다"),
-  );
+  return pendingExams(s).flatMap((exam) => {
+    const cert = certById(exam.certId);
+    if (!cert) return []; // 데이터에서 사라진 자격증(구세이브) — 조용히 숨긴다
+    const left = Math.max(0, exam.resultDay - s.day);
+
+    return [
+      el(
+        "div",
+        { class: "onet-pending" },
+        el("span", { class: "onet-pending__tag" }, "접수완료"),
+        el(
+          "span",
+          { class: "onet-pending__text" },
+          `${cert.name} 결과 대기 중 · ` +
+            (left === 0 ? "오늘 발표 예정" : `${left}일 후 통보`),
+        ),
+        el("span", { class: "onet-pending__note" }, "결과는 피메일로 발송됩니다"),
+      ),
+    ];
+  });
 }
 
 /** 자격증 한 종목 카드 */
@@ -148,15 +177,22 @@ function certCard(ctx: GameContext, cert: Certification, paint: () => void): HTM
 }
 
 /**
- * 금일 특별 시행 종목(onlyOn) 섹션.
+ * 금일 특별 시행 종목(onlyOn·randomChance) 섹션.
  * 랜덤 5종과 **별개**이며 목록 위에 고정된다 — 5칸을 잡아먹지 않는다.
- * 오늘이 그 날짜가 아니거나 이미 취득했으면 systems가 null을 주고, 섹션은 통째로 사라진다.
+ * 오늘 해당하지 않거나 이미 취득했으면 systems가 null을 주고, 섹션은 통째로 사라진다.
+ *
+ * ⚠️ 특별칸에는 성격이 다른 두 종류가 온다. 문구를 하드코딩하지 말고 분기한다.
+ *  - onlyOn(헌터): 매년 고정일 1회 → "연 1회 / 차회 시행 내년"이 사실이다.
+ *  - randomChance(국가연금술사): 부정기 등장이라 다음 시행일을 알 수 없다
+ *    → "연 1회 / 내년"이라고 하면 거짓말이 된다. "부정기 / 차회 시행 미정"으로 쓴다.
+ * 두 종류 다 '금일에 한해 접수'라는 점은 같아서 태그("금일 특별 시행")는 공용으로 둔다.
  */
 function specialSection(
   ctx: GameContext,
   cert: Certification,
   paint: () => void,
 ): HTMLElement {
+  const annual = !!cert.onlyOn;
   return el(
     "section",
     { class: "onet-special" },
@@ -167,9 +203,15 @@ function specialSection(
       el(
         "span",
         { class: "onet-special__text" },
-        `${cert.name} 국가자격 시험은 연 1회, 금일에 한해 원서를 접수합니다.`,
+        annual
+          ? `${cert.name} 국가자격 시험은 연 1회, 금일에 한해 원서를 접수합니다.`
+          : `${cert.name} 국가자격 시험은 부정기 시행 종목으로, 금일에 한해 원서를 접수합니다.`,
       ),
-      el("span", { class: "onet-special__note" }, "금일 24시 마감 · 차회 시행 내년"),
+      el(
+        "span",
+        { class: "onet-special__note" },
+        annual ? "금일 24시 마감 · 차회 시행 내년" : "금일 24시 마감 · 차회 시행 미정",
+      ),
     ),
     el("div", { class: "onet-special__list" }, certCard(ctx, cert, paint)),
   );
@@ -222,7 +264,8 @@ export function renderOnet(ctx: GameContext): HTMLElement {
           `금일 원서접수 가능 종목은 ${ONET_DAILY_SLOTS}종이며, 접수 종목은 매일 갱신됩니다. ` +
             "동시 접수는 1건까지 가능합니다.",
         ),
-        pendingBanner(ctx),
+        // 일반·특별 대기 배너를 둘 다(각 슬롯 1건씩 동시에 찰 수 있다).
+        ...pendingBanners(ctx),
         // 특별 시행은 랜덤 5종 '위에' 고정 노출한다.
         special ? specialSection(ctx, special, paint) : null,
         el(

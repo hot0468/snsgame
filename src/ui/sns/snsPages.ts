@@ -14,6 +14,7 @@ import { consumePushLink } from "@/systems/pushtime";
 import { consumeYabamLink } from "@/systems/yabam";
 import type { EyeDealResult } from "@/systems/auction";
 import { resolveEyeDeal } from "@/systems/auction";
+import { resolveLabOffer } from "@/systems/lab";
 import { renderEyeDealResultModal } from "@/ui/auctionModals";
 import { addAppointment } from "@/systems/appointments";
 import { dateLabel } from "@/systems/time";
@@ -760,6 +761,54 @@ function eyeDealReplies(ctx: GameContext): HTMLElement {
   );
 }
 
+/**
+ * 터커(연구실 조수 부탁) DM의 답장 영역.
+ * eyeDealReplies와 같은 구조 — 별도 화면 없이 기존 DM UI 안에서 수락/거절을 고른다.
+ * ⚠️ 분기 상태는 스레드가 아니라 state.lab.offer다 — 응답 후엔 결과 칩만 남긴다.
+ */
+function labOfferReplies(ctx: GameContext): HTMLElement {
+  const offer = ctx.store.getState().lab.offer;
+
+  // 이미 답한 뒤에는 스레드가 기록으로만 남는다.
+  if (offer !== "offered") {
+    const note =
+      offer === "accepted"
+        ? "부탁을 수락했다. 평일 저녁은 연구실이다."
+        : offer === "refused"
+          ? "정중히 거절했다."
+          : "";
+    return el(
+      "div",
+      { class: "dm__replies" },
+      el("span", { class: "chip", style: "opacity:.6" }, note || "끝난 대화"),
+    );
+  }
+
+  const answer = (accept: boolean): void => {
+    let ok = false;
+    ctx.update((s) => {
+      ok = resolveLabOffer(s, accept);
+    });
+    if (!ok) return; // 이미 처리된 제안(중복 클릭)
+    ctx.toast(accept ? "터커의 부탁을 수락했다." : "터커의 부탁을 거절했다.");
+  };
+
+  return el(
+    "div",
+    { class: "dm__replies" },
+    el(
+      "div",
+      { class: "dm__send", style: "gap:8px" },
+      el(
+        "button",
+        { class: "btn btn--ghost", style: "flex:1", onclick: () => answer(false) },
+        "거절한다",
+      ),
+      el("button", { class: "btn", style: "flex:1", onclick: () => answer(true) }, "돕기로 한다"),
+    ),
+  );
+}
+
 function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement {
   if (!thread) {
     return el("div", { class: "dm__convo" }, el("div", { class: "empty" }, "대화를 선택하세요."));
@@ -827,9 +876,11 @@ function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement 
     if ((e as KeyboardEvent).key === "Enter") sendCustom();
   });
 
-  // 링크 DM(소원 가게·푸시타임)·진홍안 거래 DM: 답장 대신 전용 버튼만.
+  // 링크 DM(소원 가게·푸시타임)·진홍안 거래·터커 조수 부탁 DM: 답장 대신 전용 버튼만.
   const repliesSection = thread.eyeDeal
     ? eyeDealReplies(ctx)
+    : thread.labOffer
+    ? labOfferReplies(ctx)
     : thread.wishLink
     ? el(
         "div",

@@ -6935,7 +6935,37 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
 }
 .onet-leave:hover { background: #f2f6fb; }
 
-/* ===== O넷 — 금일 특별 시행(onlyOn 자격증) ===== */
+/* ===== 터커 연구실 — 체포 속보 배너(labModal) ===== */
+/* 5회째 출근 결과에만 붙는다. 출근 묘사와 확실히 분리돼 보여야 조용히 지나가지 않는다. */
+.lab-arrest {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  margin: 0 0 12px;
+  border: 1px solid var(--danger);
+  border-left-width: 3px;
+  border-radius: 6px;
+  background: rgba(224, 36, 94, 0.06);
+}
+.lab-arrest__tag {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--danger);
+  border-radius: 3px;
+  padding: 3px 8px;
+  letter-spacing: 0.02em;
+}
+.lab-arrest__text {
+  font-size: 13.5px;
+  line-height: 1.55;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+/* ===== O넷 — 금일 특별 시행(onlyOn·randomChance 자격증) ===== */
 /* 랜덤 5종과 확실히 구분되게 붉은 관인 톤 + 카드 강조 테두리를 준다. */
 .onet-special {
   margin-bottom: 18px;

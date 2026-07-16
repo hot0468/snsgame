@@ -16,6 +16,8 @@ import { isLoanDue } from "@/systems/loan";
 import { renderLoanModal } from "./loanModal";
 import { isWorkNow } from "@/systems/employment";
 import { renderWorkModal } from "./workModal";
+import { isLabNow } from "@/systems/lab";
+import { renderLabModal } from "./labModal";
 import { getControversy } from "@/data/controversies";
 import { renderControversyModal } from "./controversyModal";
 import { FIRE_MONEY } from "@/core/state";
@@ -78,7 +80,8 @@ export function createApp(root: HTMLElement, store: Store): void {
     const state = store.getState();
     const gameOver = state.gameOver;
 
-    // 강제 팝업. 우선순위: 새 날 아침 > 논란 > 빚 상환 > 근무 > 약속.
+    // 강제 팝업. 우선순위: 새 날 아침 > 논란 > 빚 상환 > 연구실 > 근무 > 약속.
+    // (연구실이 근무보다 앞이다 — 겹치는 저녁에 연구실이 이긴다.)
     if (!ui.modal && !gameOver) {
       const controversy = state.pendingControversy ? getControversy(state.pendingControversy) : null;
       if (state.dawnPending) {
@@ -92,6 +95,11 @@ export function createApp(root: HTMLElement, store: Store): void {
         ui.modal = (c) => renderControversyModal(c, controversy);
       } else if (isLoanDue(state)) {
         ui.modal = (c) => renderLoanModal(c);
+      } else if (isLabNow(state)) {
+        // ⚠️ 반드시 isWorkNow보다 **먼저** 판정한다(사용자 확정: 연구실 우선).
+        //    평일 저녁에는 야근(isWorkNow)과 연구실이 동시에 true가 될 수 있어,
+        //    isWorkNow가 앞에 오면 그 저녁을 야근이 가져가 연구실이 영영 열리지 않는다.
+        ui.modal = (c) => renderLabModal(c);
       } else if (isWorkNow(state)) {
         ui.modal = (c) => renderWorkModal(c);
       } else if (dueAppointments(state).length > 0) {
