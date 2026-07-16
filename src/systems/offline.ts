@@ -253,9 +253,8 @@ export function doOfflineActivity(
   // 심야 산책: 성인물 해제 + 음란이 높으면 확률적으로 야외노출 이벤트가 뜬다.
   let nudeExposure = false;
   if (activity.petWalk && wasLate) {
-    const acc = getActiveAccount(state);
     if (
-      acc.adultMode &&
+      state.adultMode &&
       state.skills.lewd >= NUDE_EXPOSURE_LEWD_MIN &&
       Math.random() < NUDE_EXPOSURE_CHANCE
     ) {

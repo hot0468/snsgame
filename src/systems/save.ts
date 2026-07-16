@@ -45,6 +45,15 @@ export function loadGame(): GameState | null {
     //   새 게임은 createInitialState 경로라 loadGame과 무관(탭 없음 유지).
     merged.youtubeUnlocked = parsed.youtubeUnlocked ?? true;
     merged.medibooksUnlocked = parsed.medibooksUnlocked ?? true;
+    // ★호환: adultMode가 계정별이었다(구버전). 전역으로 옮기며 '하나라도 켜져 있었으면 전역 ON'으로 승격한다.
+    //   위 youtubeUnlocked와 같은 이유로 반드시 parsed 원본에서 판정한다 —
+    //   merged.adultMode는 createInitialState()의 false로 이미 덮여 있어 '부재'를 구분 못 한다.
+    merged.adultMode =
+      typeof parsed.adultMode === "boolean"
+        ? parsed.adultMode
+        : (parsed.accounts ?? []).some(
+            (a) => (a as { adultMode?: boolean } | null)?.adultMode === true,
+          );
     return sanitize(merged);
   } catch (e) {
     console.error("불러오기 실패", e);
@@ -62,7 +71,9 @@ function sanitize(state: GameState): GameState {
     acc.timeline ??= [];
     acc.unlockedAttributes ??= ["daily"];
     acc.dms ??= [];
-    acc.adultMode ??= false;
+    // 전역화 후 계정에 남은 잔재 필드 제거(있어도 무해하지만 타입과 어긋난다).
+    // 승격 판정은 loadGame에서 parsed 기준으로 이미 끝났다.
+    delete (acc as { adultMode?: boolean }).adultMode;
     acc.groupUnlocked ??= false;
     if (!Array.isArray(acc.unlockedAdultKinds)) acc.unlockedAdultKinds = ["sekt"];
     acc.lastTweetDay ??= state.day;

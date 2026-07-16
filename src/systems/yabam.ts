@@ -36,8 +36,8 @@ function hasYabamDM(state: GameState): boolean {
  */
 export function maybeSpawnYabamDM(state: GameState): void {
   if (state.yabamUnlocked) return;
+  if (!state.adultMode) return;
   const account = getActiveAccount(state);
-  if (!account.adultMode) return;
   if (state.adultTweetsPosted < YABAM_TWEET_THRESHOLD) return;
   if (hasYabamDM(state)) return;
 

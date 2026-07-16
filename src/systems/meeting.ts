@@ -397,8 +397,7 @@ export function canMeet(state: GameState, thread: DMThread): boolean {
  * - 계정 성인물 해제가 켜져 있고 상대가 성인 성향이면 성인 시나리오도 후보에 포함.
  */
 export function pickMeetingScenario(state: GameState, thread: DMThread): MeetingScenario {
-  const account = getActiveAccount(state);
-  const allowAdult = account.adultMode && thread.isAdult;
+  const allowAdult = state.adultMode && thread.isAdult;
 
   const eligible = MEETING_SCENARIOS.filter((sc) => {
     if (sc.adultOnly && !allowAdult) return false;

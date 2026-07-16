@@ -32,8 +32,8 @@ function hasPushDM(state: GameState): boolean {
  */
 export function maybeSpawnPushDM(state: GameState): void {
   if (state.pushtimeUnlocked) return;
+  if (!state.adultMode) return;
   const account = getActiveAccount(state);
-  if (!account.adultMode) return;
   if (state.skills.lewd < PUSH_LEWD_MIN) return;
   if (hasPushDM(state)) return;
   if (!chance(PUSH_DM_CHANCE)) return;

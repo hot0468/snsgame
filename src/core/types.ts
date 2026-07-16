@@ -396,8 +396,6 @@ export interface PlayerAccount {
   timeline: Tweet[];
   /** 이 계정에서 트윗 작성이 해금된 속성 목록 */
   unlockedAttributes: AttributeId[];
-  /** 이 계정의 성인물 해제 토글 */
-  adultMode: boolean;
   /** 그룹섹스 추구 트윗 종류가 해금됐는지(그룹 이벤트 후) */
   groupUnlocked: boolean;
   /**
@@ -572,6 +570,9 @@ export interface GameState {
   accounts: PlayerAccount[];
   /** 현재 활성 계정 id */
   activeAccountId: string;
+
+  /** 성인물 해제(유저 전역 설정 — 계정별이 아니다) */
+  adultMode: boolean;
 
   money: number;
 

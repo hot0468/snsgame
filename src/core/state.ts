@@ -112,7 +112,6 @@ export function createAccount(
     timeline: [],
     // 기본 일상계 + 개설 시 고른 콘셉트 속성을 함께 해금(콘셉트 계정 지원)
     unlockedAttributes: attribute === "daily" ? ["daily"] : ["daily", attribute],
-    adultMode: false,
     groupUnlocked: false,
     // 섹트(일반 성인 트윗)는 기본 해금. meetup/punish/dom은 야밤 리뷰로 해금.
     unlockedAdultKinds: ["sekt"],
@@ -136,6 +135,7 @@ export function createInitialState(): GameState {
     version: 2,
     accounts: [first],
     activeAccountId: first.id,
+    adultMode: false,
     money: 500_000, // 초기 저축(약 한 달 반 생활 runway)
     day: 1,
     slot: 0,

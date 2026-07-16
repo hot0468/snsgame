@@ -66,8 +66,8 @@ export interface GameEvent {
 /** 조건 헬퍼 */
 const hasFollowers = (n: number) => (s: GameState) => getActiveAccount(s).followers >= n;
 const moralityBelow = (n: number) => (s: GameState) => s.resources.morality < n;
-/** 계정 성인물 해제가 켜져 있어야 함 */
-const adultOn = (s: GameState) => getActiveAccount(s).adultMode;
+/** 성인물 해제(유저 전역 설정)가 켜져 있어야 함 */
+const adultOn = (s: GameState) => s.adultMode;
 /** 여러 조건을 모두 만족해야 함 */
 const all =
   (...conds: ((s: GameState) => boolean)[]) =>

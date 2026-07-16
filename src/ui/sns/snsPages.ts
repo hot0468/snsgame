@@ -77,8 +77,9 @@ export function enterPosts(ctx: GameContext): void {
  * (성인계는 해금돼 있어도 성인물 해제가 꺼져 있으면 숨긴다.)
  */
 function searchCategories(ctx: GameContext): AttributeId[] {
-  const account = getActiveAccount(ctx.store.getState());
-  const adult = account.adultMode;
+  const s = ctx.store.getState();
+  const account = getActiveAccount(s);
+  const adult = s.adultMode;
   return ALL_ATTRIBUTE_IDS.filter(
     (a) =>
       account.unlockedAttributes.includes(a) && (adult || !ATTRIBUTES[a].adultOnly),
@@ -881,9 +882,8 @@ function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement 
     );
   });
 
-  const acc = getActiveAccount(ctx.store.getState());
   const tones: DMTone[] = ["friendly", "cool"];
-  if (canUseBoldTone(acc)) tones.push("bold");
+  if (canUseBoldTone(ctx.store.getState())) tones.push("bold");
 
   const toneButtons = tones.map((tone) =>
     el(

@@ -1,6 +1,5 @@
 import type { GameContext } from "./context";
 import type { BrowserTabId } from "./context";
-import { getActiveAccount } from "@/core/state";
 import { el } from "@/utils/dom";
 import { renderSnsView } from "./sns/snsView";
 import { renderStatusDock } from "./statusPopup";
@@ -148,7 +147,7 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
   const active = ctx.ui.activeTab;
   const state = ctx.store.getState();
   // 푸시타임은 해금 시, 야밤은 해금 + 성인물 해제(adultMode) ON일 때만 탭으로 노출
-  const yabamVisible = state.yabamUnlocked && getActiveAccount(state).adultMode;
+  const yabamVisible = state.yabamUnlocked && state.adultMode;
   // 너튜브·미디북스는 해금 시에만, 네이놈(blank) 뒤에 자연스럽게 삽입한다.
   const visibleTabs: TabDef[] = [];
   for (const t of TABS) {

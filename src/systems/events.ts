@@ -54,7 +54,7 @@ function jumpOnTrend(state: GameState): string {
       .filter((t) => t.authorHandle === account.handle && !t.isRetweet)
       .map((t) => t.text),
   );
-  const pool = allTemplatesFor(attr, account.adultMode);
+  const pool = allTemplatesFor(attr, state.adultMode);
   const fresh = pool.filter((t) => !used.has(t));
   const text = pick(fresh.length ? fresh : pool);
   const outcome = calcTweetOutcome(state, attr);

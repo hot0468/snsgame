@@ -1,5 +1,5 @@
 import type { Appointment, AttributeId, GameState } from "@/core/types";
-import { EVENING_SLOT, SLOTS_PER_DAY, SLOT_LABELS, getActiveAccount } from "@/core/state";
+import { EVENING_SLOT, SLOTS_PER_DAY, SLOT_LABELS } from "@/core/state";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { pushKakao } from "./kakao";
@@ -205,7 +205,7 @@ export const COMICCON_LEWD_MIN = 400;
 
 /** 노출 코스프레 선택이 가능한지(성인물 해제 + 음란도 충분) */
 export function canLewdCosplay(state: GameState): boolean {
-  return getActiveAccount(state).adultMode && state.skills.lewd >= COMICCON_LEWD_MIN;
+  return state.adultMode && state.skills.lewd >= COMICCON_LEWD_MIN;
 }
 
 /**

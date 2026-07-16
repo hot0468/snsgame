@@ -213,11 +213,7 @@ export function checkStatEggs(state: GameState): void {
     );
   }
   // 음란 만렙 + 성인모드 → 레전드 BJ(사바나 도네이션 버프)
-  if (
-    state.skills.lewd >= MAX_SKILL &&
-    getActiveAccount(state).adultMode &&
-    fire(state, "legendBJ")
-  ) {
+  if (state.skills.lewd >= MAX_SKILL && state.adultMode && fire(state, "legendBJ")) {
     addSchedule(state, "레전드 BJ 등극", "sns");
     if (state.savannaJoined) state.money += 300_000;
     pushKakao(

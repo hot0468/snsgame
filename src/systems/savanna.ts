@@ -35,8 +35,8 @@ function hasSavannaOffer(account: PlayerAccount): boolean {
  */
 export function maybeSpawnSavannaDM(state: GameState): boolean {
   if (state.savannaJoined) return false;
+  if (!state.adultMode) return false;
   const account = getActiveAccount(state);
-  if (!account.adultMode) return false;
   if (hasSavannaOffer(account)) return false;
   if (!chance(SAVANNA_DM_CHANCE)) return false;
 

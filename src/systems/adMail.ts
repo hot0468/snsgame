@@ -1,6 +1,5 @@
 import type { AdOffer, Email, GameState } from "@/core/types";
 import type { ShopItem } from "@/data/shop";
-import { getActiveAccount } from "@/core/state";
 import { AD_MAIL_TEMPLATES } from "@/data/adMail";
 import { cosmeticById, monthlyNewCosmetics } from "@/data/cosmetics";
 import { SHOP_ITEMS } from "@/data/shop";
@@ -39,7 +38,7 @@ function offerPool(state: GameState): ShopItem[] {
  * 전 품목을 산 후반에 마우스/마이크 광고만 무한히 도착하는 걸 막는다.
  */
 function offerCandidates(state: GameState): ShopItem[] {
-  const adult = getActiveAccount(state).adultMode;
+  const adult = state.adultMode;
   const pool = offerPool(state).filter((item) => !item.adultOnly || adult);
   const unowned = pool.filter((item) => !state.ownedItems.includes(item.id));
   if (unowned.length === 0) return [];

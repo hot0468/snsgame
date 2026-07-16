@@ -1,4 +1,3 @@
-import { getActiveAccount } from "@/core/state";
 import type { GameEvent } from "./events";
 
 /**
@@ -91,8 +90,8 @@ export const CONTROVERSY_EVENTS: GameEvent[] = [
       "성인 콘텐츠를 올리던 계정의 실명과 얼굴이 특정돼 커뮤니티에 박제됐다. " +
       "지인들에게까지 퍼질까 봐 손이 떨린다. 어떻게 대응할까?",
     triggers: [],
-    // 성인물 해제 계정에서만 후보가 된다
-    condition: (s) => getActiveAccount(s).adultMode,
+    // 성인물 해제(유저 전역 설정)가 켜져 있어야 후보가 된다
+    condition: (s) => s.adultMode,
     choices: [
       {
         label: "당당하게 정면돌파한다",

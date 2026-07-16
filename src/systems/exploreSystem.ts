@@ -28,7 +28,7 @@ const BOT_NAMES = ["팔로우맞팔", "선팔하면맞팔", "무료홍보", "이
 
 /** 계정 탐색: 랜덤 계정 3개 생성(일부는 봇/유령 계정) */
 export function exploreAccounts(state: GameState): Account[] {
-  const adult = getActiveAccount(state).adultMode;
+  const adult = state.adultMode;
   return Array.from({ length: 3 }, () => {
     const acc = makeRandomAccount(adult, state.day);
     // 낮은 확률로 봇/유령 계정(다수 팔로우 시 신뢰도 하락 이벤트)
@@ -47,7 +47,7 @@ const EGG_KINDS: EggKind[] = ["coin", "pyramid", "animal"];
 
 /** 신규 게시글 탐색: 랜덤 트윗 3개 생성(일부는 이스터에그 트윗) */
 export function exploreTweets(state: GameState): Tweet[] {
-  const adult = getActiveAccount(state).adultMode;
+  const adult = state.adultMode;
   const tweets = Array.from({ length: 3 }, () => makeRandomTweet(adult, state.day));
   // 낮은 확률로 한 칸을 이스터에그 트윗으로 교체
   if (chance(0.4)) tweets[randInt(0, 2)] = makeEggTweet(pick(EGG_KINDS), state.day);
@@ -63,7 +63,7 @@ export function exploreTweets(state: GameState): Tweet[] {
 
 /** 검색: 특정 카테고리(성향)의 랜덤 트윗 3개 생성 */
 export function searchTweetsByCategory(state: GameState, attr: AttributeId): Tweet[] {
-  const adult = getActiveAccount(state).adultMode;
+  const adult = state.adultMode;
   return Array.from({ length: 3 }, () => makeTweetOfAttribute(attr, adult, state.day));
 }
 
@@ -105,7 +105,7 @@ export function followingFeedTweets(state: GameState, count = 5): Tweet[] {
   const usedTexts = new Set<string>();
   return Array.from({ length: count }, () => {
     const f = pick(follows);
-    const pool = allTemplatesFor(f.attribute, me.adultMode);
+    const pool = allTemplatesFor(f.attribute, state.adultMode);
     let text = pick(pool);
     // 같은 배치 안에서 문구 중복 회피(몇 번 재시도)
     for (let i = 0; i < 5 && usedTexts.has(text); i++) text = pick(pool);
@@ -204,7 +204,7 @@ export function maybeUnlockAttribute(state: GameState, attr: Account["attribute"
   if (account.unlockedAttributes.includes(attr)) return;
   // 강아지계/고양이계는 조우로 해금되지 않는다 — 산책에서 직접 데려와야 열린다.
   if (attr === "dog" || attr === "cat") return;
-  if (ATTRIBUTES[attr].adultOnly && !account.adultMode) return;
+  if (ATTRIBUTES[attr].adultOnly && !state.adultMode) return;
   if (Math.random() < 0.25) {
     // ⚠️ push 직접 호출 금지 — 해금 부수효과(게임 스킬 기준선 등)를 단일 관문이 보장한다.
     unlockAttribute(state, account, attr);

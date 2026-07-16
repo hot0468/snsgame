@@ -130,12 +130,12 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
           el("span", { class: "nav-toggle__text" }, "성인물 보기"),
         ),
         el("button", {
-          class: "toggle__switch" + (account.adultMode ? " toggle__switch--on" : ""),
+          class: "toggle__switch" + (s.adultMode ? " toggle__switch--on" : ""),
           "aria-label": "성인물 보기",
           onclick: () => {
-            const wasOn = account.adultMode;
+            const wasOn = s.adultMode;
             ctx.update((st) => {
-              getActiveAccount(st).adultMode = !wasOn;
+              st.adultMode = !wasOn;
             });
             ctx.toast(wasOn ? "성인물 보기 OFF" : "성인물 보기 ON");
           },

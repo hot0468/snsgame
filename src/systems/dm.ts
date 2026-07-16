@@ -26,7 +26,7 @@ export const DONATION_SOCIABILITY_BONUS = 0.4;
  */
 export function spawnFanDM(state: GameState): DMThread | null {
   const account = getActiveAccount(state);
-  const npc = makeRandomAccount(account.adultMode, state.day);
+  const npc = makeRandomAccount(state.adultMode, state.day);
   const thread: DMThread = {
     id: uid("dm"),
     partnerName: npc.name,
@@ -249,8 +249,8 @@ function randomDickSize(): DickSize {
  * @returns 생성되면 true
  */
 export function maybeSpawnDickPicDM(state: GameState): boolean {
+  if (!state.adultMode) return false;
   const account = getActiveAccount(state);
-  if (!account.adultMode) return false;
   if (!chance(DICKPIC_DM_CHANCE)) return false;
   const npc = makeRandomAccount(true, state.day);
   const size = randomDickSize();
@@ -361,7 +361,7 @@ export function unreadDMCount(account: PlayerAccount): number {
   return account.dms.filter((t) => t.unread).length;
 }
 
-/** 대담(성인) 톤 사용 가능 여부: 계정 성인물 해제가 켜져 있어야 함 */
-export function canUseBoldTone(account: PlayerAccount): boolean {
-  return account.adultMode;
+/** 대담(성인) 톤 사용 가능 여부: 성인물 해제(유저 전역 설정)가 켜져 있어야 함 */
+export function canUseBoldTone(state: GameState): boolean {
+  return state.adultMode;
 }

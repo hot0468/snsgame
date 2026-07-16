@@ -3,7 +3,6 @@ import type { ShopItem } from "@/data/shop";
 import { SHOP_ITEMS } from "@/data/shop";
 import { monthlyNewCosmetics } from "@/data/cosmetics";
 import { SKILL_STATS } from "@/data/stats";
-import { getActiveAccount } from "@/core/state";
 import { monthKey } from "@/systems/time";
 import { advertiseItem, buyItem, effectivePrice, ownedCount } from "@/systems/shop";
 import { currentSale } from "@/systems/seasonal";
@@ -343,7 +342,7 @@ function gachaBanner(ctx: GameContext): HTMLElement {
 
 export function renderShop(ctx: GameContext): HTMLElement {
   const s = ctx.store.getState();
-  const adult = getActiveAccount(s).adultMode;
+  const adult = s.adultMode;
   const items = SHOP_ITEMS.filter((it) => !it.adultOnly || adult);
   const mid = Math.ceil(items.length / 2);
 

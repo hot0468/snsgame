@@ -103,7 +103,7 @@ export function renderComposeModal(
 
   // 선택 가능한 카테고리: 해금된 속성 + 데려온 반려동물 + (성인물 해제 시) 성인
   const baseCats = account.unlockedAttributes.filter((a) => a !== "adult");
-  const categories: AttributeId[] = account.adultMode
+  const categories: AttributeId[] = s.adultMode
     ? [...baseCats, ...petCats, "adult"]
     : [...baseCats, ...petCats];
 
