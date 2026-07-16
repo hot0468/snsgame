@@ -47,6 +47,8 @@ export const LAB_TOTAL_SHIFTS = 5;
 export const LAB_MORALITY_COST = 8;
 export const LAB_MENTAL_COST = 12;
 export const LAB_KNOWLEDGE_GAIN = 60;
+/** 출근 1회당 행동력 소모 — 회사 근무(WORK_ACTION_COST)와 같은 값이다 */
+export const LAB_ACTION_COST = 15;
 
 /**
  * 국가연금술사에 합격했으면 터커 DM 도착일을 **한 번만** 추첨해 확정 저장한다.
@@ -161,7 +163,8 @@ export function doLabShift(state: GameState): LabShiftResult {
   const lab = state.lab;
   lab.shifts += 1;
 
-  // 도덕성·정신력은 리소스(0~100) — clampResource. 지식은 스킬(0~999) — clampSkill.
+  // 행동력·도덕성·정신력은 리소스(0~100) — clampResource. 지식은 스킬(0~999) — clampSkill.
+  state.resources.action = clampResource(state.resources.action - LAB_ACTION_COST);
   state.resources.morality = clampResource(state.resources.morality - LAB_MORALITY_COST);
   state.resources.mental = clampResource(state.resources.mental - LAB_MENTAL_COST);
   state.skills.knowledge = clampSkill(state.skills.knowledge + LAB_KNOWLEDGE_GAIN);

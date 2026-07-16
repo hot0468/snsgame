@@ -1,6 +1,6 @@
 import type { GameContext } from "./context";
 import type { LabShiftResult } from "@/systems/lab";
-import { LAB_TOTAL_SHIFTS, doLabShift } from "@/systems/lab";
+import { LAB_ACTION_COST, LAB_TOTAL_SHIFTS, doLabShift } from "@/systems/lab";
 import { el } from "@/utils/dom";
 import { icon } from "./icons";
 
@@ -43,7 +43,11 @@ export function renderLabModal(ctx: GameContext): HTMLElement {
           "저녁이다. 터커 박사의 연구실로 갈 시간이다.",
         ),
         el("p", { class: "compose-hint", style: "margin:0 0 14px" }, `출근 ${nth}/${LAB_TOTAL_SHIFTS}회째`),
-        el("button", { class: "event-choice", onclick: () => resolve() }, "연구실로 향한다"),
+        el(
+          "button",
+          { class: "event-choice", onclick: () => resolve() },
+          `연구실로 향한다 (행동력 -${LAB_ACTION_COST})`,
+        ),
       ),
     );
   }
