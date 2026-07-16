@@ -2,6 +2,7 @@ import type { GameState } from "@/core/types";
 import { STEAM_GAMES, GAME_REVIEW_TWEETS, type SteamGame } from "@/data/steam";
 import { getActiveAccount } from "@/core/state";
 import { pick } from "@/utils/random";
+import { clampSkill } from "./stats";
 import { postTweet } from "./tweetSystem";
 
 export { STEAM_GAMES };
@@ -23,6 +24,25 @@ export const GAMING_ATTRIBUTE = "gaming" as const;
  * 리뷰는 팔로워를 얻는 정상 콘텐츠이므로 완화 없이 1배(= 일반 게임 트윗과 동일).
  */
 export const GAME_REVIEW_FOLLOWER_MULT = 1;
+
+/**
+ * 게임 구매 시 오르는 '게임' 스킬(게임을 사서 해봤으니 는다).
+ * 획득량 ×5 규칙 준수(원래 스케일 +3). 게임당 1회 — 재구매가 없으므로 반복 불가.
+ */
+export const GAME_BUY_SKILL_GAIN = 15;
+
+/**
+ * 리뷰 트윗을 올릴 때 오르는 '게임' 스킬(파고들어 리뷰까지 썼으니 더 는다).
+ * 획득량 ×5 규칙 준수(원래 스케일 +4). 게임당 1회.
+ *
+ * 밸런스: gaming.relatedSkills에 game이 끼며 skillAvg가 (comedy+sociability)/2에서
+ * (comedy+sociability+game)/3으로 바뀌어 초반 게임계 트윗이 약해진다. 이를 상쇄하는 유일한
+ * 획득 경로가 여기다. 게임 1종당 총 GAME_BUY_SKILL_GAIN + GAME_REVIEW_SKILL_GAIN = 35,
+ * 전 13종을 사고 리뷰하면 455 — comedy/sociability 평균이 455 이하인 구간에서는 완전히 상쇄되고,
+ * 그 위로는 게임을 파는 만큼만 따라붙는다. game은 이 경로 외엔 오르지 않으므로 세 스킬 중
+ * 항상 최저에 머물러 게임계만 과도하게 강해지지 않는다.
+ */
+export const GAME_REVIEW_SKILL_GAIN = 20;
 
 /** 할인 적용 실구매가. discount(%)가 있으면 반올림 적용가, 없으면 정가. */
 export function effectiveGamePrice(game: SteamGame): number {
@@ -46,6 +66,8 @@ export function canBuyGame(state: GameState, game: SteamGame): boolean {
  * 게임을 구매한다. 이미 보유했거나 소지금이 할인적용가보다 적으면 false.
  * 첫 구매(구매 전 ownedGames가 비어 있음)면 활성 계정의 unlockedAttributes에 'gaming'을 추가한다
  * (게임 카테고리 트윗 해금). 판정은 반드시 ownedGames.push 이전의 length===0 기준.
+ * 구매하면 '게임' 스킬이 GAME_BUY_SKILL_GAIN만큼 오른다 — 게임계 트윗 해금과 게임 스킬 획득이
+ * 같은 지점에서 일어나므로, 게임계 트윗이 가능한 시점엔 game이 항상 0보다 크다.
  * @returns 실제로 구매했으면 true
  */
 export function buyGame(state: GameState, game: SteamGame): boolean {
@@ -63,6 +85,8 @@ export function buyGame(state: GameState, game: SteamGame): boolean {
 
   state.money -= price;
   state.ownedGames.push(game.id);
+  // 게임을 사서 해봤으니 '게임' 스킬이 오른다(게임당 1회 — 재구매 불가라 반복 파밍 없음).
+  state.skills.game = clampSkill(state.skills.game + GAME_BUY_SKILL_GAIN);
   return true;
 }
 
@@ -109,6 +133,9 @@ export function reviewGame(state: GameState, game: SteamGame): GameReviewResult 
   );
 
   state.reviewedGames.push(game.id);
+  // 리뷰를 쓸 만큼 파고들었으니 '게임' 스킬이 오른다(게임당 1회).
+  // ⚠️ postTweet 이후에 올린다 — 먼저 올리면 이 리뷰 트윗이 제 성과를 스스로 끌어올린다.
+  state.skills.game = clampSkill(state.skills.game + GAME_REVIEW_SKILL_GAIN);
 
   return {
     message: `『${game.title}』 리뷰 트윗을 올렸다! (+${followerDelta} 팔로워)`,

@@ -50,7 +50,10 @@ export const ATTRIBUTES: Record<AttributeId, AttributeDef> = {
     id: "gaming",
     label: "게임계",
     emoji: "",
-    relatedSkills: ["comedy", "sociability"],
+    // 게임 스킬이 게임계 트윗 성과에 기여한다(systems/steam.ts의 구매·리뷰로 획득).
+    // ⚠️ game은 0에서 시작하므로 skillAvg가 2항 평균 → 3항 평균이 되며 초반 성과가 낮아진다.
+    //    이는 의도된 설계로, 증기에서 게임을 사고 리뷰할수록 상쇄된다.
+    relatedSkills: ["comedy", "sociability", "game"],
     adultOnly: false,
   },
   food: {
