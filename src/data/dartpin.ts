@@ -162,26 +162,25 @@ export const DARTPIN_POSTS: DartpinPost[] = [
      * 힌트 ①: 대기업 티어의 실제 혜택.
      *
      * 코드 대조(2026-07-17):
-     * - 야근: `data/jobs.ts:29` large `overtimeRate: 0.1` — 4개 티어 중 **최저**(micro 0.65). ✅
-     * - 삼시세끼: `systems/economy.ts:87` livingCostToday — medium/large 재직 시 **평일** 생활비 0. ✅
-     * - 월세 지원: `systems/economy.ts:94` rentAmount — large 재직 시 **반값**. ✅
+     * - 연봉: `data/jobs.ts` TIERS.baseSalary — large 60만으로 4개 티어 중 **최고**(micro 20만). ✅
+     * - 야근: `data/jobs.ts` large `overtimeRate: 0.1` — 4개 티어 중 **최저**(micro 0.65). ✅
+     * - 삼시세끼: `systems/economy.ts` livingCostToday — medium/large 재직 시 **평일** 생활비 0. ✅
+     * - 월세 지원: `systems/economy.ts` rentAmount — large 재직 시 **반값**. ✅
      *
-     * ⚠️ **"연봉" 얘기는 일부러 뺐다.** `systems/economy.ts:24` currentSalary()는
-     *    `BASE_SALARY + perfLevel * PERF_LEVEL_RAISE`로 **tier를 참조하지 않는다.**
-     *    즉 대기업이라고 월급을 더 주지 않으며(전 티어 30만원 시작), `data/jobs.ts:103`도
-     *    전 티어 급여를 "회사내규"로만 표기한다. 급여를 티어에 연동하는 변경이 systems에
-     *    들어오면 그때 이 본문에 연봉 문장을 되살려라. 그 전엔 **거짓 힌트다.**
+     * 네 항목 모두 실제와 일치한다. 한때 급여가 티어를 안 봐서 "연봉" 문장을 뺐었는데,
+     * `currentSalary()`가 `TIERS[tier].baseSalary`를 쓰도록 바뀌면서 되살렸다.
+     * ⚠️ 급여를 다시 티어 무관으로 되돌린다면 이 문장을 **먼저 지워라** — 거짓 힌트가 된다.
      */
     title: "대기업 대기업 하는 건 이유가 있음",
     author: "ㅇㅇ",
     body:
       "다들 취준 죽어라 몇년씩 하고 대기업 가려는 건 이유가 있음. " +
-      "야근 없는 워라밸에 삼시세끼 밥주지, " +
+      "연봉은 말할 것도 없고 야근 없는 워라밸에 삼시세끼 밥주지, " +
       "게다가 월세까지 지원해주는데 누가 안감?",
     comments: [
       { author: "ㅇㅇ", text: "ㅇㅈ 나도 그래서 3수함" },
       { author: "ㅇㅇ", text: "부럽다 진짜… 난 중소에서 매일 야근중" },
-      { author: "ㅇㅇ", text: "월급은 어차피 회사내규라 까봐야 아는거고 ㅋㅋ 복지가 다임" },
+      { author: "ㅇㅇ", text: "공고엔 죄다 회사내규라고만 떠서 들어가봐야 아는거 ㅋㅋ 근데 복지는 확실함" },
     ],
     // 대기업 복지는 판에서 잘 팔리는 소재다(취준·직장인 공감글) — 상위 밴드가 자연스럽다.
     // ⚠️ 힌트 글을 조용한 글로만 몰면 "조회수 최저 = 힌트" 공략이 생긴다(상단 주석 참조).

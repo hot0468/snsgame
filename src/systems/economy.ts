@@ -1,6 +1,7 @@
 import type { Employment, GameState, ScheduleEvent } from "@/core/types";
 import { uid } from "@/utils/random";
 import { HOUSINGS } from "@/data/housing";
+import { TIERS } from "@/data/jobs";
 import { MAX_SKILL } from "@/data/stats";
 import { dateOfMonth, isLastDayOfMonth, isWeekday, monthKey } from "./calendar";
 import { sendSalaryKakao, sendTwitterSettlementKakao } from "./kakao";
@@ -15,14 +16,15 @@ export const FOLLOWER_MONTHLY_RATE = 2;
 /** 연속 미납이 이 횟수에 도달하면 퇴거(게임오버) */
 export const RENT_EVICTION_STREAK = 3;
 
-/** 취업 초봉 */
-export const BASE_SALARY = 300_000;
 /** 성과 레벨 1당 월급 인상액 */
 export const PERF_LEVEL_RAISE = 30_000;
 
-/** 현재 월급(성과 레벨 반영) */
+/**
+ * 현재 월급 — 회사 등급별 기본급(`TIERS[tier].baseSalary`)에 성과 레벨을 더한다.
+ * 등급이 높을수록 기본급이 많다(극소 20만 ~ 대기업 60만).
+ */
 export function currentSalary(emp: Employment): number {
-  return BASE_SALARY + emp.perfLevel * PERF_LEVEL_RAISE;
+  return TIERS[emp.tier].baseSalary + emp.perfLevel * PERF_LEVEL_RAISE;
 }
 
 function fmt(n: number): string {

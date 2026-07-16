@@ -11,6 +11,8 @@ export interface TierDef {
   overtimeRate: number;
   /** 딴짓(트위터) 적발 확률 */
   caughtRate: number;
+  /** 성과 레벨 0일 때의 월급(등급이 높을수록 많다) */
+  baseSalary: number;
 }
 
 /**
@@ -21,12 +23,16 @@ export interface TierDef {
  * - caughtRate(딴짓 적발): 등급이 높을수록 **높다**. 대기업일수록 감시·보안이 심하다.
  * 즉 대기업은 "일찍 퇴근하지만 근무 중 딴짓은 잘 걸린다". 한쪽을 다른 쪽에 맞춰
  * 정렬하지 마라 — 두 축의 상충이 등급 선택의 트레이드오프 그 자체다.
+ *
+ * baseSalary는 등급이 높을수록 **많다**(생활비 월 30만이 기준선이다 — 극소기업 20만은
+ * 그것도 못 메우고, 대기업 60만은 월세 반값·평일 생활비 면제까지 겹쳐 확실히 여유가 난다).
+ * 후반 수입은 광고가 좌우하므로 이 격차는 초·중반에만 크게 체감된다.
  */
 export const TIERS: Record<CompanyTier, TierDef> = {
-  micro: { id: "micro", label: "극소기업", requirement: 8, overtimeRate: 0.65, caughtRate: 0.15 },
-  small: { id: "small", label: "중소기업", requirement: 28, overtimeRate: 0.45, caughtRate: 0.2 },
-  medium: { id: "medium", label: "중견기업", requirement: 52, overtimeRate: 0.25, caughtRate: 0.28 },
-  large: { id: "large", label: "대기업", requirement: 78, overtimeRate: 0.1, caughtRate: 0.35 },
+  micro: { id: "micro", label: "극소기업", requirement: 8, overtimeRate: 0.65, caughtRate: 0.15, baseSalary: 200_000 },
+  small: { id: "small", label: "중소기업", requirement: 28, overtimeRate: 0.45, caughtRate: 0.2, baseSalary: 280_000 },
+  medium: { id: "medium", label: "중견기업", requirement: 52, overtimeRate: 0.25, caughtRate: 0.28, baseSalary: 400_000 },
+  large: { id: "large", label: "대기업", requirement: 78, overtimeRate: 0.1, caughtRate: 0.35, baseSalary: 600_000 },
 };
 
 /** 등급 순서(약→강) */
