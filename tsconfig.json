@@ -25,5 +25,9 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  // 테스트는 프로덕션 빌드 대상이 아니다. `npm run build`가 `tsc`를 먼저 돌리므로,
+  // 테스트를 포함시키면 테스트 파일 하나가 저장소 전체의 빌드를 막는다(실제로 겪었다).
+  // 테스트 타입은 tsconfig.test.json + `npm run typecheck:test`가 본다.
+  "exclude": ["src/__tests__"]
 }

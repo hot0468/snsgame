@@ -1,0 +1,11 @@
+{
+  // 테스트 전용 타입 검사. 프로덕션 tsconfig가 src/__tests__를 제외하므로
+  // (테스트 하나가 빌드를 막는 걸 피하려고) 테스트 타입은 여기서 따로 본다.
+  // 실행: npm run typecheck:test
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["src/__tests__"],
+  "exclude": []
+}
