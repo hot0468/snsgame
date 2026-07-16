@@ -2,6 +2,7 @@ import type { GameContext } from "./context";
 import { SLOTS_PER_DAY } from "@/core/state";
 import {
   CAPTURE_DAYS,
+  LOAN_DEFAULT_ENDING_STREAK,
   applyCapturePenalty,
   canRepayLoan,
   repayLoan,
@@ -75,15 +76,30 @@ export function renderLoanModal(ctx: GameContext): HTMLElement {
 
   function doCapture(): void {
     let performanceHit = false;
+    let streak = 0;
+    let endingReason: string | null = null;
     ctx.update((s) => {
-      performanceHit = applyCapturePenalty(s).performanceHit;
-      addSchedule(s, `사채 미상환 — ${CAPTURE_DAYS}일간 잡혀감`, "system");
-      advanceTime(s, CAPTURE_DAYS * SLOTS_PER_DAY);
+      const r = applyCapturePenalty(s);
+      performanceHit = r.performanceHit;
+      streak = r.defaultStreak;
+      endingReason = r.endingReason;
+      addSchedule(
+        s,
+        `사채 미상환 (${streak}/${LOAN_DEFAULT_ENDING_STREAK}) — ${CAPTURE_DAYS}일간 잡혀감`,
+        "system",
+      );
+      // 엔딩이 확정되면 시간을 더 흘려보내지 않는다(게임 종료).
+      if (!endingReason) advanceTime(s, CAPTURE_DAYS * SLOTS_PER_DAY);
     });
+
+    if (endingReason) {
+      showResult(endingReason);
+      return;
+    }
     showResult(
       `돈을 갚지 못해 대부업체에 끌려가 ${CAPTURE_DAYS}일을 붙잡혀 있었다. 정신력이 크게 상했다.` +
         (performanceHit ? " 무단결근으로 회사 성과도 바닥났다..." : "") +
-        " 그래도 빚은 몸으로 때워 사라졌다.",
+        ` 그래도 빚은 몸으로 때워 사라졌다. (연체 ${streak}/${LOAN_DEFAULT_ENDING_STREAK})`,
     );
   }
 

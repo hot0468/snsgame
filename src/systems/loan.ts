@@ -1,4 +1,5 @@
 import type { GameState, KakaoLoanOffer } from "@/core/types";
+import { LOAN_DEFAULT_ENDING_REASON, LOAN_DEFAULT_ENDING_REASON_ADULT } from "@/core/state";
 import { pick } from "@/utils/random";
 import { pushKakao } from "./kakao";
 
@@ -7,6 +8,8 @@ import { pushKakao } from "./kakao";
  * - 소지금이 마이너스가 되면 대부업체가 카톡으로 대출을 제안한다.
  * - 수락하면 즉시 원금을 받고, 기한 내에 이자까지 갚아야 한다.
  * - 못 갚으면 3일간 잡혀가고, 취업 중이면 성과가 대폭 하락한다.
+ * - 잡혀갈 때마다 빚은 '몸으로 때워' 소멸하지만 연체 횟수는 누적된다.
+ *   3회째엔 엔딩(월세 3연체 퇴거와 같은 스트라이크 구조).
  */
 
 /** 대출 원금 */
@@ -17,6 +20,8 @@ export const LOAN_REPAY = 1_200_000;
 export const LOAN_TERM_DAYS = 14;
 /** 못 갚았을 때 잡혀가는 기간(일) */
 export const CAPTURE_DAYS = 3;
+/** 이 횟수만큼 연체(잡혀감)하면 엔딩 */
+export const LOAN_DEFAULT_ENDING_STREAK = 3;
 
 const LENDER_NAME = "든든머니 대부";
 
@@ -74,11 +79,16 @@ export function repayLoan(state: GameState): number {
 export interface CaptureResult {
   /** 취업 중이라 성과가 크게 깎였는지 */
   performanceHit: boolean;
+  /** 이번 잡혀감을 포함한 누적 연체 횟수 */
+  defaultStreak: number;
+  /** 3회 연체로 엔딩이 확정됐으면 그 사유. 아니면 null */
+  endingReason: string | null;
 }
 
 /**
  * 빚을 못 갚아 잡혀갈 때의 페널티를 적용한다(정신력↓, 취업 중이면 성과 대폭↓).
  * 빚은 '몸으로 때워' 소멸한다. 시간(3일) 소모는 UI에서 advanceTime으로 처리한다.
+ * 3회째 연체면 gameOver를 세운다 — 성인 모드는 실종, 아니면 부모님에게 들켜 강제 귀향.
  */
 export function applyCapturePenalty(state: GameState): CaptureResult {
   state.resources.mental = Math.max(0, state.resources.mental - 30);
@@ -89,5 +99,14 @@ export function applyCapturePenalty(state: GameState): CaptureResult {
   }
   state.loan = null;
   state.loanOffered = false;
-  return { performanceHit };
+  state.loanDefaultStreak += 1;
+
+  let endingReason: string | null = null;
+  if (!state.gameOver && state.loanDefaultStreak >= LOAN_DEFAULT_ENDING_STREAK) {
+    endingReason = state.adultMode
+      ? LOAN_DEFAULT_ENDING_REASON_ADULT
+      : LOAN_DEFAULT_ENDING_REASON;
+    state.gameOver = endingReason;
+  }
+  return { performanceHit, defaultStreak: state.loanDefaultStreak, endingReason };
 }
