@@ -1,6 +1,6 @@
-# snsgame — 팔로워 10만명 모으기
+# snsgame — 팔로워 100만명 모으기
 
-SNS로 팔로워 10만명을 모으는 TypeScript + Vite 텍스트 브라우저 게임.
+SNS로 팔로워 100만명을 모으는 TypeScript + Vite 텍스트 브라우저 게임.
 아키텍처: **`data → systems → ui` 단방향 의존** (상세는 README.md).
 
 ## 하네스: snsgame 게임 개발
@@ -13,3 +13,4 @@ SNS로 팔로워 10만명을 모으는 TypeScript + Vite 텍스트 브라우저 
 | 날짜 | 변경 내용 | 대상 | 사유 |
 |------|----------|------|------|
 | 2026-07-15 | 초기 구성 (에이전트 4 + 스킬 4 + 오케스트레이터 1) | 전체 | - |
+| 2026-07-16 | 게임명을 "팔로워 100만명 모으기"로 갱신 | CLAUDE.md, snsgame-dev, game-content-authoring | FOLLOWER_GOAL이 1,000,000인데 문서·스킬 설명만 10만으로 남아 있었음 |
