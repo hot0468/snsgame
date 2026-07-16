@@ -1,6 +1,6 @@
 import type { AttributeId, GameState } from "@/core/types";
 import type { Book, BookCategory } from "@/data/books";
-import { clampResource, clampSkill } from "./stats";
+import { clampAction, clampResource, clampSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 
 /** 책 한 권 감상에 드는 행동력 */
@@ -21,7 +21,7 @@ export function readBook(
   title: string,
   bookId?: string,
 ): ReadResult {
-  state.resources.action = Math.max(0, state.resources.action - BOOK_ACTION_COST);
+  state.resources.action = clampAction(state, state.resources.action - BOOK_ACTION_COST);
   // 만화책은 '봤던 작품'으로 기록된다(2차창작 대상). 만화 작품 id = 도서 id.
   if (category === "comic" && bookId && !state.seenWorks.includes(bookId)) {
     state.seenWorks.push(bookId);

@@ -10,6 +10,7 @@ import { maybeSpawnFanDM } from "./dm";
 import { onFollow, onLikeTweet, onRetweet } from "./eggs";
 import { addSchedule, advanceTime } from "./time";
 import { unlockAttribute } from "./attributeUnlock";
+import { clampAction } from "./stats";
 
 /** 남에게 다정하게(긍정) 반응하려면 필요한 최소 친화력 */
 export const SOCIABILITY_NICE_MIN = 250;
@@ -184,7 +185,7 @@ export function retweetTweet(state: GameState, tweet: Tweet): number | null {
 
 /** 탐색 행동으로 시간·행동력 소모 처리 */
 export function spendExplore(state: GameState): void {
-  state.resources.action = Math.max(0, state.resources.action - EXPLORE_ACTION_COST);
+  state.resources.action = clampAction(state, state.resources.action - EXPLORE_ACTION_COST);
   advanceTime(state, 1);
 }
 

@@ -12,7 +12,7 @@ import { getTrendingCategories } from "@/data/trends";
 import { allTemplatesFor } from "@/data/tweets";
 import { pick, randInt, uid } from "@/utils/random";
 import { calcTweetOutcome, changeFollowers } from "./followers";
-import { clampResource, clampSkill } from "./stats";
+import { clampAction, clampResource, clampSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 import { unlockAttribute } from "./attributeUnlock";
 
@@ -246,7 +246,8 @@ const CUSTOM_EFFECTS: Record<NonNullable<EventEffect["customKey"]>, (s: GameStat
 
 /** 선언형 효과를 상태에 적용. customKey가 있으면 동적 결과 문구를 반환한다. */
 export function applyEffect(state: GameState, effect: EventEffect): string | void {
-  if (effect.action) state.resources.action = clampResource(state.resources.action + effect.action);
+  // 행동력만 상한이 가변(clampAction) — 나머지 리소스는 고정 100(clampResource)이다.
+  if (effect.action) state.resources.action = clampAction(state, state.resources.action + effect.action);
   if (effect.mental) state.resources.mental = clampResource(state.resources.mental + effect.mental);
   if (effect.morality)
     state.resources.morality = clampResource(state.resources.morality + effect.morality);

@@ -14,7 +14,7 @@ import {
 } from "@/data/lab";
 import { randInt, uid } from "@/utils/random";
 import { isWeekday } from "./calendar";
-import { clampResource, clampSkill } from "./stats";
+import { clampAction, clampResource, clampSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 
 /**
@@ -40,6 +40,7 @@ export const LAB_TOTAL_SHIFTS = 5;
 
 /**
  * 출근 1회당 스탯 변화.
+ * ⚠️ 행동력은 상한이 **가변**이다 → clampAction(state, v). clampResource를 쓰면 치트 보너스가 깎인다.
  * ⚠️ 도덕성·정신력은 **리소스(0~100)** 다 → clampResource, ×10 하지 않는다.
  * ⚠️ 지식은 **스킬(0~999)** 이다 → clampSkill. 획득량은 ×5 규칙을 반영한 값이다
  *    (구 스케일 +12/회 상당 → 60). 5회 완주 시 지식 +300, 도덕성 -40, 정신력 -60.
@@ -163,8 +164,9 @@ export function doLabShift(state: GameState): LabShiftResult {
   const lab = state.lab;
   lab.shifts += 1;
 
-  // 행동력·도덕성·정신력은 리소스(0~100) — clampResource. 지식은 스킬(0~999) — clampSkill.
-  state.resources.action = clampResource(state.resources.action - LAB_ACTION_COST);
+  // 행동력은 상한이 가변(치트 +20) — clampAction. 도덕성·정신력은 고정 0~100 — clampResource.
+  // 지식은 스킬(0~999) — clampSkill.
+  state.resources.action = clampAction(state, state.resources.action - LAB_ACTION_COST);
   state.resources.morality = clampResource(state.resources.morality - LAB_MORALITY_COST);
   state.resources.mental = clampResource(state.resources.mental - LAB_MENTAL_COST);
   state.skills.knowledge = clampSkill(state.skills.knowledge + LAB_KNOWLEDGE_GAIN);

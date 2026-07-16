@@ -4,7 +4,7 @@ import { getActiveAccount } from "@/core/state";
 import { randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { salePrice } from "./seasonal";
-import { clampResource, clampSkill } from "./stats";
+import { clampAction, clampResource, clampSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 
 /**
@@ -77,7 +77,7 @@ export interface AdResult {
  */
 export function advertiseItem(state: GameState, item: ShopItem): AdResult {
   const account = getActiveAccount(state);
-  state.resources.action = Math.max(0, state.resources.action - AD_ACTION_COST);
+  state.resources.action = clampAction(state, state.resources.action - AD_ACTION_COST);
 
   const tweet: Tweet = {
     id: uid("tweet"),

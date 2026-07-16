@@ -1,5 +1,10 @@
 import type { GameState } from "@/core/types";
-import { createInitialAuction, createInitialLab, createInitialState } from "@/core/state";
+import {
+  createInitialAuction,
+  createInitialCheats,
+  createInitialLab,
+  createInitialState,
+} from "@/core/state";
 import { grantAttributeUnlockFloor } from "./attributeUnlock";
 import { initialMarket } from "@/data/market";
 
@@ -78,6 +83,13 @@ function sanitize(state: GameState): GameState {
   state.skills = { ...fresh.skills, ...state.skills };
   state.resources = { ...fresh.resources, ...state.resources };
   state.daily = { ...fresh.daily, ...state.daily };
+  // 행동력 상한 보너스·치트는 신규 필드 — 구세이브엔 키가 없다(치트 미사용 상태로 시작).
+  // ⚠️ actionMaxBonus는 숫자를 보장해야 한다: undefined/NaN이면 actionMax가 NaN이 되고,
+  //    그 NaN이 clampAction을 타고 resources.action에 저장돼 세이브까지 오염된다(복구 불가).
+  if (typeof state.actionMaxBonus !== "number" || !Number.isFinite(state.actionMaxBonus)) {
+    state.actionMaxBonus = 0;
+  }
+  state.cheats = { ...createInitialCheats(), ...(state.cheats ?? {}) };
   // 신규 필드 보강(구버전 저장본 대비)
   if (!Array.isArray(state.kakao)) state.kakao = [];
   if (!Array.isArray(state.appointments)) state.appointments = [];

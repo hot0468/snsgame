@@ -16,7 +16,7 @@ import { maybeSpawnCrewInviteDM } from "./crew";
 import { maybeSpawnPushDM } from "./pushtime";
 import { maybeSpawnYabamDM } from "./yabam";
 import { generateReactions } from "./reactions";
-import { clampResource } from "./stats";
+import { clampAction, clampResource } from "./stats";
 import { addStrike } from "./ban";
 import { rollControversy, CONTROVERSY_REP_THRESHOLD } from "./controversy";
 import { addSchedule, advanceTime } from "./time";
@@ -101,7 +101,7 @@ export function postTweet(
 
   // 무료 게시(opts.free)면 행동력 소모를 건너뛴다.
   if (!opts.free) {
-    state.resources.action = Math.max(0, state.resources.action - TWEET_ACTION_COST);
+    state.resources.action = clampAction(state, state.resources.action - TWEET_ACTION_COST);
   }
   changeFollowers(state, followers);
   account.timeline.unshift(tweet);
@@ -199,7 +199,7 @@ export function postScamTweet(state: GameState, text: string): ScamTweetResult {
     gainedFollowers: 0,
   };
 
-  state.resources.action = Math.max(0, state.resources.action - TWEET_ACTION_COST);
+  state.resources.action = clampAction(state, state.resources.action - TWEET_ACTION_COST);
   account.timeline.unshift(tweet);
   account.lastTweetDay = state.day;
   addSchedule(state, `사기 트윗 (+${earned.toLocaleString("ko-KR")}원)`, "sns");

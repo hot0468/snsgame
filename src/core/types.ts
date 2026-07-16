@@ -533,6 +533,17 @@ export interface LabState {
   done: boolean;
 }
 
+/**
+ * 게임당 1회로 제한되는 치트의 사용 여부.
+ * true가 되면 다시 시도해도 `systems/cheat.ts`가 false를 반환한다(새 게임에서만 리셋).
+ */
+export interface CheatState {
+  /** 명령 프롬프트 소지금 치트를 이미 썼는지 */
+  money: boolean;
+  /** 작업관리자 Cheat.exe를 이미 실행했는지 */
+  cheatExe: boolean;
+}
+
 export interface GameState {
   version: number;
 
@@ -551,6 +562,20 @@ export interface GameState {
   resources: Record<ResourceStatId, number>;
   /** 세부 성장 스탯('사람' 단위 공유) */
   skills: Record<SkillStatId, number>;
+
+  /**
+   * 행동력 상한에 더해지는 보너스(기본 0). 행동력 상한 = MAX_RESOURCE + actionMaxBonus.
+   *
+   * ⚠️ 행동력은 리소스 4종 중 **유일하게 상한이 게임 중 변하는** 스탯이다(작업관리자 Cheat.exe).
+   *    따라서 `state.resources.action`을 쓰는 모든 클램프는 `clampResource`(전역 100)가 아니라
+   *    상태를 아는 `systems/stats.ts`의 `clampAction(state, v)`를 써야 한다.
+   *    정신력·도덕성·평판은 상한이 고정 100이므로 계속 `clampResource`다 — 섞지 말 것.
+   * 새 게임에선 0으로 리셋된다(치트는 '게임당 1회').
+   */
+  actionMaxBonus: number;
+
+  /** 게임당 1회만 쓸 수 있는 치트의 사용 여부 */
+  cheats: CheatState;
 
   /** 달력 스케줄 */
   schedule: ScheduleEvent[];

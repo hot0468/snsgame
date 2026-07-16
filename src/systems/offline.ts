@@ -4,7 +4,7 @@ import { ATTRIBUTES } from "@/data/attributes";
 import { ALL_ATTRIBUTE_IDS } from "@/data/attributes";
 import { SKILL_STATS } from "@/data/stats";
 import { pick } from "@/utils/random";
-import { clampResource, clampSkill } from "./stats";
+import { clampAction, clampResource, clampSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 import { doAuthorWork } from "./author";
 import { unlockAttribute } from "./attributeUnlock";
@@ -205,7 +205,8 @@ export function doOfflineActivity(
 ): OfflineOutcome {
   // 시간이 진행되기 전 슬롯을 기록(심야 여부 판정용)
   const wasLate = state.slot === LATE_SLOT;
-  state.resources.action = clampResource(state.resources.action + activity.action);
+  // 휴식 활동은 activity.action이 양수 — 상한이 걸리는 지점이라 clampAction이어야 한다.
+  state.resources.action = clampAction(state, state.resources.action + activity.action);
   state.resources.mental = clampResource(state.resources.mental + activity.mental);
   if (activity.morality) {
     state.resources.morality = clampResource(state.resources.morality + activity.morality);

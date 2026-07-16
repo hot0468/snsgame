@@ -1,6 +1,21 @@
-import type { AttributeId, AuctionState, GameState, LabState, PlayerAccount } from "./types";
+import type {
+  AttributeId,
+  AuctionState,
+  CheatState,
+  GameState,
+  LabState,
+  PlayerAccount,
+} from "./types";
 import { uid } from "@/utils/random";
 import { initialMarket } from "@/data/market";
+
+/**
+ * 치트의 초기(미사용) 상태 — 새 게임과 구세이브 보정이 함께 쓴다.
+ * 새 게임이 이걸 쓰기 때문에 치트가 '게임당 1회'가 된다(actionMaxBonus: 0도 같은 이유).
+ */
+export function createInitialCheats(): CheatState {
+  return { money: false, cheatExe: false };
+}
 
 /** 터커 연구실 퀘스트의 초기(미진행) 상태 — 새 게임과 구세이브 보정이 함께 쓴다. */
 export function createInitialLab(): LabState {
@@ -133,6 +148,9 @@ export function createInitialState(): GameState {
       lewd: 0,
       game: 0,
     },
+    // 새 게임은 상한 보너스 0 · 치트 미사용에서 시작한다 — 치트가 '게임당 1회'인 지점.
+    actionMaxBonus: 0,
+    cheats: createInitialCheats(),
     schedule: [],
     partTimeCount: 0,
     kakao: [],

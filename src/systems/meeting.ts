@@ -4,7 +4,7 @@ import { MEETING_SCENARIOS, type MeetingScenario } from "@/data/meetings";
 import { chance, pick, uid } from "@/utils/random";
 import { applyEffect } from "./events";
 import { changeFollowers } from "./followers";
-import { clampResource, clampSkill, skillTo100 } from "./stats";
+import { clampAction, clampResource, clampSkill, skillTo100 } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 import { sendFriendHangoutInvite } from "./appointments";
 
@@ -116,7 +116,7 @@ export interface MotelResult {
  * - group: 다수와의 밤, 음란도 크게 상승.
  */
 export function resolveMotel(state: GameState, thread: DMThread): MotelResult {
-  state.resources.action = Math.max(0, state.resources.action - MEETING_ACTION_COST);
+  state.resources.action = clampAction(state, state.resources.action - MEETING_ACTION_COST);
   thread.metOffline = true;
   advanceTime(state, 1);
 
@@ -440,7 +440,7 @@ export function resolveMeeting(
   if (!choice) return "";
 
   applyEffect(state, choice.effect);
-  state.resources.action = Math.max(0, state.resources.action - MEETING_ACTION_COST);
+  state.resources.action = clampAction(state, state.resources.action - MEETING_ACTION_COST);
   thread.metOffline = true;
 
   const resultText = fillName(choice.result, thread);

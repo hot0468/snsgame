@@ -6,7 +6,7 @@ import { chance, uid } from "@/utils/random";
 import { isWeekday } from "./calendar";
 import { certJobBonus } from "./certification";
 import { currentSalary } from "./economy";
-import { clampResource, skillTo100 } from "./stats";
+import { clampAction, clampResource, skillTo100 } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 
 /**
@@ -213,7 +213,7 @@ export function doWork(state: GameState, mode: "work" | "slack"): WorkResult {
   if (mode === "work") {
     const lowStamina = state.resources.action < MISTAKE_ACTION_THRESHOLD;
     mistake = lowStamina && chance(0.6);
-    state.resources.action = clampResource(state.resources.action - WORK_ACTION_COST);
+    state.resources.action = clampAction(state, state.resources.action - WORK_ACTION_COST);
     if (mistake) {
       // 행동력이 낮아 실수 → 성과·정신력 하락
       leveledUp = gainPerformance(state, -10);
@@ -226,7 +226,7 @@ export function doWork(state: GameState, mode: "work" | "slack"): WorkResult {
       message = "맡은 일을 야무지게 처리했다. 성과가 차곡차곡 쌓였지만 정신력이 닳았다.";
     }
   } else {
-    state.resources.action = clampResource(state.resources.action - SLACK_ACTION_COST);
+    state.resources.action = clampAction(state, state.resources.action - SLACK_ACTION_COST);
     caught = chance(TIERS[emp.tier].caughtRate);
     if (caught) {
       leveledUp = gainPerformance(state, -25);

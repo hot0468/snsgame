@@ -4,7 +4,7 @@ import { chance, pick, randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { pushKakao } from "./kakao";
 import { ownedCount } from "./shop";
-import { clampResource, clampSkill, skillTo100 } from "./stats";
+import { clampAction, clampResource, clampSkill, skillTo100 } from "./stats";
 import { addSchedule, advanceTime, dateLabel, dayOfWeek, THURSDAY } from "./time";
 
 /**
@@ -79,7 +79,7 @@ function resolveCrewRun(state: GameState, go: boolean): string {
     return "오늘은 쉬기로 했다. 크루원들에게 양해를 구했다. 다음 주 목요일엔 꼭 나가야지.";
   }
 
-  state.resources.action = clampResource(state.resources.action - CREW_RUN_ACTION_COST);
+  state.resources.action = clampAction(state, state.resources.action - CREW_RUN_ACTION_COST);
   state.skills.fitness = clampSkill(state.skills.fitness + 35);
   state.skills.sociability = clampSkill(state.skills.sociability + 15);
   state.skills.beauty = clampSkill(state.skills.beauty + 5);
@@ -142,7 +142,7 @@ function resolveFriendMeet(state: GameState, appt: Appointment, go: boolean): st
     state.resources.mental = clampResource(state.resources.mental + 1);
     return `${name}에게 오늘은 못 만날 것 같다고 양해를 구했다. 미안한 마음이 남는다.`;
   }
-  state.resources.action = clampResource(state.resources.action - 10);
+  state.resources.action = clampAction(state, state.resources.action - 10);
   state.resources.mental = clampResource(state.resources.mental + 8);
   state.skills.sociability = clampSkill(state.skills.sociability + 20);
   const delta = randInt(4, 12);
@@ -169,7 +169,7 @@ function resolveEventVisit(state: GameState, appt: Appointment, go: boolean): st
     state.resources.mental = clampResource(state.resources.mental + 1);
     return `${appt.title}에 가지 않기로 했다. 표는 아쉽지만 다음 기회에...`;
   }
-  state.resources.action = clampResource(state.resources.action - 10);
+  state.resources.action = clampAction(state, state.resources.action - 10);
   state.resources.mental = clampResource(state.resources.mental + 10);
   state.skills.sociability = clampSkill(state.skills.sociability + 10);
   const delta = randInt(15, 40);
@@ -222,7 +222,7 @@ export function resolveComiccon(
   removeAppointment(state, appt.id);
 
   if (mode === "booth") {
-    state.resources.action = clampResource(state.resources.action - 15);
+    state.resources.action = clampAction(state, state.resources.action - 15);
     state.skills.creativity = clampSkill(state.skills.creativity + 15);
     state.skills.sociability = clampSkill(state.skills.sociability + 10);
     const followers = randInt(10, 30);
@@ -252,7 +252,7 @@ export function resolveComiccon(
   }
 
   if (mode === "cosplayLewd") {
-    state.resources.action = clampResource(state.resources.action - 12);
+    state.resources.action = clampAction(state, state.resources.action - 12);
     state.skills.beauty = clampSkill(state.skills.beauty + 10);
     state.skills.sociability = clampSkill(state.skills.sociability + 15);
     state.skills.lewd = clampSkill(state.skills.lewd + 20);
@@ -280,7 +280,7 @@ export function resolveComiccon(
   }
 
   if (mode === "cosplay") {
-    state.resources.action = clampResource(state.resources.action - 12);
+    state.resources.action = clampAction(state, state.resources.action - 12);
     state.resources.mental = clampResource(state.resources.mental + 8);
     state.skills.beauty = clampSkill(state.skills.beauty + 15);
     state.skills.sociability = clampSkill(state.skills.sociability + 15);
@@ -301,7 +301,7 @@ export function resolveComiccon(
   }
 
   // visitor
-  state.resources.action = clampResource(state.resources.action - 8);
+  state.resources.action = clampAction(state, state.resources.action - 8);
   state.resources.mental = clampResource(state.resources.mental + 10);
   state.skills.sociability = clampSkill(state.skills.sociability + 15);
   const followers = randInt(12, 28);

@@ -2,7 +2,7 @@ import type { GameState, ScheduleEvent } from "@/core/types";
 import { randInt, uid } from "@/utils/random";
 import { dateOf } from "./calendar";
 import { pushKakao } from "./kakao";
-import { clampResource } from "./stats";
+import { clampAction, clampResource } from "./stats";
 
 /**
  * 계절/연말 시스템.
@@ -89,7 +89,7 @@ export function applySeasonalEvents(state: GameState): void {
   // 🎊 새해 — 새해 목표 다짐(정신력·행동력 회복)
   if (m === 0 && date === 1 && fire(`newyear:${y}`)) {
     state.resources.mental = clampResource(state.resources.mental + 12);
-    state.resources.action = clampResource(state.resources.action + 15);
+    state.resources.action = clampAction(state, state.resources.action + 15);
     pushSchedule(state, "새해 목표 다짐 🎊", "offline");
     pushKakao(
       state,

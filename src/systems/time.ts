@@ -21,6 +21,7 @@ import { updateMarket } from "./market";
 import { expireSuspensions } from "./ban";
 import { checkStatEggs, maybeCatPowerButton } from "./eggs";
 import { HOUSINGS } from "@/data/housing";
+import { clampAction } from "./stats";
 // 달력/요일 헬퍼는 calendar.ts에 있다(순환 참조 방지). 내부에서 dateLabel을 쓰고, 나머지는 재노출한다.
 import {
   dateLabel,
@@ -113,7 +114,12 @@ function onNewDay(state: GameState): void {
   // 좋은 집일수록(주거 단계) 회복량이 늘어난다.
   const rested = !state.lateTweetToday;
   const home = HOUSINGS[state.housingTier] ?? HOUSINGS[0];
-  state.resources.action = Math.min(100, state.resources.action + (rested ? 30 : 10) + home.actionBonus);
+  // ⚠️ 행동력 상한은 가변(치트로 +20)이라 100을 하드코딩하면 안 된다 — clampAction이 상한을 안다.
+  //    정신력은 상한이 고정 100이므로 아래 줄은 그대로 둔다.
+  state.resources.action = clampAction(
+    state,
+    state.resources.action + (rested ? 30 : 10) + home.actionBonus,
+  );
   state.resources.mental = Math.min(100, state.resources.mental + (rested ? 20 : 8) + home.mentalBonus);
   state.lateTweetToday = false;
   // 오래 트윗을 안 올리면 팔로워 소폭 감소
