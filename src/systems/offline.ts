@@ -7,6 +7,7 @@ import { pick } from "@/utils/random";
 import { clampResource, clampSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 import { doAuthorWork } from "./author";
+import { unlockAttribute } from "./attributeUnlock";
 
 export interface OfflineActivity {
   id: string;
@@ -239,7 +240,8 @@ export function doOfflineActivity(
     for (const attr of activity.unlockAttributePool) {
       if (account.unlockedAttributes.includes(attr)) continue;
       if (Math.random() < 0.35) {
-        account.unlockedAttributes.push(attr);
+        // ⚠️ push 직접 호출 금지 — 해금 부수효과(게임 스킬 기준선 등)를 단일 관문이 보장한다.
+        unlockAttribute(state, account, attr);
         addSchedule(state, `새 트윗 속성 해금: ${ATTRIBUTES[attr].label}`, "system");
         unlockedAttribute = attr;
         break;

@@ -1,5 +1,6 @@
 import type { GameState } from "@/core/types";
-import { createInitialState } from "@/core/state";
+import { createInitialAuction, createInitialState } from "@/core/state";
+import { grantAttributeUnlockFloor } from "./attributeUnlock";
 import { initialMarket } from "@/data/market";
 
 // 다계정 구조로 바뀌며 v2로 올림(구 v1 저장본은 무시하고 새로 시작).
@@ -88,6 +89,28 @@ function sanitize(state: GameState): GameState {
   // 자격증은 신규 기능이라 구세이브엔 키 자체가 없다 — 미취득/대기 없음으로 시작.
   if (!Array.isArray(state.certifications)) state.certifications = [];
   state.pendingExam ??= null;
+  // 특별 시행 대기 슬롯은 신규 필드 — 구세이브엔 키가 없다.
+  state.pendingSpecialExam ??= null;
+  // 'game' 스킬은 이번에 신설됐다 — 모든 구세이브가 game=0으로 로드된다. 그중 이미 gaming이
+  // 해금된 세이브는 기준선(attributeUnlock.GAME_UNLOCK_FLOOR)이 없던 시절에 열린 것이라,
+  // gaming.relatedSkills의 3항 평균 때문에 게임계 트윗이 영구히 약해진 구간에 갇힌다.
+  //
+  // ⚠️ 죽은 폴백이 아니다 — 아래 조건은 실제 구세이브에서 반드시 참이 되고, 스스로 회복할
+  //    수단도 없다: 구매 상승분은 '게임당 1회'라 이미 산 게임에서 소급 획득이 불가능하다
+  //    (전 종을 사둔 세이브는 game을 올릴 길이 아예 없다).
+  // 판정 근거: game은 어떤 경로로도 감소하지 않고, 신규 코드는 6개 해금 경로 전부에서
+  //    해금 시 기준선을 보장한다. 따라서 (gaming 해금 && game === 0)은 '기준선 이전 세이브'를
+  //    정확히·모호함 없이 가리킨다. 신규 게임은 createInitialState 경로라 여기 오지 않는다.
+  if (
+    state.skills.game === 0 &&
+    state.accounts.some((a) => a.unlockedAttributes?.includes("gaming"))
+  ) {
+    grantAttributeUnlockFloor(state, "gaming");
+  }
+  // 서던피스 경매도 신규 기능 — 구세이브엔 키가 없다. 미진행 상태로 채운다.
+  // 필드별로도 보정한다(중간 버전 세이브에 일부 키만 있을 수 있다).
+  state.auction = { ...createInitialAuction(), ...(state.auction ?? {}) };
+  if (!Array.isArray(state.auction.bought)) state.auction.bought = [];
   if (!Array.isArray(state.emails)) state.emails = [];
   state.loan ??= null;
   state.loanOffered ??= false;

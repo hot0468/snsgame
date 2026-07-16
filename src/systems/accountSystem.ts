@@ -1,5 +1,6 @@
 import type { AttributeId, GameState } from "@/core/types";
 import { createAccount, getActiveAccount } from "@/core/state";
+import { grantAttributeUnlockFloor } from "./attributeUnlock";
 import { addSchedule } from "./time";
 
 /** 최대 보유 계정 수 */
@@ -29,6 +30,10 @@ export function createNewAccount(
   safeHandle = candidate;
 
   const account = createAccount(safeName, safeHandle, attribute);
+  // ⚠️ createAccount가 콘셉트 속성을 unlockedAttributes에 이미 넣어 둔 채로 반환하므로
+  //    unlockAttribute는 '이미 해금됨'으로 보고 무동작이다. 기준선만 따로 적용한다.
+  //    (gaming 콘셉트 계정은 확률 없이 곧바로 게임계 트윗이 열리는 경로다.)
+  grantAttributeUnlockFloor(state, attribute);
   state.accounts.push(account);
   state.activeAccountId = account.id;
   addSchedule(state, `새 계정 개설: @${safeHandle}`, "system");

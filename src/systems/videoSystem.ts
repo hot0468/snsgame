@@ -6,6 +6,7 @@ import { pick } from "@/utils/random";
 import { isOwned } from "./shop";
 import { clampResource, clampSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
+import { unlockAttribute } from "./attributeUnlock";
 
 /**
  * 너튜브 영상 시청.
@@ -99,8 +100,8 @@ export function watchVideo(state: GameState, video: Video): VideoOutcome {
   // 처음 보는 카테고리면 트윗 작성 속성 해금
   const account = getActiveAccount(state);
   let unlockedAttribute: VideoAttribute | null = null;
-  if (!account.unlockedAttributes.includes(video.attribute)) {
-    account.unlockedAttributes.push(video.attribute);
+  // ⚠️ push 직접 호출 금지 — 해금 부수효과(게임 스킬 기준선 등)를 단일 관문이 보장한다.
+  if (unlockAttribute(state, account, video.attribute)) {
     addSchedule(state, `새 트윗 속성 해금: ${ATTRIBUTES[video.attribute].label}`, "system");
     unlockedAttribute = video.attribute;
   }

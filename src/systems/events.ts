@@ -14,6 +14,7 @@ import { pick, randInt, uid } from "@/utils/random";
 import { calcTweetOutcome, changeFollowers } from "./followers";
 import { clampResource, clampSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
+import { unlockAttribute } from "./attributeUnlock";
 
 /** 행동 1회당 이벤트가 발생할 기본 확률 */
 export const EVENT_BASE_CHANCE = 0.3;
@@ -265,8 +266,8 @@ export function applyEffect(state: GameState, effect: EventEffect): string | voi
   }
 
   const account = getActiveAccount(state);
-  if (effect.unlockAttribute && !account.unlockedAttributes.includes(effect.unlockAttribute)) {
-    account.unlockedAttributes.push(effect.unlockAttribute);
+  // ⚠️ push 직접 호출 금지 — 해금 부수효과(게임 스킬 기준선 등)를 단일 관문이 보장한다.
+  if (effect.unlockAttribute && unlockAttribute(state, account, effect.unlockAttribute)) {
     addSchedule(
       state,
       `새 트윗 속성 해금: ${ATTRIBUTES[effect.unlockAttribute].label}`,

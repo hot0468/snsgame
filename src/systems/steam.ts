@@ -2,6 +2,7 @@ import type { GameState } from "@/core/types";
 import { STEAM_GAMES, GAME_REVIEW_TWEETS, type SteamGame } from "@/data/steam";
 import { getActiveAccount } from "@/core/state";
 import { pick } from "@/utils/random";
+import { unlockAttribute } from "./attributeUnlock";
 import { clampSkill } from "./stats";
 import { postTweet } from "./tweetSystem";
 
@@ -27,22 +28,24 @@ export const GAME_REVIEW_FOLLOWER_MULT = 1;
 
 /**
  * 게임 구매 시 오르는 '게임' 스킬(게임을 사서 해봤으니 는다).
- * 획득량 ×5 규칙 준수(원래 스케일 +3). 게임당 1회 — 재구매가 없으므로 반복 불가.
+ * 획득량 ×5 규칙 준수(원래 스케일 +7). 게임당 1회 — 재구매가 없으므로 반복 불가.
  */
-export const GAME_BUY_SKILL_GAIN = 15;
+export const GAME_BUY_SKILL_GAIN = 35;
 
 /**
  * 리뷰 트윗을 올릴 때 오르는 '게임' 스킬(파고들어 리뷰까지 썼으니 더 는다).
- * 획득량 ×5 규칙 준수(원래 스케일 +4). 게임당 1회.
+ * 획득량 ×5 규칙 준수(원래 스케일 +8). 게임당 1회.
  *
  * 밸런스: gaming.relatedSkills에 game이 끼며 skillAvg가 (comedy+sociability)/2에서
- * (comedy+sociability+game)/3으로 바뀌어 초반 게임계 트윗이 약해진다. 이를 상쇄하는 유일한
- * 획득 경로가 여기다. 게임 1종당 총 GAME_BUY_SKILL_GAIN + GAME_REVIEW_SKILL_GAIN = 35,
- * 전 13종을 사고 리뷰하면 455 — comedy/sociability 평균이 455 이하인 구간에서는 완전히 상쇄되고,
- * 그 위로는 게임을 파는 만큼만 따라붙는다. game은 이 경로 외엔 오르지 않으므로 세 스킬 중
- * 항상 최저에 머물러 게임계만 과도하게 강해지지 않는다.
+ * (comedy+sociability+game)/3으로 바뀌어 게임계 트윗이 약해진다. 이를 상쇄하는 주 획득
+ * 경로가 여기다(그 외엔 attributeUnlock의 기준선 35와 경매 게임기 리뷰 +250뿐).
+ *
+ * ⚠️ 상한 계산은 **STEAM_GAMES.length(현재 12종)** 기준이다. 게임당
+ *    GAME_BUY_SKILL_GAIN + GAME_REVIEW_SKILL_GAIN = 75이므로 전종 구매·리뷰 시 900.
+ *    데이터에 게임을 추가·삭제하면 이 상한이 함께 움직인다 — 상수만 보고 판단하지 말고
+ *    STEAM_GAMES.length를 확인하라(예전에 종수를 잘못 세어 밸런스 표가 틀린 적이 있다).
  */
-export const GAME_REVIEW_SKILL_GAIN = 20;
+export const GAME_REVIEW_SKILL_GAIN = 40;
 
 /** 할인 적용 실구매가. discount(%)가 있으면 반올림 적용가, 없으면 정가. */
 export function effectiveGamePrice(game: SteamGame): number {
@@ -66,8 +69,11 @@ export function canBuyGame(state: GameState, game: SteamGame): boolean {
  * 게임을 구매한다. 이미 보유했거나 소지금이 할인적용가보다 적으면 false.
  * 첫 구매(구매 전 ownedGames가 비어 있음)면 활성 계정의 unlockedAttributes에 'gaming'을 추가한다
  * (게임 카테고리 트윗 해금). 판정은 반드시 ownedGames.push 이전의 length===0 기준.
- * 구매하면 '게임' 스킬이 GAME_BUY_SKILL_GAIN만큼 오른다 — 게임계 트윗 해금과 게임 스킬 획득이
- * 같은 지점에서 일어나므로, 게임계 트윗이 가능한 시점엔 game이 항상 0보다 크다.
+ * 구매하면 '게임' 스킬이 GAME_BUY_SKILL_GAIN만큼 오른다.
+ *
+ * ⚠️ 여기가 gaming의 유일한 해금 경로가 **아니다**(조우 25%·오프라인 35%·너튜브·이벤트·
+ *    콘셉트 계정 개설도 연다). "게임계 트윗이 가능하면 game > 0"이라는 불변식은 이 함수가
+ *    아니라 systems/attributeUnlock.ts의 기준선이 보장한다 — 그 경위는 해당 파일 주석 참조.
  * @returns 실제로 구매했으면 true
  */
 export function buyGame(state: GameState, game: SteamGame): boolean {
@@ -75,18 +81,21 @@ export function buyGame(state: GameState, game: SteamGame): boolean {
   const price = effectiveGamePrice(game);
   if (state.money < price) return false;
 
-  // 첫 구매면 게임 카테고리 해금(push 이전 length===0 기준으로 판정).
-  if (state.ownedGames.length === 0) {
-    const account = getActiveAccount(state);
-    if (!account.unlockedAttributes.includes(GAMING_ATTRIBUTE)) {
-      account.unlockedAttributes.push(GAMING_ATTRIBUTE);
-    }
-  }
+  // 첫 구매인지는 반드시 ownedGames.push 이전의 length===0으로 판정한다.
+  const isFirstGame = state.ownedGames.length === 0;
 
   state.money -= price;
   state.ownedGames.push(game.id);
   // 게임을 사서 해봤으니 '게임' 스킬이 오른다(게임당 1회 — 재구매 불가라 반복 파밍 없음).
+  // ⚠️ 아래 unlockAttribute(해금 기준선)보다 **먼저** 올린다. 순서를 뒤집으면 기준선 35가
+  //    먼저 깔린 뒤 구매분 35가 더해져 첫 구매가 70이 된다(과지급). 이 순서면 구매분이
+  //    이미 GAME_UNLOCK_FLOOR 이상이라 기준선이 항상 무동작(no-op)이다.
   state.skills.game = clampSkill(state.skills.game + GAME_BUY_SKILL_GAIN);
+
+  // 첫 구매면 게임 카테고리 해금.
+  if (isFirstGame) {
+    unlockAttribute(state, getActiveAccount(state), GAMING_ATTRIBUTE);
+  }
   return true;
 }
 

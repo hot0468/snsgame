@@ -9,6 +9,7 @@ import { makeWishTweet } from "./wish";
 import { maybeSpawnFanDM } from "./dm";
 import { onFollow, onLikeTweet, onRetweet } from "./eggs";
 import { addSchedule, advanceTime } from "./time";
+import { unlockAttribute } from "./attributeUnlock";
 
 /** 남에게 다정하게(긍정) 반응하려면 필요한 최소 친화력 */
 export const SOCIABILITY_NICE_MIN = 250;
@@ -198,7 +199,8 @@ export function maybeUnlockAttribute(state: GameState, attr: Account["attribute"
   if (attr === "dog" || attr === "cat") return;
   if (ATTRIBUTES[attr].adultOnly && !account.adultMode) return;
   if (Math.random() < 0.25) {
-    account.unlockedAttributes.push(attr);
+    // ⚠️ push 직접 호출 금지 — 해금 부수효과(게임 스킬 기준선 등)를 단일 관문이 보장한다.
+    unlockAttribute(state, account, attr);
     addSchedule(state, `새 트윗 속성 해금: ${ATTRIBUTES[attr].label}`, "system");
   }
 }

@@ -1,6 +1,18 @@
-import type { AttributeId, GameState, PlayerAccount } from "./types";
+import type { AttributeId, AuctionState, GameState, PlayerAccount } from "./types";
 import { uid } from "@/utils/random";
 import { initialMarket } from "@/data/market";
+
+/** 서던피스 경매의 초기(미진행) 상태 — 새 게임과 구세이브 보정이 함께 쓴다. */
+export function createInitialAuction(): AuctionState {
+  return {
+    mailedDay: null,
+    bought: [],
+    eyeDeal: "none",
+    eyeBoughtDay: null,
+    eyeRefusedDay: null,
+    consoleReview: "none",
+  };
+}
 
 /** 팔로워 목표치 — 게임 승리 조건 */
 export const FOLLOWER_GOAL = 1_000_000;
@@ -129,6 +141,8 @@ export function createInitialState(): GameState {
     pendingJobApp: null,
     certifications: [],
     pendingExam: null,
+    pendingSpecialExam: null,
+    auction: createInitialAuction(),
     emails: [],
     pendingControversy: null,
     market: initialMarket(),
