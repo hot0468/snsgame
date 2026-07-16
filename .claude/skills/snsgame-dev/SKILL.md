@@ -23,10 +23,13 @@ description: snsgame(팔로워 100만명 모으기 텍스트 게임) 개발 작�
 
 ## Phase 0: 컨텍스트 확인 (항상 먼저)
 
-1. `_workspace/` 존재 여부와 사용자 요청 성격을 본다:
-   - `_workspace/` 없음 → **초기 실행**
-   - `_workspace/` 있음 + 부분 수정 요청("~만 다시") → **부분 재실행** (해당 팀원만 재호출, 이전 산출물 읽고 개선)
-   - `_workspace/` 있음 + 새 입력 → **새 실행** (기존 `_workspace/`를 `_workspace_prev/`로 이동 후 시작)
+1. `_workspace/`는 **기능별 계약서 아카이브**다 — 한 기능당 `{기능}_contract.md` 하나가 쌓인다.
+   실행 단위 스크래치가 아니다. 요청 성격을 본다:
+   - **새 기능** → `_workspace/{기능}_contract.md`를 **새로 추가**한다. 기존 파일은 그대로 둔다.
+   - **부분 수정**("~만 다시") → 해당 기능의 계약서를 읽고 그 팀원만 재호출해 개선한다.
+   - ⚠️ **`_workspace/`를 `_workspace_prev/`로 회전시키지 마라.** 파일명이 기능별로 이미 분리돼 충돌이
+     없으므로 회전은 이득이 없고, `_workspace_prev/`에 남은 과거 계약서를 **덮어써 파괴한다**.
+     (`_workspace_prev/`는 이 규칙이 정리되기 전 회전이 한 번 일어나 생긴 잔재다. 읽기 전용으로 두라.)
 2. 작업 성격을 분류해 **소집할 팀원**을 정한다(아래 라우팅).
 
 ## Phase 1: 작업 분석 & 팀 소집
@@ -61,7 +64,9 @@ description: snsgame(팔로워 100만명 모으기 텍스트 게임) 개발 작�
 
 - **태스크 기반**(`TaskCreate`/`TaskUpdate`): 진행·의존 관리.
 - **메시지 기반**(`SendMessage`): 시그니처 전달, 타입 확장 파급 알림, QA 버그 라우팅.
-- **파일 기반**: 실제 산출물은 `src/`에 직접 쓴다. 중간 계획·대용량 산출물이 필요하면 `_workspace/{phase}_{agent}_{artifact}.md`에 저장(최종 코드는 `src/`, 작업 메모만 `_workspace/`).
+- **파일 기반**: 실제 산출물은 `src/`에 직접 쓴다. 최종 코드는 `src/`, 계약서·작업 메모만 `_workspace/`.
+  파일명은 **`{기능}_contract.md`** 하나로 통일한다(팀원별·단계별로 쪼개지 마라 — 팀원이 서로의
+  제약을 못 읽는다). 계약서 하나에 요청 원문·확정된 설계 결정·통합 위험·팀원별 분배를 함께 담는다.
 
 ## 에러 핸들링
 
@@ -71,12 +76,12 @@ description: snsgame(팔로워 100만명 모으기 텍스트 게임) 개발 작�
 
 ## 후속 작업 지원
 
-이 스킬은 초기 구축뿐 아니라 재실행·수정·보완도 처리한다. Phase 0에서 `_workspace/`와 요청 성격으로 초기/새/부분 재실행을 판별하고, 부분 재실행이면 관련 팀원만 소집해 이전 산출물을 개선한다.
+이 스킬은 신규 기능뿐 아니라 재실행·수정·보완도 처리한다. Phase 0에서 요청 성격으로 **새 기능**(계약서 추가)인지 **부분 수정**(기존 계약서를 읽고 관련 팀원만 재소집)인지 판별한다. 어느 쪽이든 기존 계약서는 지우지도 옮기지도 않는다.
 
 ## 테스트 시나리오
 
 **정상 흐름:** "아이돌덕 이벤트 3개 추가해줘"
-→ Phase 0: `_workspace/` 없음 = 초기 실행 → Phase 1: content-author + integration-qa 소집 → content-author가 events.ts 스키마·기존 아이돌덕 이벤트 확인 후 3개 작성(EventEffect 준수, 밸런스 기존 범위) → integration-qa가 typecheck + id 중복/customKey 대조 → 통과 → 요약 보고.
+→ Phase 0: 새 기능 = `_workspace/idolevents_contract.md` 추가(기존 계약서는 그대로) → Phase 1: content-author + integration-qa 소집 → content-author가 events.ts 스키마·기존 아이돌덕 이벤트 확인 후 3개 작성(EventEffect 준수, 밸런스 기존 범위) → integration-qa가 typecheck + id 중복/customKey 대조 → 통과 → 요약 보고.
 
 **에러 흐름:** "새 속성 '스포츠계' 추가하고 관련 트윗·화면까지"
 → 타입 확장 = systems-engineer 주도 소집 → systems가 `AttributeId`에 "sports" 추가 → typecheck가 `Record<AttributeId,...>` 여러 곳에서 키 누락 에러 → integration-qa가 누락 파일 목록화 → attributes.ts(궁합표)는 content-author, state.ts(초기값)는 systems-engineer, UI 카테고리는 ui-builder에 라우팅 → 각자 새 키 채움 → 재검증 통과 → 보고.

@@ -58,6 +58,23 @@ snsgame의 규칙은 `src/systems/`(순수 로직)과 `src/core/`(엔진)에 산
 - 셀렉터는 `core/state.ts`에 있다(`getActiveAccount`, 슬롯 상수 등). 상태를 뒤질 때 재발명하지 말고 기존 셀렉터를 쓴다.
 - 상수·마법의 숫자는 `export const`로 이름을 붙인다(`TWEET_ACTION_COST = 10`, `ADULT_FOLLOWER_MULTIPLIER = 1.5` 참고). 밸런스 튜닝 지점이 코드에 흩어지지 않게 한다.
 
+## ⚠️ `ownedItems` — id만 담긴 평면 배열, 뒤의 shape은 2종
+
+`state.ownedItems: string[]`는 **id만** 담는다. 그 id를 밀어넣는 출처가 넷이고, 실제 데이터 shape은 **2종**이다:
+
+| 출처 | 데이터 | 스탯 필드 |
+|------|--------|----------|
+| `SHOP_ITEMS`(data/shop.ts) · `COSMETICS`(data/cosmetics.ts) · `PEEMANG_ITEMS`(data/peemang.ts) | `ShopItem` | `skill?`+`boost?` (**단수**) |
+| `GOBLIN_ITEMS`(data/goblin.ts) | `GoblinItem` | `boosts: Partial<Record<SkillStatId, number>>` (**복수·필드명 다름**) |
+
+**`systems/shop.ts`의 `resolveItem(id)`가 두 shape을 정규형(`boosts`)으로 통일해 4종 출처를 전부 훑는다. 이걸 써라 — 단수/복수 분기를 손으로 다시 짜지 마라.** 같이 있는 것: `ownedInventory(state)`(개수 묶음 포함), `sellPrice`, `sellOwnedItem`.
+
+- **`ITEM_INDEX`는 `Map`이라 id가 충돌하면 뒤 출처가 앞을 조용히 덮는다** — 이름·가격·회수 스탯이 전부 남의 것이 된다. 새 출처를 추가하면 id 프리픽스를 갈라라(`pm_`·`gob_`·`cos_`). `__tests__/inventory.test.ts`가 중복 0건을 강제한다.
+- **`repeatable`은 중복 push로 쌓인다** — `ownedCount(id)`가 곧 효과의 크기다(`mouse`·`stream_mic`). 인스턴스를 다룰 땐 **1개분**인지 전량인지 항상 명시적으로 정하라.
+- **`data/`에 아이템 풀을 새로 만들기 전에 `ShopItem` 재사용을 먼저 검토하라.** 화장품·피망이 그렇게 갔고, 덕분에 `buyItem`을 그대로 재사용하며 리졸버에 **분기가 안 늘고 출처만 하나 는다**.
+- ⚠️ **새 출처를 만들면 `resolveItem`의 인덱스에 추가하는 것을 잊지 마라.** 빠뜨리면 typecheck는 통과하고, 그 아이템만 인벤토리에서 안 보이고 팔리지도 않는다.
+- `systems/adMail.ts:85`에 `SHOP_ITEMS.find(...) ?? cosmeticById(...)`라는 **부분** 리졸버가 따로 있다(도깨비를 놓친다). 광고메일이 그 둘만 오퍼하고 `ShopItem` 자체를 반환해야 해서 의도적으로 통합하지 않았다 — **정규형으로 바꾸려 하지 마라.**
+
 ## 선언형 효과 처리 (data와의 계약)
 
 `data/`의 이벤트·만남은 `EventEffect`를 선언만 한다. **적용 로직은 `systems/events.ts`가 단일 지점에서 해석**한다:
@@ -106,6 +123,8 @@ snsgame의 규칙은 `src/systems/`(순수 로직)과 `src/core/`(엔진)에 산
 | 오프라인/활동 | `systems/offline.ts`, `systems/appointments.ts`, `systems/employment.ts` |
 | 시간/스케줄 | `systems/time.ts`, `systems/calendar.ts` |
 | 경제/상점/가챠 | `systems/economy.ts`, `systems/shop.ts`, `systems/gacha.ts`, `systems/loan.ts` |
+| 보유 아이템·인벤토리·판매 | `systems/shop.ts` (`resolveItem`·`ownedInventory`·`sellOwnedItem` — 4종 출처 정규화) |
+| 엔딩 | `systems/endings.ts` (`ENDING_OFFERS`) + `core/state.ts` (`*_ENDING_REASON`·`CELEBRATORY_ENDING_TITLES`) |
 | DM/만남/크루 | `systems/dm.ts`, `systems/meeting.ts`, `systems/crew.ts` |
 | 저장/불러오기 | `systems/save.ts` |
 | 엔진(타입·상태·스토어) | `core/types.ts`, `core/state.ts`, `core/store.ts` |
