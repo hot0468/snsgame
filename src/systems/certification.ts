@@ -44,6 +44,37 @@ function hashInt(seed: string): number {
   return h >>> 0;
 }
 
+/**
+ * 해시를 0 이상 1 미만의 균등 실수로 환산한다(hashInt는 32bit 부호 없는 정수).
+ * 확률 판정에 Math.random 대신 쓰는 결정론적 대체물.
+ */
+function hashUnit(seed: string): number {
+  return hashInt(seed) / 2 ** 32;
+}
+
+/**
+ * '특별칸' 자격증인지 — 랜덤 5종과 별도로 노출되고, pendingSpecialExam 슬롯을 쓴다.
+ *
+ * ⚠️ 이 술어를 슬롯 분기(canApplyExam/applyExam)와 후보 제외(todaysCertifications)에서
+ *    **함께** 써야 한다. 한쪽만 onlyOn으로 판정하면 randomChance 자격증이 특별칸에 뜨는데
+ *    대기 슬롯은 일반(pendingExam)을 잡아, 일반 시험 신청을 조용히 막아버린다.
+ */
+export function isSpecialCert(cert: Certification): boolean {
+  return Boolean(cert.onlyOn || cert.randomChance);
+}
+
+/**
+ * randomChance 자격증이 오늘 O넷에 뜨는지 — **day 시드 결정론적** 판정.
+ *
+ * ⚠️ Math.random을 쓰면 같은 날 화면을 다시 그릴 때마다 나타났다 사라진다. 반드시 해시를 쓴다.
+ *    시드에 'certRoll' 접두사를 두는 이유: todaysCertifications가 쓰는 `${id}:${day}` 시드와
+ *    값이 겹치면 두 판정이 상관관계를 갖는다(같은 해시를 두 목적에 재사용하는 셈).
+ */
+export function certAppearsToday(cert: Certification, day: number): boolean {
+  if (!cert.randomChance) return false;
+  return hashUnit(`certRoll:${cert.id}:${day}`) < cert.randomChance;
+}
+
 /** id → Certification */
 export function certById(id: string): Certification | undefined {
   return CERTIFICATIONS.find((c) => c.id === id);
@@ -57,9 +88,9 @@ export function certById(id: string): Certification | undefined {
  */
 export function todaysCertifications(state: GameState): Certification[] {
   const owned = new Set(state.certifications ?? []);
-  // onlyOn(특별 시행) 자격증은 랜덤 후보에서 제외한다 — 해당 날짜엔
-  // specialCertificationToday가 5종과 별도로 반환하므로 5칸을 잡아먹으면 안 된다.
-  const pool = CERTIFICATIONS.filter((c) => !owned.has(c.id) && !c.onlyOn);
+  // 특별칸 자격증(onlyOn 특별 시행 / randomChance 확률 등장)은 랜덤 후보에서 제외한다 —
+  // 뜨는 날엔 specialCertificationToday가 5종과 별도로 반환하므로 5칸을 잡아먹으면 안 된다.
+  const pool = CERTIFICATIONS.filter((c) => !owned.has(c.id) && !isSpecialCert(c));
   // (id, day) 쌍마다 독립적인 해시를 뽑아 정렬 → 날짜가 바뀌면 순위가 완전히 재편된다.
   // 해시 충돌 시엔 id로 갈라 정렬을 결정론적으로 유지한다.
   const key = new Map(pool.map((c) => [c.id, hashInt(`${c.id}:${state.day}`)]));
@@ -69,11 +100,22 @@ export function todaysCertifications(state: GameState): Certification[] {
 }
 
 /**
- * 오늘 '특별 시행'되는 자격증(onlyOn이 오늘 날짜와 맞는 것). 없으면 null.
+ * 오늘 O넷 '특별칸'에 뜨는 자격증. 없으면 null. 두 경로가 있다:
+ * 1. `onlyOn` — 매년 그 날짜에만 열리는 특별 시행(예: 헌터, 매년 1월 7일).
+ * 2. `randomChance` — 매일 그 확률로 열리는 자격증(예: 국가연금술사, 하루 10%).
  *
  * todaysCertifications의 랜덤 5종과 **별개**다 — ui는 이 항목을 5종 위에 따로(배너/카드)
  * 렌더해야 하며, 5칸을 잡아먹지 않는다. 이미 취득했으면 null(중복 응시 방지).
- * 연도는 보지 않으므로 매년 그 날짜에 다시 열린다.
+ *
+ * ⚠️ **겹칠 때는 onlyOn이 이기고, 특별칸은 계속 하나다.** (헌터 1/7 + 연금술사 10% = 연 0.1%)
+ *    근거:
+ *    ① 대기 슬롯(pendingSpecialExam)이 **하나뿐**이라 특별칸을 2개 노출해도 실제로 신청할 수
+ *       있는 건 1개다. 나머지 카드는 눌러도 canApplyExam이 false를 주는 '죽은 카드'가 되어
+ *       플레이어를 속인다. 노출 개수와 신청 가능 개수는 일치해야 한다.
+ *    ② 우선순위가 onlyOn인 이유는 **기회비용의 비대칭**이다. onlyOn을 밀어내면 다음 기회가
+ *       365일 뒤지만, randomChance(10%)는 평균 10일이면 다시 온다. 반대로 정하면 연 1회
+ *       자격증을 1년 날린다.
+ *    ③ 즉 randomChance는 그날 하루 밀릴 뿐 영구히 잃지 않는다 — 매일 독립 판정이기 때문이다.
  *
  * ⚠️ Certification.onlyOn.month는 1-based(1=1월)지만 Date.getMonth()는 0-based다 — +1로 맞춘다.
  * 후보가 여럿이면 첫 번째만 반환한다(같은 날짜에 특별 시험 2개를 두지 않는 전제).
@@ -83,9 +125,17 @@ export function specialCertificationToday(state: GameState): Certification | nul
   const month = d.getMonth() + 1; // 0-based → 1-based
   const date = d.getDate();
   const owned = new Set(state.certifications ?? []);
+
+  // 1순위: 날짜 고정 특별 시행(연 1회뿐이라 밀리면 1년을 잃는다).
+  const dated = CERTIFICATIONS.find(
+    (c) => c.onlyOn && c.onlyOn.month === month && c.onlyOn.date === date && !owned.has(c.id),
+  );
+  if (dated) return dated;
+
+  // 2순위: 확률 등장(오늘 밀려도 평균 며칠 뒤 다시 온다).
   return (
     CERTIFICATIONS.find(
-      (c) => c.onlyOn && c.onlyOn.month === month && c.onlyOn.date === date && !owned.has(c.id),
+      (c) => !c.onlyOn && !owned.has(c.id) && certAppearsToday(c, state.day),
     ) ?? null
   );
 }
@@ -132,14 +182,16 @@ export function pendingExams(state: GameState): ExamApplication[] {
 /**
  * 신청 가능한지 — 미취득 + **해당 슬롯**에 대기 중 시험 없음 + 응시료 지불 가능.
  *
- * ⚠️ 특별 시행(onlyOn)은 일반 시험과 대기 슬롯이 다르다 — 일반 시험을 신청해 둔 상태여도
- *    연 1회뿐인 특별 시험을 놓치지 않는다. 단 같은 슬롯의 중복 신청은 막으므로
+ * ⚠️ 특별칸(onlyOn·randomChance)은 일반 시험과 대기 슬롯이 다르다 — 일반 시험을 신청해 둔
+ *    상태여도 드물게 열리는 특별 시험을 놓치지 않는다. 단 같은 슬롯의 중복 신청은 막으므로
  *    특별 시험 자체의 중복 응시는 여전히 불가능하다.
+ * ⚠️ 슬롯 판정은 반드시 isSpecialCert로 한다. `cert.onlyOn`만 보면 randomChance 자격증이
+ *    특별칸에 뜨면서 일반 슬롯을 점유해, 3일간 일반 시험 신청이 막힌다.
  */
 export function canApplyExam(state: GameState, cert: Certification): boolean {
   if (state.gameOver) return false;
   if (hasCertification(state, cert.id)) return false;
-  if (cert.onlyOn ? state.pendingSpecialExam : state.pendingExam) return false;
+  if (isSpecialCert(cert) ? state.pendingSpecialExam : state.pendingExam) return false;
   return state.money >= cert.fee;
 }
 
@@ -157,8 +209,8 @@ export function applyExam(state: GameState, cert: Certification): boolean {
     passed: chance(examPassChance(state, cert)),
     resultDay: state.day + EXAM_RESULT_DELAY,
   };
-  // 특별 시행은 전용 슬롯에 넣는다(일반 시험 대기와 서로를 막지 않게).
-  if (cert.onlyOn) state.pendingSpecialExam = application;
+  // 특별칸(onlyOn·randomChance)은 전용 슬롯에 넣는다(일반 시험 대기와 서로를 막지 않게).
+  if (isSpecialCert(cert)) state.pendingSpecialExam = application;
   else state.pendingExam = application;
   addSchedule(state, `${cert.name} 시험 응시`, "system");
   return true;

@@ -229,6 +229,12 @@ export interface DMThread {
    * 응답 후에도 스레드는 대화 기록으로 남는다(분기 상태는 state.auction.eyeDeal).
    */
   eyeDeal?: boolean;
+  /**
+   * '터커'가 연구실 조수를 부탁한 스레드인지(국가연금술사 취득 후 랜덤일에 유입).
+   * ui는 이 플래그를 보고 수락/거절 버튼을 렌더하고 resolveLabOffer를 호출한다.
+   * eyeDeal과 같은 구조 — 응답 후에도 스레드는 대화 기록으로 남는다(분기 상태는 state.lab.offer).
+   */
+  labOffer?: boolean;
   /** '까칠한외눈' 소원 가게 링크가 담긴 스레드인지(링크 진입 시 삭제) */
   wishLink?: boolean;
   /** '푸시타임' 링크가 담긴 스레드인지(링크 클릭 시 탭 해금) */
@@ -504,6 +510,29 @@ export interface AuctionState {
   consoleReview: ConsoleReviewState;
 }
 
+/** 터커 연구실 조수 제안의 분기 상태 */
+export type LabOfferState =
+  | "none" // 아직 DM이 오지 않음
+  | "offered" // DM이 왔고 답을 기다림(ui가 수락/거절 버튼을 렌더)
+  | "accepted" // 수락 — 평일 저녁 강제 출근이 시작된다
+  | "refused"; // 거절 — 라인 종료(재제안 없음)
+
+/** 터커 연구실 퀘스트 진행 상태 */
+export interface LabState {
+  /** 조수 제안 분기 상태 */
+  offer: LabOfferState;
+  /**
+   * 터커 DM이 도착할 날(일차). 국가연금술사 **합격 시점에 한 번만** 추첨해 확정 저장한다.
+   * ⚠️ 매 프레임 재추첨하면 DM이 영원히 안 오거나 매일 온다 — 반드시 저장된 값을 쓴다.
+   * 아직 합격하지 않았으면 null.
+   */
+  tuckerDmDay: number | null;
+  /** 지금까지 출근한 횟수(0~LAB_TOTAL_SHIFTS) */
+  shifts: number;
+  /** 라인이 끝났는지(5회째 출근 → 터커 체포). true면 더 이상 강제 출근하지 않는다 */
+  done: boolean;
+}
+
 export interface GameState {
   version: number;
 
@@ -576,6 +605,12 @@ export interface GameState {
    * 전 호출부의 널 가드를 없애 NaN·크래시 경로를 줄인다. 구세이브는 save.sanitize가 채운다.
    */
   auction: AuctionState;
+  /**
+   * 터커 연구실 퀘스트 진행 상태.
+   * auction과 같이 항상 기본 객체로 존재한다(null 아님) — 호출부 널 가드를 없앤다.
+   * 구세이브는 save.sanitize가 채운다.
+   */
+  lab: LabState;
   /** 피메일 수신함 */
   emails: Email[];
   /** 대부업체 빚(없으면 없음) */

@@ -5,6 +5,7 @@ import { applyDailyCosts, daysUntilRent, settleMonthlyIncome } from "./economy";
 import { settleAuthorMonthly } from "./author";
 import { deliverJobResultEmail } from "./employment";
 import { deliverExamResultEmail } from "./certification";
+import { maybeSpawnTuckerDM, maybeStartTuckerLine } from "./lab";
 import {
   maybeOpenConsoleReview,
   maybeSendAuctionMail,
@@ -125,6 +126,10 @@ function onNewDay(state: GameState): void {
   deliverJobResultEmail(state);
   // 자격증 시험 결과 메일(응시 3일 뒤) 도착
   deliverExamResultEmail(state);
+  // ⚠️ 순서 의존: 국가연금술사 합격은 바로 위 deliverExamResultEmail에서 확정된다.
+  //    maybeStartTuckerLine이 그 앞에 오면 합격 당일엔 도착일이 잡히지 않고 하루 밀린다.
+  maybeStartTuckerLine(state); // 합격했으면 터커 DM 도착일을 한 번만 추첨해 확정
+  maybeSpawnTuckerDM(state); // 확정된 날이 되면 터커 DM 도착
   // 진홍안 구매 다음날, 금발의 신사 DM 도착
   maybeSpawnCrimsonEyeDM(state);
   // 진홍안 제안을 거절하고 7일이 지났으면 도난

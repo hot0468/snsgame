@@ -1,6 +1,16 @@
-import type { AttributeId, AuctionState, GameState, PlayerAccount } from "./types";
+import type { AttributeId, AuctionState, GameState, LabState, PlayerAccount } from "./types";
 import { uid } from "@/utils/random";
 import { initialMarket } from "@/data/market";
+
+/** 터커 연구실 퀘스트의 초기(미진행) 상태 — 새 게임과 구세이브 보정이 함께 쓴다. */
+export function createInitialLab(): LabState {
+  return {
+    offer: "none",
+    tuckerDmDay: null,
+    shifts: 0,
+    done: false,
+  };
+}
 
 /** 서던피스 경매의 초기(미진행) 상태 — 새 게임과 구세이브 보정이 함께 쓴다. */
 export function createInitialAuction(): AuctionState {
@@ -143,6 +153,7 @@ export function createInitialState(): GameState {
     pendingExam: null,
     pendingSpecialExam: null,
     auction: createInitialAuction(),
+    lab: createInitialLab(),
     emails: [],
     pendingControversy: null,
     market: initialMarket(),

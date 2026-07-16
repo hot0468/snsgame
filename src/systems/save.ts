@@ -1,5 +1,5 @@
 import type { GameState } from "@/core/types";
-import { createInitialAuction, createInitialState } from "@/core/state";
+import { createInitialAuction, createInitialLab, createInitialState } from "@/core/state";
 import { grantAttributeUnlockFloor } from "./attributeUnlock";
 import { initialMarket } from "@/data/market";
 
@@ -111,6 +111,13 @@ function sanitize(state: GameState): GameState {
   // 필드별로도 보정한다(중간 버전 세이브에 일부 키만 있을 수 있다).
   state.auction = { ...createInitialAuction(), ...(state.auction ?? {}) };
   if (!Array.isArray(state.auction.bought)) state.auction.bought = [];
+  // 터커 연구실도 신규 기능이라 구세이브엔 lab 키가 아예 없다. 그 경우는 loadGame의 최상위
+  // merge(createInitialState 기반)가 이미 기본 객체를 넣어주므로, 여기서 하는 일은
+  // **필드 단위 보정**이다 — 키 일부만 있는 중간 버전 세이브를 메꾼다(auction과 같은 이유).
+  // ⚠️ `?? {}`를 붙이지 않은 건 죽은 폴백이기 때문이다: lab은 위 merge로 항상 객체이고,
+  //    우리는 lab에 null을 저장하는 경로가 없다(auction의 `?? {}`는 그 시절 관성이다).
+  //    설령 undefined여도 스프레드는 {}로 동작해 결과가 같다.
+  state.lab = { ...createInitialLab(), ...state.lab };
   if (!Array.isArray(state.emails)) state.emails = [];
   state.loan ??= null;
   state.loanOffered ??= false;

@@ -30,6 +30,18 @@ export interface Certification {
    * 연도는 보지 않으므로 매년 반복된다.
    */
   onlyOn?: { month: number; date: number };
+  /**
+   * 지정하면 **매일 이 확률(0~1)로** O넷 특별칸에 노출되는 자격증(예: 0.1 = 하루 10%).
+   * - onlyOn과 마찬가지로 랜덤 5종 후보에서 제외되고(todaysCertifications),
+   *   뜨는 날엔 5종과 **별도로** specialCertificationToday로 반환된다(5칸을 잡아먹지 않는다).
+   * - 대기 슬롯도 onlyOn과 같은 pendingSpecialExam을 쓴다(isSpecialCert 참고).
+   *
+   * ⚠️ 등장 판정은 **day를 시드로 한 결정론적 해시**다(certAppearsToday) — Math.random이 아니다.
+   *    같은 날 화면을 몇 번 다시 그려도 결과가 같아야 하기 때문이다.
+   * ⚠️ onlyOn과 함께 지정하지 마라. 같은 날 둘 다 걸리면 onlyOn이 우선한다
+   *    (specialCertificationToday의 우선순위 주석 참고).
+   */
+  randomChance?: number;
 }
 
 /**
@@ -237,6 +249,17 @@ export const CERTIFICATIONS: Certification[] = [
     requirement: 92,
     jobBonus: 0.25,
     desc: "이 나라에서 말로 이기는 가장 비싼 방법.",
+  },
+  {
+    id: "alchemist",
+    name: "국가연금술사",
+    issuer: "국가연금술사관리국",
+    fee: 250000,
+    skills: { knowledge: 1.0 },
+    requirement: 94,
+    jobBonus: 0.27,
+    desc: "등가교환을 계산할 줄 아는 사람에게만 국가가 연성을 허락한다.",
+    randomChance: 0.1,
   },
   {
     id: "hunter",
