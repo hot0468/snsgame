@@ -10,6 +10,7 @@ import { renderSteam } from "./steam";
 import { renderHousing } from "./housing";
 import { renderMail } from "./mail";
 import { renderGrocery } from "./grocery";
+import { renderPeemang } from "./peemang";
 import { renderPushtime } from "./pushtime";
 import { renderYabam } from "./yabam";
 import { renderStocks } from "./stocks";
@@ -20,6 +21,9 @@ import { renderOnet } from "./onet";
 import { renderAuction } from "./auction";
 import { renderDartpin } from "./dartpin";
 import { DARTPIN_URL } from "@/systems/dartpin";
+import { renderDstory } from "./dstory";
+import { DSTORY_URL } from "@/data/dstory";
+import { renderDevtools } from "./devtools";
 import { icon } from "./icons";
 
 interface TabDef {
@@ -45,12 +49,13 @@ const DARTPIN_TAB: TabDef = { id: "dartpin", label: "다트 핀", url: DARTPIN_U
 const PUSHTIME_TAB: TabDef = { id: "pushtime", label: "푸시타임", url: "pushtime.xyz" };
 const YABAM_TAB: TabDef = { id: "yabam", label: "야밤", url: "yabam.click" };
 
-/** 증권/쇼핑/남의방/마켓걸리버는 상단 탭이 아니라 네이놈 포털에서 진입한다. url바 표시·activeDef 조회에 사용. */
+/** 증권/쇼핑/남의방/마켓걸리버/피망마켓은 상단 탭이 아니라 네이놈 포털에서 진입한다. url바 표시·activeDef 조회에 사용. */
 const SUBPAGES: TabDef[] = [
   { id: "stocks", label: "증권", url: "hanaro-invest.com" },
   { id: "shop", label: "쇼핑", url: "coupang.com" },
   { id: "housing", label: "남의방", url: "namroom.com" },
   { id: "grocery", label: "마켓걸리버", url: "marketgulliver.com" },
+  { id: "peemang", label: "피망마켓", url: "peemang.market" },
 ];
 
 /** 탭/주소창에 쓰는 사이트 파비콘(브랜드 마크) SVG */
@@ -107,6 +112,13 @@ function faviconHtml(id: BrowserTabId): string {
         `<rect width="24" height="24" rx="5" fill="#5f0080"/>` +
         `<path d="M6 8h12l-1.2 8H7.2z" fill="#fff"/><path d="M9 8a3 3 0 0 1 6 0" fill="none" stroke="#fff" stroke-width="1.5"/></svg>`
       );
+    case "peemang": // 피망마켓(중고 직거래) — 초록 바탕의 피망
+      return (
+        `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">` +
+        `<rect width="24" height="24" rx="5" fill="#2fa84f"/>` +
+        `<path d="M7.5 12.5c0-2.2 2-3.5 4.5-3.5s4.5 1.3 4.5 3.5c0 3-2 5.5-4.5 5.5s-4.5-2.5-4.5-5.5z" fill="#fff"/>` +
+        `<path d="M12 9V6.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>`
+      );
     case "pushtime": // 푸시타임(성인)
       return (
         `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">` +
@@ -137,6 +149,48 @@ function faviconHtml(id: BrowserTabId): string {
 
 function favicon(id: BrowserTabId, cls = "tab__fav"): HTMLElement {
   return el("span", { class: cls, html: faviconHtml(id) });
+}
+
+/**
+ * 주소창 오른쪽 끝 ⋮ 버튼 + 팝오버(항목은 '개발자 도구' 하나).
+ *
+ * ⚠️ **"F12"는 크롬 메뉴 흉내를 낸 라벨일 뿐이다 — 실제 F12 키를 바인딩하지 마라**(사용자 확정).
+ *    keydown을 걸면 게임 밖 진짜 브라우저의 개발자 도구가 열려 몰입이 깨지고,
+ *    F12는 예약 단축키라 막지도 못한다. 개발자 도구로 가는 길은 이 항목 하나뿐이며,
+ *    d스토리 글1의 힌트 "F12"는 "눌러라"가 아니라 "F12라고 적힌 걸 찾아라"는 뜻이다.
+ */
+function urlbarMenu(ctx: GameContext): HTMLElement {
+  const open = ctx.ui.settingsMenuOpen;
+  const toggle = (): void => {
+    ctx.ui.settingsMenuOpen = !ctx.ui.settingsMenuOpen;
+    ctx.refresh();
+  };
+
+  return el(
+    "div",
+    { class: "urlbar__menu-wrap" },
+    el("button", { class: "urlbar__menu", title: "설정 및 기타", onclick: toggle }, "⋮"),
+    // 바깥 아무 곳이나 누르면 닫히는 투명 백드롭(팝오버보다 아래에 깔린다).
+    open ? el("div", { class: "settings-backdrop", onclick: toggle }) : null,
+    open
+      ? el(
+          "div",
+          { class: "settings-popover" },
+          el(
+            "button",
+            {
+              class: "settings-popover__item",
+              onclick: () => {
+                ctx.ui.settingsMenuOpen = false;
+                ctx.openModal(renderDevtools);
+              },
+            },
+            el("span", {}, "개발자 도구"),
+            el("span", { class: "settings-popover__key" }, "F12"),
+          ),
+        )
+      : null,
+  );
 }
 
 /**
@@ -176,11 +230,12 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
           class: "tab" + (t.id === active ? " tab--active" : ""),
           title: t.label,
           onclick: () => {
-            // 탭을 이동하면 단발 사이트(소원 가게·도깨비 상점·O넷·서던피스)는 닫힌다.
+            // 탭을 이동하면 단발 사이트(소원 가게·도깨비 상점·O넷·서던피스·d스토리)는 닫힌다.
             ctx.ui.wishSiteOpen = false;
             ctx.ui.goblinSiteOpen = false;
             ctx.ui.onetSiteOpen = false;
             ctx.ui.auctionSiteOpen = false;
+            ctx.ui.dstorySiteOpen = false;
             ctx.ui.activeTab = t.id;
             ctx.refresh();
           },
@@ -233,9 +288,12 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
             ? "o-net.go.kr"
             : ctx.ui.auctionSiteOpen
               ? "southernpeace.auction/private"
-              : activeDef.url,
+              : ctx.ui.dstorySiteOpen
+                ? DSTORY_URL
+                : activeDef.url,
     ),
     icon("refresh", { size: 14 }),
+    urlbarMenu(ctx),
   );
 
   const content = el("div", { class: "browser__content" });
@@ -251,6 +309,9 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
   } else if (ctx.ui.auctionSiteOpen) {
     // 서던피스 경매장도 현재 탭 콘텐츠를 덮어쓴다(피메일 초대장 링크로만 진입).
     content.append(renderAuction(ctx));
+  } else if (ctx.ui.dstorySiteOpen) {
+    // d스토리도 현재 탭 콘텐츠를 덮어쓴다(IT계 검색의 링크 트윗으로만 진입).
+    content.append(renderDstory(ctx));
   } else if (active === "sns") {
     content.append(renderSnsView(ctx));
   } else if (active === "youtube") {
@@ -265,6 +326,8 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
     content.append(renderMail(ctx));
   } else if (active === "grocery") {
     content.append(renderGrocery(ctx));
+  } else if (active === "peemang") {
+    content.append(renderPeemang(ctx));
   } else if (active === "pushtime") {
     content.append(renderPushtime(ctx));
   } else if (active === "yabam" && yabamVisible) {

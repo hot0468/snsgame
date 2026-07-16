@@ -187,6 +187,9 @@ body {
 .status-dock__foot {
   border-top: 1px solid var(--border);
   padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .life-btn {
@@ -8086,4 +8089,842 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
   margin-top: 4px;
   padding: 11px 14px;
   font-size: 14px;
+}
+
+/* ===================== 주소창 ⋮ 메뉴 (개발자 도구 진입로) ===================== */
+.urlbar__menu-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.urlbar__menu {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.urlbar__menu:hover {
+  background: var(--bg-panel);
+}
+
+/* 팝오버 바깥 클릭을 받는 투명 판(팝오버보다 아래) */
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+
+.settings-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 91;
+  min-width: 210px;
+  padding: 6px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-window);
+  box-shadow: var(--shadow);
+}
+
+.settings-popover__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-popover__item:hover {
+  background: var(--bg-panel);
+}
+
+/* 크롬 메뉴처럼 단축키를 흐리게. ⚠️ 라벨일 뿐 — F12 키는 바인딩돼 있지 않다(ui/browser.ts). */
+.settings-popover__key {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* ===================== 개발자 도구(크롬 풍 다크 패널) =====================
+   .modal--win(cmd가 쓰는 창)을 베이스로 얹는다. 내용은 전부 고정 가짜다. */
+.modal--devtools {
+  width: min(860px, 100%);
+}
+
+.devtools {
+  display: flex;
+  flex-direction: column;
+  height: min(66vh, 460px);
+  background: #202124;
+  color: #cfd0d0;
+  font-family: "D2Coding", Consolas, "Courier New", monospace;
+  font-size: 12px;
+}
+
+.dt-tabs {
+  display: flex;
+  flex-shrink: 0;
+  border-bottom: 1px solid #3c4043;
+  background: #292a2d;
+}
+
+.dt-tab {
+  padding: 7px 13px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #9aa0a6;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.dt-tab:hover {
+  color: #e8eaed;
+}
+
+.dt-tab--on {
+  border-bottom-color: #8ab4f8;
+  color: #e8eaed;
+}
+
+.dt-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.dt-panel > * {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---- Elements ---- */
+.dt-elements {
+  display: grid;
+  grid-template-columns: 1fr 240px;
+  overflow: hidden;
+}
+
+.dt-tree {
+  padding: 8px 10px;
+  overflow: auto;
+  line-height: 1.7;
+  white-space: nowrap;
+}
+
+.dt-node {
+  padding: 0 4px;
+  border-radius: 2px;
+}
+
+.dt-node--sel {
+  background: #3a4a63;
+}
+
+.dt-i1 {
+  padding-left: 18px;
+}
+
+.dt-i2 {
+  padding-left: 36px;
+}
+
+.dt-i3 {
+  padding-left: 54px;
+}
+
+.dt-i4 {
+  padding-left: 72px;
+}
+
+.dt-doctype {
+  color: #9aa0a6;
+}
+
+.dt-t {
+  color: #5db0d7;
+}
+
+.dt-a {
+  color: #9bbbdc;
+}
+
+.dt-v {
+  color: #f29766;
+}
+
+.dt-x {
+  color: #cfd0d0;
+}
+
+.dt-styles {
+  padding: 8px 10px;
+  border-left: 1px solid #3c4043;
+  overflow: auto;
+  line-height: 1.7;
+}
+
+.dt-styles__head {
+  margin-bottom: 6px;
+  color: #9aa0a6;
+}
+
+.dt-sel {
+  color: #d7ba7d;
+}
+
+.dt-decl {
+  padding-left: 14px;
+  color: #9bbbdc;
+}
+
+.dt-val {
+  color: #f29766;
+}
+
+/* ---- Console ---- */
+.dt-console {
+  padding: 4px 0;
+  overflow: auto;
+  line-height: 1.7;
+}
+
+.dt-log {
+  padding: 1px 10px;
+  border-bottom: 1px solid #2c2d30;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.dt-log--warn {
+  background: #3a2f1a;
+  color: #f7c76b;
+}
+
+.dt-log--error {
+  background: #3b1f22;
+  color: #ff8a80;
+}
+
+.dt-console__input {
+  padding: 3px 10px;
+}
+
+.dt-caret {
+  color: #8ab4f8;
+}
+
+/* ---- Sources ---- */
+.dt-sources {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  overflow: hidden;
+}
+
+.dt-files {
+  padding: 6px 0;
+  border-right: 1px solid #3c4043;
+  overflow: auto;
+}
+
+.dt-files__head {
+  padding: 3px 12px;
+  color: #9aa0a6;
+}
+
+.dt-file {
+  padding: 3px 12px 3px 24px;
+  color: #cfd0d0;
+}
+
+.dt-file--on {
+  background: #3a4a63;
+}
+
+.dt-code {
+  padding: 6px 0;
+  overflow: auto;
+  line-height: 1.7;
+}
+
+.dt-code__line {
+  display: flex;
+  gap: 12px;
+  white-space: pre;
+}
+
+.dt-code__no {
+  flex-shrink: 0;
+  width: 34px;
+  padding-right: 8px;
+  background: #292a2d;
+  color: #80868b;
+  text-align: right;
+}
+
+.dt-code__text {
+  color: #cfd0d0;
+}
+
+/* ---- Network ---- */
+.dt-network {
+  overflow: auto;
+}
+
+.dt-net-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.dt-net-table th,
+.dt-net-table td {
+  padding: 3px 10px;
+  border-bottom: 1px solid #2c2d30;
+  text-align: left;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.dt-net-table th {
+  position: sticky;
+  top: 0;
+  background: #292a2d;
+  color: #9aa0a6;
+}
+
+.dt-net__name {
+  color: #8ab4f8;
+}
+
+.dt-net__bad {
+  color: #ff8a80;
+}
+
+/* ===================== d스토리(개인 기술 블로그 · 티스토리 패러디) ===================== */
+/* 링크 카드 썸네일만 d스토리 색으로. .tweet-link 본체는 다트 핀 것을 그대로 재사용한다. */
+.tweet-link__thumb--dstory {
+  background: #ff5544;
+  font-family: Georgia, serif;
+  font-size: 22px;
+}
+
+.ds {
+  min-height: 100%;
+  background: #fafafa;
+  color: #222;
+  font-size: 14px;
+}
+
+.ds__head {
+  padding: 30px 24px 0;
+  border-bottom: 1px solid #e5e5e5;
+  background: #fff;
+  text-align: center;
+}
+
+.ds__brand {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.ds__tagline {
+  margin-top: 6px;
+  color: #999;
+  font-size: 12.5px;
+}
+
+.ds__gnb {
+  display: flex;
+  justify-content: center;
+  gap: 26px;
+  margin-top: 20px;
+}
+
+.ds__gnb-item {
+  padding-bottom: 10px;
+  border-bottom: 2px solid transparent;
+  color: #777;
+  font-size: 13px;
+}
+
+.ds__gnb-item--on {
+  border-bottom-color: #222;
+  color: #222;
+  font-weight: 700;
+}
+
+.ds__body {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+}
+
+.ds__cat {
+  padding-bottom: 10px;
+  border-bottom: 2px solid #222;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.ds__cat-num {
+  margin-left: 5px;
+  color: #999;
+  font-weight: 400;
+}
+
+.ds-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ds-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 4px;
+  border-bottom: 1px solid #ececec;
+  cursor: pointer;
+}
+
+.ds-item:hover .ds-item__title {
+  text-decoration: underline;
+}
+
+.ds-item__title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ds-item__lock {
+  margin-right: 6px;
+  font-size: 12px;
+}
+
+.ds-item__date {
+  flex-shrink: 0;
+  color: #aaa;
+  font-size: 12px;
+}
+
+/* ---- 잠김 화면 ---- */
+.ds-lock {
+  margin: 30px auto;
+  padding: 40px 24px;
+  max-width: 420px;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  background: #fff;
+  text-align: center;
+}
+
+.ds-lock__icon {
+  font-size: 34px;
+}
+
+.ds-lock__title {
+  margin-top: 14px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.ds-lock__desc {
+  margin-top: 8px;
+  color: #888;
+  font-size: 13px;
+}
+
+.ds-lock__row {
+  display: flex;
+  gap: 6px;
+  margin-top: 20px;
+}
+
+.ds-lock__input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.ds-lock__input:focus {
+  outline: none;
+  border-color: #222;
+}
+
+.ds-lock__btn {
+  padding: 9px 20px;
+  border: none;
+  border-radius: 4px;
+  background: #222;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.ds-lock__btn:hover {
+  background: #000;
+}
+
+.ds-lock__hint {
+  margin-top: 16px;
+  color: #888;
+  font-size: 12.5px;
+}
+
+/* ---- 본문 ---- */
+.ds-post {
+  padding: 10px 0 30px;
+  border-bottom: 1px solid #ececec;
+}
+
+.ds-post__title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.ds-post__date {
+  margin-top: 10px;
+  color: #aaa;
+  font-size: 12px;
+}
+
+.ds-post__p {
+  margin: 20px 0 0;
+  font-size: 15px;
+  line-height: 1.85;
+  color: #333;
+}
+
+.ds__foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.ds__list-btn {
+  padding: 8px 20px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ds__list-btn:hover {
+  background: #f2f2f2;
+}
+
+/* ============================================================
+ * 서랍장(보유 아이템) · 피망마켓 — 중고 직거래
+ * ============================================================ */
+
+/* 스테이터스 독의 보조 버튼(서랍장). '현생살기'와 같은 모양이되 톤만 낮춘다. */
+.life-btn--sub,
+.life-btn--sub:hover {
+  background: rgba(90, 100, 240, 0.1);
+  color: #5a64f0;
+  box-shadow: none;
+  filter: none;
+}
+
+.life-btn--sub:hover {
+  background: rgba(90, 100, 240, 0.18);
+}
+
+/* ---- 보유 아이템 목록(서랍장 모달 / 피망마켓 판매 탭 공용) ---- */
+.inv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inv-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.inv-row__copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.inv-row__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.inv-row__count {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(90, 100, 240, 0.12);
+  color: #5a64f0;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.inv-row__desc {
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.inv-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.inv-row__stat {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.inv-row__stat--none {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.inv-row__price {
+  color: var(--text-muted);
+}
+
+.inv-row__sell {
+  flex: 0 0 auto;
+  padding: 9px 14px;
+  border: none;
+  border-radius: 999px;
+  background: #2fa84f;
+  color: #fff;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.inv-row__sell:hover {
+  filter: brightness(1.06);
+}
+
+/* ---- 판매 확인 모달 ---- */
+.pm-sell__recall {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(90, 100, 240, 0.08);
+  color: #5a64f0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pm-sell__warn {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(224, 36, 94, 0.08);
+  color: var(--danger);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+/* ---- 피망마켓 ---- */
+.pm {
+  height: 100%;
+  overflow-y: auto;
+  background: #fff;
+}
+
+.pm__mast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 3;
+}
+
+.pm__logo {
+  font-size: 19px;
+  font-weight: 900;
+  color: #2fa84f;
+}
+
+.pm__slogan {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.pm__money {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pm__tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pm__tab {
+  padding: 12px 16px;
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  background: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pm__tab--on {
+  border-bottom-color: #2fa84f;
+  color: #2fa84f;
+}
+
+.pm__pane {
+  padding: 16px 20px 28px;
+}
+
+.pm__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pm-card {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: box-shadow 0.12s;
+}
+
+.pm-card:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
+}
+
+.pm-card--owned {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.pm-card__thumb {
+  position: relative;
+  flex: 0 0 auto;
+  width: 84px;
+  border-radius: 10px;
+}
+
+.pm-card__soldout {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.pm-card__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pm-card__name {
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+.pm-card__where {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.pm-card__desc {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.pm-card__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.pm-card__price {
+  font-size: 14.5px;
+  font-weight: 800;
+}
+
+.pm-card__stat {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(47, 168, 79, 0.12);
+  color: #1f8038;
+  font-size: 11.5px;
+  font-weight: 800;
 }

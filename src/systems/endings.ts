@@ -1,5 +1,5 @@
 import type { GameState } from "@/core/types";
-import { AUTHOR_ENDING_REASON, DEBUT_ENDING_REASON } from "@/core/state";
+import { AUTHOR_ENDING_REASON, DEBUT_ENDING_REASON, LEGEND_BJ_ENDING_REASON } from "@/core/state";
 import { totalFollowers } from "./economy";
 
 /**
@@ -26,6 +26,8 @@ export const DEBUT_FOLLOWERS = 500_000;
 export const DEBUT_BEAUTY = 600;
 /** 전업 작가 정착에 필요한 정산(근무) 개월 수 */
 export const AUTHOR_ENDING_MONTHS = 6;
+/** 레전드 BJ 엔딩에 필요한 소지금 */
+export const LEGEND_BJ_ENDING_MONEY = 5_000_000;
 
 export const ENDING_OFFERS: EndingOffer[] = [
   {
@@ -47,6 +49,18 @@ export const ENDING_OFFERS: EndingOffer[] = [
     confirmLabel: "작가로 정착한다 (엔딩)",
     declineLabel: "조금 더 도전한다",
     condition: (s) => (s.authorContract?.monthsWorked ?? 0) >= AUTHOR_ENDING_MONTHS,
+  },
+  {
+    id: "legendBJ",
+    reason: LEGEND_BJ_ENDING_REASON,
+    offerTitle: "🎙️ 사바나의 전설",
+    offerLead:
+      "별풍선이 통장에 쌓이고, 이제 사바나에서 내 이름을 모르는 사람이 없다. 전속 계약을 맺고 여기서 전설로 굳혀볼까?",
+    confirmLabel: "전설로 남는다 (엔딩)",
+    declineLabel: "아직은 더 방송한다",
+    // 누적 수익을 쌓는 상태가 없어 '지금 가진 돈'으로 판정한다(기존 state만 조합).
+    condition: (s) =>
+      s.eggs.done.legendBJ && s.savannaJoined && s.money >= LEGEND_BJ_ENDING_MONEY,
   },
 ];
 

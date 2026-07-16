@@ -856,6 +856,11 @@ function sitesBlock(ctx: GameContext): HTMLElement {
     `<rect width="24" height="24" rx="6" fill="#5f0080"/>` +
     `<path d="M6 8h12l-1.2 8H7.2z" fill="#fff"/>` +
     `<path d="M9 8a3 3 0 0 1 6 0" fill="none" stroke="#fff" stroke-width="1.5"/></svg>`;
+  const peemangMark =
+    `<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">` +
+    `<rect width="24" height="24" rx="6" fill="#2fa84f"/>` +
+    `<path d="M7.5 12.5c0-2.2 2-3.5 4.5-3.5s4.5 1.3 4.5 3.5c0 3-2 5.5-4.5 5.5s-4.5-2.5-4.5-5.5z" fill="#fff"/>` +
+    `<path d="M12 9V6.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>`;
 
   const ads: SiteAd[] = [
     {
@@ -873,6 +878,14 @@ function sitesBlock(ctx: GameContext): HTMLElement {
       title: "마켓걸리버",
       desc: "오늘 밤 주문하면 내일 새벽 문 앞에 도착",
       mark: groceryMark,
+    },
+    {
+      tab: "peemang",
+      brand: "피망마켓",
+      color: "#2fa84f",
+      title: "피망마켓",
+      desc: "당신 근처의 중고 직거래 · 안 쓰는 물건은 팔고, 필요한 건 싸게",
+      mark: peemangMark,
     },
   ];
 

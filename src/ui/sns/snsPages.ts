@@ -11,6 +11,8 @@ import { joinSavanna } from "@/systems/savanna";
 import { acceptAuthorContract } from "@/systems/author";
 import { consumeWishLink, isWishTweet, rollWishOptions, spawnWishDM } from "@/systems/wish";
 import { DARTPIN_URL, isDartpinTweet, unlockDartpin } from "@/systems/dartpin";
+import { isDstoryTweet } from "@/systems/dstory";
+import { DSTORY_URL } from "@/data/dstory";
 import { consumePushLink } from "@/systems/pushtime";
 import { consumeYabamLink } from "@/systems/yabam";
 import type { EyeDealResult } from "@/systems/auction";
@@ -253,6 +255,36 @@ function dartpinLinkCard(ctx: GameContext): HTMLElement {
   );
 }
 
+/**
+ * d스토리 링크 트윗에 붙는 링크 미리보기 카드(다트 핀과 같은 자리·같은 클래스).
+ *
+ * ⚠️ **탭을 바꾸지 않는다.** d스토리는 탭이 아니라 현재 탭 콘텐츠를 덮는 오버레이다 —
+ *    해금(unlock*)도 없다. 오버레이는 상태에 남지 않는다(systems/dstory 헤더 참조).
+ * ⚠️ 광고가 아니다 — adTweetCard(광고 라벨) 경로를 타지 않고 일반 카드에 얹는다.
+ */
+function dstoryLinkCard(ctx: GameContext): HTMLElement {
+  return el(
+    "button",
+    {
+      class: "tweet-link",
+      onclick: (e: Event) => {
+        e.stopPropagation();
+        ctx.ui.dstorySiteOpen = true;
+        ctx.ui.dstoryPostId = null;
+        ctx.refresh();
+      },
+    },
+    el("span", { class: "tweet-link__thumb tweet-link__thumb--dstory" }, "d"),
+    el(
+      "span",
+      { class: "tweet-link__info" },
+      el("span", { class: "tweet-link__host" }, DSTORY_URL),
+      el("span", { class: "tweet-link__title" }, "d스토리 — 웹 개발 공부 기록"),
+      el("span", { class: "tweet-link__desc" }, "삽질과 정리"),
+    ),
+  );
+}
+
 /** 리트윗(아이콘) + 좋아요/악플 반응 행을 붙인 트윗 카드 */
 export function reactableCard(ctx: GameContext, tweet: Tweet): HTMLElement {
   const state = ctx.store.getState();
@@ -269,12 +301,17 @@ export function reactableCard(ctx: GameContext, tweet: Tweet): HTMLElement {
     readerVocab: state.skills.knowledge,
   });
 
-  // 다트 핀 발견 트윗이면 본문 아래(액션 바 위)에 링크 카드를 끼운다.
-  if (isDartpinTweet(tweet)) {
+  // 링크 트윗이면 본문 아래(액션 바 위)에 링크 카드를 끼운다.
+  const linkCard = isDartpinTweet(tweet)
+    ? dartpinLinkCard(ctx)
+    : isDstoryTweet(tweet)
+      ? dstoryLinkCard(ctx)
+      : null;
+  if (linkCard) {
     const body = card.querySelector<HTMLElement>(".tweet__body");
     const actions = body?.querySelector(".tweet__actions");
-    if (actions) body?.insertBefore(dartpinLinkCard(ctx), actions);
-    else body?.appendChild(dartpinLinkCard(ctx));
+    if (actions) body?.insertBefore(linkCard, actions);
+    else body?.appendChild(linkCard);
   }
 
   return el(

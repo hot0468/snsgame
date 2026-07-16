@@ -75,7 +75,8 @@ export type SkillStatId =
   | "comedy" // 개그
   | "creativity" // 창작
   | "lewd" // 음란
-  | "game"; // 게임
+  | "game" // 게임
+  | "it"; // IT
 
 export type StatId = ResourceStatId | SkillStatId;
 
@@ -177,10 +178,15 @@ export interface Tweet {
 
 /**
  * 트윗 링크가 가리키는 사이트.
- * ⚠️ 이 사이트들은 `ui.*SiteOpen` 오버레이가 아니라 **브라우저 탭**으로 열린다
- * (`BrowserTabId`에 같은 id가 있다). 왜 탭인지는 `systems/dartpin.ts` 헤더 참조.
+ *
+ * ⚠️ 여는 방식이 **id마다 다르다** — 하나로 뭉뚱그리지 마라:
+ * - `"dartpin"`: **브라우저 탭**으로 열린다(`BrowserTabId`에 같은 id가 있다).
+ *   게시판이 매일 갱신돼 재방문이 전제이므로 탭이어야 한다 — `systems/dartpin.ts` 헤더 참조.
+ * - `"dstory"`: `ui.dstorySiteOpen` **단발 오버레이**다. 탭이 아니라 해금 상태도 없다.
+ *   콘텐츠가 고정 2글이라 재방문 보장이 필요 없고, 두 글을 다 풀기 전까지 링크 트윗이
+ *   계속 스폰되므로 재진입로가 이미 있다 — `systems/dstory.ts` 헤더 참조.
  */
-export type SiteLinkId = "dartpin";
+export type SiteLinkId = "dartpin" | "dstory";
 
 /** 탐색으로 등장하는 남의 계정 */
 export interface Account {
@@ -721,6 +727,12 @@ export interface GameState {
    * 렌더마다 다시 굴리면 글을 열었다 나올 때 목록이 뒤바뀌므로 상태에 고정한다.
    */
   dartpinBoard: { day: number; postIds: string[] } | null;
+  /**
+   * 비밀번호를 풀어 잠금을 해제한 d스토리 게시글 id 목록(`DSTORY_POSTS` 참조).
+   * 본문 공개 여부와 IT 보상 중복 수령 방지를 **둘 다** 이 배열 하나로 판정한다
+   * (별도 '보상 받음' 플래그를 두지 마라 — 두 출처가 어긋날 여지만 생긴다).
+   */
+  dstoryUnlockedPosts: string[];
   /** 성인 트윗 누적 작성 수(야밤 DM 트리거용) */
   adultTweetsPosted: number;
   /** 야밤에서 구매한 성인용품 id 목록(중복 구매 방지) */

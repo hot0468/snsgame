@@ -13,6 +13,7 @@ export type BrowserTabId =
   | "housing"
   | "mail"
   | "grocery"
+  | "peemang"
   | "pushtime"
   | "yabam"
   | "dartpin"
@@ -79,10 +80,18 @@ export interface UIState {
   mailSelectedId: string | null;
   /** 마켓걸리버 장바구니에 담은 식재료 id 목록(중복 허용) */
   groceryCart: string[];
+  /** 피망마켓에서 보고 있는 면(동네 매물 사기 / 내 물건 팔기) */
+  peemangTab: "buy" | "sell";
   /** 야밤 사이트에서 보고 있는 섹션(성인영상/토토/성인용품) */
   yabamSection: "video" | "toto" | "product";
   /** 다트 핀에서 열어본 게시물 id(null이면 목록) */
   dartpinPostId: string | null;
+  /** 주소창 ⋮ 메뉴(개발자 도구 진입로) 팝오버가 열려 있는지 */
+  settingsMenuOpen: boolean;
+  /** 'd스토리' 블로그가 열려 있는지(IT계 검색의 링크 트윗으로만 진입, 탭 이동 시 닫힘) */
+  dstorySiteOpen: boolean;
+  /** d스토리에서 열어본 게시글 id(null이면 목록) */
+  dstoryPostId: string | null;
 }
 
 export function createUIState(): UIState {
@@ -116,8 +125,12 @@ export function createUIState(): UIState {
     auctionSiteOpen: false,
     mailSelectedId: null,
     groceryCart: [],
+    peemangTab: "buy",
     yabamSection: "video",
     dartpinPostId: null,
+    settingsMenuOpen: false,
+    dstorySiteOpen: false,
+    dstoryPostId: null,
   };
 }
 

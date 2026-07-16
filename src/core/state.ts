@@ -56,6 +56,10 @@ export const DEBUT_ENDING_REASON =
 export const AUTHOR_ENDING_REASON =
   "✍️ 전업 작가 정착! 꾸준한 창작과 마감의 나날 끝에, 이 길이 천직임을 확신하게 됐습니다. 오래도록 사랑받는 작가로 살아갑니다.";
 
+/** 레전드 BJ 엔딩 사유 */
+export const LEGEND_BJ_ENDING_REASON =
+  "🎙️ 레전드 BJ 엔딩! 사바나를 대표하는 이름이 되었습니다. 켜면 사람이 모이고 그 방이 곧 기준이 되는 자리에서, 오래도록 전설로 불리며 살아갑니다.";
+
 /** 사채 3회 연체 엔딩 사유 — 일반 모드(부모님이 빚을 갚고 강제 귀향) */
 export const LOAN_DEFAULT_ENDING_REASON =
   "대부업체에 세 번이나 끌려간 끝에 결국 부모님께 모든 것이 들통났습니다. 빚은 다행히 모두 갚아주셨지만, 휴대폰을 빼앗긴 채 그대로 고향으로 내려가게 되었습니다...";
@@ -69,6 +73,7 @@ export const CELEBRATORY_ENDING_TITLES: Record<string, string> = {
   [FIRE_ENDING_REASON]: "🏝️ FIRE 엔딩",
   [DEBUT_ENDING_REASON]: "🌟 데뷔 엔딩",
   [AUTHOR_ENDING_REASON]: "✍️ 작가 엔딩",
+  [LEGEND_BJ_ENDING_REASON]: "🎙️ 레전드 BJ 엔딩",
 };
 
 /** 하루의 행동 슬롯 수 (0..SLOTS_PER_DAY-1) — 아침/저녁/심야 */
@@ -155,6 +160,7 @@ export function createInitialState(): GameState {
       creativity: 0,
       lewd: 0,
       game: 0,
+      it: 0,
     },
     // 새 게임은 상한 보너스 0 · 치트 미사용에서 시작한다 — 치트가 '게임당 1회'인 지점.
     actionMaxBonus: 0,
@@ -196,6 +202,7 @@ export function createInitialState(): GameState {
     adTweets: [],
     dartpinUnlocked: false,
     dartpinBoard: null,
+    dstoryUnlockedPosts: [],
     adultTweetsPosted: 0,
     yabamProductsOwned: [],
     seenWorks: [],

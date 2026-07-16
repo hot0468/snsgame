@@ -1,5 +1,6 @@
 import type { GameContext } from "./context";
 import { isMoneyCheatCode, tryMoneyCheat, MONEY_CHEAT_AMOUNT } from "@/systems/cheat";
+import { IPCONFIG_LINES } from "@/data/dstory";
 import { el, formatNumber } from "@/utils/dom";
 import { winTitlebar } from "./components";
 
@@ -18,7 +19,11 @@ import { winTitlebar } from "./components";
 const WIN_VERSION = "10.0.26100.2605";
 const PROMPT = "C:\\Users\\user>";
 
-/** 화면에 표시할 명령 도움말(치트는 당연히 없다) */
+/**
+ * 화면에 표시할 명령 도움말(치트는 당연히 없다).
+ * ⚠️ `ipconfig`도 여기 없다 — 실제 cmd에서도 외부 명령이라 help에 안 뜨고,
+ *    d스토리 글2의 힌트가 "IPv4"인 이상 명령 이름은 플레이어가 알아내야 할 몫이다.
+ */
 const HELP_LINES = [
   "CLS       화면을 지웁니다.",
   "ECHO      메시지를 표시합니다.",
@@ -102,6 +107,12 @@ export function renderCmdModal(ctx: GameContext): HTMLElement {
       case "ver":
         print();
         print(`Microsoft Windows [Version ${WIN_VERSION}]`);
+        print();
+        break;
+      // d스토리 글2의 정답 출처. 출력 전문은 data/dstory.ts가 갖고 있다(IP 하드코딩 방지).
+      case "ipconfig":
+        print();
+        for (const l of IPCONFIG_LINES) print(l);
         print();
         break;
       case "echo": {

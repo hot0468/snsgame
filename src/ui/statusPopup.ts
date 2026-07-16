@@ -9,6 +9,7 @@ import { el, formatNumber } from "@/utils/dom";
 import { statBar } from "./components";
 import { icon, type IconName } from "./icons";
 import { renderOfflineModal } from "./offlineModal";
+import { renderInventoryModal } from "./inventory";
 
 /** 세부 스탯 아이콘 */
 const SKILL_ICON: Record<SkillStatId, IconName> = {
@@ -21,6 +22,8 @@ const SKILL_ICON: Record<SkillStatId, IconName> = {
   creativity: "pen",
   lewd: "shield",
   game: "gamepad",
+  // IT계 속성 아이콘(ATTR_ICON.it)과 같은 grid를 쓴다 — 같은 개념에 다른 그림을 주지 않는다.
+  it: "grid",
 };
 
 /**
@@ -221,6 +224,15 @@ export function renderStatusDock(ctx: GameContext): HTMLElement {
     el(
       "div",
       { class: "status-dock__foot" },
+      el(
+        "button",
+        {
+          class: "life-btn life-btn--sub",
+          onclick: () => ctx.openModal(renderInventoryModal),
+        },
+        icon("drawer", { size: 18 }),
+        "서랍장",
+      ),
       el(
         "button",
         { class: "life-btn", onclick: () => ctx.openModal(renderOfflineModal) },

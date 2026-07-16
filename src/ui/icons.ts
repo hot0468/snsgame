@@ -44,6 +44,7 @@ export type IconName =
   | "bird"
   | "leaf"
   | "pot"
+  | "drawer"
   | "image";
 
 const PATHS: Record<IconName, string> = {
@@ -86,6 +87,7 @@ const PATHS: Record<IconName, string> = {
   bird: `<path d="M16 7h.01"/><path d="M20 6a4 4 0 0 1-4 4H9a5 5 0 0 0-5 5c0 2 1 3 1 3s1.5-1 3-1h4a6 6 0 0 0 6-6V6z"/><path d="M9 14l-3 6"/><path d="M13 14l1 6"/>`,
   leaf: `<path d="M4 20C4 11 11 4 20 4c0 9-7 16-16 16z"/><path d="M4 20C8 14 12 11 17 9"/>`,
   pot: `<path d="M4 10h16v3a6 6 0 0 1-6 6h-4a6 6 0 0 1-6-6z"/><path d="M2 10h20"/><path d="M9 7c0-1.5-1.5-1.5-1.5-3M13 7c0-1.5-1.5-1.5-1.5-3"/>`,
+  drawer: `<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 12h18"/><path d="M10 8h4M10 16h4"/>`,
   image: `<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m5 18 4.5-4.5 3 3L16 12l3 3.5"/>`,
 };
 

@@ -180,6 +180,10 @@ function sanitize(state: GameState): GameState {
   if (!state.dartpinBoard || !Array.isArray(state.dartpinBoard.postIds)) {
     state.dartpinBoard = null;
   }
+  // d스토리 해제 목록도 신규 필드 — 구세이브엔 키가 없다(아무것도 안 푼 상태가 정답).
+  // 최상위 merge가 기본 []를 넣지만, 배열이 아닌 값이 들어올 여지를 여기서 막는다
+  // (kakao/appointments와 같은 패턴). 배열이 아니면 includes/push가 즉시 터진다.
+  if (!Array.isArray(state.dstoryUnlockedPosts)) state.dstoryUnlockedPosts = [];
   state.adultTweetsPosted ??= 0;
   if (!Array.isArray(state.yabamProductsOwned)) state.yabamProductsOwned = [];
   if (!Array.isArray(state.seenWorks)) state.seenWorks = [];

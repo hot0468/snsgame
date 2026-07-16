@@ -113,7 +113,10 @@ export const ATTRIBUTES: Record<AttributeId, AttributeDef> = {
     label: "IT계",
     emoji: "",
     bio: "새벽 세 시에 버그 잡고 새 기기에 지갑 엽니다",
-    relatedSkills: ["vocabulary"],
+    // it 스킬을 반드시 물린다 — 빼면 IT 스킬이 게임에 아무 영향이 없는 장식이 된다.
+    // followers.ts가 성과를 relatedSkills로만 매기므로, 여기 없는 스킬은 올려도 무의미하다
+    // (gaming 속성이 game 스킬을 무는 것과 같은 이유).
+    relatedSkills: ["vocabulary", "it"],
     adultOnly: false,
   },
   dog: {

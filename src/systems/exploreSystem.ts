@@ -7,6 +7,7 @@ import { chance, pick, randInt, uid } from "@/utils/random";
 import { calcEncounterFollowerDelta, changeFollowers } from "./followers";
 import { makeWishTweet } from "./wish";
 import { DARTPIN_TWEET_CHANCE, makeDartpinTweet } from "./dartpin";
+import { DSTORY_TWEET_CHANCE, isDstoryDone, makeDstoryTweet } from "./dstory";
 import { maybeSpawnFanDM } from "./dm";
 import { onFollow, onLikeTweet, onRetweet } from "./eggs";
 import { addSchedule, advanceTime } from "./time";
@@ -64,7 +65,13 @@ export function exploreTweets(state: GameState): Tweet[] {
 /** 검색: 특정 카테고리(성향)의 랜덤 트윗 3개 생성 */
 export function searchTweetsByCategory(state: GameState, attr: AttributeId): Tweet[] {
   const adult = state.adultMode;
-  return Array.from({ length: 3 }, () => makeTweetOfAttribute(attr, adult, state.day));
+  const tweets = Array.from({ length: 3 }, () => makeTweetOfAttribute(attr, adult, state.day));
+  // 낮은 확률로 한 칸을 'd스토리' 링크 트윗으로 교체 — 두 글을 다 풀기 전까지만.
+  // ⚠️ IT계 **검색**에만 뜬다. 둘러보기 피드(exploreTweets)에는 넣지 마라(사용자 확정).
+  if (attr === "it" && !isDstoryDone(state) && chance(DSTORY_TWEET_CHANCE)) {
+    tweets[randInt(0, 2)] = makeDstoryTweet(state);
+  }
+  return tweets;
 }
 
 /**

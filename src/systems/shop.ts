@@ -1,5 +1,9 @@
-import type { GameState, Tweet } from "@/core/types";
+import type { GameState, SkillStatId, Tweet } from "@/core/types";
 import type { ShopItem } from "@/data/shop";
+import { SHOP_ITEMS } from "@/data/shop";
+import { COSMETICS } from "@/data/cosmetics";
+import { GOBLIN_ITEMS } from "@/data/goblin";
+import { PEEMANG_ITEMS } from "@/data/peemang";
 import { getActiveAccount } from "@/core/state";
 import { randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
@@ -54,6 +58,97 @@ export function buyItem(state: GameState, item: ShopItem): boolean {
   }
   state.ownedItems.push(item.id);
   return true;
+}
+
+/* ─────────────────── 보유 아이템 리졸버 · 판매 ─────────────────── */
+
+/**
+ * ownedItems의 id 하나를 해석한 정규형. 출처가 상점/화장품/피망(ShopItem: skill+boost 단수)이든
+ * 도깨비(GoblinItem: boosts 복수)든 여기서 boosts 하나로 통일된다.
+ * 서랍장 표시와 판매(스탯 회수)가 모두 이 하나를 쓴다 — 출처별 분기를 다시 만들지 마라.
+ */
+export interface OwnedItemInfo {
+  id: string;
+  name: string;
+  desc?: string;
+  /** 정가(세일가 아님) */
+  price: number;
+  boosts: Partial<Record<SkillStatId, number>>;
+  repeatable: boolean;
+}
+
+function normalize(item: ShopItem): OwnedItemInfo {
+  return {
+    id: item.id,
+    name: item.name,
+    desc: item.desc,
+    price: item.price,
+    boosts: item.skill && item.boost ? { [item.skill]: item.boost } : {},
+    repeatable: item.repeatable ?? false,
+  };
+}
+
+/** id → 정규형. 4종 출처(상점·화장품·피망·도깨비)를 전부 덮는다. */
+const ITEM_INDEX = new Map<string, OwnedItemInfo>([
+  ...[...SHOP_ITEMS, ...COSMETICS, ...PEEMANG_ITEMS].map(
+    (i) => [i.id, normalize(i)] as const,
+  ),
+  ...GOBLIN_ITEMS.map(
+    (g) =>
+      [
+        g.id,
+        { id: g.id, name: g.name, desc: g.desc, price: g.price, boosts: g.boosts, repeatable: false },
+      ] as const,
+  ),
+]);
+
+/** 보유 id를 아이템으로 해석한다. 어느 출처에도 없는 id(구세이브 유실)면 null. */
+export function resolveItem(id: string): OwnedItemInfo | null {
+  return ITEM_INDEX.get(id) ?? null;
+}
+
+/** 서랍장 목록 — 보유 아이템을 개수로 묶어 해석한다. 해석 불가한 id는 조용히 버린다. */
+export function ownedInventory(state: GameState): { item: OwnedItemInfo; count: number }[] {
+  const out: { item: OwnedItemInfo; count: number }[] = [];
+  for (const id of new Set(state.ownedItems)) {
+    const item = resolveItem(id);
+    if (item) out.push({ item, count: ownedCount(state, id) });
+  }
+  return out;
+}
+
+/** 중고 판매가 배율 — 무조건 정가의 50%(세일가 기준이 아니다) */
+export const SELL_RATE = 0.5;
+
+/** 팔면 받는 돈 */
+export function sellPrice(item: OwnedItemInfo): number {
+  return Math.round(item.price * SELL_RATE);
+}
+
+/**
+ * 보유 아이템 1개를 판다. 인스턴스 하나만 빠지고(repeatable 중복은 나머지가 남는다),
+ * 정가의 50%를 받고, 구매 때 올랐던 스탯을 회수한다(되팔이로 스탯을 반값에 챙기는 것 차단).
+ * 시간·행동력을 쓰지 않는다(상점 구매도 안 쓴다).
+ *
+ * ponytail: 회수는 구매 시 boost를 그대로 뺀다 — 실제 상승분 원장이 없다. 999에서 잘린 만큼은
+ * 되돌아오지 않아 되팔이가 스탯 순손실일 수 있다(판매 페널티로 수용). 정확히 되돌리려면
+ * 아이템별 실상승분을 state에 기록해야 하는데, 세이브 마이그레이션 비용이 이득보다 크다.
+ *
+ * @returns 받은 금액. 보유하지 않았거나 해석 불가한 id면 null(아무것도 바뀌지 않는다).
+ */
+export function sellOwnedItem(state: GameState, id: string): number | null {
+  const idx = state.ownedItems.indexOf(id);
+  if (idx < 0) return null;
+  const item = resolveItem(id);
+  if (!item) return null;
+
+  state.ownedItems.splice(idx, 1);
+  const payout = sellPrice(item);
+  state.money += payout;
+  for (const [skill, boost] of Object.entries(item.boosts) as [SkillStatId, number][]) {
+    state.skills[skill] = clampSkill(state.skills[skill] - boost);
+  }
+  return payout;
 }
 
 /* ─────────────────── 상품 광고(협찬 트윗) ─────────────────── */
