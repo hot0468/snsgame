@@ -19,6 +19,8 @@ import { renderWishSite } from "./wishSite";
 import { renderGoblinShop } from "./goblinShop";
 import { renderOnet } from "./onet";
 import { renderAuction } from "./auction";
+import { renderDartpin } from "./dartpin";
+import { DARTPIN_URL } from "@/systems/dartpin";
 import { icon } from "./icons";
 
 interface TabDef {
@@ -38,6 +40,9 @@ const TABS: TabDef[] = [
 const YOUTUBE_TAB: TabDef = { id: "youtube", label: "너튜브", url: "nutube.com" };
 const MEDIBOOKS_TAB: TabDef = { id: "medibooks", label: "미디북스", url: "medibooks.com" };
 const STEAM_TAB: TabDef = { id: "steam", label: "증기", url: "jeunggi.store" };
+// 다트 핀은 둘러보기 피드의 '링크 달린 트윗'(광고 아님)을 눌러 해금된다.
+// 게시판이 매일 갱신되고 힌트가 드물게 섞이므로 단발 사이트가 아니라 상시 탭이다.
+const DARTPIN_TAB: TabDef = { id: "dartpin", label: "다트 핀", url: DARTPIN_URL };
 const PUSHTIME_TAB: TabDef = { id: "pushtime", label: "푸시타임", url: "pushtime.xyz" };
 const YABAM_TAB: TabDef = { id: "yabam", label: "야밤", url: "yabam.click" };
 
@@ -115,6 +120,13 @@ function faviconHtml(id: BrowserTabId): string {
         `<rect width="24" height="24" rx="5" fill="#1a0a14"/>` +
         `<path d="M15.5 6.5a6 6 0 1 0 2 8.7 5 5 0 0 1-2-8.7z" fill="#ff2d78"/></svg>`
       );
+    case "dartpin": // 다트 핀(익명 게시판) — 붉은 바탕에 꽂힌 핀
+      return (
+        `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">` +
+        `<rect width="24" height="24" rx="5" fill="#e8283c"/>` +
+        `<circle cx="12" cy="9" r="3.4" fill="none" stroke="#fff" stroke-width="1.7"/>` +
+        `<path d="M12 12.4V19" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg>`
+      );
     default: // 증권/쇼핑 등: 일반 지구본
       return (
         `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#5f6b7a" ` +
@@ -145,6 +157,7 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
       if (state.youtubeUnlocked) visibleTabs.push(YOUTUBE_TAB);
       if (state.medibooksUnlocked) visibleTabs.push(MEDIBOOKS_TAB);
       if (state.steamUnlocked) visibleTabs.push(STEAM_TAB);
+      if (state.dartpinUnlocked) visibleTabs.push(DARTPIN_TAB);
     }
   }
   if (state.pushtimeUnlocked) visibleTabs.push(PUSHTIME_TAB);
@@ -257,6 +270,8 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
     content.append(renderPushtime(ctx));
   } else if (active === "yabam" && yabamVisible) {
     content.append(renderYabam(ctx));
+  } else if (active === "dartpin") {
+    content.append(renderDartpin(ctx));
   } else if (active === "stocks") {
     content.append(renderStocks(ctx));
   } else if (active === "shop") {

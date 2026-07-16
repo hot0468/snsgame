@@ -15,6 +15,7 @@ export type BrowserTabId =
   | "grocery"
   | "pushtime"
   | "yabam"
+  | "dartpin"
   | "stocks"
   | "shop";
 
@@ -80,6 +81,8 @@ export interface UIState {
   groceryCart: string[];
   /** 야밤 사이트에서 보고 있는 섹션(성인영상/토토/성인용품) */
   yabamSection: "video" | "toto" | "product";
+  /** 다트 핀에서 열어본 게시물 id(null이면 목록) */
+  dartpinPostId: string | null;
 }
 
 export function createUIState(): UIState {
@@ -114,6 +117,7 @@ export function createUIState(): UIState {
     mailSelectedId: null,
     groceryCart: [],
     yabamSection: "video",
+    dartpinPostId: null,
   };
 }
 

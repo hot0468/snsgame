@@ -10,6 +10,7 @@ import { joinCrew } from "@/systems/crew";
 import { joinSavanna } from "@/systems/savanna";
 import { acceptAuthorContract } from "@/systems/author";
 import { consumeWishLink, isWishTweet, rollWishOptions, spawnWishDM } from "@/systems/wish";
+import { DARTPIN_URL, isDartpinTweet, unlockDartpin } from "@/systems/dartpin";
 import { consumePushLink } from "@/systems/pushtime";
 import { consumeYabamLink } from "@/systems/yabam";
 import type { EyeDealResult } from "@/systems/auction";
@@ -219,6 +220,38 @@ function joinTweetEvent(ctx: GameContext, tweet: Tweet): void {
   );
 }
 
+/**
+ * 다트 핀 발견 트윗에 붙는 링크 미리보기 카드.
+ *
+ * ⚠️ **광고가 아니다.** 광고 라벨을 붙이는 `adTweetCard`(추천탭 전용) 경로를 타지 않고,
+ *    일반 트윗 카드 본문에 링크 카드만 얹는다 — 일반인이 링크를 달아 공유한 트윗이다.
+ *    누르면 탭이 해금되고(unlockDartpin) 그 탭으로 이동한다.
+ */
+function dartpinLinkCard(ctx: GameContext): HTMLElement {
+  return el(
+    "button",
+    {
+      class: "tweet-link",
+      onclick: (e: Event) => {
+        e.stopPropagation();
+        ctx.update((s) => unlockDartpin(s));
+        ctx.ui.dartpinPostId = null;
+        ctx.ui.activeTab = "dartpin";
+        ctx.toast("다트 핀이 브라우저에 추가됐어요");
+        ctx.refresh();
+      },
+    },
+    el("span", { class: "tweet-link__thumb" }, "핀"),
+    el(
+      "span",
+      { class: "tweet-link__info" },
+      el("span", { class: "tweet-link__host" }, DARTPIN_URL),
+      el("span", { class: "tweet-link__title" }, "다트 핀 — 익명 게시판"),
+      el("span", { class: "tweet-link__desc" }, "다들 여기서 털어놓는다"),
+    ),
+  );
+}
+
 /** 리트윗(아이콘) + 좋아요/악플 반응 행을 붙인 트윗 카드 */
 export function reactableCard(ctx: GameContext, tweet: Tweet): HTMLElement {
   const state = ctx.store.getState();
@@ -227,16 +260,26 @@ export function reactableCard(ctx: GameContext, tweet: Tweet): HTMLElement {
   // 까칠한외눈(소원 계정)만은 친화력과 무관하게 좋아요를 누를 수 있다.
   const nice = canReactNicely(state) || isWishTweet(tweet);
 
+  const card = tweetCard(tweet, {
+    retweet: { done: rtDone, onClick: () => doRetweet(ctx, tweet) },
+    onJoinEvent:
+      tweet.event && !tweet.event.joined ? () => joinTweetEvent(ctx, tweet) : undefined,
+    onMedia: openMedia(ctx),
+    readerVocab: state.skills.knowledge,
+  });
+
+  // 다트 핀 발견 트윗이면 본문 아래(액션 바 위)에 링크 카드를 끼운다.
+  if (isDartpinTweet(tweet)) {
+    const body = card.querySelector<HTMLElement>(".tweet__body");
+    const actions = body?.querySelector(".tweet__actions");
+    if (actions) body?.insertBefore(dartpinLinkCard(ctx), actions);
+    else body?.appendChild(dartpinLinkCard(ctx));
+  }
+
   return el(
     "div",
     { class: "explore-item" },
-    tweetCard(tweet, {
-      retweet: { done: rtDone, onClick: () => doRetweet(ctx, tweet) },
-      onJoinEvent:
-        tweet.event && !tweet.event.joined ? () => joinTweetEvent(ctx, tweet) : undefined,
-      onMedia: openMedia(ctx),
-      readerVocab: state.skills.knowledge,
-    }),
+    card,
     el(
       "div",
       { class: "react-row" },
