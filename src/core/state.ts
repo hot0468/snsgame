@@ -109,6 +109,7 @@ export function createInitialState(): GameState {
       comedy: 0,
       creativity: 0,
       lewd: 0,
+      game: 0,
     },
     schedule: [],
     partTimeCount: 0,

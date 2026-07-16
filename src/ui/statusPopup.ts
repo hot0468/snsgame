@@ -18,6 +18,7 @@ const SKILL_ICON: Record<SkillStatId, IconName> = {
   comedy: "smile",
   creativity: "pen",
   lewd: "shield",
+  game: "gamepad",
 };
 
 /**

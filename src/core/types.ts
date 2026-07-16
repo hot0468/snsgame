@@ -74,7 +74,8 @@ export type SkillStatId =
   | "sociability" // 친화력
   | "comedy" // 개그
   | "creativity" // 창작
-  | "lewd"; // 음란
+  | "lewd" // 음란
+  | "game"; // 게임
 
 export type StatId = ResourceStatId | SkillStatId;
 
