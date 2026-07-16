@@ -7,6 +7,8 @@ import {
   matchRecipe,
 } from "@/data/grocery";
 import { postTweet } from "@/systems/tweetSystem";
+import type { LemonZResult } from "@/systems/eggs";
+import { tryLemonZ } from "@/systems/eggs";
 import { pick } from "@/utils/random";
 import { el, formatNumber } from "@/utils/dom";
 import { confirmPurchase } from "./confirmModal";
@@ -157,6 +159,45 @@ function openOrderResult(ctx: GameContext, recipe: Recipe | null): void {
   });
 }
 
+/**
+ * 레몬Z 이스터에그 팝업.
+ * 요리가 아니므로 트윗 게시 버튼은 없다. 문구 "레몬Z다!"는 사용자 지정 — 바꾸지 말 것.
+ */
+function openLemonZResult(ctx: GameContext, result: LemonZResult): void {
+  ctx.openModal((c) =>
+    el(
+      "div",
+      { class: "modal" },
+      el(
+        "div",
+        { class: "modal__head" },
+        el("span", { class: "modal__head-title" }, "🍋 레몬Z다!"),
+        el("button", { class: "popup__close", onclick: () => c.closeModal() }, "✕"),
+      ),
+      el(
+        "div",
+        { class: "modal__body" },
+        el("p", { style: "font-size:16px;font-weight:800;margin:0 0 8px" }, "레몬Z다!"),
+        el(
+          "p",
+          { style: "font-size:13.5px;color:var(--text-muted);line-height:1.6;margin:0 0 12px" },
+          "레몬과 밀감만 담긴 봉투를 열자 노란 섬광이 터졌다. 정신을 차려보니 뭔가… 각성해 있었다.",
+        ),
+        el(
+          "p",
+          { class: "grocery-egg__stat" },
+          `${result.label} +${result.gained} (${result.before} → ${result.after})`,
+        ),
+        el(
+          "div",
+          { class: "compose-actions", style: "gap:10px" },
+          el("button", { class: "btn", onclick: () => c.closeModal() }, "닫기"),
+        ),
+      ),
+    ),
+  );
+}
+
 export function renderGrocery(ctx: GameContext): HTMLElement {
   const container = el("div", { class: "grocery" });
 
@@ -294,11 +335,17 @@ export function renderGrocery(ctx: GameContext): HTMLElement {
                 ctx.toast(`잔고가 부족해요 (필요 ${formatNumber(cartTotal(ids))}원)`);
                 return;
               }
+              // 대금 지불·장바구니 비우기는 레몬Z든 평범한 요리든 동일하게 수행한다.
               ctx.ui.groceryCart = [];
+              const egg: { result: LemonZResult | null } = { result: null };
               ctx.update((st) => {
                 st.money -= cartTotal(ids);
+                // 레몬Z 판정은 matchRecipe보다 먼저 — {lemon, mandarin}은 어떤 레시피와도
+                // 일치하지 않아 그냥 두면 "요리 실패"로 흘러가 버린다.
+                egg.result = tryLemonZ(st, ids);
               });
-              openOrderResult(ctx, matchRecipe(ids));
+              if (egg.result) openLemonZResult(ctx, egg.result);
+              else openOrderResult(ctx, matchRecipe(ids));
             },
           });
         },

@@ -6205,6 +6205,12 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
 }
 .grocery-cart__total b { color: #5f0080; font-size: 15px; }
 
+/* 레몬Z 이스터에그 팝업의 스탯 상승 표기 */
+.grocery-egg__stat {
+  font-size: 15px; font-weight: 800; color: var(--good);
+  margin: 0 0 16px;
+}
+
 /* ===================== 티켓팅 좌석 미니게임 ===================== */
 .ticket-screen {
   text-align: center;
