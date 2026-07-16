@@ -3,8 +3,8 @@
  * time.ts와 economy.ts 등이 서로를 import하며 순환하지 않도록 여기로 분리한다.
  */
 
-/** 게임 시작일 = 2026년 3월 2일(월요일) */
-const START_DATE = new Date(2026, 2, 2); // 월 인덱스 2 = 3월, 2일
+/** 게임 시작일 = 2026년 6월 1일(월요일) */
+const START_DATE = new Date(2026, 5, 1); // 월 인덱스 5 = 6월, 1일
 
 /** day(1부터) → 해당 날짜의 Date */
 export function dateOf(day: number): Date {
@@ -13,7 +13,7 @@ export function dateOf(day: number): Date {
   return d;
 }
 
-/** day(1부터) → 실제 날짜 라벨. 시작일은 3월 2일. */
+/** day(1부터) → 실제 날짜 라벨. 시작일은 6월 1일. */
 export function dateLabel(day: number): string {
   const d = dateOf(day);
   return `${d.getMonth() + 1}월 ${d.getDate()}일`;
