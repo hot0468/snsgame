@@ -11,6 +11,7 @@ import { getTrendingCategories } from "@/data/trends";
 import { el, formatNumber } from "@/utils/dom";
 import { tweetCard } from "@/ui/components";
 import { icon, avatar, ATTR_ICON, type IconName } from "@/ui/icons";
+import { interleaveFeed } from "./feedLayout";
 import { renderComposeModal } from "./composeModal";
 import { renderAccountModal } from "./accountModal";
 import { renderMediaModal } from "@/ui/mediaModal";
@@ -273,19 +274,22 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
         ctx.update((st) => ensureAdTweetsSeeded(st));
       }
       const adCards = s.adTweets.map((t) => adTweetCard(ctx, t));
-      const timelineCards =
-        account.timeline.length === 0
-          ? [el("div", { class: "empty" }, "아직 트윗이 없어요. 첫 트윗을 등록해보세요!")]
-          : account.timeline.map((t) =>
-              tweetCard(t, {
-                showGain: true,
-                ctx,
-                onMedia: (m) => ctx.openModal((c) => renderMediaModal(c, m)),
-                onOpen: () => enterTweetDetail(ctx, t.id),
-              }),
-            );
-      // 내가 올린 트윗을 피드 상단에(최신순으로 차례차례), 광고 카드는 그 아래에 노출.
-      body = [...timelineCards, ...adCards];
+      if (account.timeline.length === 0) {
+        // 타임라인이 비었으면(첫날) 안내 문구를 그대로 맨 위에 두고, 광고는 그 아래에.
+        body = [el("div", { class: "empty" }, "아직 트윗이 없어요. 첫 트윗을 등록해보세요!"), ...adCards];
+      } else {
+        const timelineCards = account.timeline.map((t) =>
+          tweetCard(t, {
+            showGain: true,
+            ctx,
+            onMedia: (m) => ctx.openModal((c) => renderMediaModal(c, m)),
+            onOpen: () => enterTweetDetail(ctx, t.id),
+          }),
+        );
+        // 내 트윗 사이사이에 광고를 규칙적으로 끼운다(첫 카드는 항상 내 최신 트윗).
+        // 남는 광고는 피드 끝에. 배치 규칙·간격 근거는 feedLayout.ts 참고.
+        body = interleaveFeed<HTMLElement>(timelineCards, adCards);
+      }
     }
 
     const suspended = isSuspended(account, s.day);
