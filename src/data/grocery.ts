@@ -27,6 +27,8 @@ export const INGREDIENTS: Ingredient[] = [
   { id: "onion", name: "양파", emoji: "🧅", price: 1_500 },
   { id: "potato", name: "감자", emoji: "🥔", price: 2_000 },
   { id: "carrot", name: "당근", emoji: "🥕", price: 1_500 },
+  { id: "lemon", name: "레몬", emoji: "🍋", price: 2_000 },
+  { id: "mandarin", name: "밀감", emoji: "🍊", price: 3_000 },
 ];
 
 const ING_BY_ID = new Map(INGREDIENTS.map((i) => [i.id, i]));

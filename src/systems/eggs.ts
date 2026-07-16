@@ -1,15 +1,34 @@
-import type { GameState, ScheduleEvent, Tweet, Account } from "@/core/types";
+import type { GameState, ScheduleEvent, Tweet, Account, SkillStatId } from "@/core/types";
 import { getActiveAccount, LATE_SLOT } from "@/core/state";
-import { MAX_SKILL } from "@/data/stats";
-import { chance, randInt, uid } from "@/utils/random";
+import { MAX_SKILL, SKILL_STATS } from "@/data/stats";
+import { chance, pick, randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { pushKakao } from "./kakao";
+import { clampSkill } from "./stats";
 
 /**
  * 이스터에그·특수 이벤트 로직.
  * 반응(좋아요/리트윗)·팔로우·트윗·스탯 변화에 훅으로 붙는다.
  * 피드백은 카카오톡(축하/경고)과 DM(사기/찐친 등), 팔로워 변화로 전달한다.
  */
+
+/** 레몬Z 이스터에그로 오르는 스킬 수치. */
+export const LEMONZ_GAIN = 200;
+
+/** 레몬Z 이스터에그의 랜덤 대상 — 음란(lewd)을 제외한 스킬 8종. */
+export const LEMONZ_SKILLS: readonly SkillStatId[] = [
+  "fitness",
+  "beauty",
+  "vocabulary",
+  "knowledge",
+  "sociability",
+  "comedy",
+  "creativity",
+  "game",
+];
+
+/** 레몬Z 발동 조합(장바구니의 중복 제거 id 집합이 정확히 이것과 같아야 한다). */
+const LEMONZ_CART = ["lemon", "mandarin"] as const;
 
 /** 스케줄 로그 기록(time.ts와의 순환 참조를 피해 인라인). */
 function addSchedule(state: GameState, title: string, kind: ScheduleEvent["kind"]): void {
@@ -254,4 +273,53 @@ export function smartTweetMultiplier(state: GameState, attr: string): number {
 /** 레전드 BJ 버프 배율(사바나 도네이션). */
 export function legendBJMultiplier(state: GameState): number {
   return state.eggs.done.legendBJ ? 1.5 : 1;
+}
+
+/* ─────────────────── 마켓걸리버 레몬Z ─────────────────── */
+
+export interface LemonZResult {
+  /** 오른 스탯 id */
+  stat: SkillStatId;
+  /** 화면 표기용 라벨(예: "어휘력") — data/stats.ts의 label을 쓴다 */
+  label: string;
+  before: number;
+  after: number;
+  /** 실제 상승분(상한 clamp 때문에 200보다 작을 수 있다) */
+  gained: number;
+}
+
+/** 장바구니(중복 허용 배열)의 id 집합이 정확히 {lemon, mandarin}인가. 수량은 무관하다. */
+function isLemonZCart(cart: string[]): boolean {
+  const ids = new Set(cart);
+  return ids.size === LEMONZ_CART.length && LEMONZ_CART.every((id) => ids.has(id));
+}
+
+/**
+ * 마켓걸리버 레몬Z 이스터에그.
+ * 장바구니 중복 제거 집합이 정확히 {lemon, mandarin}이고 아직 발동한 적 없으면
+ * 랜덤 스킬 1개를 +200 올리고 결과를 반환한다. 아니면 null.
+ *
+ * 랜덤 대상은 **아직 만렙(999)이 아닌 스킬**로 좁힌다 — 게임당 1회뿐이라
+ * 만렙 스탯이 뽑히면 +0으로 보상이 증발한다. 후보가 하나도 없으면(8종 전부 만렙)
+ * 발동시키지 않고 null을 반환한다: 줄 게 없는데 1회성만 태우지 않기 위함이다.
+ */
+export function tryLemonZ(state: GameState, cart: string[]): LemonZResult | null {
+  // ⚠️ 조합 판정과 후보 확인이 반드시 fire()보다 먼저다. fire는 호출 즉시 done을 세우므로
+  //    발동하지 않는 경로에서 부르면 이스터에그가 영영 죽는다.
+  if (!isLemonZCart(cart)) return null;
+
+  const candidates = LEMONZ_SKILLS.filter((s) => state.skills[s] < MAX_SKILL);
+  if (candidates.length === 0) return null;
+
+  if (!fire(state, "lemonZ")) return null;
+
+  const stat = pick(candidates);
+  const before = state.skills[stat];
+  const after = clampSkill(before + LEMONZ_GAIN);
+  state.skills[stat] = after;
+
+  const label = SKILL_STATS[stat].label;
+  const gained = after - before;
+  addSchedule(state, `🍋 레몬Z! ${label} +${gained}`, "system");
+  return { stat, label, before, after, gained };
 }
