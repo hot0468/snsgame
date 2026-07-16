@@ -6686,3 +6686,251 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
 .steam-card__title { font-size: 15px; font-weight: 800; color: #f2f7fb; line-height: 1.3; }
 .steam-card__dev { font-size: 12px; color: #8fa3b5; }
 .steam-card__tags { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* ===================== 세부 스탯 팝오버: 자격증 섹션 ===================== */
+/* .detail-pop이 232px(콘텐츠 ~204px)로 좁다 — 이름은 잘라내지 말고 줄바꿈시킨다. */
+.detail-cert {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  margin-top: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.detail-cert__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.detail-cert__count {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.detail-cert__empty { font-size: 11.5px; color: var(--ink-soft); line-height: 1.5; }
+.detail-cert__list { display: flex; flex-direction: column; gap: 5px; }
+.detail-cert__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.detail-cert__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+/* 긴 이름은 어절 단위로 접는다(keep-all). 한 어절이 폭을 넘으면 그때만 강제 분할. */
+.detail-cert__name {
+  min-width: 0;
+  font-weight: 700;
+  color: var(--ink);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+/* ===================== O넷(자격증 사이트, '자격증' 검색 진입) ===================== */
+.onet-site {
+  min-height: 100%;
+  overflow: auto;
+  background: #eef2f7;
+  color: #1b2733;
+}
+.onet-gov {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 18px;
+  background: #24334a;
+  color: #c6d3e4;
+  font-size: 11.5px;
+}
+.onet-gov__mark { font-size: 12px; }
+.onet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  background: #fff;
+  border-bottom: 1px solid #d5deea;
+}
+.onet-head__brand { display: flex; align-items: baseline; gap: 9px; min-width: 0; }
+.onet-logo {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: #12539e;
+}
+.onet-head__sub { font-size: 12.5px; color: #5c6b7d; white-space: nowrap; }
+.onet-head__me {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #5c6b7d;
+  flex-shrink: 0;
+}
+.onet-head__money { font-weight: 800; color: #12539e; }
+.onet-gnb {
+  display: flex;
+  gap: 2px;
+  padding: 0 18px;
+  background: #12539e;
+  overflow-x: auto;
+}
+.onet-gnb__item {
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #cfe0f5;
+  white-space: nowrap;
+}
+.onet-gnb__item--on { background: #0d417d; color: #fff; }
+.onet-body { max-width: 780px; margin: 0 auto; padding: 18px 18px 26px; }
+.onet-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #d5deea;
+  border-left: 3px solid #12539e;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #44536a;
+}
+.onet-notice__tag {
+  font-weight: 800;
+  color: #12539e;
+  flex-shrink: 0;
+}
+.onet-pending {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 11px 13px;
+  background: #fff6e0;
+  border: 1px solid #e8c877;
+  border-radius: 6px;
+}
+.onet-pending__tag {
+  background: #b8791a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.onet-pending__text { font-size: 13px; font-weight: 800; color: #6b4a10; }
+.onet-pending__note { font-size: 11.5px; color: #8a6a30; margin-left: auto; }
+.onet-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 18px 0 10px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #1b2733;
+  border-bottom: 2px solid #24334a;
+  padding-bottom: 7px;
+}
+.onet-title__count { font-size: 12px; font-weight: 700; color: #5c6b7d; margin-left: auto; }
+.onet-list { display: flex; flex-direction: column; gap: 10px; }
+.onet-card {
+  background: #fff;
+  border: 1px solid #d5deea;
+  border-radius: 6px;
+  padding: 13px 15px;
+}
+.onet-card__head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.onet-card__name { font-size: 15px; font-weight: 800; color: #12539e; }
+.onet-card__issuer { font-size: 11.5px; color: #6b7a8d; }
+.onet-card__desc { font-size: 12.5px; color: #44536a; line-height: 1.55; margin: 5px 0 9px; }
+.onet-card__specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border-top: 1px dashed #dde4ee;
+  padding-top: 9px;
+}
+.onet-spec {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #f2f6fb;
+  border: 1px solid #e0e8f2;
+  border-radius: 4px;
+  padding: 4px 9px;
+  font-size: 12px;
+}
+.onet-spec__label { color: #6b7a8d; }
+.onet-spec__val { font-weight: 800; color: #1b2733; font-variant-numeric: tabular-nums; }
+.onet-spec__val--good { color: #1a7a4c; }
+.onet-spec__val--bad { color: #b5333f; }
+.onet-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+.onet-card__reason { font-size: 11.5px; color: #8a94a3; }
+.onet-apply {
+  border: 1px solid #0d417d;
+  background: #12539e;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 8px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.onet-apply:hover { background: #0d417d; }
+.onet-apply--off {
+  background: #b8c2ce;
+  border-color: #a9b3bf;
+  cursor: not-allowed;
+}
+.onet-apply--off:hover { background: #b8c2ce; }
+.onet-empty {
+  background: #fff;
+  border: 1px dashed #c9d4e2;
+  border-radius: 6px;
+  padding: 26px 16px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #5c6b7d;
+}
+.onet-empty__sub { font-size: 11.5px; font-weight: 400; color: #8a94a3; margin-top: 5px; }
+.onet-foot {
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid #d5deea;
+  font-size: 11px;
+  color: #8a94a3;
+  line-height: 1.7;
+  text-align: center;
+}
+.onet-leave {
+  margin-top: 12px;
+  border: 1px solid #b8c2ce;
+  background: #fff;
+  color: #44536a;
+  font-size: 12.5px;
+  padding: 7px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.onet-leave:hover { background: #f2f6fb; }

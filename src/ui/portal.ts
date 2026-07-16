@@ -451,6 +451,13 @@ function searchBar(ctx: GameContext): HTMLElement {
       ctx.refresh();
       return;
     }
+    // '자격증' → O넷. 도깨비 상점과 달리 조건 없이 언제나 열린다(월 1회 제한 없음).
+    if (q === "자격증") {
+      input.value = "";
+      ctx.ui.onetSiteOpen = true;
+      ctx.refresh();
+      return;
+    }
     // 그 외(모르는 키워드 · 또는 이번 달 이미 다녀간 경우) → 힌트 없이 동일하게 처리
     window.alert("검색 결과가 없습니다");
   };

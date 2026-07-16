@@ -70,6 +70,8 @@ export interface UIState {
   wishOptions: string[];
   /** '도깨비 상점' 사이트가 열려 있는지(탭 이동 시 닫힘) */
   goblinSiteOpen: boolean;
+  /** 'O넷' 자격증 사이트가 열려 있는지(탭 이동 시 닫힘, 재진입 제한 없음) */
+  onetSiteOpen: boolean;
   /** 피메일에서 선택해 열어본 메일 id */
   mailSelectedId: string | null;
   /** 마켓걸리버 장바구니에 담은 식재료 id 목록(중복 허용) */
@@ -105,6 +107,7 @@ export function createUIState(): UIState {
     wishSiteOpen: false,
     wishOptions: [],
     goblinSiteOpen: false,
+    onetSiteOpen: false,
     mailSelectedId: null,
     groceryCart: [],
     yabamSection: "video",

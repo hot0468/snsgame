@@ -2,6 +2,7 @@ import type { GameContext } from "./context";
 import { RESOURCE_STATS, RESOURCE_STAT_IDS, SKILL_STATS, SKILL_STAT_IDS } from "@/data/stats";
 import { daysUntilRent, livingCostToday, rentAmount } from "@/systems/economy";
 import { salaryOf } from "@/systems/employment";
+import { certById } from "@/systems/certification";
 import type { SkillStatId } from "@/core/types";
 import { el, formatNumber } from "@/utils/dom";
 import { statBar } from "./components";
@@ -70,6 +71,45 @@ function renderMoneyInfo(s: import("@/core/types").GameState): HTMLElement {
   );
 }
 
+/**
+ * 세부 스탯 팝오버 하단의 자격증 목록.
+ * .detail-pop이 232px로 좁아 이름이 길면 잘리므로, 이름은 한 줄에 가두지 않고
+ * .detail-cert__name에서 줄바꿈시킨다(CSS: word-break:keep-all).
+ */
+function renderCertSection(s: import("@/core/types").GameState): HTMLElement {
+  // 데이터에서 사라진 id(구세이브)는 걸러낸다.
+  const owned = (s.certifications ?? [])
+    .map((id) => certById(id))
+    .filter((c): c is NonNullable<typeof c> => !!c);
+
+  return el(
+    "div",
+    { class: "detail-cert" },
+    el(
+      "div",
+      { class: "detail-cert__head" },
+      el("span", { class: "detail-stats__title" }, "자격증"),
+      owned.length > 0
+        ? el("span", { class: "detail-cert__count" }, `${owned.length}종`)
+        : null,
+    ),
+    owned.length === 0
+      ? el("div", { class: "detail-cert__empty" }, "아직 취득한 자격증이 없습니다")
+      : el(
+          "div",
+          { class: "detail-cert__list" },
+          ...owned.map((c) =>
+            el(
+              "div",
+              { class: "detail-cert__item", title: `${c.name} · ${c.issuer}` },
+              el("span", { class: "detail-cert__dot" }),
+              el("span", { class: "detail-cert__name" }, c.name),
+            ),
+          ),
+        ),
+  );
+}
+
 /** 스테이터스 내용(제목 + 본문) — 팝업/도킹 패널이 공유한다. */
 function statusInner(ctx: GameContext): HTMLElement[] {
   const s = ctx.store.getState();
@@ -118,6 +158,7 @@ function statusInner(ctx: GameContext): HTMLElement[] {
             el("span", { class: "detail-row__val" }, String(val)),
           );
         }),
+        renderCertSection(s),
       )
     : null;
 

@@ -4,6 +4,7 @@ import { uid } from "@/utils/random";
 import { applyDailyCosts, daysUntilRent, settleMonthlyIncome } from "./economy";
 import { settleAuthorMonthly } from "./author";
 import { deliverJobResultEmail } from "./employment";
+import { deliverExamResultEmail } from "./certification";
 import { maybeSpawnSpamEmail } from "./spam";
 import { maybeSpawnAdEmail } from "./adMail";
 import { spawnDailyAdTweets } from "./adTweets";
@@ -101,6 +102,8 @@ function onNewDay(state: GameState): void {
   settleAuthorMonthly(state);
   // 취업 지원 결과 메일(지원 익일) 도착
   deliverJobResultEmail(state);
+  // 자격증 시험 결과 메일(응시 3일 뒤) 도착
+  deliverExamResultEmail(state);
   // 스팸(피싱) 메일이 간간이 온다
   maybeSpawnSpamEmail(state);
   // 쇼핑몰 광고 메일(50% 특가, 당일 한정)이 드물게 온다

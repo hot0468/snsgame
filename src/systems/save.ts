@@ -85,6 +85,9 @@ function sanitize(state: GameState): GameState {
   state.savannaJoined ??= false;
   state.employment ??= null;
   state.pendingJobApp ??= null;
+  // 자격증은 신규 기능이라 구세이브엔 키 자체가 없다 — 미취득/대기 없음으로 시작.
+  if (!Array.isArray(state.certifications)) state.certifications = [];
+  state.pendingExam ??= null;
   if (!Array.isArray(state.emails)) state.emails = [];
   state.loan ??= null;
   state.loanOffered ??= false;
