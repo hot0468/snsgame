@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.local
+.DS_Store
+
+# 세션 작업 메모(스크래치)
+_workspace/
+_workspace_prev/

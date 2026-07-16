@@ -1,0 +1,108 @@
+import type { GameContext } from "./context";
+import { SLOTS_PER_DAY } from "@/core/state";
+import {
+  CAPTURE_DAYS,
+  applyCapturePenalty,
+  canRepayLoan,
+  repayLoan,
+} from "@/systems/loan";
+import { addSchedule, advanceTime } from "@/systems/time";
+import { el, formatNumber } from "@/utils/dom";
+import { icon } from "./icons";
+
+/**
+ * 대출 상환 마감일 팝업(강제).
+ * 갚을 수 있으면 상환, 없으면 3일간 잡혀간다(취업 중이면 성과 대폭 하락).
+ */
+export function renderLoanModal(ctx: GameContext): HTMLElement {
+  const container = el("div", { class: "modal" });
+
+  function showDue(): void {
+    const s = ctx.store.getState();
+    const loan = s.loan;
+    if (!loan) {
+      queueMicrotask(() => ctx.closeModal());
+      return container.replaceChildren();
+    }
+    const repayable = canRepayLoan(s);
+
+    container.replaceChildren(
+      el(
+        "div",
+        { class: "modal__head" },
+        el("span", { class: "modal__head-title" }, icon("coin", { size: 18 }), "빚 상환일"),
+      ),
+      el(
+        "div",
+        { class: "modal__body" },
+        el(
+          "p",
+          { style: "font-size:15px;line-height:1.6;margin:0 0 16px" },
+          `대부업체 상환 마감일이다. 갚아야 할 돈은 ${formatNumber(loan.repayAmount)}원.`,
+        ),
+        repayable
+          ? el(
+              "button",
+              { class: "event-choice", onclick: () => doRepay() },
+              `${formatNumber(loan.repayAmount)}원을 갚는다`,
+            )
+          : el(
+              "div",
+              {},
+              el(
+                "p",
+                { class: "compose-hint", style: "margin:0 0 14px" },
+                "통장이 텅 비었다. 갚을 돈이 없다...",
+              ),
+              el(
+                "button",
+                { class: "event-choice", onclick: () => doCapture() },
+                "돈이 없다... (끌려간다)",
+              ),
+            ),
+      ),
+    );
+  }
+
+  function doRepay(): void {
+    let amount = 0;
+    ctx.update((s) => {
+      amount = repayLoan(s);
+      addSchedule(s, `사채 상환 -${formatNumber(amount)}원`, "system");
+    });
+    showResult(`${formatNumber(amount)}원을 갚아 빚을 청산했다. 겨우 한숨 돌렸다...`);
+  }
+
+  function doCapture(): void {
+    let performanceHit = false;
+    ctx.update((s) => {
+      performanceHit = applyCapturePenalty(s).performanceHit;
+      addSchedule(s, `사채 미상환 — ${CAPTURE_DAYS}일간 잡혀감`, "system");
+      advanceTime(s, CAPTURE_DAYS * SLOTS_PER_DAY);
+    });
+    showResult(
+      `돈을 갚지 못해 대부업체에 끌려가 ${CAPTURE_DAYS}일을 붙잡혀 있었다. 정신력이 크게 상했다.` +
+        (performanceHit ? " 무단결근으로 회사 성과도 바닥났다..." : "") +
+        " 그래도 빚은 몸으로 때워 사라졌다.",
+    );
+  }
+
+  function showResult(message: string): void {
+    container.replaceChildren(
+      el("div", { class: "modal__head" }, "…"),
+      el(
+        "div",
+        { class: "modal__body" },
+        el("p", { style: "font-size:15px;line-height:1.6;margin:0 0 18px" }, message),
+        el(
+          "div",
+          { style: "text-align:right" },
+          el("button", { class: "btn", onclick: () => ctx.closeModal() }, "확인"),
+        ),
+      ),
+    );
+  }
+
+  showDue();
+  return container;
+}

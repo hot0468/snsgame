@@ -1,0 +1,215 @@
+import type { AdultKind, AttributeId, GameState, Tweet } from "@/core/types";
+import {
+  dominantAttribute,
+  getActiveAccount,
+  EVENING_SLOT,
+  LATE_SLOT,
+} from "@/core/state";
+import { chance, randInt, uid } from "@/utils/random";
+import { makeMedia } from "@/data/media";
+import { mediaSetFor } from "@/data/mediaTweets";
+import { calcTweetOutcome, changeFollowers } from "./followers";
+import { maybeSpawnDickPicDM, maybeSpawnFanDM, maybeSpawnMotelDM, maybeSpawnTicketDM } from "./dm";
+import { maybeSpawnSavannaDM } from "./savanna";
+import { onTweetPosted, smartTweetMultiplier } from "./eggs";
+import { maybeSpawnCrewInviteDM } from "./crew";
+import { maybeSpawnPushDM } from "./pushtime";
+import { maybeSpawnYabamDM } from "./yabam";
+import { generateReactions } from "./reactions";
+import { clampResource } from "./stats";
+import { addStrike } from "./ban";
+import { rollControversy, CONTROVERSY_REP_THRESHOLD } from "./controversy";
+import { addSchedule, advanceTime } from "./time";
+
+/** 트윗 1건 작성에 드는 행동력 */
+export const TWEET_ACTION_COST = 10;
+
+/** 성인 트윗의 신규 팔로워 배율(일반 대비) */
+export const ADULT_FOLLOWER_MULTIPLIER = 1.5;
+
+export interface PostTweetResult {
+  tweet: Tweet;
+  followerDelta: number;
+  /** 저녁 트윗을 올린 직후라, 자러갈지/심야까지 남을지 선택이 필요한지 */
+  needsSleepChoice: boolean;
+}
+
+/** postTweet 부가 옵션 */
+export interface PostTweetOptions {
+  /**
+   * true면 행동력 소모(TWEET_ACTION_COST)와 시간 진행(advanceTime)을 건너뛴다.
+   * 무료 게시 경로(예: 야밤 리뷰 트윗 해금)에 사용. 그 외 팔로워·리액션·타임라인
+   * 등록·DM 스폰 등은 그대로 수행된다. free일 때 needsSleepChoice는 항상 false.
+   */
+  free?: boolean;
+  /**
+   * true면 시간 진행(advanceTime)만 건너뛴다(행동력은 그대로 소모).
+   * '활동 후 트윗하기' 경로(현생살기·너튜브 시청·미디북스 감상)에 사용 —
+   * 선행 활동이 이미 타임블록 1칸을 썼으므로, 뒤따르는 트윗은 시간을 추가로
+   * 소모하지 않는다. skipTime일 때 needsSleepChoice는 항상 false.
+   */
+  skipTime?: boolean;
+}
+
+/**
+ * 새 트윗을 등록한다.
+ * - 행동력을 소모하고, 성과를 계산해 팔로워를 반영한 뒤 타임라인 맨 앞에 추가.
+ * - 성인 트윗은 신규 팔로워가 1.5배.
+ * - 저녁 트윗이면 심야까지 남을지 묻는 선택(needsSleepChoice)을 반환한다.
+ * - 심야 트윗이면 lateTweetToday를 세워 다음날 수면 회복을 줄인다.
+ */
+export function postTweet(
+  state: GameState,
+  attr: AttributeId,
+  text: string,
+  isAdult: boolean,
+  adultKind: AdultKind = "meetup",
+  followerMultiplier = 1,
+  opts: PostTweetOptions = {},
+): PostTweetResult {
+  const account = getActiveAccount(state);
+  const outcome = calcTweetOutcome(state, attr);
+  // 성인 트윗은 신규 팔로워 1.5배, 박학다식 달성 시 정보성 트윗 성과 상승,
+  // 창작(1차/2차)·이달의 인기작 적중 시 followerMultiplier로 추가 가중.
+  const followers = Math.round(
+    outcome.followers *
+      (isAdult ? ADULT_FOLLOWER_MULTIPLIER : 1) *
+      smartTweetMultiplier(state, attr) *
+      followerMultiplier,
+  );
+
+  const postedSlot = state.slot;
+
+  const tweet: Tweet = {
+    id: uid("tweet"),
+    authorName: account.name,
+    authorHandle: account.handle,
+    attribute: attr,
+    isAdult,
+    text,
+    createdDay: state.day,
+    likes: outcome.likes,
+    retweets: outcome.retweets,
+    gainedFollowers: followers,
+  };
+
+  tweet.replies = generateReactions(state, attr, text);
+  // 미디어 세트 트윗이면 그 미디어를, 아니면 확률적으로 랜덤 미디어 첨부
+  const mset = mediaSetFor(text);
+  if (mset) tweet.media = mset.media;
+  else if (chance(0.2)) tweet.media = makeMedia(attr);
+
+  // 무료 게시(opts.free)면 행동력 소모를 건너뛴다.
+  if (!opts.free) {
+    state.resources.action = Math.max(0, state.resources.action - TWEET_ACTION_COST);
+  }
+  changeFollowers(state, followers);
+  account.timeline.unshift(tweet);
+  account.lastTweetDay = state.day;
+  // 올린 트윗들의 다수 카테고리로 계정 성향을 갱신(유저에게는 표출되지 않음)
+  account.attribute = dominantAttribute(account);
+  addSchedule(state, `트윗 등록 (+${followers} 팔로워)`, "sns");
+  if (followers > 0) maybeSpawnFanDM(state);
+  // 성인 트윗이면 확률적으로 (종류에 맞는) 모텔 제안 DM 또는 성기 사진 DM이 온다
+  if (isAdult) {
+    state.postedAdultEver = true;
+    state.adultTweetsPosted++;
+    maybeSpawnMotelDM(state, adultKind);
+    maybeSpawnDickPicDM(state);
+    maybeSpawnSavannaDM(state);
+    maybeSpawnYabamDM(state);
+  }
+  // 아이돌덕/배우덕 트윗이면 확률적으로 티켓 양도 DM이 온다
+  else if (attr === "idol" || attr === "actor") maybeSpawnTicketDM(state, attr);
+  // 운동 트윗이면 확률적으로 러닝크루 가입 권유 DM이 온다
+  else if (attr === "fitness") maybeSpawnCrewInviteDM(state);
+  // 애니덕 트윗이면(성인+음란 높음) 확률적으로 푸시타임 링크 DM이 온다
+  else if (attr === "anime") maybeSpawnPushDM(state);
+
+  // 평판이 낮거나 성인 트윗은 논란/박제가 터질 수 있다
+  let ctrlChance = 0;
+  if (state.resources.reputation < CONTROVERSY_REP_THRESHOLD) ctrlChance += 0.18;
+  if (isAdult && state.resources.morality < 30) ctrlChance += 0.15;
+  rollControversy(state, ctrlChance);
+
+  // 심야 트윗이면 수면 부족 플래그. (advance 시 하루가 넘어가며 회복이 줄어듦)
+  // 단, 무료 게시(opts.free)면 진짜 '무료' 해금이므로 수면 페널티도 남기지 않는다.
+  if (!opts.free && postedSlot === LATE_SLOT) state.lateTweetToday = true;
+
+  // 도배(하루 10개 초과)·밤샘(7일 연속 심야) 이스터에그 — 시간 진행 전에 판정
+  onTweetPosted(state, postedSlot);
+
+  // 무료 게시(opts.free) 또는 시간 미소모(opts.skipTime)면 시간 진행을 건너뛴다.
+  // 이 경우 수면 선택(needsSleepChoice)도 불필요하다.
+  // skipTime은 '활동 후 트윗'이라 선행 활동이 이미 타임블록을 소모한 상태다.
+  if (opts.free || opts.skipTime) {
+    return { tweet, followerDelta: followers, needsSleepChoice: false };
+  }
+
+  advanceTime(state, 1);
+
+  // 저녁 트윗 직후(이제 심야 슬롯)라면 자러갈지 선택을 요청
+  const needsSleepChoice = postedSlot === EVENING_SLOT;
+
+  return { tweet, followerDelta: followers, needsSleepChoice };
+}
+
+/** 트윗 작성이 가능한지(행동력 체크) */
+export function canPostTweet(state: GameState): boolean {
+  return state.resources.action >= TWEET_ACTION_COST;
+}
+
+/** 사기 트윗 1건이 깎는 평판 */
+export const SCAM_REPUTATION_DROP = 35;
+/** 사기 트윗 1건이 깎는 도덕성 */
+export const SCAM_MORALITY_DROP = 8;
+
+export interface ScamTweetResult {
+  tweet: Tweet;
+  /** 사기로 번 금액 */
+  earned: number;
+  needsSleepChoice: boolean;
+}
+
+/**
+ * 사기성 트윗을 등록한다(도덕성이 매우 낮을 때만 UI에서 노출).
+ * - 소지금을 얻지만 평판이 크게, 도덕성도 함께 떨어진다.
+ * - 신규 팔로워는 없다(오히려 평판 하락으로 이후 유입이 줄어든다).
+ */
+export function postScamTweet(state: GameState, text: string): ScamTweetResult {
+  const account = getActiveAccount(state);
+  const postedSlot = state.slot;
+
+  // 팔로워가 많을수록 등쳐먹을 대상도 많아 수익이 크다
+  const earned = Math.round((30_000 + account.followers * 3) * (0.7 + Math.random() * 0.6));
+  state.money += earned;
+  state.resources.reputation = clampResource(state.resources.reputation - SCAM_REPUTATION_DROP);
+  state.resources.morality = clampResource(state.resources.morality - SCAM_MORALITY_DROP);
+
+  const tweet: Tweet = {
+    id: uid("tweet"),
+    authorName: account.name,
+    authorHandle: account.handle,
+    attribute: "daily",
+    isAdult: false,
+    text,
+    createdDay: state.day,
+    likes: randInt(0, 40),
+    retweets: randInt(0, 15),
+    gainedFollowers: 0,
+  };
+
+  state.resources.action = Math.max(0, state.resources.action - TWEET_ACTION_COST);
+  account.timeline.unshift(tweet);
+  account.lastTweetDay = state.day;
+  addSchedule(state, `사기 트윗 (+${earned.toLocaleString("ko-KR")}원)`, "sns");
+
+  // 사기는 경고 누적(밴 위험) + 높은 확률로 논란 발생
+  addStrike(state, 1);
+  rollControversy(state, 0.5);
+
+  if (postedSlot === LATE_SLOT) state.lateTweetToday = true;
+  advanceTime(state, 1);
+
+  return { tweet, earned, needsSleepChoice: postedSlot === EVENING_SLOT };
+}

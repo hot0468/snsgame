@@ -1,0 +1,200 @@
+import type { Employment, GameState, ScheduleEvent } from "@/core/types";
+import { uid } from "@/utils/random";
+import { HOUSINGS } from "@/data/housing";
+import { MAX_SKILL } from "@/data/stats";
+import { dateOfMonth, isLastDayOfMonth, isWeekday, monthKey } from "./calendar";
+import { sendSalaryKakao, sendTwitterSettlementKakao } from "./kakao";
+import { offerLoan } from "./loan";
+
+/** 하루 생활비 */
+export const DAILY_LIVING_COST = 10_000;
+/** 월세(주거 데이터에 rent가 없을 때의 기본 월세) */
+export const MONTHLY_RENT = 300_000;
+/** 팔로워 1명당 월 수익(원) — 매월 1일 정산 */
+export const FOLLOWER_MONTHLY_RATE = 2;
+/** 연속 미납이 이 횟수에 도달하면 퇴거(게임오버) */
+export const RENT_EVICTION_STREAK = 3;
+
+/** 취업 초봉 */
+export const BASE_SALARY = 300_000;
+/** 성과 레벨 1당 월급 인상액 */
+export const PERF_LEVEL_RAISE = 30_000;
+
+/** 현재 월급(성과 레벨 반영) */
+export function currentSalary(emp: Employment): number {
+  return BASE_SALARY + emp.perfLevel * PERF_LEVEL_RAISE;
+}
+
+function fmt(n: number): string {
+  return n.toLocaleString("ko-KR");
+}
+
+/** 네이놈 배너 적립액(하루 1회) */
+export const BANNER_REWARD = 100;
+
+/** 오늘 네이놈 배너로 아직 적립받지 않았는지 */
+export function canClaimBanner(state: GameState): boolean {
+  return state.daily.bannerClaimedDay !== state.day;
+}
+
+/** 네이놈 배너 적립: 하루 1회 100원. @returns 적립액(불가 시 0) */
+export function claimBanner(state: GameState): number {
+  if (!canClaimBanner(state)) return 0;
+  state.money += BANNER_REWARD;
+  state.daily.bannerClaimedDay = state.day;
+  return BANNER_REWARD;
+}
+
+/** 모든 계정의 팔로워 합계 */
+export function totalFollowers(state: GameState): number {
+  return state.accounts.reduce((sum, a) => sum + a.followers, 0);
+}
+
+/** 이번 달 정산될 팔로워 수익(원) */
+export function monthlyFollowerIncome(state: GameState): number {
+  return totalFollowers(state) * FOLLOWER_MONTHLY_RATE;
+}
+
+/** 유료 구독 채널 수익 배율(팔로워 1명당, 음란도 만렙 기준) */
+export const SUBSCRIPTION_RATE = 3;
+
+/**
+ * 이번 달 정산될 유료 구독 채널 수익(원).
+ * 채널을 개설한 경우에만, 팔로워 규모와 음란도(콘텐츠 수위)에 비례한다.
+ */
+export function monthlySubscriptionIncome(state: GameState): number {
+  if (!state.paidChannelJoined) return 0;
+  return Math.round(totalFollowers(state) * SUBSCRIPTION_RATE * (state.skills.lewd / MAX_SKILL));
+}
+
+function pushSchedule(state: GameState, title: string, kind: ScheduleEvent["kind"]): void {
+  state.schedule.push({ id: uid("sch"), day: state.day, title, kind });
+}
+
+/** 이번 달 월세 납부일(마지막 날)까지 남은 일수(오늘이 마지막날이면 0) */
+export function daysUntilRent(state: GameState): number {
+  let d = state.day;
+  while (monthKey(d) === monthKey(d + 1)) d++; // d = 이번 달 마지막 날
+  return d - state.day;
+}
+
+/** 현재 빚 상태(잔고가 음수)인지 */
+export function inDebt(state: GameState): boolean {
+  return state.money < 0;
+}
+
+/** 오늘의 생활비(중견/대기업 재직 시 평일은 면제) */
+export function livingCostToday(state: GameState): number {
+  const tier = state.employment?.tier;
+  if ((tier === "medium" || tier === "large") && isWeekday(state.day)) return 0;
+  return DAILY_LIVING_COST;
+}
+
+/** 이번 월세액(주거 단계별 월세 · 대기업 재직 시 반값) */
+export function rentAmount(state: GameState): number {
+  const base = HOUSINGS[state.housingTier]?.rent ?? MONTHLY_RENT;
+  return state.employment?.tier === "large" ? Math.round(base / 2) : base;
+}
+
+/** 이번 납부일에 실제로 청구되는 금액(이번 달 월세 + 지난달까지 밀린 미납 누적) */
+export function rentDue(state: GameState): number {
+  return rentAmount(state) + state.overdueRent;
+}
+
+/** 월급날(매월 10일, 입사 익월부터) 처리 */
+function maybePayday(state: GameState): void {
+  const emp = state.employment;
+  if (!emp) return;
+  if (dateOfMonth(state.day) !== 10) return;
+  const mk = monthKey(state.day);
+  if (mk <= monthKey(emp.hiredDay)) return; // 익월부터
+  if (emp.lastSalaryMonth === mk) return;
+  emp.lastSalaryMonth = mk;
+  const salary = currentSalary(emp);
+  state.money += salary;
+  pushSchedule(state, `월급 +${fmt(salary)}원 (${emp.company})`, "system");
+  sendSalaryKakao(state, emp.company, salary);
+}
+
+/**
+ * 매월 1일 트위터(X) 수익(팔로워 + 유료 구독)을 정산해 money에 크레딧하고 알림 카톡을 보낸다.
+ * 1일 저녁 슬롯 진입 시 time.advanceTime에서 호출된다(내부 가드로 1일에만 실제 동작, 월 1회).
+ */
+export function settleMonthlyIncome(state: GameState): void {
+  if (state.gameOver) return;
+  if (dateOfMonth(state.day) !== 1) return;
+  const mk = monthKey(state.day);
+  if (state.lastIncomeSettleMonth === mk) return; // 이번 달 이미 정산
+  state.lastIncomeSettleMonth = mk;
+  const income = monthlyFollowerIncome(state);
+  const subs = monthlySubscriptionIncome(state);
+  if (income > 0) {
+    state.money += income;
+    pushSchedule(state, `팔로워 수익 +${fmt(income)}원`, "system");
+  }
+  if (subs > 0) {
+    state.money += subs;
+    pushSchedule(state, `유료 구독 수익 +${fmt(subs)}원`, "system");
+  }
+  if (income + subs > 0) sendTwitterSettlementKakao(state, income, subs);
+}
+
+/** 소지금이 마이너스면 대부 제안 카톡을, 흑자로 돌아오면 제안 플래그를 리셋 */
+function updateLoanOffer(state: GameState): void {
+  if (state.money < 0 && !state.loan && !state.loanOffered) {
+    offerLoan(state);
+  } else if (state.money >= 0) {
+    state.loanOffered = false;
+  }
+}
+
+/**
+ * 하루가 지날 때 호출: 월급→생활비→(매월 마지막 날)월세를 정산한다.
+ * 월세를 못 내면 연속 미납이 쌓이고, 3회 연속이면 퇴거(게임오버).
+ * time.onNewDay에서 호출된다.
+ */
+export function applyDailyCosts(state: GameState): void {
+  // 월급(익월부터, 매월 10일)
+  maybePayday(state);
+
+  // 생활비
+  const living = livingCostToday(state);
+  if (living > 0) {
+    state.money -= living;
+    pushSchedule(state, `생활비 -${fmt(living)}원`, "system");
+  }
+
+  // 월세(매월 마지막 날 청구). 수입 정산은 매월 1일 settleMonthlyIncome에서 별도로 처리한다.
+  if (isLastDayOfMonth(state.day)) {
+    // 이번 달 월세 + 지난달까지 밀린 미납액을 함께 청구한다
+    const hadOverdue = state.overdueRent > 0;
+    const due = rentAmount(state) + state.overdueRent;
+    if (state.money >= due) {
+      state.money -= due;
+      state.overdueRent = 0;
+      state.unpaidRentStreak = 0;
+      pushSchedule(
+        state,
+        hadOverdue ? `밀린 월세까지 -${fmt(due)}원` : `월세 -${fmt(due)}원`,
+        "system",
+      );
+    } else {
+      // 못 내면 이번 달 월세까지 미납액에 누적 → 다음 달에 합산 청구
+      state.overdueRent = due;
+      state.unpaidRentStreak += 1;
+      pushSchedule(
+        state,
+        `월세 미납! 누적 ${fmt(due)}원 (${state.unpaidRentStreak}/${RENT_EVICTION_STREAK})`,
+        "system",
+      );
+      // 독촉 카톡은 익월 2일에 time.maybeSendRentOverdueNag가 보낸다(즉시 발송 안 함).
+      if (!state.gameOver && state.unpaidRentStreak >= RENT_EVICTION_STREAK) {
+        state.gameOver = "월세를 세 달 연속 내지 못해 방에서 쫓겨났습니다...";
+        pushSchedule(state, "퇴거 — 게임 오버", "system");
+      }
+    }
+  }
+
+  // 적자면 대부업체가 연락한다
+  updateLoanOffer(state);
+}

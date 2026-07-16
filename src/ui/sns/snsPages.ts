@@ -1,0 +1,923 @@
+import type { GameContext } from "@/ui/context";
+import type { Account, AttributeId, DMThread, GameState, Tweet } from "@/core/types";
+import { getActiveAccount } from "@/core/state";
+import { ALL_ATTRIBUTE_IDS, ATTRIBUTES } from "@/data/attributes";
+import type { DMTone } from "@/data/dmContent";
+import { DICK_SIZE_LABELS } from "@/data/dmContent";
+import { canUseBoldTone, claimDonation, replyDM, sendCustomDM } from "@/systems/dm";
+import { canMeet, MEETING_ACTION_COST } from "@/systems/meeting";
+import { joinCrew } from "@/systems/crew";
+import { joinSavanna } from "@/systems/savanna";
+import { acceptAuthorContract } from "@/systems/author";
+import { consumeWishLink, isWishTweet, rollWishOptions, spawnWishDM } from "@/systems/wish";
+import { consumePushLink } from "@/systems/pushtime";
+import { consumeYabamLink } from "@/systems/yabam";
+import { addAppointment } from "@/systems/appointments";
+import { dateLabel } from "@/systems/time";
+import { SLOT_LABELS, MORNING_SLOT } from "@/core/state";
+import {
+  canReactNicely,
+  exploreAccounts,
+  exploreTweets,
+  searchTweetsByCategory,
+  followAccount,
+  reactToTweet,
+  retweetTweet,
+  spendExplore,
+  SOCIABILITY_NICE_MIN,
+} from "@/systems/exploreSystem";
+import { canWatchAd, watchAd } from "@/systems/ads";
+import { el, enableDragScroll, formatNumber } from "@/utils/dom";
+import { tweetCard } from "@/ui/components";
+import { icon, avatar, ATTR_ICON } from "@/ui/icons";
+import { renderMeetingModal } from "./meetingModal";
+import { renderMotelModal } from "./motelModal";
+import { renderTicketModal } from "./ticketModal";
+import { renderAccountModal } from "./accountModal";
+import { renderMediaModal } from "@/ui/mediaModal";
+import type { TweetMedia } from "@/core/types";
+
+/** 트윗의 사진/영상 자리 클릭 → 설명 팝업 */
+function openMedia(ctx: GameContext): (m: TweetMedia) => void {
+  return (m) => ctx.openModal((c) => renderMediaModal(c, m));
+}
+
+/* ===================== 페이지 진입(네비게이션) ===================== */
+
+/** 홈으로 */
+export function goHome(ctx: GameContext): void {
+  ctx.ui.snsPage = "home";
+  ctx.refresh();
+}
+
+/** 탐색 페이지 진입: 랜덤 계정 생성 + 탐색 비용 처리 */
+export function enterExplore(ctx: GameContext): void {
+  ctx.ui.exploreAccounts = exploreAccounts(ctx.store.getState());
+  ctx.ui.exploreSelectedId = null;
+  ctx.ui.snsPage = "explore";
+  ctx.update((s) => spendExplore(s));
+  ctx.afterAction("explore");
+}
+
+/** 둘러보기 페이지 진입: 랜덤 트윗 생성 + 탐색 비용 처리 */
+export function enterPosts(ctx: GameContext): void {
+  ctx.ui.explorePosts = exploreTweets(ctx.store.getState());
+  ctx.ui.snsPage = "posts";
+  ctx.update((s) => spendExplore(s));
+  ctx.afterAction("explore");
+}
+
+/**
+ * 검색 페이지에서 볼 수 있는 카테고리 — 내가 아직 트윗을 못 쓰는(미해금) 성향은 제외한다.
+ * (성인계는 해금돼 있어도 성인물 해제가 꺼져 있으면 숨긴다.)
+ */
+function searchCategories(ctx: GameContext): AttributeId[] {
+  const account = getActiveAccount(ctx.store.getState());
+  const adult = account.adultMode;
+  return ALL_ATTRIBUTE_IDS.filter(
+    (a) =>
+      account.unlockedAttributes.includes(a) && (adult || !ATTRIBUTES[a].adultOnly),
+  );
+}
+
+/** 특정 카테고리를 선택해 해당 성향 트윗 3개를 랜덤 생성 */
+function selectSearchCategory(ctx: GameContext, attr: AttributeId): void {
+  ctx.ui.searchCategory = attr;
+  ctx.ui.searchPosts = searchTweetsByCategory(ctx.store.getState(), attr);
+  ctx.refresh();
+}
+
+/** 검색 페이지 진입: 오른쪽 트렌드 영역 없이 검색만. 첫 카테고리를 자동 선택. */
+export function enterSearch(ctx: GameContext): void {
+  const cats = searchCategories(ctx);
+  const prev = ctx.ui.searchCategory;
+  const cat = prev && cats.includes(prev) ? prev : cats[0];
+  ctx.ui.snsPage = "search";
+  selectSearchCategory(ctx, cat);
+}
+
+/** 쪽지 페이지 진입 */
+export function enterDM(ctx: GameContext): void {
+  const account = getActiveAccount(ctx.store.getState());
+  if (!ctx.ui.dmThreadId || !account.dms.some((t) => t.id === ctx.ui.dmThreadId)) {
+    ctx.ui.dmThreadId = account.dms[0]?.id ?? null;
+  }
+  ctx.ui.snsPage = "dm";
+  ctx.refresh();
+}
+
+/** 광고 페이지 진입 */
+export function enterAd(ctx: GameContext): void {
+  ctx.ui.snsPage = "ad";
+  ctx.refresh();
+}
+
+/* ===================== 공용 ===================== */
+
+/** 뒤로가기 화살표가 있는 페이지 헤더 */
+function pageHeader(title: string, onBack: () => void): HTMLElement {
+  return el(
+    "header",
+    { class: "feed__header" },
+    el(
+      "div",
+      { class: "page-head" },
+      el("button", { class: "page-head__back", title: "뒤로", onclick: onBack }, "←"),
+      el("div", { class: "page-head__title" }, title),
+    ),
+  );
+}
+
+/** 이미 이 원본 트윗을 리트윗했는지 */
+function alreadyRetweeted(state: GameState, sourceId: string): boolean {
+  return getActiveAccount(state).timeline.some(
+    (t) => t.isRetweet && t.retweetSourceId === sourceId,
+  );
+}
+
+/** 남의 트윗을 리트윗해 내 탐라에 등록 */
+function doRetweet(ctx: GameContext, tweet: Tweet): void {
+  let delta: number | null = 0;
+  ctx.update((s) => {
+    delta = retweetTweet(s, tweet);
+  });
+  if (delta === null) {
+    ctx.toast("이미 리트윗한 트윗이에요");
+    return;
+  }
+  ctx.toast(delta >= 0 ? `리트윗! 내 탐라에 등록 · 팔로워 +${delta}` : `리트윗... 상충 ${delta}`);
+}
+
+/** 남의 트윗에 반응(좋아요/악플)을 남긴다. */
+function doReact(ctx: GameContext, tweet: Tweet, positive: boolean): void {
+  ctx.ui.reactedTweetIds.add(tweet.id);
+  // 까칠한외눈 트윗에 좋아요를 누르면 소원 가게 링크 DM이 온다.
+  if (positive && isWishTweet(tweet)) {
+    ctx.update((s) => spawnWishDM(s));
+    ctx.toast("의문의 계정에게서 쪽지가 도착했다…");
+    return;
+  }
+  let delta = 0;
+  ctx.update((s) => {
+    delta = reactToTweet(s, tweet, positive);
+  });
+  if (positive) {
+    ctx.toast(delta > 0 ? `응원했다! 팔로워 +${delta}` : "응원했지만 반응은 미지근하다.");
+  } else {
+    ctx.toast(`악플을 남겼다... 팔로워 ${delta >= 0 ? "+" : ""}${delta} · 도덕성 하락`);
+  }
+}
+
+/** 행사 트윗의 '참여하기' → 행사 일정을 스케줄(약속)에 등록 */
+function joinTweetEvent(ctx: GameContext, tweet: Tweet): void {
+  const ev = tweet.event;
+  if (!ev || ev.joined) return;
+  ev.joined = true; // UI 상태(즉시 버튼 반영)
+  let when = "";
+  let ticketing = false;
+  ctx.update((s) => {
+    const eventDay = Math.max(ev.day, s.day + 2); // 행사는 항상 미래로
+    if (ev.ticketing) {
+      // 무대인사·GV·콘서트: 관람 전에 티켓팅부터. 티켓팅은 행사 일주일 전(과거면 내일)에 도래.
+      ticketing = true;
+      const ticketDay = Math.max(eventDay - 7, s.day + 1);
+      const realEventDay = Math.max(eventDay, ticketDay + 1);
+      addAppointment(s, {
+        day: ticketDay,
+        slot: MORNING_SLOT,
+        kind: "ticketing",
+        title: `${ev.title} 티켓팅`,
+        ticketFor: {
+          day: realEventDay,
+          slot: ev.slot,
+          title: ev.title,
+          attribute: ev.attribute,
+          variant: ev.variant,
+        },
+      });
+      when = `${dateLabel(ticketDay)} ${SLOT_LABELS[MORNING_SLOT] ?? ""}`;
+    } else {
+      addAppointment(s, {
+        day: eventDay,
+        slot: ev.slot,
+        kind: "event",
+        title: ev.title,
+        attribute: ev.attribute,
+        variant: ev.variant,
+      });
+      when = `${dateLabel(eventDay)} ${SLOT_LABELS[ev.slot] ?? ""}`;
+    }
+  });
+  ctx.toast(
+    ticketing
+      ? `티켓팅 일정을 등록했어요! (${when}) 성공해야 관람할 수 있어요`
+      : `행사 일정을 등록했어요! (${when})`,
+  );
+}
+
+/** 리트윗(아이콘) + 좋아요/악플 반응 행을 붙인 트윗 카드 */
+export function reactableCard(ctx: GameContext, tweet: Tweet): HTMLElement {
+  const state = ctx.store.getState();
+  const rtDone = alreadyRetweeted(state, tweet.id);
+  const reacted = ctx.ui.reactedTweetIds.has(tweet.id);
+  // 까칠한외눈(소원 계정)만은 친화력과 무관하게 좋아요를 누를 수 있다.
+  const nice = canReactNicely(state) || isWishTweet(tweet);
+
+  return el(
+    "div",
+    { class: "explore-item" },
+    tweetCard(tweet, {
+      retweet: { done: rtDone, onClick: () => doRetweet(ctx, tweet) },
+      onJoinEvent:
+        tweet.event && !tweet.event.joined ? () => joinTweetEvent(ctx, tweet) : undefined,
+      onMedia: openMedia(ctx),
+      readerVocab: state.skills.knowledge,
+    }),
+    el(
+      "div",
+      { class: "react-row" },
+      el(
+        "button",
+        {
+          class: "react-btn react-btn--pos" + (reacted ? " react-btn--done" : ""),
+          disabled: reacted || !nice,
+          title: nice ? "" : `친화력이 낮아 좋은 말이 안 나온다 (필요 ${SOCIABILITY_NICE_MIN})`,
+          onclick: () => doReact(ctx, tweet, true),
+        },
+        icon("heart", { size: 14 }),
+        "좋아요",
+      ),
+      el(
+        "button",
+        {
+          class: "react-btn react-btn--neg" + (reacted ? " react-btn--done" : ""),
+          disabled: reacted,
+          onclick: () => doReact(ctx, tweet, false),
+        },
+        "악플",
+      ),
+      reacted ? el("span", { class: "react-hint" }, "반응 완료") : null,
+    ),
+  );
+}
+
+/* ===================== 탐색 페이지 ===================== */
+
+/** 계정별로 안정적인 프로필 플레이버 값 */
+function profileMeta(acc: Account): { hue: number; following: number; posts: number } {
+  const seed = [...acc.handle].reduce((a, c) => a + c.charCodeAt(0), 0) || 7;
+  return {
+    hue: seed % 360,
+    following: 30 + ((seed * 7) % 940),
+    posts: 80 + ((seed * 131) % 39000),
+  };
+}
+
+function follow(ctx: GameContext, acc: Account): void {
+  if (acc.followed) return;
+  let delta = 0;
+  ctx.update((s) => {
+    delta = followAccount(s, acc);
+  });
+  acc.followed = true;
+  ctx.toast(delta >= 0 ? `팔로우! 내 팔로워 +${delta}` : `팔로우... 상충으로 ${delta}`);
+}
+
+function followBtn(ctx: GameContext, acc: Account): HTMLElement {
+  return el(
+    "button",
+    {
+      class: "btn" + (acc.followed ? " btn--ghost" : ""),
+      disabled: acc.followed,
+      onclick: (e: Event) => {
+        e.stopPropagation();
+        follow(ctx, acc);
+      },
+    },
+    acc.followed ? "팔로잉" : "팔로우",
+  );
+}
+
+function accountRow(ctx: GameContext, acc: Account): HTMLElement {
+  return el(
+    "div",
+    {
+      class: "acct-row",
+      onclick: () => {
+        ctx.ui.exploreSelectedId = acc.id;
+        ctx.refresh();
+      },
+    },
+    avatar(acc.name, 44),
+    el(
+      "div",
+      { class: "acct-row__info" },
+      el("div", { class: "acct-row__name" }, acc.name),
+      el("div", { class: "acct-row__handle" }, `@${acc.handle}`),
+      el("div", { class: "acct-row__bio" }, acc.bio),
+    ),
+    followBtn(ctx, acc),
+  );
+}
+
+function profileBody(ctx: GameContext, acc: Account): HTMLElement {
+  const meta = profileMeta(acc);
+  return el(
+    "div",
+    { class: "profile" },
+    el("div", {
+      class: "profile__banner",
+      style:
+        `background:linear-gradient(120deg, hsl(${meta.hue}deg 62% 55%),` +
+        ` hsl(${(meta.hue + 45) % 360}deg 62% 45%))`,
+    }),
+    el(
+      "div",
+      { class: "profile__topbar" },
+      el("div", { class: "profile__avatar" }, avatar(acc.name, 72)),
+      followBtn(ctx, acc),
+    ),
+    el("div", { class: "profile__name" }, acc.name),
+    el("div", { class: "profile__handle" }, `@${acc.handle}`),
+    acc.bio ? el("p", { class: "profile__bio" }, acc.bio) : null,
+    el(
+      "div",
+      { class: "profile__stats" },
+      el("span", {}, el("b", {}, formatNumber(meta.following)), " 팔로우 중"),
+      el("span", {}, el("b", {}, formatNumber(acc.followers)), " 팔로워"),
+    ),
+    el(
+      "div",
+      { class: "profile__tabs" },
+      el("div", { class: "profile__tab profile__tab--active" }, "게시물"),
+      el("div", { class: "profile__tab" }, "답글"),
+      el("div", { class: "profile__tab" }, "미디어"),
+    ),
+    acc.timeline.length
+      ? el("div", {}, ...acc.timeline.map((t) => reactableCard(ctx, t)))
+      : el("div", { class: "empty" }, "아직 게시물이 없어요"),
+  );
+}
+
+export function explorePage(ctx: GameContext): HTMLElement {
+  const ui = ctx.ui;
+  const selected = ui.exploreSelectedId
+    ? ui.exploreAccounts.find((a) => a.id === ui.exploreSelectedId) ?? null
+    : null;
+
+  if (selected) {
+    return el(
+      "section",
+      { class: "sns__feed" },
+      pageHeader(selected.name, () => {
+        ui.exploreSelectedId = null;
+        ctx.refresh();
+      }),
+      profileBody(ctx, selected),
+    );
+  }
+
+  return el(
+    "section",
+    { class: "sns__feed" },
+    pageHeader("계정 탐색", () => goHome(ctx)),
+    ui.exploreAccounts.length
+      ? el("div", {}, ...ui.exploreAccounts.map((acc) => accountRow(ctx, acc)))
+      : el("div", { class: "empty" }, "탐색된 계정이 없어요"),
+  );
+}
+
+/* ===================== 내 프로필 페이지 ===================== */
+
+export function mePage(ctx: GameContext): HTMLElement {
+  const account = getActiveAccount(ctx.store.getState());
+  const hue = ([...account.handle].reduce((a, c) => a + c.charCodeAt(0), 0) || 7) % 360;
+
+  return el(
+    "section",
+    { class: "sns__feed" },
+    pageHeader(account.name, () => goHome(ctx)),
+    el(
+      "div",
+      { class: "profile" },
+      el("div", {
+        class: "profile__banner",
+        style:
+          `background:linear-gradient(120deg, hsl(${hue}deg 62% 55%),` +
+          ` hsl(${(hue + 45) % 360}deg 62% 45%))`,
+      }),
+      el(
+        "div",
+        { class: "profile__topbar" },
+        el("div", { class: "profile__avatar" }, avatar(account.name, 72)),
+        el(
+          "button",
+          { class: "btn btn--ghost", onclick: () => ctx.openModal(renderAccountModal) },
+          "계정 관리",
+        ),
+      ),
+      el("div", { class: "profile__name" }, account.name),
+      el("div", { class: "profile__handle" }, `@${account.handle}`),
+      el(
+        "div",
+        { class: "profile__stats" },
+        el("span", {}, el("b", {}, formatNumber(account.following)), " 팔로우 중"),
+        el("span", {}, el("b", {}, formatNumber(account.followers)), " 팔로워"),
+      ),
+      el(
+        "div",
+        { class: "profile__tabs" },
+        el("div", { class: "profile__tab profile__tab--active" }, "게시물"),
+        el("div", { class: "profile__tab" }, "답글"),
+        el("div", { class: "profile__tab" }, "미디어"),
+      ),
+      (() => {
+        // 내 계정 상세의 '게시물' 탭에는 내가 직접 올린 트윗만 노출한다(리트윗 제외).
+        const myPosts = account.timeline.filter((t) => !t.isRetweet);
+        return myPosts.length
+          ? el(
+              "div",
+              {},
+              ...myPosts.map((t) =>
+                tweetCard(t, {
+                  showGain: true,
+                  ctx,
+                  onMedia: openMedia(ctx),
+                  onOpen: () => enterTweetDetail(ctx, t.id),
+                }),
+              ),
+            )
+          : el("div", { class: "empty" }, "아직 게시물이 없어요. 첫 트윗을 등록해보세요!");
+      })(),
+    ),
+  );
+}
+
+/* ===================== 둘러보기 페이지 ===================== */
+
+export function postsPage(ctx: GameContext): HTMLElement {
+  return el(
+    "section",
+    { class: "sns__feed" },
+    pageHeader("둘러보기", () => goHome(ctx)),
+    ctx.ui.explorePosts.length
+      ? el("div", {}, ...ctx.ui.explorePosts.map((t) => reactableCard(ctx, t)))
+      : el("div", { class: "empty" }, "게시글이 없어요"),
+  );
+}
+
+/* ===================== 검색 페이지 ===================== */
+
+export function searchPage(ctx: GameContext): HTMLElement {
+  const cats = searchCategories(ctx);
+  const active = ctx.ui.searchCategory;
+
+  // 상단: 뒤로가기 + 장식용 검색 입력바(실제 입력은 받지 않음)
+  const head = el(
+    "header",
+    { class: "search-head" },
+    el("button", { class: "page-head__back", title: "뒤로", onclick: () => goHome(ctx) }, "←"),
+    el(
+      "div",
+      { class: "search-box search-box--fake", title: "카테고리를 선택해 보세요" },
+      icon("search", { size: 16 }),
+      el("span", { class: "search-box__ph" }, "검색"),
+    ),
+  );
+
+  // 스와이프(가로 스크롤) 가능한 카테고리 탭
+  const tabs = el(
+    "div",
+    { class: "search-tabs" },
+    ...cats.map((attr) =>
+      el(
+        "button",
+        {
+          class: "search-tab" + (attr === active ? " search-tab--active" : ""),
+          onclick: () => selectSearchCategory(ctx, attr),
+        },
+        icon(ATTR_ICON[attr], { size: 14 }),
+        el("span", {}, ATTRIBUTES[attr].label.replace(/(계|덕)$/, "")),
+      ),
+    ),
+  );
+  // 마우스 드래그/휠로도 카테고리 탭을 좌우로 스와이프할 수 있게 한다.
+  enableDragScroll(tabs);
+
+  const results = ctx.ui.searchPosts.length
+    ? ctx.ui.searchPosts.map((t) => reactableCard(ctx, t))
+    : [el("div", { class: "empty" }, "검색 결과가 없어요")];
+
+  return el("section", { class: "sns__feed sns__feed--search" }, head, tabs, ...results);
+}
+
+/* ===================== 트윗 상세 페이지 ===================== */
+
+/** 내 트윗 하나를 단독 상세로 연다(멘션을 펼친 상태로). */
+export function enterTweetDetail(ctx: GameContext, id: string): void {
+  ctx.ui.tweetDetailId = id;
+  ctx.ui.snsPage = "tweet";
+  ctx.refresh();
+}
+
+/** 선택한 내 트윗을 단독으로 크게 보여주고, 걸린 멘션을 모두 표시한다. */
+export function tweetDetailPage(ctx: GameContext): HTMLElement {
+  const account = getActiveAccount(ctx.store.getState());
+  const tweet = account.timeline.find((t) => t.id === ctx.ui.tweetDetailId);
+  return el(
+    "section",
+    { class: "sns__feed" },
+    pageHeader("게시물", () => goHome(ctx)),
+    tweet
+      ? el(
+          "div",
+          { class: "tweet-detail" },
+          tweetCard(tweet, { showGain: true, ctx, onMedia: openMedia(ctx), forceMentions: true }),
+        )
+      : el("div", { class: "empty" }, "트윗을 찾을 수 없어요"),
+  );
+}
+
+/* ===================== 쪽지(DM) 페이지 ===================== */
+
+const TONE_LABELS: Record<DMTone, string> = {
+  friendly: "친절하게",
+  cool: "무심하게",
+  bold: "대담하게",
+};
+
+function markRead(state: GameState, threadId: string): void {
+  const t = getActiveAccount(state).dms.find((x) => x.id === threadId);
+  if (t) t.unread = false;
+}
+
+function dmThreadList(ctx: GameContext, threads: DMThread[], selected: DMThread | null): HTMLElement {
+  if (threads.length === 0) {
+    return el(
+      "div",
+      { class: "dm__list" },
+      el("div", { class: "empty" }, "아직 받은 DM이 없어요.\n트윗·팔로우로 팬을 늘려보세요!"),
+    );
+  }
+  return el(
+    "div",
+    { class: "dm__list" },
+    ...threads.map((t) => {
+      const last = t.messages[t.messages.length - 1];
+      return el(
+        "button",
+        {
+          class: "dm__thread" + (selected?.id === t.id ? " dm__thread--active" : ""),
+          onclick: () => {
+            ctx.ui.dmThreadId = t.id;
+            if (t.unread) ctx.update((s) => markRead(s, t.id));
+            else ctx.refresh();
+          },
+        },
+        el(
+          "div",
+          { class: "dm__thread-top" },
+          el("span", { class: "dm__thread-name" }, avatar(t.partnerName, 22), t.partnerName),
+          t.unread ? el("span", { class: "dm__dot" }) : null,
+        ),
+        el("div", { class: "dm__thread-preview" }, last ? last.text : ""),
+      );
+    }),
+  );
+}
+
+function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
+  // 러닝크루 초대 스레드: 가입 버튼(가입 후엔 표시만)
+  if (thread.crew) {
+    if (ctx.store.getState().crewJoined) {
+      return el("span", { class: "chip", style: "opacity:.6" }, "가입함");
+    }
+    return el(
+      "button",
+      {
+        class: "btn",
+        onclick: () => {
+          ctx.update((s) => {
+            const t = getActiveAccount(s).dms.find((x) => x.id === thread.id);
+            if (t) joinCrew(s, t);
+          });
+          ctx.toast("러닝크루에 가입했어요! 매주 목요일 저녁 정기런이 생겼어요 🏃");
+        },
+      },
+      "러닝크루 가입",
+    );
+  }
+  // 작가 계약 제안 스레드: 계약 버튼(계약 후엔 표시만)
+  if (thread.authorOffer) {
+    if (ctx.store.getState().authorContract) {
+      return el("span", { class: "chip", style: "opacity:.6" }, "계약함");
+    }
+    return el(
+      "button",
+      {
+        class: "btn",
+        onclick: () => {
+          ctx.update((s) => {
+            const t = getActiveAccount(s).dms.find((x) => x.id === thread.id);
+            if (t) acceptAuthorContract(s, t);
+          });
+          ctx.toast("작가 계약 체결! 다음 달부터 매월 월급이 들어와요 ✍️");
+        },
+      },
+      "작가 계약하기",
+    );
+  }
+  // 사바나 여캠 제의 스레드: 계약 버튼(계약 후엔 표시만)
+  if (thread.savanna) {
+    if (ctx.store.getState().savannaJoined) {
+      return el("span", { class: "chip", style: "opacity:.6" }, "계약함");
+    }
+    return el(
+      "button",
+      {
+        class: "btn",
+        onclick: () => {
+          ctx.update((s) => {
+            const t = getActiveAccount(s).dms.find((x) => x.id === thread.id);
+            if (t) joinSavanna(s, t);
+          });
+          ctx.toast("사바나 여캠 계약 완료! 매일 심야에 방송을 켤 수 있어요 🔴");
+        },
+      },
+      "여캠 계약하기",
+    );
+  }
+  if (thread.metOffline) {
+    return el("span", { class: "chip", style: "opacity:.6" }, "만난 사이");
+  }
+  // 상대가 먼저 만남을 제안해야만 만나기가 가능
+  if (!thread.wantsToMeet) return null;
+  const able = canMeet(ctx.store.getState(), thread);
+  return el(
+    "button",
+    {
+      class: "btn" + (able ? "" : " btn--ghost"),
+      disabled: !able,
+      onclick: () => {
+        if (!able) {
+          ctx.toast(`행동력이 부족해요 (필요 ${MEETING_ACTION_COST})`);
+          return;
+        }
+        ctx.openModal((c) =>
+          thread.ticketKind
+            ? renderTicketModal(c, thread.id)
+            : thread.motel || thread.genitalSize // 성기 사진 상대 → 성인 관계 이벤트
+              ? renderMotelModal(c, thread.id)
+              : renderMeetingModal(c, thread.id),
+        );
+      },
+    },
+    thread.ticketKind ? "양도받기" : thread.motel || thread.genitalSize ? "만나러 가기" : "만나기",
+  );
+}
+
+/** 팬 후원 배너(후원 제안이 있고 아직 안 받았을 때) */
+function donationBanner(ctx: GameContext, thread: DMThread): HTMLElement | null {
+  const d = thread.donation;
+  if (!d || d.claimed) return null;
+  return el(
+    "div",
+    { class: "dm-donation" },
+    el("span", { class: "dm-donation__text" }, `팬이 후원 ${d.amount.toLocaleString("ko-KR")}원을 보냈어요`),
+    el(
+      "button",
+      {
+        class: "btn",
+        onclick: () => {
+          let got = 0;
+          ctx.update((s) => {
+            got = claimDonation(s, thread.id);
+          });
+          if (got > 0) ctx.toast(`후원 ${got.toLocaleString("ko-KR")}원을 받았어요! 💸`);
+        },
+      },
+      "후원 받기",
+    ),
+  );
+}
+
+function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement {
+  if (!thread) {
+    return el("div", { class: "dm__convo" }, el("div", { class: "empty" }, "대화를 선택하세요."));
+  }
+
+  const bubbles = thread.messages.map((m) => {
+    // 성기 사진: 모자이크 타일 + 크기 라벨(노골적 이미지 없이 자리만)
+    if (m.photoSize) {
+      return el(
+        "div",
+        { class: "dm__bubble dm__bubble--them dm__bubble--photo" },
+        el(
+          "div",
+          { class: "dm-photo", title: "성기 사진" },
+          el("span", { class: "dm-photo__mosaic" }, "🔞"),
+          el("span", { class: "dm-photo__cap" }, `크기: ${DICK_SIZE_LABELS[m.photoSize]}`),
+        ),
+      );
+    }
+    return el(
+      "div",
+      { class: "dm__bubble dm__bubble--" + (m.from === "me" ? "me" : "them") },
+      m.text,
+    );
+  });
+
+  const acc = getActiveAccount(ctx.store.getState());
+  const tones: DMTone[] = ["friendly", "cool"];
+  if (canUseBoldTone(acc)) tones.push("bold");
+
+  const toneButtons = tones.map((tone) =>
+    el(
+      "button",
+      {
+        class: "chip",
+        onclick: () => {
+          let delta = 0;
+          ctx.update((s) => {
+            const t = getActiveAccount(s).dms.find((x) => x.id === thread.id);
+            if (t) delta = replyDM(s, t, tone).followerDelta;
+          });
+          if (delta > 0) ctx.toast(`훈훈한 대화! 팔로워 +${delta}`);
+        },
+      },
+      TONE_LABELS[tone],
+    ),
+  );
+
+  const input = el("input", {
+    class: "dm__input",
+    type: "text",
+    placeholder: "직접 답장 입력...",
+  }) as HTMLInputElement;
+
+  const sendCustom = () => {
+    const text = input.value.trim();
+    if (!text) return;
+    ctx.update((s) => {
+      const t = getActiveAccount(s).dms.find((x) => x.id === thread.id);
+      if (t) sendCustomDM(s, t, text);
+    });
+    input.value = "";
+  };
+  input.addEventListener("keydown", (e) => {
+    if ((e as KeyboardEvent).key === "Enter") sendCustom();
+  });
+
+  // 링크 DM(소원 가게·푸시타임): 답장 대신 링크 버튼만.
+  const repliesSection = thread.wishLink
+    ? el(
+        "div",
+        { class: "dm__replies" },
+        el(
+          "button",
+          {
+            class: "btn",
+            style: "width:100%",
+            onclick: () => {
+              ctx.update((s) => consumeWishLink(s));
+              ctx.ui.wishOptions = rollWishOptions();
+              ctx.ui.wishSiteOpen = true;
+              ctx.refresh();
+            },
+          },
+          "🔗 wish-shop.moon 여기로 들어가기",
+        ),
+      )
+    : thread.pushLink
+      ? el(
+          "div",
+          { class: "dm__replies" },
+          el(
+            "button",
+            {
+              class: "btn",
+              style: "width:100%",
+              onclick: () => {
+                ctx.update((s) => {
+                  s.pushtimeUnlocked = true;
+                  consumePushLink(s);
+                });
+                ctx.ui.activeTab = "pushtime";
+                ctx.toast("푸시타임이 브라우저에 추가됐어요 🔞");
+                ctx.refresh();
+              },
+            },
+            "🔗 pushtime.xyz 열기",
+          ),
+        )
+      : thread.yabamLink
+      ? el(
+          "div",
+          { class: "dm__replies" },
+          el(
+            "button",
+            {
+              class: "btn",
+              style: "width:100%",
+              onclick: () => {
+                ctx.update((s) => consumeYabamLink(s));
+                ctx.ui.activeTab = "yabam";
+                ctx.toast("야밤이 브라우저에 추가됐어요 🔞");
+                ctx.refresh();
+              },
+            },
+            "🔗 yabam.click 들어가기",
+          ),
+        )
+      : el(
+        "div",
+        { class: "dm__replies" },
+        el("div", { class: "chip-row", style: "margin:0 0 8px" }, ...toneButtons),
+        el(
+          "div",
+          { class: "dm__send" },
+          input,
+          el("button", { class: "btn", onclick: sendCustom }, "전송"),
+        ),
+      );
+
+  // 만남/가입/계약 등 액션 버튼은 헤더가 아니라 채팅창 안(메시지 아래)에 배치한다.
+  const meetAction = dmMeetButton(ctx, thread);
+
+  return el(
+    "div",
+    { class: "dm__convo" },
+    el(
+      "div",
+      { class: "dm__convo-head" },
+      el(
+        "div",
+        {},
+        `${thread.partnerName} `,
+        el("span", { class: "dm__convo-handle" }, `@${thread.partnerHandle}`),
+      ),
+    ),
+    donationBanner(ctx, thread),
+    el(
+      "div",
+      { class: "dm__messages" },
+      ...bubbles,
+      meetAction ? el("div", { class: "dm__meet-cta" }, meetAction) : null,
+    ),
+    repliesSection,
+  );
+}
+
+export function dmPage(ctx: GameContext): HTMLElement {
+  const acc = getActiveAccount(ctx.store.getState());
+  const selected = acc.dms.find((t) => t.id === ctx.ui.dmThreadId) ?? null;
+  return el(
+    "section",
+    { class: "sns__feed sns__feed--dm" },
+    pageHeader("쪽지", () => goHome(ctx)),
+    el("div", { class: "dm dm--page" }, dmThreadList(ctx, acc.dms, selected), dmConversation(ctx, selected)),
+  );
+}
+
+/* ===================== 광고 페이지 ===================== */
+
+export function adPage(ctx: GameContext): HTMLElement {
+  const avail = canWatchAd(ctx.store.getState());
+  const watchBtn = el(
+    "button",
+    {
+      class: "btn",
+      disabled: !avail,
+      onclick: () => {
+        if (!avail) return;
+        let reward = 0;
+        ctx.update((s) => {
+          reward = watchAd(s);
+        });
+        ctx.toast(`광고 시청 +${reward.toLocaleString("ko-KR")}원`);
+        ctx.afterAction("ad");
+      },
+    },
+    avail ? "광고 보고 보상 받기" : "오늘은 이미 시청함",
+  );
+
+  return el(
+    "section",
+    { class: "sns__feed" },
+    pageHeader("광고 보기", () => goHome(ctx)),
+    el(
+      "div",
+      { class: "ad-page" },
+      el("div", { class: "ad-page__screen" }, icon("megaphone", { size: 48 })),
+      el("div", { class: "ad-page__title" }, "스폰서 광고"),
+      el(
+        "div",
+        { class: "ad-page__desc" },
+        avail
+          ? "짧은 광고를 보면 수익을 얻어요. (하루 1회)"
+          : "오늘 광고는 이미 봤어요. 내일 다시 시청할 수 있어요.",
+      ),
+      watchBtn,
+    ),
+  );
+}

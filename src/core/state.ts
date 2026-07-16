@@ -1,0 +1,208 @@
+import type { AttributeId, GameState, PlayerAccount } from "./types";
+import { uid } from "@/utils/random";
+import { initialMarket } from "@/data/market";
+
+/** 팔로워 목표치 — 게임 승리 조건 */
+export const FOLLOWER_GOAL = 1_000_000;
+
+/** 파이어족(조기 은퇴) 엔딩이 열리는 소지금(100억) */
+export const FIRE_MONEY = 10_000_000_000;
+/** 파이어족 엔딩 사유 문구(gameOver에 저장되어 축하 엔딩으로 렌더된다) */
+export const FIRE_ENDING_REASON =
+  "🎉 파이어족 달성! 100억을 모아 이른 은퇴에 성공했습니다. 이제 일하지 않아도 노후가 두렵지 않은 삶을 즐기세요.";
+
+/** 연예인 데뷔 엔딩 사유 */
+export const DEBUT_ENDING_REASON =
+  "🌟 연예인 데뷔! SNS 인플루언서를 넘어 정식으로 연예계에 데뷔했습니다. 이제 화면 속에서 빛나는 스타로 새 인생을 시작합니다.";
+
+/** 전업 작가 정착 엔딩 사유 */
+export const AUTHOR_ENDING_REASON =
+  "✍️ 전업 작가 정착! 꾸준한 창작과 마감의 나날 끝에, 이 길이 천직임을 확신하게 됐습니다. 오래도록 사랑받는 작가로 살아갑니다.";
+
+/** gameOver 사유 → 축하 엔딩 제목(그 외 사유는 GAME OVER) */
+export const CELEBRATORY_ENDING_TITLES: Record<string, string> = {
+  [FIRE_ENDING_REASON]: "🏝️ FIRE 엔딩",
+  [DEBUT_ENDING_REASON]: "🌟 데뷔 엔딩",
+  [AUTHOR_ENDING_REASON]: "✍️ 작가 엔딩",
+};
+
+/** 하루의 행동 슬롯 수 (0..SLOTS_PER_DAY-1) — 아침/저녁/심야 */
+export const SLOTS_PER_DAY = 3;
+export const SLOT_LABELS = ["아침", "저녁", "심야"] as const;
+
+/** 시간대 슬롯 인덱스 */
+export const MORNING_SLOT = 0;
+export const EVENING_SLOT = 1;
+export const LATE_SLOT = 2;
+
+/** 이 값 미만이면 '우울 모드' — 우울한 트윗만 쓸 수 있다. */
+export const MENTAL_LOW_THRESHOLD = 20;
+
+/** 정신력이 바닥나 우울 모드인지 */
+export function isMentalLow(mental: number): boolean {
+  return mental < MENTAL_LOW_THRESHOLD;
+}
+
+/** 이 값 미만이면 도덕성이 매우 낮음 — 사기 트윗 작성 가능. */
+export const MORALITY_SCAM_THRESHOLD = 20;
+
+/** 도덕성이 매우 낮아 사기 트윗을 쓸 수 있는지 */
+export function canWriteScam(morality: number): boolean {
+  return morality < MORALITY_SCAM_THRESHOLD;
+}
+
+/** 계정 하나를 생성한다(신규 계정은 항상 일상계만 해금된 상태로 시작). */
+export function createAccount(
+  name: string,
+  handle: string,
+  attribute: AttributeId,
+): PlayerAccount {
+  return {
+    id: uid("acct_me"),
+    name,
+    handle,
+    attribute,
+    followers: 0,
+    following: 0,
+    timeline: [],
+    // 기본 일상계 + 개설 시 고른 콘셉트 속성을 함께 해금(콘셉트 계정 지원)
+    unlockedAttributes: attribute === "daily" ? ["daily"] : ["daily", attribute],
+    adultMode: false,
+    groupUnlocked: false,
+    // 섹트(일반 성인 트윗)는 기본 해금. meetup/punish/dom은 야밤 리뷰로 해금.
+    unlockedAdultKinds: ["sekt"],
+    lastTweetDay: 1,
+    dms: [],
+    followingAccounts: [],
+    strikes: 0,
+    suspendedUntilDay: 0,
+  };
+}
+
+/** 계정이 정지(밴) 상태인지 */
+export function isSuspended(account: PlayerAccount, day: number): boolean {
+  return (account.suspendedUntilDay ?? 0) > day;
+}
+
+/** 새 게임 초기 상태를 만든다. */
+export function createInitialState(): GameState {
+  const first = createAccount("이름없는 유저", "newbie", "daily");
+  return {
+    version: 2,
+    accounts: [first],
+    activeAccountId: first.id,
+    money: 500_000, // 초기 저축(약 한 달 반 생활 runway)
+    day: 1,
+    slot: 0,
+    resources: {
+      action: 100,
+      mental: 100,
+      morality: 50,
+      reputation: 100,
+    },
+    skills: {
+      fitness: 0,
+      beauty: 0,
+      vocabulary: 0,
+      knowledge: 0,
+      sociability: 0,
+      comedy: 0,
+      creativity: 0,
+      lewd: 0,
+    },
+    schedule: [],
+    partTimeCount: 0,
+    kakao: [],
+    lastRentReminderDay: -1,
+    crewJoined: false,
+    savannaJoined: false,
+    paidChannelJoined: false,
+    appointments: [],
+    employment: null,
+    loan: null,
+    loanOffered: false,
+    unpaidRentStreak: 0,
+    overdueRent: 0,
+    lastIncomeSettleMonth: -1,
+    lastJobBoardDay: -1,
+    pendingJobApp: null,
+    emails: [],
+    pendingControversy: null,
+    market: initialMarket(),
+    ownedItems: [],
+    goblinShopMonth: null,
+    pushtimeUnlocked: false,
+    yabamUnlocked: false,
+    youtubeUnlocked: false,
+    medibooksUnlocked: false,
+    steamUnlocked: false,
+    ownedGames: [],
+    reviewedGames: [],
+    adTweets: [],
+    adultTweetsPosted: 0,
+    yabamProductsOwned: [],
+    seenWorks: [],
+    creationTweetCount: 0,
+    authorContract: null,
+    housingTier: 0,
+    lotto: null,
+    fireDeclined: false,
+    endingsDeclined: [],
+    seasonalFired: [],
+    postedAdultEver: false,
+    pets: { dog: false, cat: false },
+    eggs: {
+      dailyTweetDay: 1,
+      dailyTweetCount: 0,
+      lateStreak: 0,
+      lastLateDay: -1,
+      botFollows: 0,
+      animalLikes: 0,
+      authorEngage: {},
+      adDays: [],
+      done: {},
+    },
+    lateTweetToday: false,
+    dawnPending: false,
+    catPowerPending: false,
+    daily: {
+      adWatchedDay: -1,
+      bannerClaimedDay: -1,
+    },
+    gameOver: null,
+  };
+}
+
+/**
+ * 현재 활성 계정을 반환한다.
+ * activeAccountId가 유효하지 않으면 첫 계정으로 보정한다.
+ */
+export function getActiveAccount(state: GameState): PlayerAccount {
+  return (
+    state.accounts.find((a) => a.id === state.activeAccountId) ?? state.accounts[0]
+  );
+}
+
+/**
+ * 계정의 '성향'은 스스로 고르는 게 아니라, 그동안 올린 트윗에서
+ * 가장 많은 비중을 차지한 카테고리로 자동 결정된다.
+ * (유저에게는 표출되지 않으며, 트윗 성과의 궁합 계산 등에 쓰인다.)
+ * 아직 올린 트윗이 없으면 기존 성향(초기값 daily)을 유지한다.
+ */
+export function dominantAttribute(account: PlayerAccount): AttributeId {
+  const counts = new Map<AttributeId, number>();
+  for (const t of account.timeline) {
+    // 내가 직접 올린 트윗 + 내가 리트윗한 트윗을 함께 집계
+    if (t.authorHandle !== account.handle && !t.isRetweet) continue;
+    counts.set(t.attribute, (counts.get(t.attribute) ?? 0) + 1);
+  }
+  let best: AttributeId = account.attribute;
+  let bestN = 0;
+  for (const [attr, n] of counts) {
+    if (n > bestN) {
+      bestN = n;
+      best = attr;
+    }
+  }
+  return best;
+}
