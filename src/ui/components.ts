@@ -30,6 +30,26 @@ export function statBar(
   );
 }
 
+/**
+ * 윈도우 앱 창(.modal--win)의 제목표시줄.
+ * 최소화·최대화 버튼은 장식이고 ✕만 실제로 닫는다.
+ * 명령 프롬프트·작업 관리자가 공유한다.
+ */
+export function winTitlebar(ctx: GameContext, title: string): HTMLElement {
+  return el(
+    "div",
+    { class: "win-titlebar" },
+    el("span", { class: "win-titlebar__title" }, title),
+    el(
+      "div",
+      { class: "win-titlebar__btns" },
+      el("button", { class: "win-btn", tabindex: "-1" }, "─"),
+      el("button", { class: "win-btn", tabindex: "-1" }, "☐"),
+      el("button", { class: "win-btn win-btn--close", onclick: () => ctx.closeModal() }, "✕"),
+    ),
+  );
+}
+
 /** 어휘력이 부족할 때 글자를 대체하는 '깨진' 글리프들 */
 const GLITCH_GLYPHS = "▨▩▦▧▤▥░▒▓■◆◈◇※□▪◘◙╳";
 

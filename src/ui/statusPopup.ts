@@ -3,6 +3,7 @@ import { RESOURCE_STATS, RESOURCE_STAT_IDS, SKILL_STATS, SKILL_STAT_IDS } from "
 import { daysUntilRent, livingCostToday, rentAmount } from "@/systems/economy";
 import { salaryOf } from "@/systems/employment";
 import { certById } from "@/systems/certification";
+import { actionMax } from "@/systems/stats";
 import type { SkillStatId } from "@/core/types";
 import { el, formatNumber } from "@/utils/dom";
 import { statBar } from "./components";
@@ -116,7 +117,11 @@ function statusInner(ctx: GameContext): HTMLElement[] {
 
   const resourceRows = RESOURCE_STAT_IDS.map((id) => {
     const def = RESOURCE_STATS[id];
-    return statBar(def.label, s.resources[id], def.max, `bar__fill--${id}`);
+    // ⚠️ 행동력만 상한이 가변이다(Cheat.exe로 +20). RESOURCE_STATS.action.max(100)를 쓰면
+    //    행동력 120이 바에서 꽉 찬 것처럼 보여 상한이 오른 티가 나지 않는다.
+    //    정신력·도덕성·평판은 상한이 고정 100이므로 def.max 그대로.
+    const max = id === "action" ? actionMax(s) : def.max;
+    return statBar(def.label, s.resources[id], max, `bar__fill--${id}`);
   });
 
   // 세부 스탯은 스크롤 대신 왼쪽에 뜨는 팝오버로 표시한다.

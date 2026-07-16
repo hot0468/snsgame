@@ -2,6 +2,8 @@ import type { GameContext } from "./context";
 import { saveGame, loadGame, deleteSave } from "@/systems/save";
 import { createInitialState } from "@/core/state";
 import { el } from "@/utils/dom";
+import { renderCmdModal } from "./cmd";
+import { renderTaskManagerModal } from "./taskManager";
 
 /**
  * 윈도우(시작) 버튼 메뉴 — Win+X 스타일의 다크 목록형 팝오버.
@@ -44,7 +46,17 @@ export function renderStartMenu(ctx: GameContext): HTMLElement {
       close();
     }),
     sep(),
-    // 2) 새 게임 / 닫기
+    // 2) 윈도우 앱(실제 Win+X에도 있는 둘)
+    item("작업 관리자", () => {
+      close();
+      ctx.openModal(renderTaskManagerModal);
+    }),
+    item("명령 프롬프트", () => {
+      close();
+      ctx.openModal(renderCmdModal);
+    }),
+    sep(),
+    // 3) 새 게임 / 닫기
     item("새 게임 시작", () => {
       deleteSave();
       ctx.store.replace(createInitialState());

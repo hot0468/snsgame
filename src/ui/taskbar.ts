@@ -21,7 +21,7 @@ export function renderTaskbar(ctx: GameContext): HTMLElement {
       },
     },
     icon("grid", { size: 18 }),
-    "메뉴",
+    "시작",
   );
 
   const clockBtn = el(
