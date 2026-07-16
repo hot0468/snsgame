@@ -15,3 +15,5 @@ SNS로 팔로워 100만명을 모으는 TypeScript + Vite 텍스트 브라우저
 | 2026-07-15 | 초기 구성 (에이전트 4 + 스킬 4 + 오케스트레이터 1) | 전체 | - |
 | 2026-07-17 | `game-run` 스킬 추가 (브라우저 실행·구동·스크린샷) | 스킬 | typecheck·build로는 여백·정렬 등 화면을 검증할 수 없어, 실제로 띄워 클릭하는 경로를 고정 |
 | 2026-07-16 | 게임명을 "팔로워 100만명 모으기"로 갱신 | CLAUDE.md, snsgame-dev, game-content-authoring | FOLLOWER_GOAL이 1,000,000인데 문서·스킬 설명만 10만으로 남아 있었음 |
+| 2026-07-17 | 반복 재발견되던 도메인 지식을 스킬에 고정 (스탯 스케일 999/×5/×10, clamp 3분리, 결정론, 세이브 폴백, 달력 전제, 패러디 작명, 콘텐츠-코드 대조, 힌트 수치 위장, 화면 그릇 3종, 광고 라벨) | game-systems-dev, game-integration-qa, game-content-authoring, game-ui-dev | 매 기능마다 새 에이전트가 같은 사실을 grep으로 재발견하고 오케스트레이터가 계약서에 손으로 다시 적고 있었음 |
+| 2026-07-17 | vitest 도입 + 회귀 테스트 35개 (`npm test`) | package.json, tsconfig, src/__tests__ | 검증 하네스가 매번 일회용 esbuild 스크립트였음. 오늘 잡힌 버그(야근률 역전·클램프 오분류·월급 등급 무관·세이브 NaN)를 고정 |
