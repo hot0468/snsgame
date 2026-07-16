@@ -757,6 +757,15 @@ export interface GameState {
     bannerClaimedDay: number; // 네이놈 배너로 적립받은 일차 (-1이면 안 받음)
   };
 
+  /**
+   * 로그인 화면을 통과했는지. false면 app.ts가 로그인 화면만 렌더한다(모달·강제 팝업 일절 없음).
+   * 새 게임은 false로 시작해 계정명·아이디를 입력받는다. "새 게임 시작"도 createInitialState를
+   * replace하므로 자동으로 다시 로그인 화면을 탄다.
+   * ⚠️ 구세이브(키 부재)는 **true**로 마이그레이션한다 — 진행 중인 세이브를 로그인 화면으로
+   *    쫓아내면 기존 계정명이 덮인다. 판정은 save.ts의 loadGame에서 parsed 원본 기준으로 한다.
+   */
+  loggedIn: boolean;
+
   /** 게임 종료 사유(퇴거 등). null이면 진행 중 */
   gameOver: string | null;
 }

@@ -54,6 +54,13 @@ export function loadGame(): GameState | null {
         : (parsed.accounts ?? []).some(
             (a) => (a as { adultMode?: boolean } | null)?.adultMode === true,
           );
+    // ★호환: 로그인 플래그도 위 둘과 **같은 함정**이라 parsed 원본에서 판정한다.
+    //   merged.loggedIn은 createInitialState()의 false로 이미 덮여 있어 '부재'를 구분 못 하고,
+    //   sanitize에서 `??= true`를 써봐야 절대 발동하지 않는 죽은 폴백이 된다.
+    //   - OLD 세이브(키 부재) → true. 진행 중인 세이브는 이미 로그인을 마친 것으로 본다.
+    //     false로 두면 기존 플레이어가 로그인 화면으로 쫓겨나 계정명을 덮어쓰게 된다.
+    //   - NEW 세이브 명시 false → 보존. 로그인 화면에서 새로고침한 경우이므로 다시 로그인 화면.
+    merged.loggedIn = typeof parsed.loggedIn === "boolean" ? parsed.loggedIn : true;
     return sanitize(merged);
   } catch (e) {
     console.error("불러오기 실패", e);

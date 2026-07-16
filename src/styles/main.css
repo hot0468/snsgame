@@ -8000,3 +8000,81 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* ===== 로그인 화면(첫 화면) ===== */
+/* 데스크톱과 같은 배경 위에 카드 하나. 새 색·폰트 없이 기존 변수만 쓴다. */
+.login {
+  flex: 1;
+  min-height: 0;
+  background: linear-gradient(160deg, #1f6feb, #123a75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow: auto;
+}
+
+.login__card {
+  width: min(380px, 100%);
+  background: var(--bg-window);
+  border-radius: 16px;
+  padding: 32px 28px;
+  box-shadow: var(--shadow);
+}
+
+.login__brand {
+  color: var(--text);
+  line-height: 0;
+}
+
+.login__title {
+  margin: 16px 0 6px;
+  font-size: 24px;
+}
+
+.login__sub {
+  margin: 0 0 20px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.login__label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* .dm__input이 flex:1이므로 flex 컨테이너로 감싼다(입력칸 스타일 재사용). */
+.login__input-row {
+  display: flex;
+}
+
+.login__hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.login__error {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--danger);
+}
+
+.login__submit {
+  margin-top: 4px;
+  padding: 11px 14px;
+  font-size: 14px;
+}

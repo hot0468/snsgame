@@ -226,6 +226,8 @@ export function createInitialState(): GameState {
       adWatchedDay: -1,
       bannerClaimedDay: -1,
     },
+    // 새 게임은 로그인 화면부터 시작한다. (구세이브 호환은 save.ts의 loadGame이 처리한다)
+    loggedIn: false,
     gameOver: null,
   };
 }

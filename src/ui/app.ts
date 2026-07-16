@@ -27,6 +27,7 @@ import { renderEndingOfferModal } from "./endingModal";
 import { renderDawnModal } from "./dawnModal";
 import { renderCatPowerModal } from "./catPowerModal";
 import { renderConsoleReviewModal } from "./auctionModals";
+import { renderLoginScreen } from "./loginScreen";
 
 /**
  * 앱 루트. 스토어를 구독해 전체 화면을 (단순하게) 통째로 다시 그린다.
@@ -45,6 +46,8 @@ export function createApp(root: HTMLElement, store: Store): void {
   // 같은 모달이면 노드를 재사용하고 모달이 바뀔 때만 다시 만든다.
   let modalFn: ((ctx: GameContext) => HTMLElement) | null = null;
   let modalNode: HTMLElement | null = null;
+  // 로그인 화면 노드 캐시(같은 이유 — 입력 중 재렌더에 입력값이 초기화되지 않게).
+  let loginNode: HTMLElement | null = null;
 
   const ctx: GameContext = {
     store,
@@ -78,6 +81,24 @@ export function createApp(root: HTMLElement, store: Store): void {
 
   function render(): void {
     const state = store.getState();
+
+    // 로그인 화면. 아래 강제 팝업·gameOver보다 **먼저** 판정하고 즉시 return한다 —
+    // 로그인 전에는 어떤 모달도 뜨면 안 된다.
+    // ("새 게임 시작"은 loggedIn:false인 초기 상태로 replace하므로 여기로 자연히 되돌아온다.)
+    if (!state.loggedIn) {
+      // 이전 게임에서 남아 있던 팝업/메뉴 정리.
+      ui.modal = null;
+      modalFn = null;
+      modalNode = null;
+      ui.startMenuOpen = false;
+      ui.calendarOpen = false;
+      // 모달 노드와 같은 이유로 캐시한다: 재렌더에 입력값이 날아가지 않게.
+      if (!loginNode) loginNode = renderLoginScreen(ctx);
+      root.replaceChildren(loginNode);
+      return;
+    }
+    loginNode = null; // 로그인 완료 — 다음 로그인(새 게임) 땐 새로 만든다.
+
     const gameOver = state.gameOver;
 
     // 강제 팝업. 우선순위: 새 날 아침 > 논란 > 빚 상환 > 연구실 > 근무 > 약속.
