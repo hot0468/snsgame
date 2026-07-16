@@ -13,11 +13,20 @@ export interface TierDef {
   caughtRate: number;
 }
 
+/**
+ * 등급별 정의.
+ *
+ * ⚠️ overtimeRate와 caughtRate는 **서로 반대 방향**이며, 둘 다 의도된 설계다.
+ * - overtimeRate(야근): 등급이 높을수록 **낮다**. 대기업일수록 인력이 갖춰져 워라밸이 산다.
+ * - caughtRate(딴짓 적발): 등급이 높을수록 **높다**. 대기업일수록 감시·보안이 심하다.
+ * 즉 대기업은 "일찍 퇴근하지만 근무 중 딴짓은 잘 걸린다". 한쪽을 다른 쪽에 맞춰
+ * 정렬하지 마라 — 두 축의 상충이 등급 선택의 트레이드오프 그 자체다.
+ */
 export const TIERS: Record<CompanyTier, TierDef> = {
-  micro: { id: "micro", label: "극소기업", requirement: 8, overtimeRate: 0.1, caughtRate: 0.15 },
-  small: { id: "small", label: "중소기업", requirement: 28, overtimeRate: 0.25, caughtRate: 0.2 },
-  medium: { id: "medium", label: "중견기업", requirement: 52, overtimeRate: 0.45, caughtRate: 0.28 },
-  large: { id: "large", label: "대기업", requirement: 78, overtimeRate: 0.65, caughtRate: 0.35 },
+  micro: { id: "micro", label: "극소기업", requirement: 8, overtimeRate: 0.65, caughtRate: 0.15 },
+  small: { id: "small", label: "중소기업", requirement: 28, overtimeRate: 0.45, caughtRate: 0.2 },
+  medium: { id: "medium", label: "중견기업", requirement: 52, overtimeRate: 0.25, caughtRate: 0.28 },
+  large: { id: "large", label: "대기업", requirement: 78, overtimeRate: 0.1, caughtRate: 0.35 },
 };
 
 /** 등급 순서(약→강) */
