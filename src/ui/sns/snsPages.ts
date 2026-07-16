@@ -425,6 +425,9 @@ export function mePage(ctx: GameContext): HTMLElement {
       el(
         "div",
         { class: "profile__stats" },
+        // 게시물 수는 timeline.length 그대로다 — 아래 '게시물' 탭이 timeline을 통째로
+        // 나열하므로, 리트윗을 빼고 세면 숫자와 목록이 어긋난다.
+        el("span", {}, el("b", {}, formatNumber(account.timeline.length)), " 게시물"),
         el("span", {}, el("b", {}, formatNumber(account.following)), " 팔로우 중"),
         el("span", {}, el("b", {}, formatNumber(account.followers)), " 팔로워"),
       ),
