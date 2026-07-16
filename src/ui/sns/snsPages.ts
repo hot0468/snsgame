@@ -466,6 +466,14 @@ export function mePage(ctx: GameContext): HTMLElement {
       ),
       el("div", { class: "profile__name" }, account.name),
       el("div", { class: "profile__handle" }, `@${account.handle}`),
+      // 주 성향(account.attribute)은 타임라인에서 자동 산출돼 런타임에 바뀐다.
+      // 그래서 캐싱하지 않고 렌더할 때마다 ATTRIBUTES에서 다시 읽어야
+      // 성향 변화가 이 힌트에 바로 반영된다.
+      el(
+        "p",
+        { class: "profile__bio profile__bio--hint" },
+        ATTRIBUTES[account.attribute].bio,
+      ),
       el(
         "div",
         { class: "profile__stats" },

@@ -2906,6 +2906,14 @@ body {
   word-break: break-word;
 }
 
+/* 내 프로필 전용: 직접 쓴 소개글이 아니라 주 성향에서 자동 산출된 힌트라
+   본문 bio보다 한 톤 죽여 구분한다. */
+.profile__bio--hint {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding-top: 6px;
+}
+
 .profile__stats {
   display: flex;
   gap: 18px;
