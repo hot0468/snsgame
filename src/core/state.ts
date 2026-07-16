@@ -56,6 +56,14 @@ export const DEBUT_ENDING_REASON =
 export const AUTHOR_ENDING_REASON =
   "✍️ 전업 작가 정착! 꾸준한 창작과 마감의 나날 끝에, 이 길이 천직임을 확신하게 됐습니다. 오래도록 사랑받는 작가로 살아갑니다.";
 
+/** 사채 3회 연체 엔딩 사유 — 일반 모드(부모님이 빚을 갚고 강제 귀향) */
+export const LOAN_DEFAULT_ENDING_REASON =
+  "대부업체에 세 번이나 끌려간 끝에 결국 부모님께 모든 것이 들통났습니다. 빚은 다행히 모두 갚아주셨지만, 휴대폰을 빼앗긴 채 그대로 고향으로 내려가게 되었습니다...";
+
+/** 사채 3회 연체 엔딩 사유 — 성인 모드(실종) */
+export const LOAN_DEFAULT_ENDING_REASON_ADULT =
+  "대부업체에 세 번째로 끌려간 그날 이후, 당신을 봤다는 사람은 아무도 없었습니다. 방은 그대로였고, 휴대폰만 꺼진 채 남아 있었습니다...";
+
 /** gameOver 사유 → 축하 엔딩 제목(그 외 사유는 GAME OVER) */
 export const CELEBRATORY_ENDING_TITLES: Record<string, string> = {
   [FIRE_ENDING_REASON]: "🏝️ FIRE 엔딩",
@@ -163,6 +171,7 @@ export function createInitialState(): GameState {
     loan: null,
     loanOffered: false,
     unpaidRentStreak: 0,
+    loanDefaultStreak: 0,
     overdueRent: 0,
     lastIncomeSettleMonth: -1,
     lastJobBoardDay: -1,
@@ -185,6 +194,8 @@ export function createInitialState(): GameState {
     ownedGames: [],
     reviewedGames: [],
     adTweets: [],
+    dartpinUnlocked: false,
+    dartpinBoard: null,
     adultTweetsPosted: 0,
     yabamProductsOwned: [],
     seenWorks: [],

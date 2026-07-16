@@ -6,6 +6,7 @@ import { allTemplatesFor } from "@/data/tweets";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { calcEncounterFollowerDelta, changeFollowers } from "./followers";
 import { makeWishTweet } from "./wish";
+import { DARTPIN_TWEET_CHANCE, makeDartpinTweet } from "./dartpin";
 import { maybeSpawnFanDM } from "./dm";
 import { onFollow, onLikeTweet, onRetweet } from "./eggs";
 import { addSchedule, advanceTime } from "./time";
@@ -52,6 +53,11 @@ export function exploreTweets(state: GameState): Tweet[] {
   if (chance(0.4)) tweets[randInt(0, 2)] = makeEggTweet(pick(EGG_KINDS), state.day);
   // 아주 낮은 확률로 '까칠한외눈' 소원 트윗이 섞인다
   else if (chance(0.12)) tweets[randInt(0, 2)] = makeWishTweet(state);
+  // 낮은 확률로 '다트 핀' 발견 트윗(링크 첨부)이 섞인다 — 아직 발견 전일 때만.
+  // ⚠️ 까칠한외눈 분기 '뒤'에 두는 건 의도다: 앞에 끼우면 소원 트윗 확률이 함께 깎인다.
+  else if (!state.dartpinUnlocked && chance(DARTPIN_TWEET_CHANCE)) {
+    tweets[randInt(0, 2)] = makeDartpinTweet(state);
+  }
   return tweets;
 }
 

@@ -159,7 +159,28 @@ export interface Tweet {
    * - app: '바로가기'로 해금되는 앱 탭(있으면 앱 홍보 광고, 없으면 일반 광고).
    */
   adPromo?: { reward: number; claimed: boolean; app?: "youtube" | "medibooks" | "steam" };
+  /**
+   * 이 트윗에 첨부된 사이트 링크(광고 아님 — 일반인이 링크를 달아 공유한 트윗).
+   *
+   * ⚠️ `adPromo`와 혼동하지 마라. **하는 일이 아니라 '무엇으로 보이냐'가 다르다** —
+   * 둘 다 결과적으로 브라우저 탭을 해금하지만:
+   * - `adPromo.app`: **광고**다. 추천탭 광고 풀(state.adTweets)에 살고, `adTweetCard`가
+   *   "광고" 라벨을 붙이며 미디어 클릭을 적립으로 바꾼다(unlockAppTab).
+   * - `siteLink`: **광고가 아니다.** 광고 라벨도 적립도 없는, 남이 공유한 링크일 뿐이다.
+   *   둘러보기 피드에 섞이고, 링크를 누르면 해당 탭이 해금된다(예: unlockDartpin).
+   *
+   * 형태가 겹친다고 `adPromo`로 합치지 마라 — 광고 라벨이 붙는 순간 톤이 죽는다.
+   * 자세한 근거는 `systems/dartpin.ts` 헤더 참조.
+   */
+  siteLink?: SiteLinkId;
 }
+
+/**
+ * 트윗 링크가 가리키는 사이트.
+ * ⚠️ 이 사이트들은 `ui.*SiteOpen` 오버레이가 아니라 **브라우저 탭**으로 열린다
+ * (`BrowserTabId`에 같은 id가 있다). 왜 탭인지는 `systems/dartpin.ts` 헤더 참조.
+ */
+export type SiteLinkId = "dartpin";
 
 /** 탐색으로 등장하는 남의 계정 */
 export interface Account {
@@ -642,6 +663,8 @@ export interface GameState {
   loan: Loan | null;
   /** 대출 제안 카톡을 이미 보냈는지(마이너스 지속 시 중복 방지) */
   loanOffered: boolean;
+  /** 사채를 못 갚아 잡혀간 누적 횟수(3이면 엔딩) */
+  loanDefaultStreak: number;
   /** 연속 월세 미납 횟수(3이면 퇴거) */
   unpaidRentStreak: number;
   /** 밀린 월세 누적액(원). 미납 시 이번 달 월세가 누적되어 다음 달에 함께 청구된다 */
@@ -675,6 +698,21 @@ export interface GameState {
   reviewedGames: string[];
   /** 추천탭에 노출되는 광고 트윗 풀(매일 스폰, 상한 유지) */
   adTweets: Tweet[];
+  /**
+   * '다트 핀'(익명 게시판 사이트) **탭**이 해금됐는지 — 둘러보기 트윗의 링크를 눌러 해금.
+   * 신규 기능이라 구세이브도 false(steamUnlocked와 같은 방향).
+   * 이 플래그는 두 가지를 뜻한다:
+   * ① 미해금일 때만 발견 트윗이 스폰된다(중복 유도 방지)
+   * ② 해금 후엔 브라우저에 탭이 상시 남아 재방문할 수 있다 — 게시판이 매일 갱신되고
+   *    힌트 글이 드물게(25%) 섞이므로 **재방문이 전제다.** 단발 진입으로 바꾸면 히든 힌트를
+   *    영영 못 보고 기능이 죽는다(`systems/dartpin.ts` 헤더 참조).
+   */
+  dartpinUnlocked: boolean;
+  /**
+   * 다트 핀 게시판 스냅샷. 하루 단위로 갱신되며, 힌트 글이 드물게 섞인다.
+   * 렌더마다 다시 굴리면 글을 열었다 나올 때 목록이 뒤바뀌므로 상태에 고정한다.
+   */
+  dartpinBoard: { day: number; postIds: string[] } | null;
   /** 성인 트윗 누적 작성 수(야밤 DM 트리거용) */
   adultTweetsPosted: number;
   /** 야밤에서 구매한 성인용품 id 목록(중복 구매 방지) */

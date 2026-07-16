@@ -133,6 +133,7 @@ function sanitize(state: GameState): GameState {
   if (!Array.isArray(state.emails)) state.emails = [];
   state.loan ??= null;
   state.loanOffered ??= false;
+  state.loanDefaultStreak ??= 0;
   state.unpaidRentStreak ??= 0;
   state.overdueRent ??= 0;
   state.lastIncomeSettleMonth ??= -1;
@@ -150,6 +151,17 @@ function sanitize(state: GameState): GameState {
   if (!Array.isArray(state.ownedGames)) state.ownedGames = [];
   if (!Array.isArray(state.reviewedGames)) state.reviewedGames = [];
   if (!Array.isArray(state.adTweets)) state.adTweets = [];
+  // '다트 핀'은 신규 기능이라 구세이브엔 키가 없다 — 미발견(false)이 정답이다.
+  // youtube/medibooks의 `?? true` 호환과 반대인 이유는 steamUnlocked와 같다: 그 둘은
+  // '이미 탭이 있던' 세이브의 탭을 뺏지 않으려는 보정이고, 다트 핀은 존재한 적이 없다.
+  // merged가 이미 createInitialState()의 false로 덮여 있으므로 ??= false는 그 상태를 유지한다.
+  state.dartpinUnlocked ??= false;
+  // 게시판 스냅샷도 신규 필드. 구세이브는 null이고, ensureDartpinBoard가 방문 시 채운다.
+  // 손상된 스냅샷(postIds가 배열이 아님)은 null로 되돌려 재편성시킨다 — getDartpinBoard가
+  // `?? []`로 넘겨 빈 게시판이 되는 걸 막는다.
+  if (!state.dartpinBoard || !Array.isArray(state.dartpinBoard.postIds)) {
+    state.dartpinBoard = null;
+  }
   state.adultTweetsPosted ??= 0;
   if (!Array.isArray(state.yabamProductsOwned)) state.yabamProductsOwned = [];
   if (!Array.isArray(state.seenWorks)) state.seenWorks = [];
