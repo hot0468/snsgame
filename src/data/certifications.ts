@@ -22,6 +22,14 @@ export interface Certification {
   jobBonus: number;
   /** O넷 목록에 뜨는 한 줄 소개 */
   desc: string;
+  /**
+   * 지정하면 매년 그 날짜에만 O넷에 노출되는 '특별 시행' 자격증(1-based month).
+   * 예: `{ month: 1, date: 7 }` = 매년 1월 7일.
+   * - 평소에는 랜덤 5종 후보에서 아예 제외된다(todaysCertifications).
+   * - 해당 날짜에는 5종과 **별도로** specialCertificationToday로 반환된다(5칸을 잡아먹지 않는다).
+   * 연도는 보지 않으므로 매년 반복된다.
+   */
+  onlyOn?: { month: number; date: number };
 }
 
 /**
@@ -229,5 +237,16 @@ export const CERTIFICATIONS: Certification[] = [
     requirement: 92,
     jobBonus: 0.25,
     desc: "이 나라에서 말로 이기는 가장 비싼 방법.",
+  },
+  {
+    id: "hunter",
+    name: "헌터",
+    issuer: "한국각성자관리원",
+    fee: 300000,
+    skills: { fitness: 0.5, knowledge: 0.5 },
+    requirement: 96,
+    jobBonus: 0.3,
+    desc: "1년에 단 하루, 게이트 앞에서 도망치지 않을 사람만 골라낸다.",
+    onlyOn: { month: 1, date: 7 },
   },
 ];

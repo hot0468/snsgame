@@ -223,6 +223,12 @@ export interface DMThread {
   savanna?: boolean;
   /** 플랫폼 작가 계약 제안 스레드인지(창작 트윗이 쌓이면 유입) */
   authorOffer?: boolean;
+  /**
+   * '금발의 신사'가 진홍안을 넘겨달라고 제안한 스레드인지(경매에서 진홍안 구매 시 유입).
+   * ui는 이 플래그를 보고 넘겨줌/거절 버튼을 렌더하고 resolveEyeDeal을 호출한다.
+   * 응답 후에도 스레드는 대화 기록으로 남는다(분기 상태는 state.auction.eyeDeal).
+   */
+  eyeDeal?: boolean;
   /** '까칠한외눈' 소원 가게 링크가 담긴 스레드인지(링크 진입 시 삭제) */
   wishLink?: boolean;
   /** '푸시타임' 링크가 담긴 스레드인지(링크 클릭 시 탭 해금) */
@@ -459,6 +465,43 @@ export interface Email {
    * spam과 절대 동시에 세팅하지 않는다(스팸 열람 해킹 로직과 충돌).
    */
   adOffer?: AdOffer;
+  /**
+   * 서던피스 경매 안내 메일이면 true — 본문에 경매장 링크가 붙는다.
+   * ⚠️ jobOffer/adOffer/spam과 절대 동시에 세팅하지 않는다(각각 채용 버튼·구매 버튼·해킹 판정과 충돌).
+   * 열람 기간(auctionOpen)이 지난 뒤 링크를 누르면 '종료됨' 안내가 뜬다.
+   */
+  auctionLink?: true;
+}
+
+/** 진홍안(crimson_eye) DM 분기 처리 상태 */
+export type EyeDealState =
+  | "none" // 아직 DM이 오지 않음(또는 진홍안 미구매)
+  | "offered" // 금발의 신사가 제안했고 답을 기다리는 중
+  | "given" // 넘겨줌 — 사례를 받았다
+  | "refused" // 거절함 — EYE_STEAL_DELAY일 뒤 도난된다
+  | "stolen"; // 도난당함(보상 없음)
+
+/** 낡은 게임기(old_console) 리뷰 트윗 선택 상태 */
+export type ConsoleReviewState =
+  | "none" // 아직 9월 10일이 오지 않음(또는 게임기 미보유)
+  | "pending" // 선택창을 띄워야 함(ui가 감지해 모달을 연다)
+  | "posted" // 리뷰 트윗을 올림
+  | "declined"; // 올리지 않기로 함
+
+/** 서던피스 경매 진행 상태 */
+export interface AuctionState {
+  /** 안내 메일을 보낸 날(중복 발송 방지). 미발송이면 null */
+  mailedDay: number | null;
+  /** 구매한 물품 id 목록 */
+  bought: string[];
+  /** 진홍안 DM 분기 처리 상태 */
+  eyeDeal: EyeDealState;
+  /** 진홍안을 산 날 — 다음날 금발의 신사 DM이 온다. 미구매면 null */
+  eyeBoughtDay: number | null;
+  /** 진홍안 제안을 거절한 날 — EYE_STEAL_DELAY일 뒤 도난. 미거절이면 null */
+  eyeRefusedDay: number | null;
+  /** 낡은 게임기 리뷰 트윗(9월 10일) 선택 상태 */
+  consoleReview: ConsoleReviewState;
 }
 
 export interface GameState {
@@ -516,8 +559,23 @@ export interface GameState {
   pendingJobApp: JobApplication | null;
   /** 취득한 자격증 id 목록 */
   certifications: string[];
-  /** 결과 대기 중인 자격증 시험(동시 1건만). 없으면 null */
+  /** 결과 대기 중인 **일반** 자격증 시험(동시 1건만). 없으면 null */
   pendingExam: ExamApplication | null;
+  /**
+   * 결과 대기 중인 **특별 시행**(Certification.onlyOn) 자격증 시험(동시 1건만). 없으면 null.
+   *
+   * 일반 시험과 슬롯을 나눈 이유: 특별 시행은 1년에 단 하루만 열린다(헌터 = 매년 1월 7일).
+   * 단일 슬롯이면 1월 4~6일에 아무 자격증이나 신청해 둔 플레이어가 1월 7일 헌터 시험을
+   * 놓치고 365일을 기다리게 된다 — 연 1회 기회에 비해 대가가 지나치다.
+   * 슬롯을 나눠 '특별 1건 + 일반 1건' 동시 대기를 허용하되, 같은 시험의 중복 신청은 계속 막는다.
+   */
+  pendingSpecialExam: ExamApplication | null;
+  /**
+   * 서던피스 경매 진행 상태.
+   * 항상 기본 객체로 존재한다(null 아님) — 계약서가 허용한 '기본 객체' 선택지.
+   * 전 호출부의 널 가드를 없애 NaN·크래시 경로를 줄인다. 구세이브는 save.sanitize가 채운다.
+   */
+  auction: AuctionState;
   /** 피메일 수신함 */
   emails: Email[];
   /** 대부업체 빚(없으면 없음) */

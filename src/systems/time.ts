@@ -1,10 +1,16 @@
 import type { GameState, ScheduleEvent } from "@/core/types";
-import { SLOTS_PER_DAY, SLOT_LABELS, EVENING_SLOT } from "@/core/state";
+import { SLOTS_PER_DAY, SLOT_LABELS, EVENING_SLOT, LATE_SLOT } from "@/core/state";
 import { uid } from "@/utils/random";
 import { applyDailyCosts, daysUntilRent, settleMonthlyIncome } from "./economy";
 import { settleAuthorMonthly } from "./author";
 import { deliverJobResultEmail } from "./employment";
 import { deliverExamResultEmail } from "./certification";
+import {
+  maybeOpenConsoleReview,
+  maybeSendAuctionMail,
+  maybeSpawnCrimsonEyeDM,
+  maybeStealCrimsonEye,
+} from "./auction";
 import { maybeSpawnSpamEmail } from "./spam";
 import { maybeSpawnAdEmail } from "./adMail";
 import { spawnDailyAdTweets } from "./adTweets";
@@ -76,12 +82,27 @@ export function advanceTime(state: GameState, slots = 1): void {
     } else if (state.slot === EVENING_SLOT) {
       // 매월 1일 저녁, 트위터 수익 정산(내부 가드로 1일에만 실제 동작)
       settleMonthlyIncome(state);
+    } else if (state.slot === LATE_SLOT) {
+      onLateNight(state);
     }
   }
   // 스탯 임계값 이스터에그(도덕성 0, 지식/어휘 100, 음란 100+성인) 점검
   checkStatEggs(state);
   // 고양이 전원 버튼 참사(고양이 보유 시 행동마다 아주 낮은 확률). 슬롯 루프 바깥 — 행동 1회당 1번만 굴린다.
   maybeCatPowerButton(state);
+}
+
+/**
+ * 심야 슬롯(LATE_SLOT)에 갓 진입했을 때 1회 호출된다.
+ *
+ * 기존 메일은 전부 onNewDay(날짜가 넘어갈 때) 발송이라 '심야 발송' 훅이 없었다 — 그래서 추가했다.
+ * ⚠️ onNewDay와 **상호 배타**다: 하루가 넘어가는 분기는 `slot >= SLOTS_PER_DAY`(=3)에서만 타고,
+ *    이 훅은 `slot === LATE_SLOT`(=2)에서만 탄다. 같은 if/else-if 사슬의 뒤에 붙은 가지라
+ *    앞선 두 분기의 판정·동작에 전혀 영향을 주지 않는다(onNewDay 발동 조건 불변).
+ */
+function onLateNight(state: GameState): void {
+  // 서던피스 경매 초대장(헌터 자격증 보유 + 9월 6일 심야에만) 도착
+  maybeSendAuctionMail(state);
 }
 
 function onNewDay(state: GameState): void {
@@ -104,6 +125,12 @@ function onNewDay(state: GameState): void {
   deliverJobResultEmail(state);
   // 자격증 시험 결과 메일(응시 3일 뒤) 도착
   deliverExamResultEmail(state);
+  // 진홍안 구매 다음날, 금발의 신사 DM 도착
+  maybeSpawnCrimsonEyeDM(state);
+  // 진홍안 제안을 거절하고 7일이 지났으면 도난
+  maybeStealCrimsonEye(state);
+  // 낡은 게임기 보유 + 9월 10일이면 리뷰 트윗 선택창 예약
+  maybeOpenConsoleReview(state);
   // 스팸(피싱) 메일이 간간이 온다
   maybeSpawnSpamEmail(state);
   // 쇼핑몰 광고 메일(50% 특가, 당일 한정)이 드물게 온다

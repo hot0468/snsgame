@@ -1,7 +1,8 @@
-import type { Email, GameState } from "@/core/types";
+import type { Email, ExamApplication, GameState } from "@/core/types";
 import type { Certification } from "@/data/certifications";
 import { CERTIFICATIONS } from "@/data/certifications";
 import { chance, uid } from "@/utils/random";
+import { dateOf } from "./calendar";
 import { skillTo100 } from "./stats";
 import { addSchedule } from "./time";
 
@@ -56,13 +57,37 @@ export function certById(id: string): Certification | undefined {
  */
 export function todaysCertifications(state: GameState): Certification[] {
   const owned = new Set(state.certifications ?? []);
-  const pool = CERTIFICATIONS.filter((c) => !owned.has(c.id));
+  // onlyOn(특별 시행) 자격증은 랜덤 후보에서 제외한다 — 해당 날짜엔
+  // specialCertificationToday가 5종과 별도로 반환하므로 5칸을 잡아먹으면 안 된다.
+  const pool = CERTIFICATIONS.filter((c) => !owned.has(c.id) && !c.onlyOn);
   // (id, day) 쌍마다 독립적인 해시를 뽑아 정렬 → 날짜가 바뀌면 순위가 완전히 재편된다.
   // 해시 충돌 시엔 id로 갈라 정렬을 결정론적으로 유지한다.
   const key = new Map(pool.map((c) => [c.id, hashInt(`${c.id}:${state.day}`)]));
   return [...pool]
     .sort((a, b) => key.get(a.id)! - key.get(b.id)! || (a.id < b.id ? -1 : 1))
     .slice(0, ONET_DAILY_SLOTS);
+}
+
+/**
+ * 오늘 '특별 시행'되는 자격증(onlyOn이 오늘 날짜와 맞는 것). 없으면 null.
+ *
+ * todaysCertifications의 랜덤 5종과 **별개**다 — ui는 이 항목을 5종 위에 따로(배너/카드)
+ * 렌더해야 하며, 5칸을 잡아먹지 않는다. 이미 취득했으면 null(중복 응시 방지).
+ * 연도는 보지 않으므로 매년 그 날짜에 다시 열린다.
+ *
+ * ⚠️ Certification.onlyOn.month는 1-based(1=1월)지만 Date.getMonth()는 0-based다 — +1로 맞춘다.
+ * 후보가 여럿이면 첫 번째만 반환한다(같은 날짜에 특별 시험 2개를 두지 않는 전제).
+ */
+export function specialCertificationToday(state: GameState): Certification | null {
+  const d = dateOf(state.day);
+  const month = d.getMonth() + 1; // 0-based → 1-based
+  const date = d.getDate();
+  const owned = new Set(state.certifications ?? []);
+  return (
+    CERTIFICATIONS.find(
+      (c) => c.onlyOn && c.onlyOn.month === month && c.onlyOn.date === date && !owned.has(c.id),
+    ) ?? null
+  );
 }
 
 /**
@@ -94,11 +119,27 @@ export function hasCertification(state: GameState, certId: string): boolean {
   return (state.certifications ?? []).includes(certId);
 }
 
-/** 신청 가능한지 — 미취득 + 대기 중 시험 없음 + 응시료 지불 가능 */
+/**
+ * 결과 대기 중인 시험(일반/특별 통합 조회). ui의 '결과 대기 중' 배너용.
+ * 특별 시행과 일반 시험은 슬롯이 달라 동시에 각 1건씩 대기할 수 있다.
+ */
+export function pendingExams(state: GameState): ExamApplication[] {
+  return [state.pendingExam, state.pendingSpecialExam].filter(
+    (e): e is ExamApplication => e !== null && e !== undefined,
+  );
+}
+
+/**
+ * 신청 가능한지 — 미취득 + **해당 슬롯**에 대기 중 시험 없음 + 응시료 지불 가능.
+ *
+ * ⚠️ 특별 시행(onlyOn)은 일반 시험과 대기 슬롯이 다르다 — 일반 시험을 신청해 둔 상태여도
+ *    연 1회뿐인 특별 시험을 놓치지 않는다. 단 같은 슬롯의 중복 신청은 막으므로
+ *    특별 시험 자체의 중복 응시는 여전히 불가능하다.
+ */
 export function canApplyExam(state: GameState, cert: Certification): boolean {
   if (state.gameOver) return false;
   if (hasCertification(state, cert.id)) return false;
-  if (state.pendingExam) return false;
+  if (cert.onlyOn ? state.pendingSpecialExam : state.pendingExam) return false;
   return state.money >= cert.fee;
 }
 
@@ -111,11 +152,14 @@ export function canApplyExam(state: GameState, cert: Certification): boolean {
 export function applyExam(state: GameState, cert: Certification): boolean {
   if (!canApplyExam(state, cert)) return false;
   state.money -= cert.fee;
-  state.pendingExam = {
+  const application: ExamApplication = {
     certId: cert.id,
     passed: chance(examPassChance(state, cert)),
     resultDay: state.day + EXAM_RESULT_DELAY,
   };
+  // 특별 시행은 전용 슬롯에 넣는다(일반 시험 대기와 서로를 막지 않게).
+  if (cert.onlyOn) state.pendingSpecialExam = application;
+  else state.pendingExam = application;
   addSchedule(state, `${cert.name} 시험 응시`, "system");
   return true;
 }
@@ -126,9 +170,17 @@ export function applyExam(state: GameState, cert: Certification): boolean {
  * ⚠️ 메일은 정보 전달용 — jobOffer/adOffer/spam은 절대 세팅하지 않는다.
  */
 export function deliverExamResultEmail(state: GameState): void {
-  const exam = state.pendingExam;
+  // ⚠️ 두 슬롯을 모두 처리한다. 하나라도 빠뜨리면 그 시험 결과가 영원히 도착하지 않고
+  //    슬롯이 점유된 채 남아 이후 신청까지 막힌다.
+  deliverExamSlot(state, "pendingExam");
+  deliverExamSlot(state, "pendingSpecialExam");
+}
+
+/** 결과 대기 슬롯 하나를 처리한다(결과일 도래 시 메일 발송 + 취득 반영). */
+function deliverExamSlot(state: GameState, slot: "pendingExam" | "pendingSpecialExam"): void {
+  const exam = state[slot];
   if (!exam || state.day < exam.resultDay) return;
-  state.pendingExam = null;
+  state[slot] = null;
 
   const cert = certById(exam.certId);
   // 데이터에서 사라진 자격증이면 조용히 대기만 해제한다(구세이브 대비).
