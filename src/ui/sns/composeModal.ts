@@ -35,17 +35,20 @@ import { renderSleepModal } from "./sleepModal";
 /** 창작 모드 — 꺼짐 / 1차창작 / 2차창작 */
 type CreationMode = "off" | "original" | "fan";
 
+/** 마법사 단계 — 1: 무엇을 쓸까(카테고리), 2: 어떤 분위기로 쓸까(톤/종류) */
+type Step = 1 | 2;
+
 /** "일상계" → "일상" 처럼 카테고리 라벨의 '계' 접미사를 뗀다. */
 function categoryLabel(id: AttributeId): string {
   return ATTRIBUTES[id].label.replace(/계$/, "");
 }
 
 /**
- * 새 트윗 작성 모달.
- * - 유저는 직접 글을 쓰지 않는다. 카테고리(속성) + 긍정/부정 톤만 고르면
- *   등록 시 해당 조건에 맞는 문구가 랜덤으로 뽑혀 트윗된다.
- * - 계정의 성인물 해제가 켜져 있으면 야한 문구도 섞인다.
- * - 정신력이 바닥나면(우울 모드) 우울한 트윗만 랜덤으로 써진다.
+ * 새 트윗 작성 모달 — 2단계 마법사.
+ * - 1단계 "어떤 글을 쓸까?" — 카테고리(속성) 선택. [취소 / 다음]
+ * - 2단계 "어떤 분위기로 쓸까?" — 톤(긍정/부정)·성인 종류·창작·홍보 선택. [취소 / 등록]
+ * - 유저는 직접 글을 쓰지 않는다. 고른 조건에 맞는 문구가 등록 시 랜덤으로 뽑힌다.
+ * - 카테고리 선택지가 없는 모드(우울·기사)는 1단계를 건너뛰고 2단계로 시작한다.
  */
 export function renderComposeModal(
   ctx: GameContext,
@@ -85,11 +88,12 @@ export function renderComposeModal(
   // 인기 카테고리 등에서 넘어온 preselect가 해금돼 있으면(또는 데려온 반려동물이면) 그 카테고리로 시작
   const ownsPet = (a: AttributeId): boolean =>
     (a === "dog" && s.pets.dog) || (a === "cat" && s.pets.cat);
-  const initialAttr =
-    preselect && (account.unlockedAttributes.includes(preselect) || ownsPet(preselect))
-      ? preselect
-      : account.unlockedAttributes[0] ?? "daily";
-  let selectedAttr: AttributeId = gloomy ? "daily" : initialAttr;
+  const hasPreselect =
+    !!preselect && (account.unlockedAttributes.includes(preselect) || ownsPet(preselect));
+  // 우울·기사 모드는 카테고리를 고르지 않는다(항상 '일상'으로 게시).
+  // 그 외에는 1단계에서 직접 고를 때까지 미선택(null) 상태.
+  let selectedAttr: AttributeId | null =
+    gloomy || articleTitle ? "daily" : hasPreselect ? (preselect as AttributeId) : null;
   let tone: TweetTone = "positive";
   let adultKind: AdultKind = "sekt";
   // 도덕성이 매우 낮으면 '사기' 모드 선택 가능
@@ -133,6 +137,10 @@ export function renderComposeModal(
   const isPromo = (): boolean =>
     selectedAttr === "beauty" && !gloomy && !articleTitle && !scamMode && cosmeticId != null;
 
+  // 우울·기사 모드는 고를 카테고리가 없으므로 2단계에서 시작한다.
+  const skipStep1 = gloomy || !!articleTitle;
+  let step: Step = skipStep1 ? 2 : 1;
+
   const container = el("div", { class: "modal" });
 
   /** 성인 카테고리 선택 = 성인 트윗 */
@@ -162,7 +170,7 @@ export function renderComposeModal(
       const c = ownedNewCosmetics.find((x) => x.id === cosmeticId);
       return c ? cosmeticTweetLines(c) : [];
     }
-    return templatesFor(selectedAttr, tone, false);
+    return templatesFor(selectedAttr ?? "daily", tone, false);
   }
 
   /** 이미 올린 내 트윗과 겹치지 않는 문구를 뽑는다(풀이 소진되면 어쩔 수 없이 재사용). */
@@ -208,54 +216,105 @@ export function renderComposeModal(
     );
   }
 
-  function rerender() {
+  /** 단계 제목 */
+  function stepTitle(text: string): HTMLElement {
+    return el("h3", { class: "compose-step__title" }, text);
+  }
+
+  function cancelBtn(): HTMLElement {
+    return el("button", { class: "btn btn--ghost", onclick: () => ctx.closeModal() }, "취소");
+  }
+
+  // ── 1단계: 어떤 글을 쓸까? (카테고리) ────────────────────
+  function renderStep1(): HTMLElement {
+    const attrChips = el(
+      "div",
+      { class: "chip-row chip-row--center" },
+      ...categories.map((id) =>
+        el(
+          "button",
+          {
+            class:
+              "chip" +
+              (!scamMode && id === selectedAttr ? " chip--active" : "") +
+              (id === "adult" ? " chip--adult" : ""),
+            onclick: () => {
+              scamMode = false;
+              selectedAttr = id;
+              // 애니가 아니면 창작 모드 해제, 뷰티가 아니면 신상품 홍보 해제
+              if (id !== "anime") creation = "off";
+              if (id !== "beauty") cosmeticId = null;
+              paint();
+            },
+          },
+          icon(ATTR_ICON[id], { size: 14 }),
+          categoryLabel(id),
+        ),
+      ),
+      canScam
+        ? el(
+            "button",
+            {
+              class: "chip chip--scam" + (scamMode ? " chip--active" : ""),
+              onclick: () => {
+                scamMode = true;
+                paint();
+              },
+            },
+            "사기",
+          )
+        : null,
+    );
+
+    // 카테고리(또는 사기)를 고르기 전엔 다음으로 넘어갈 수 없다
+    const chosen = scamMode || selectedAttr !== null;
+    const nextBtn = el(
+      "button",
+      {
+        class: "btn",
+        disabled: !chosen,
+        onclick: () => {
+          if (!chosen) return;
+          step = 2;
+          paint();
+        },
+      },
+      "다음",
+    );
+
+    return el(
+      "div",
+      { class: "modal__body compose-step" },
+      stepTitle("어떤 글을 쓸까?"),
+      attrChips,
+      chosen ? null : el("div", { class: "compose-hint" }, "카테고리를 골라야 다음으로 넘어갈 수 있어요."),
+      el("div", { class: "compose-actions" }, cancelBtn(), nextBtn),
+    );
+  }
+
+  // ── 2단계: 어떤 분위기로 쓸까? (톤/종류/창작/홍보) ────────
+  function renderStep2(): HTMLElement {
     // 기사 트윗 헤드라인 안내
     const articleNote = articleTitle
       ? el("div", { class: "article-note" }, `📰 ${articleTitle}`)
       : null;
 
-    // 우울 모드·기사 모드에선 카테고리 선택을 감춘다
-    const attrChips =
-      gloomy || articleTitle
-        ? null
-        : el(
-            "div",
-            { class: "chip-row" },
-            ...categories.map((id) =>
-              el(
-                "button",
-                {
-                  class:
-                    "chip" +
-                    (!scamMode && id === selectedAttr ? " chip--active" : "") +
-                    (id === "adult" ? " chip--adult" : ""),
-                  onclick: () => {
-                    scamMode = false;
-                    selectedAttr = id;
-                    // 애니가 아니면 창작 모드 해제, 뷰티가 아니면 신상품 홍보 해제
-                    if (id !== "anime") creation = "off";
-                    if (id !== "beauty") cosmeticId = null;
-                    paint();
-                  },
-                },
-                icon(ATTR_ICON[id], { size: 14 }),
-                categoryLabel(id),
-              ),
-            ),
-            canScam
-              ? el(
-                  "button",
-                  {
-                    class: "chip chip--scam" + (scamMode ? " chip--active" : ""),
-                    onclick: () => {
-                      scamMode = true;
-                      paint();
-                    },
-                  },
-                  "사기",
-                )
-              : null,
-          );
+    const gloomyNotice = gloomy
+      ? el(
+          "div",
+          { class: "gloomy-notice" },
+          "정신력이 바닥났어요. 지금은 우울한 트윗밖에 써지지 않습니다. 휴식으로 정신력을 회복하세요.",
+        )
+      : null;
+
+    // 사기 모드는 분위기를 고르지 않는다
+    const scamNotice = scamMode
+      ? el(
+          "div",
+          { class: "compose-hint" },
+          "사기 트윗은 분위기를 고를 수 없어요. 돈이 들어오지만 평판과 도덕성이 떨어져요.",
+        )
+      : null;
 
     // 창작 종류 선택(애니 + 창작 도구 보유 시): 일반 / 1차창작 / 2차창작
     const showCreation =
@@ -263,7 +322,7 @@ export function renderComposeModal(
     const creationChips = showCreation
       ? el(
           "div",
-          { class: "chip-row" },
+          { class: "chip-row chip-row--center" },
           creationChip("off", "일반"),
           creationChip("original", "1차창작"),
           creationChip("fan", "2차창작"),
@@ -290,7 +349,7 @@ export function renderComposeModal(
           ),
           el(
             "div",
-            { class: "chip-row" },
+            { class: "chip-row chip-row--center" },
             ...seenWorks.map((w) =>
               el(
                 "button",
@@ -324,7 +383,7 @@ export function renderComposeModal(
         ),
         el(
           "div",
-          { class: "chip-row" },
+          { class: "chip-row chip-row--center" },
           el(
             "button",
             {
@@ -361,12 +420,12 @@ export function renderComposeModal(
 
     // 성인 카테고리면 톤 대신 '종류' 선택, 아니면 긍정/부정 톤 (사기·창작·홍보 모드는 톤 선택 없음)
     const toneChips =
-      gloomy || articleTitle || scamMode || isCreating() || isPromo()
+      gloomy || scamMode || isCreating() || isPromo()
         ? null
         : isAdultTweet()
           ? el(
               "div",
-              { class: "chip-row" },
+              { class: "chip-row chip-row--center" },
               ...adultKinds.map((k) =>
                 el(
                   "button",
@@ -384,18 +443,10 @@ export function renderComposeModal(
             )
           : el(
               "div",
-              { class: "chip-row" },
+              { class: "chip-row chip-row--center" },
               toneChip("positive", "긍정"),
               toneChip("negative", "부정"),
             );
-
-    const gloomyNotice = gloomy
-      ? el(
-          "div",
-          { class: "gloomy-notice" },
-          "정신력이 바닥났어요. 지금은 우울한 트윗밖에 써지지 않습니다. 휴식으로 정신력을 회복하세요.",
-        )
-      : null;
 
     // 2차창작인데 아직 작품을 안 골랐으면 게시 불가
     const needsFanWork = isCreating() && creation === "fan" && !fanWorkId;
@@ -416,7 +467,7 @@ export function renderComposeModal(
             });
             ctx.toast(`사기 트윗 등록... +${earned.toLocaleString("ko-KR")}원`);
           } else {
-            const finalAttr: AttributeId = gloomy || articleTitle ? "daily" : selectedAttr;
+            const finalAttr: AttributeId = gloomy || articleTitle ? "daily" : selectedAttr ?? "daily";
             const finalAdult = !gloomy && !articleTitle && isAdultTweet();
             // 창작 가중 / 뷰티 신상품 홍보 가중
             const creating = isCreating();
@@ -454,28 +505,24 @@ export function renderComposeModal(
           }
         },
       },
-      canPostTweet(s) ? (scamMode ? "사기 트윗 등록" : "트윗 등록") : "행동력 부족",
+      canPostTweet(s) ? "등록" : "행동력 부족",
     );
 
-    const body = el(
+    return el(
       "div",
-      { class: "modal__body" },
+      { class: "modal__body compose-step" },
       gloomyNotice,
       articleNote,
-      attrChips ? el("div", { class: "compose-label" }, "카테고리") : null,
-      attrChips,
+      // 고를 게 하나도 없는 모드(우울)에선 분위기 질문을 띄우지 않는다
+      gloomy ? null : stepTitle("어떤 분위기로 쓸까?"),
+      scamNotice,
       creationChips ? el("div", { class: "compose-label" }, "창작") : null,
       creationChips,
       fanSection,
       cosmeticSection,
-      toneChips
-        ? el("div", { class: "compose-label" }, isAdultTweet() ? "종류" : "톤 선택")
-        : null,
       toneChips,
-      el("div", { class: "compose-actions" }, postBtn),
+      el("div", { class: "compose-actions" }, cancelBtn(), postBtn),
     );
-
-    container.replaceChildren(head, body);
   }
 
   const head = el(
@@ -486,7 +533,7 @@ export function renderComposeModal(
   );
 
   function paint() {
-    rerender();
+    container.replaceChildren(head, step === 1 ? renderStep1() : renderStep2());
   }
 
   paint();

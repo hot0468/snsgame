@@ -2664,6 +2664,24 @@ body {
   line-height: 1.5;
 }
 
+/* 작성 모달 2단계 마법사: 본문 전체(질문·선택지·안내)를 중앙정렬 */
+.compose-step {
+  text-align: center;
+}
+
+.compose-step__title {
+  margin: 4px 0 14px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+/* 선택지 칩을 가운데로 모은다(.chip-row는 기본 좌측 정렬) */
+.chip-row--center {
+  justify-content: center;
+}
+
 /* 이벤트 선택지 버튼 */
 .event-choice {
   display: block;
