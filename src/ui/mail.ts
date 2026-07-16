@@ -295,6 +295,25 @@ function emailView(ctx: GameContext, mail: Email | null): HTMLElement {
       : null,
     el("div", { class: "mail__content" }, mail.body),
     mail.adOffer ? offerCard(ctx, mail, mail.adOffer) : null,
+    // 서던피스 초대장: 본문 아래 경매장 링크. 열람 기간 종료 여부는 경매장(systems)이 판정하므로
+    // 여기서는 항상 링크를 띄우고 진입만 시킨다.
+    mail.auctionLink
+      ? el(
+          "div",
+          { class: "mail__actions mail__actions--link" },
+          el(
+            "button",
+            {
+              class: "btn mail-auction-link",
+              onclick: () => {
+                ctx.ui.auctionSiteOpen = true;
+                ctx.refresh();
+              },
+            },
+            "🔗 southernpeace.auction/private 입장하기",
+          ),
+        )
+      : null,
     offer
       ? el(
           "div",

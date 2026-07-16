@@ -18,6 +18,7 @@ import { renderShop } from "./shop";
 import { renderWishSite } from "./wishSite";
 import { renderGoblinShop } from "./goblinShop";
 import { renderOnet } from "./onet";
+import { renderAuction } from "./auction";
 import { icon } from "./icons";
 
 interface TabDef {
@@ -163,10 +164,11 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
           class: "tab" + (t.id === active ? " tab--active" : ""),
           title: t.label,
           onclick: () => {
-            // 탭을 이동하면 단발 사이트(소원 가게·도깨비 상점·O넷)는 닫힌다.
+            // 탭을 이동하면 단발 사이트(소원 가게·도깨비 상점·O넷·서던피스)는 닫힌다.
             ctx.ui.wishSiteOpen = false;
             ctx.ui.goblinSiteOpen = false;
             ctx.ui.onetSiteOpen = false;
+            ctx.ui.auctionSiteOpen = false;
             ctx.ui.activeTab = t.id;
             ctx.refresh();
           },
@@ -217,7 +219,9 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
           ? "dokkaebi.shop"
           : ctx.ui.onetSiteOpen
             ? "o-net.go.kr"
-            : activeDef.url,
+            : ctx.ui.auctionSiteOpen
+              ? "southernpeace.auction/private"
+              : activeDef.url,
     ),
     icon("refresh", { size: 14 }),
   );
@@ -232,6 +236,9 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
   } else if (ctx.ui.onetSiteOpen) {
     // O넷도 현재 탭 콘텐츠를 덮어쓴다('자격증' 검색으로 진입, 재진입 제한 없음).
     content.append(renderOnet(ctx));
+  } else if (ctx.ui.auctionSiteOpen) {
+    // 서던피스 경매장도 현재 탭 콘텐츠를 덮어쓴다(피메일 초대장 링크로만 진입).
+    content.append(renderAuction(ctx));
   } else if (active === "sns") {
     content.append(renderSnsView(ctx));
   } else if (active === "youtube") {

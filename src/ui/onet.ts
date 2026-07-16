@@ -8,6 +8,7 @@ import {
   certById,
   examPassChance,
   hasCertification,
+  specialCertificationToday,
   todaysCertifications,
 } from "@/systems/certification";
 import { el, formatNumber } from "@/utils/dom";
@@ -146,6 +147,34 @@ function certCard(ctx: GameContext, cert: Certification, paint: () => void): HTM
   );
 }
 
+/**
+ * 금일 특별 시행 종목(onlyOn) 섹션.
+ * 랜덤 5종과 **별개**이며 목록 위에 고정된다 — 5칸을 잡아먹지 않는다.
+ * 오늘이 그 날짜가 아니거나 이미 취득했으면 systems가 null을 주고, 섹션은 통째로 사라진다.
+ */
+function specialSection(
+  ctx: GameContext,
+  cert: Certification,
+  paint: () => void,
+): HTMLElement {
+  return el(
+    "section",
+    { class: "onet-special" },
+    el(
+      "div",
+      { class: "onet-special__banner" },
+      el("span", { class: "onet-special__tag" }, "금일 특별 시행"),
+      el(
+        "span",
+        { class: "onet-special__text" },
+        `${cert.name} 국가자격 시험은 연 1회, 금일에 한해 원서를 접수합니다.`,
+      ),
+      el("span", { class: "onet-special__note" }, "금일 24시 마감 · 차회 시행 내년"),
+    ),
+    el("div", { class: "onet-special__list" }, certCard(ctx, cert, paint)),
+  );
+}
+
 export function renderOnet(ctx: GameContext): HTMLElement {
   const container = el("div", { class: "onet-site" });
 
@@ -154,6 +183,8 @@ export function renderOnet(ctx: GameContext): HTMLElement {
     // 오늘의 종목 선정은 systems가 결정론적으로 계산한다(재렌더해도 동일).
     // 데이터가 아직 적으면 5종 미만으로 올 수 있다 — 있는 만큼만 그린다.
     const list = todaysCertifications(s);
+    // 특별 시행 종목(헌터 등)은 5종과 별도로 온다. 없는 날이 대부분이라 null이 기본이다.
+    const special = specialCertificationToday(s);
 
     container.replaceChildren(
       el(
@@ -192,6 +223,8 @@ export function renderOnet(ctx: GameContext): HTMLElement {
             "동시 접수는 1건까지 가능합니다.",
         ),
         pendingBanner(ctx),
+        // 특별 시행은 랜덤 5종 '위에' 고정 노출한다.
+        special ? specialSection(ctx, special, paint) : null,
         el(
           "h2",
           { class: "onet-title" },

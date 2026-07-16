@@ -24,6 +24,7 @@ import { pendingEndingOffer } from "@/systems/endings";
 import { renderEndingOfferModal } from "./endingModal";
 import { renderDawnModal } from "./dawnModal";
 import { renderCatPowerModal } from "./catPowerModal";
+import { renderConsoleReviewModal } from "./auctionModals";
 
 /**
  * 앱 루트. 스토어를 구독해 전체 화면을 (단순하게) 통째로 다시 그린다.
@@ -83,6 +84,10 @@ export function createApp(root: HTMLElement, store: Store): void {
       if (state.dawnPending) {
         // 새 날이 밝으면 해돋이 딤팝업을 가장 먼저 보여준다.
         ui.modal = (c) => renderDawnModal(c);
+      } else if (state.auction.consoleReview === "pending") {
+        // 9월 10일 낡은 게임기 리뷰 트윗 선택창(dawnPending과 같은 강제 팝업 패턴).
+        // 모달 안에서 postConsoleReview가 pending을 해제해야 다시 뜨지 않는다.
+        ui.modal = (c) => renderConsoleReviewModal(c);
       } else if (controversy) {
         ui.modal = (c) => renderControversyModal(c, controversy);
       } else if (isLoanDue(state)) {

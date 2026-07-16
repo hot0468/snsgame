@@ -6934,3 +6934,271 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
   cursor: pointer;
 }
 .onet-leave:hover { background: #f2f6fb; }
+
+/* ===== O넷 — 금일 특별 시행(onlyOn 자격증) ===== */
+/* 랜덤 5종과 확실히 구분되게 붉은 관인 톤 + 카드 강조 테두리를 준다. */
+.onet-special {
+  margin-bottom: 18px;
+  border: 1px solid #c8a03a;
+  border-radius: 6px;
+  background: #fffaf0;
+  overflow: hidden;
+}
+.onet-special__banner {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  padding: 9px 12px;
+  background: linear-gradient(90deg, #7a1f2b, #a83244);
+}
+.onet-special__tag {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  color: #7a1f2b;
+  background: #ffd98a;
+  border-radius: 3px;
+  padding: 3px 8px;
+  letter-spacing: 0.02em;
+}
+.onet-special__text { font-size: 12.5px; font-weight: 800; color: #fff; }
+.onet-special__note {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: #ffd98a;
+  white-space: nowrap;
+}
+.onet-special__list { padding: 10px; }
+.onet-special__list .onet-card {
+  border-color: #c8a03a;
+  background: #fff;
+}
+.onet-special__list .onet-card__name { color: #7a1f2b; }
+
+/* ===== 서던피스 경매장(southernpeace.auction) ===== */
+/* O넷의 관공서 톤과 정반대인 고급 경매 하우스: 먹빛 배경 + 금박 세리프. */
+.auction-site {
+  min-height: 100%;
+  overflow: auto;
+  background: #14110f;
+  color: #e8e2d6;
+  font-family: "Nanum Myeongjo", "Batang", serif;
+}
+.auc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px 22px;
+  border-bottom: 1px solid #3a3128;
+  background: #100d0b;
+}
+.auc-head__brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.auc-logo {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  color: #d8b871;
+}
+.auc-head__sub { font-size: 12px; color: #8c8071; white-space: nowrap; }
+.auc-head__me {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 12.5px;
+  color: #8c8071;
+}
+.auc-head__member { letter-spacing: 0.04em; }
+.auc-head__money { font-weight: 700; color: #d8b871; font-variant-numeric: tabular-nums; }
+.auc-body { max-width: 760px; margin: 0 auto; padding: 26px 22px 34px; }
+.auc-hero { text-align: center; margin-bottom: 20px; }
+.auc-hero__rule {
+  width: 54px;
+  height: 1px;
+  margin: 0 auto 14px;
+  background: #d8b871;
+}
+.auc-hero__title {
+  margin: 0 0 10px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #f0e8d8;
+}
+.auc-hero__lead {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.8;
+  color: #9a8e7e;
+}
+.auc-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 13px;
+  border-radius: 3px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.auc-status--open {
+  border: 1px solid #3f5a44;
+  background: #16211a;
+  color: #a9cbaf;
+}
+.auc-status__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6fbf7f;
+  flex-shrink: 0;
+}
+.auc-status--closed {
+  border: 1px solid #5a3a3a;
+  background: #211616;
+  color: #c9a3a3;
+}
+.auc-status__tag {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #211616;
+  background: #c9a3a3;
+  border-radius: 3px;
+  padding: 2px 7px;
+}
+.auc-list { display: flex; flex-direction: column; gap: 12px; }
+.auc-lot {
+  border: 1px solid #3a3128;
+  border-radius: 3px;
+  background: #1b1714;
+  padding: 15px 17px;
+}
+.auc-lot--won { border-color: #d8b871; background: #201a12; }
+.auc-lot__head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.auc-lot__no {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: #8c8071;
+  font-family: var(--font, sans-serif);
+}
+.auc-lot__name { font-size: 16.5px; font-weight: 700; color: #f0e8d8; }
+.auc-lot__desc {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #9a8e7e;
+  margin: 8px 0 13px;
+}
+.auc-lot__foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-top: 1px solid #2c251f;
+  padding-top: 11px;
+}
+.auc-lot__price { display: flex; align-items: baseline; gap: 8px; }
+.auc-lot__price-label { font-size: 11.5px; color: #8c8071; }
+.auc-lot__price-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: #d8b871;
+  font-variant-numeric: tabular-nums;
+}
+.auc-lot__reason { font-size: 11.5px; color: #8c8071; }
+.auc-lot__won-tag {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: #d8b871;
+  border: 1px solid #6b5730;
+  border-radius: 3px;
+  padding: 6px 14px;
+}
+.auc-bid {
+  margin-left: auto;
+  border: 1px solid #d8b871;
+  background: transparent;
+  color: #d8b871;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 8px 22px;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.auc-bid:hover { background: #d8b871; color: #14110f; }
+.auc-bid--off {
+  border-color: #4a4238;
+  color: #6a6055;
+  cursor: not-allowed;
+}
+.auc-bid--off:hover { background: transparent; color: #6a6055; }
+.auc-empty {
+  border: 1px dashed #3a3128;
+  border-radius: 3px;
+  padding: 30px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #9a8e7e;
+}
+.auc-empty__sub { font-size: 11.5px; color: #6a6055; margin-top: 6px; }
+.auc-foot {
+  margin-top: 24px;
+  padding-top: 15px;
+  border-top: 1px solid #2c251f;
+  text-align: center;
+  font-size: 11px;
+  color: #6a6055;
+  line-height: 1.8;
+}
+.auc-leave {
+  margin-top: 12px;
+  border: 1px solid #4a4238;
+  background: transparent;
+  color: #9a8e7e;
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 7px 20px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.auc-leave:hover { background: #1b1714; color: #d8b871; }
+
+/* ===== 경매 후속 분기 모달(리뷰 트윗 결과 · 진홍안 사례) ===== */
+.auc-result__lead {
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--text-muted);
+  white-space: pre-line;
+  margin: 0 0 14px;
+}
+.auc-result {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 12px;
+  margin: 0 0 16px;
+}
+.auc-result__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+}
+.auc-result__row + .auc-result__row { border-top: 1px solid var(--border); }
+.auc-result__label { font-size: 13px; color: var(--text-muted); }
+.auc-result__val {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 피메일 초대장의 경매장 링크 */
+.mail__actions--link { justify-content: flex-start; }
+.mail-auction-link { font-size: 13px; }

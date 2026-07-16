@@ -12,6 +12,9 @@ import { acceptAuthorContract } from "@/systems/author";
 import { consumeWishLink, isWishTweet, rollWishOptions, spawnWishDM } from "@/systems/wish";
 import { consumePushLink } from "@/systems/pushtime";
 import { consumeYabamLink } from "@/systems/yabam";
+import type { EyeDealResult } from "@/systems/auction";
+import { resolveEyeDeal } from "@/systems/auction";
+import { renderEyeDealResultModal } from "@/ui/auctionModals";
 import { addAppointment } from "@/systems/appointments";
 import { dateLabel } from "@/systems/time";
 import { SLOT_LABELS, MORNING_SLOT } from "@/core/state";
@@ -701,6 +704,62 @@ function donationBanner(ctx: GameContext, thread: DMThread): HTMLElement | null 
   );
 }
 
+/**
+ * 금발의 신사(진홍안 거래) DM의 답장 영역.
+ * 별도 화면 없이 기존 DM UI 안에서 넘겨줌/거절을 고른다.
+ * ⚠️ 분기 상태는 스레드가 아니라 state.auction.eyeDeal이다 — 처리 후엔 결과만 표시한다.
+ */
+function eyeDealReplies(ctx: GameContext): HTMLElement {
+  const deal = ctx.store.getState().auction.eyeDeal;
+
+  // 이미 답한 뒤(또는 도난 후)에는 스레드가 기록으로만 남는다.
+  if (deal !== "offered") {
+    const note =
+      deal === "given"
+        ? "진홍안을 넘겼다."
+        : deal === "stolen"
+          ? "거절했고, 진홍안은 사라졌다."
+          : deal === "refused"
+            ? "제안을 거절했다."
+            : "";
+    return el(
+      "div",
+      { class: "dm__replies" },
+      el("span", { class: "chip", style: "opacity:.6" }, note || "거래가 끝난 대화"),
+    );
+  }
+
+  const answer = (accept: boolean): void => {
+    let r: EyeDealResult | null = null;
+    ctx.update((s) => {
+      r = resolveEyeDeal(s, accept);
+    });
+    // ctx.update 콜백 안에서 대입하므로 TS의 흐름 분석이 r을 null로 좁힌다 — 단언으로 되돌린다.
+    const result = r as EyeDealResult | null;
+    if (!result) return; // 이미 처리된 제안(중복 클릭)
+    if (result.accepted) {
+      ctx.openModal((c) => renderEyeDealResultModal(c, result));
+    } else {
+      ctx.toast("제안을 거절했다. 진홍안은 그대로 내 것이다.");
+    }
+  };
+
+  return el(
+    "div",
+    { class: "dm__replies" },
+    el(
+      "div",
+      { class: "dm__send", style: "gap:8px" },
+      el(
+        "button",
+        { class: "btn btn--ghost", style: "flex:1", onclick: () => answer(false) },
+        "넘겨주지 않는다",
+      ),
+      el("button", { class: "btn", style: "flex:1", onclick: () => answer(true) }, "넘겨준다"),
+    ),
+  );
+}
+
 function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement {
   if (!thread) {
     return el("div", { class: "dm__convo" }, el("div", { class: "empty" }, "대화를 선택하세요."));
@@ -768,8 +827,10 @@ function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement 
     if ((e as KeyboardEvent).key === "Enter") sendCustom();
   });
 
-  // 링크 DM(소원 가게·푸시타임): 답장 대신 링크 버튼만.
-  const repliesSection = thread.wishLink
+  // 링크 DM(소원 가게·푸시타임)·진홍안 거래 DM: 답장 대신 전용 버튼만.
+  const repliesSection = thread.eyeDeal
+    ? eyeDealReplies(ctx)
+    : thread.wishLink
     ? el(
         "div",
         { class: "dm__replies" },
