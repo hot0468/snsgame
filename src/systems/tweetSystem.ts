@@ -2,7 +2,6 @@ import type { AdultKind, AttributeId, GameState, Tweet } from "@/core/types";
 import {
   dominantAttribute,
   getActiveAccount,
-  EVENING_SLOT,
   LATE_SLOT,
 } from "@/core/state";
 import { chance, randInt, uid } from "@/utils/random";
@@ -19,7 +18,7 @@ import { generateReactions } from "./reactions";
 import { clampAction, clampResource } from "./stats";
 import { addStrike } from "./ban";
 import { rollControversy, CONTROVERSY_REP_THRESHOLD } from "./controversy";
-import { addSchedule, advanceTime } from "./time";
+import { addSchedule } from "./time";
 
 /** 트윗 1건 작성에 드는 행동력 */
 export const TWEET_ACTION_COST = 10;
@@ -30,33 +29,24 @@ export const ADULT_FOLLOWER_MULTIPLIER = 1.5;
 export interface PostTweetResult {
   tweet: Tweet;
   followerDelta: number;
-  /** 저녁 트윗을 올린 직후라, 자러갈지/심야까지 남을지 선택이 필요한지 */
-  needsSleepChoice: boolean;
 }
 
 /** postTweet 부가 옵션 */
 export interface PostTweetOptions {
   /**
-   * true면 행동력 소모(TWEET_ACTION_COST)와 시간 진행(advanceTime)을 건너뛴다.
+   * true면 행동력 소모(TWEET_ACTION_COST)를 건너뛴다.
    * 무료 게시 경로(예: 야밤 리뷰 트윗 해금)에 사용. 그 외 팔로워·리액션·타임라인
-   * 등록·DM 스폰 등은 그대로 수행된다. free일 때 needsSleepChoice는 항상 false.
+   * 등록·DM 스폰 등은 그대로 수행된다.
    */
   free?: boolean;
-  /**
-   * true면 시간 진행(advanceTime)만 건너뛴다(행동력은 그대로 소모).
-   * '활동 후 트윗하기' 경로(현생살기·너튜브 시청·미디북스 감상)에 사용 —
-   * 선행 활동이 이미 타임블록 1칸을 썼으므로, 뒤따르는 트윗은 시간을 추가로
-   * 소모하지 않는다. skipTime일 때 needsSleepChoice는 항상 false.
-   */
-  skipTime?: boolean;
 }
 
 /**
  * 새 트윗을 등록한다.
- * - 행동력을 소모하고, 성과를 계산해 팔로워를 반영한 뒤 타임라인 맨 앞에 추가.
+ * - 행동력을 소모하고(트윗은 시간/슬롯을 진행시키지 않는다 — 행동력이 유일한 통화),
+ *   성과를 계산해 팔로워를 반영한 뒤 타임라인 맨 앞에 추가.
  * - 성인 트윗은 신규 팔로워가 1.5배.
- * - 저녁 트윗이면 심야까지 남을지 묻는 선택(needsSleepChoice)을 반환한다.
- * - 심야 트윗이면 lateTweetToday를 세워 다음날 수면 회복을 줄인다.
+ * - 심야 슬롯 트윗이면 lateTweetToday를 세워 다음날 수면 회복을 줄인다.
  */
 export function postTweet(
   state: GameState,
@@ -132,26 +122,15 @@ export function postTweet(
   if (isAdult && state.resources.morality < 30) ctrlChance += 0.15;
   rollControversy(state, ctrlChance);
 
-  // 심야 트윗이면 수면 부족 플래그. (advance 시 하루가 넘어가며 회복이 줄어듦)
+  // 심야 슬롯 트윗이면 수면 부족 플래그(다음날 슬롯이 넘어갈 때 회복이 줄어듦).
   // 단, 무료 게시(opts.free)면 진짜 '무료' 해금이므로 수면 페널티도 남기지 않는다.
   if (!opts.free && postedSlot === LATE_SLOT) state.lateTweetToday = true;
 
-  // 도배(하루 10개 초과)·밤샘(7일 연속 심야) 이스터에그 — 시간 진행 전에 판정
+  // 도배(하루 10개 초과)·밤샘(7일 연속 심야) 이스터에그 판정
   onTweetPosted(state, postedSlot);
 
-  // 무료 게시(opts.free) 또는 시간 미소모(opts.skipTime)면 시간 진행을 건너뛴다.
-  // 이 경우 수면 선택(needsSleepChoice)도 불필요하다.
-  // skipTime은 '활동 후 트윗'이라 선행 활동이 이미 타임블록을 소모한 상태다.
-  if (opts.free || opts.skipTime) {
-    return { tweet, followerDelta: followers, needsSleepChoice: false };
-  }
-
-  advanceTime(state, 1);
-
-  // 저녁 트윗 직후(이제 심야 슬롯)라면 자러갈지 선택을 요청
-  const needsSleepChoice = postedSlot === EVENING_SLOT;
-
-  return { tweet, followerDelta: followers, needsSleepChoice };
+  // 트윗은 시간을 진행시키지 않는다(슬롯 전환은 오프라인 활동·근무 등이 담당).
+  return { tweet, followerDelta: followers };
 }
 
 /** 트윗 작성이 가능한지(행동력 체크) */
@@ -168,7 +147,6 @@ export interface ScamTweetResult {
   tweet: Tweet;
   /** 사기로 번 금액 */
   earned: number;
-  needsSleepChoice: boolean;
 }
 
 /**
@@ -209,7 +187,7 @@ export function postScamTweet(state: GameState, text: string): ScamTweetResult {
   rollControversy(state, 0.5);
 
   if (postedSlot === LATE_SLOT) state.lateTweetToday = true;
-  advanceTime(state, 1);
 
-  return { tweet, earned, needsSleepChoice: postedSlot === EVENING_SLOT };
+  // 사기 트윗도 시간을 진행시키지 않는다(일반 트윗과 규칙 통일).
+  return { tweet, earned };
 }

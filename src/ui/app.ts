@@ -25,6 +25,7 @@ import { renderFireOfferModal } from "./fireModal";
 import { pendingEndingOffer } from "@/systems/endings";
 import { renderEndingOfferModal } from "./endingModal";
 import { renderDawnModal } from "./dawnModal";
+import { renderSleepModal } from "./sns/sleepModal";
 import { renderCatPowerModal } from "./catPowerModal";
 import { renderConsoleReviewModal } from "./auctionModals";
 import { renderLoginScreen } from "./loginScreen";
@@ -101,13 +102,16 @@ export function createApp(root: HTMLElement, store: Store): void {
 
     const gameOver = state.gameOver;
 
-    // 강제 팝업. 우선순위: 새 날 아침 > 논란 > 빚 상환 > 연구실 > 근무 > 약속.
+    // 강제 팝업. 우선순위: 새 날 아침 > 취침 > 논란 > 빚 상환 > 연구실 > 근무 > 약속.
     // (연구실이 근무보다 앞이다 — 겹치는 저녁에 연구실이 이긴다.)
     if (!ui.modal && !gameOver) {
       const controversy = state.pendingControversy ? getControversy(state.pendingControversy) : null;
       if (state.dawnPending) {
         // 새 날이 밝으면 해돋이 딤팝업을 가장 먼저 보여준다.
         ui.modal = (c) => renderDawnModal(c);
+      } else if (state.sleepPending) {
+        // 저녁→심야 진입(무엇이 진행시켰든). dawn 다음 우선순위. 모달의 모든 선택지가 클리어한다.
+        ui.modal = (c) => renderSleepModal(c);
       } else if (state.auction.consoleReview === "pending") {
         // 9월 10일 낡은 게임기 리뷰 트윗 선택창(dawnPending과 같은 강제 팝업 패턴).
         // 모달 안에서 postConsoleReview가 pending을 해제해야 다시 뜨지 않는다.

@@ -103,6 +103,10 @@ export function advanceTime(state: GameState, slots = 1): void {
  *    앞선 두 분기의 판정·동작에 전혀 영향을 주지 않는다(onNewDay 발동 조건 불변).
  */
 function onLateNight(state: GameState): void {
+  // 저녁→심야 진입 시 취침 선택 팝업을 예약(ui/app.ts가 감지해 sleepModal을 띄우고,
+  // 모달의 모든 선택지가 클리어한다). 무엇이 시간을 진행시켰든(오프라인 활동·근무 등) 뜬다.
+  // 심야→다음날 전환은 이 훅을 안 타므로(onNewDay만 탐) 모달이 부른 advanceTime이 재설정하지 않는다.
+  state.sleepPending = true;
   // 서던피스 경매 초대장(헌터 자격증 보유 + 9월 6일 심야에만) 도착
   maybeSendAuctionMail(state);
 }

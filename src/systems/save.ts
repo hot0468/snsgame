@@ -196,6 +196,7 @@ function sanitize(state: GameState): GameState {
   if (!Array.isArray(state.seasonalFired)) state.seasonalFired = [];
   state.postedAdultEver ??= false;
   state.dawnPending ??= false;
+  state.sleepPending ??= false;
   state.catPowerPending ??= false;
   // 반려동물 보유 상태 보강(구버전 저장본 대비)
   state.pets ??= { dog: false, cat: false };

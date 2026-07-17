@@ -228,6 +228,7 @@ export function createInitialState(): GameState {
     },
     lateTweetToday: false,
     dawnPending: false,
+    sleepPending: false,
     catPowerPending: false,
     daily: {
       adWatchedDay: -1,

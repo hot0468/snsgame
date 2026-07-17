@@ -639,6 +639,13 @@ export interface GameState {
   /** 새 날 아침 딤팝업 대기 플래그. onNewDay에서 true, 팝업 닫을 때 false */
   dawnPending: boolean;
 
+  /**
+   * 취침 선택 팝업 대기 플래그. advanceTime이 저녁→심야(LATE_SLOT) 전환 시 true,
+   * sleepModal의 모든 선택지가 false로 클리어한다. 무엇이 시간을 진행시켰든(트윗은 이제
+   * 시간을 안 쓰므로 오프라인 활동·근무 등) 심야 진입이면 뜬다.
+   */
+  sleepPending: boolean;
+
   /** 고양이가 전원 버튼을 눌렀음(UI가 감지해 2초 블랙아웃 후 팝업을 띄우고, 닫을 때 false로 되돌린다). */
   catPowerPending: boolean;
 

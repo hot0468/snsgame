@@ -4,6 +4,20 @@ import { ATTRIBUTES, getAffinity } from "@/data/attributes";
 import { MAX_SKILL } from "@/data/stats";
 import { isTrending, TRENDING_MULTIPLIER } from "@/data/trends";
 
+/**
+ * RT → 신규 팔로워 전환율. **의도적으로 상수다 — 스킬을 곱하지 마라.**
+ *
+ * 예전엔 `0.06 + skill01 * 0.44`(스킬 0→6%, 999→50%)였고, 스킬이 skillMul(0.3→2.5)에도
+ * 동시에 곱해져 **스킬 하나가 팔로워를 58배** 흔들었다. 다른 레버는 전부 합쳐도 13배
+ * (평판 3.3 · 궁합 2.3 · 트렌드 1.7)라 최적 플레이가 "스킬 만렙 찍고 트윗"뿐이었다.
+ *
+ * 측정(하루 3회·궁합최적·평판100, 100만 팔로워 도달일):
+ *   변경 전 — 스킬 0: 5985일 / 300: 1193일 / 999: 103일  (격차 58배)
+ *   변경 후 — 스킬 격차 8배. 만렙 도달 156일(기본집) / 93일(펜트하우스).
+ * 스킬은 skillMul에만 남는다. 그래야 집·평판·궁합·트렌드가 의미를 갖는다.
+ */
+export const TWEET_CONV_RATE = 0.32;
+
 export interface TweetOutcome {
   likes: number;
   retweets: number;
@@ -49,11 +63,9 @@ export function calcTweetOutcome(state: GameState, attr: AttributeId): TweetOutc
   const likes = Math.round(base * (0.8 + Math.random() * 0.6));
   const retweets = Math.round(likes * (0.15 + Math.random() * 0.2));
 
-  // 신규 팔로워: RT 전환율·궁합 보너스 모두 스탯에 크게 좌우된다.
-  // 스탯이 낮으면 거의 늘지 않고, 높을수록 전환율이 크게 오른다.
-  const convRate = 0.06 + skill01 * 0.44; // 스킬 0 → 6%, 999 → 50%
+  // 신규 팔로워: RT 전환율은 스킬과 무관한 상수(TWEET_CONV_RATE), 궁합 보너스만 스탯에 좌우된다.
   const affinityBonus = affinity * (0.5 + skill01 * 3.5); // 저스탯이면 궁합 이득도 작음
-  let followers = Math.round(retweets * convRate + affinityBonus);
+  let followers = Math.round(retweets * TWEET_CONV_RATE + affinityBonus);
   if (affinity < 0) {
     // 상충 카테고리는 언팔 위험(스탯이 높을수록 파급도 큼)
     followers = Math.min(followers, Math.round(affinity * (2 + skill01 * 6)));

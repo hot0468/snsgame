@@ -30,7 +30,6 @@ import {
 import { pick } from "@/utils/random";
 import { el } from "@/utils/dom";
 import { icon, ATTR_ICON } from "@/ui/icons";
-import { renderSleepModal } from "./sleepModal";
 
 /** 창작 모드 — 꺼짐 / 1차창작 / 2차창작 */
 type CreationMode = "off" | "original" | "fan";
@@ -476,13 +475,10 @@ export function renderComposeModal(
         disabled: !canPostTweet(s) || needsFanWork,
         onclick: () => {
           const finalText = pickFreshText(currentPool());
-          let needsSleepChoice = false;
           if (scamMode) {
             let earned = 0;
             ctx.update((st) => {
-              const r = postScamTweet(st, finalText);
-              earned = r.earned;
-              needsSleepChoice = r.needsSleepChoice;
+              earned = postScamTweet(st, finalText).earned;
             });
             ctx.toast(`사기 트윗 등록... +${earned.toLocaleString("ko-KR")}원`);
           } else {
@@ -502,9 +498,7 @@ export function renderComposeModal(
             }
             let delta = 0;
             ctx.update((st) => {
-              const r = postTweet(st, finalAttr, finalText, finalAdult, adultKind, mult);
-              delta = r.followerDelta;
-              needsSleepChoice = r.needsSleepChoice;
+              delta = postTweet(st, finalAttr, finalText, finalAdult, adultKind, mult).followerDelta;
               // 창작 트윗 누적 → 20개 이상이면 작가 계약 제안 DM이 올 수 있다
               if (creating) {
                 st.creationTweetCount += 1;
@@ -515,13 +509,9 @@ export function renderComposeModal(
               delta >= 0 ? `트윗 등록! +${delta} 팔로워` : `트윗 등록... ${delta} 팔로워`,
             );
           }
-          // 저녁 트윗이면 취침 선택 팝업으로 전환, 아니면 닫고 이벤트 판정
-          if (needsSleepChoice) {
-            ctx.openModal(renderSleepModal);
-          } else {
-            ctx.closeModal();
-            ctx.afterAction("tweet");
-          }
+          // 트윗은 슬롯을 넘기지 않는다 — 닫고 이벤트 판정만.
+          ctx.closeModal();
+          ctx.afterAction("tweet");
         },
       },
       canPostTweet(s) ? "등록" : "행동력 부족",

@@ -118,10 +118,7 @@ export function renderVideoModal(ctx: GameContext, video: Video): HTMLElement {
                 const text = pick(video.tweetLines);
                 let delta = 0;
                 ctx.update((s) => {
-                  // 시청 후 트윗: 영상 시청이 이미 타임블록을 썼으므로 시간은 추가 소모하지 않는다.
-                  delta = postTweet(s, video.attribute, text, false, "meetup", 1, {
-                    skipTime: true,
-                  }).followerDelta;
+                  delta = postTweet(s, video.attribute, text, false, "meetup", 1).followerDelta;
                 });
                 ctx.closeModal();
                 ctx.toast(

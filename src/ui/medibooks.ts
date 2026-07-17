@@ -208,10 +208,7 @@ function openReadResultModal(ctx: GameContext, book: Book, msg: string): void {
                 const text = pick(bookTweetLines(book));
                 let delta = 0;
                 c.update((s) => {
-                  // 감상 후 트윗: 책 감상이 이미 타임블록을 썼으므로 시간은 추가 소모하지 않는다.
-                  delta = postTweet(s, bookTweetAttr(book.category), text, false, "meetup", 1, {
-                    skipTime: true,
-                  }).followerDelta;
+                  delta = postTweet(s, bookTweetAttr(book.category), text, false, "meetup", 1).followerDelta;
                 });
                 c.closeModal();
                 c.toast(
