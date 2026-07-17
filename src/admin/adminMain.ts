@@ -303,6 +303,7 @@ const STYLE = `
   header.top { position: sticky; top: 0; z-index: 5; background: #12161d; border-bottom: 1px solid #232a35; padding: 14px 20px; }
   header.top h1 { margin: 0; font-size: 17px; color: #fff; }
   header.top .sub { color: #8b95a3; font-size: 12px; margin-top: 3px; }
+  header.top .sub a { color: #86b7ff; }
   .wrap { padding: 20px; max-width: 1200px; margin: 0 auto; }
   section { margin: 0 0 30px; }
   h2 { font-size: 15px; color: #86b7ff; border-left: 3px solid #3d6fd6; padding-left: 9px; margin: 0 0 6px; }
@@ -365,7 +366,8 @@ function render(): void {
   root.innerHTML =
     `<style>${STYLE}</style>` +
     `<header class="top"><h1>🛠 어드민 · 숨은 이벤트 도감</h1>` +
-    `<div class="sub">개발자용 참고 페이지 · 게임 상태를 바꾸지 않습니다 · admin.html</div></header>` +
+    `<div class="sub">개발자용 참고 페이지 · 게임 상태를 바꾸지 않습니다 · admin.html · ` +
+    `<a href="/admin-media.html">🖼 미디어 이미지 편집기 →</a></div></header>` +
     `<div class="wrap">` +
     refTable("이스터에그", "특정 조건에서 조용히 발동되는 숨은 이벤트(1회성 위주).", EGGS) +
     refTable("DM·오퍼", "특정 행동 직후 확률적으로 도착하는 제안 DM.", OFFERS) +

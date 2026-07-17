@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>어드민 · 미디어 이미지 편집기</title>
+    <style>
+      /* 게임 CSS(main.css)와 섞지 않는다 — 이 페이지는 게임이 아니라 개발 도구다.
+         어드민 도감(adminMain.ts의 STYLE)과 같은 팔레트만 맞춘다. */
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #0e1116; color: #d7dde6; font: 13px/1.55 -apple-system, "Pretendard", system-ui, sans-serif; }
+      header.top { position: sticky; top: 0; z-index: 5; background: #12161d; border-bottom: 1px solid #232a35; padding: 14px 20px; }
+      header.top h1 { margin: 0; font-size: 17px; color: #fff; }
+      header.top .sub { color: #8b95a3; font-size: 12px; margin-top: 3px; }
+      header.top a { color: #86b7ff; }
+      .wrap { padding: 20px; max-width: 1000px; margin: 0 auto; }
+      h2 { font-size: 15px; color: #86b7ff; border-left: 3px solid #3d6fd6; padding-left: 9px; margin: 0 0 10px; }
+      .note { color: #8b95a3; margin: 0 0 12px; font-size: 12px; }
+      .note--warn { color: #c2410c; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px; padding: 8px 10px; line-height: 1.5; }
+      .cols { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+      .panel { background: #141922; border: 1px solid #232a35; border-radius: 10px; padding: 16px; }
+
+      /* 드롭존 겸 크롭 무대 */
+      .drop { border: 1px dashed #3a4557; border-radius: 10px; padding: 14px; text-align: center; color: #8b95a3; margin-bottom: 14px; }
+      .drop--over { border-color: #3d6fd6; background: #16202e; color: #cfe4ff; }
+      /* 세로는 mediaEditor.ts가 저장 비율에 맞춰 인라인으로 정한다(정사각 / 남의방 4:3). */
+      .stage { position: relative; width: 320px; height: 320px; margin: 0 auto; background: #0a0d12; border-radius: 8px; overflow: hidden; cursor: grab; touch-action: none; }
+      .stage--drag { cursor: grabbing; }
+      .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+      /* 크롭 영역 밖을 어둡게: 정사각 고정이라 무대 전체가 곧 크롭 영역이다 */
+      .stage__hint { position: absolute; left: 0; right: 0; bottom: 0; padding: 5px; text-align: center; font-size: 11px; color: #9aa6b4; background: rgba(0,0,0,0.55); }
+      .row { display: flex; align-items: center; gap: 10px; margin: 12px 0; }
+      .row label { flex: 0 0 auto; color: #9fb0c3; }
+      input[type="range"] { flex: 1; }
+      input[type="text"], select { flex: 1; background: #0e1116; border: 1px solid #2c3543; color: #e7edf5; border-radius: 6px; padding: 8px 10px; font-size: 13px; }
+      input[type="text"].bad { border-color: #d9534f; }
+      .btn { background: #3d6fd6; color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+      .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+      .msg { margin-top: 10px; font-size: 12.5px; min-height: 18px; }
+      .msg--ok { color: #9fe6a0; }
+      .msg--err { color: #ff8f6b; }
+
+      /* 캔버스의 표시 크기는 mediaEditor.ts가 규격에 맞춰 인라인으로 정한다(실제 크기 / 확대). */
+      .preview { display: flex; gap: 18px; align-items: flex-end; flex-wrap: wrap; }
+      .preview figure { margin: 0; text-align: center; }
+      .preview figcaption { color: #6b7686; font-size: 11px; margin-top: 5px; }
+      .preview canvas { background: #0a0d12; border: 1px solid #232a35; border-radius: 6px; display: block; }
+      /* 작은 규격은 눈으로 판정이 안 돼 확대본을 함께 둔다. 확대본은 픽셀을 뭉개지 않는다. */
+      .preview canvas.zoom { image-rendering: pixelated; }
+
+      .saved { display: flex; flex-wrap: wrap; gap: 10px; }
+      .saved__item { width: 100px; text-align: center; }
+      .saved__item img { width: 100px; height: 100px; border-radius: 6px; border: 1px solid #232a35; display: block; object-fit: cover; }
+      .saved__kw { font-size: 11.5px; color: #9fb0c3; margin-top: 4px; word-break: break-all; }
+      .saved__empty { color: #6b7686; }
+      /* 빈 칸을 지우지 않고 남긴다 — 뭐가 비었는지 보여야 중복·누락이 안 난다. */
+      .saved__item--empty { opacity: 0.5; }
+      .saved__none { width: 100px; height: 100px; border-radius: 6px; border: 1px dashed #2c3543; display: flex; align-items: center; justify-content: center; color: #55606f; font-size: 11.5px; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/admin/mediaEditor.ts"></script>
+  </body>
+</html>

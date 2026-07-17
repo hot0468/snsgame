@@ -9,6 +9,7 @@ import { currentSale } from "@/systems/seasonal";
 import { GACHA_COST } from "@/systems/gacha";
 import { renderGachaModal } from "./gachaModal";
 import { confirmPurchase } from "./confirmModal";
+import { itemImg } from "./components";
 import { el, formatNumber } from "@/utils/dom";
 import { icon } from "./icons";
 
@@ -253,6 +254,8 @@ function itemCard(ctx: GameContext, item: ShopItem): HTMLElement {
     el(
       "div",
       { class: "shop-card__thumb", style: coverStyle(item.id) },
+      // 이미지가 있으면 그라데이션 위를 덮는다(없는 게 기본 — 그땐 그라데이션 그대로).
+      itemImg(item.id),
       el("span", { class: "shop-card__badge" }, sale ? "SALE" : "특가"),
       count > 0
         ? el("span", { class: "shop-card__ownedtag" }, item.repeatable ? `보유 ${count}` : "보유중")

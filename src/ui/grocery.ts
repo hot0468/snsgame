@@ -12,6 +12,7 @@ import { tryLemonZ } from "@/systems/eggs";
 import { pick } from "@/utils/random";
 import { el, formatNumber } from "@/utils/dom";
 import { confirmPurchase } from "./confirmModal";
+import { itemImg } from "./components";
 
 /* ============================================================
  * 마켓걸리버 — 식재료 배달. 장바구니에 담은 재료 조합으로 요리가 결정된다.
@@ -218,7 +219,8 @@ export function renderGrocery(ctx: GameContext): HTMLElement {
         const media = el(
           "div",
           { class: "grocery-item__media" },
-          el("span", { class: "grocery-item__emoji" }, ing.emoji),
+          // 이미지가 있으면 이모지 대신 사진. 없는 게 기본이라 이모지가 폴백이다.
+          itemImg(ing.id, ing.name) ?? el("span", { class: "grocery-item__emoji" }, ing.emoji),
           d.coupon && el("span", { class: "grocery-item__coupon" }, d.coupon),
           el(
             "button",

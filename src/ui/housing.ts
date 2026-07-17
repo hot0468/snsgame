@@ -1,6 +1,7 @@
 import type { GameContext } from "./context";
 import { HOUSINGS } from "@/data/housing";
 import { upgradeHousing } from "@/systems/housing";
+import { itemImg } from "./components";
 import { el, formatNumber } from "@/utils/dom";
 
 /* ============================================================
@@ -70,10 +71,11 @@ export function renderHousing(ctx: GameContext): HTMLElement {
       return el(
         "div",
         {
-          class: "mb-book",
+          class: "nb-house",
           style: isCurrent ? "border:1px solid var(--accent)" : "",
         },
-        el("span", { class: "mb-book__cover", style: coverStyle(i) }),
+        // 매물 사진 160x120(4:3). 이미지가 있으면 그라데이션 위를 덮는다(없는 게 기본).
+        el("span", { class: "nb-house__cover", style: coverStyle(i) }, itemImg(h.id, h.name)),
         el(
           "span",
           { class: "mb-book__info", style: "flex:1" },
@@ -110,7 +112,7 @@ export function renderHousing(ctx: GameContext): HTMLElement {
           { class: "compose-hint", style: "margin:0 4px 10px" },
           "좋은 집일수록 월세는 비싸지만, 잠에서 깰 때 행동력·정신력을 더 회복해요. 아파트부터는 세부 스탯이 영구히 올라요.",
         ),
-        el("div", { class: "mb__books" }, ...rows),
+        el("div", { class: "nb__list" }, ...rows),
       ),
     );
   }

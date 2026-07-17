@@ -42,11 +42,10 @@ import { renderMotelModal } from "./motelModal";
 import { renderTicketModal } from "./ticketModal";
 import { renderAccountModal } from "./accountModal";
 import { renderMediaModal } from "@/ui/mediaModal";
-import type { TweetMedia } from "@/core/types";
 
 /** 트윗의 사진/영상 자리 클릭 → 설명 팝업 */
-function openMedia(ctx: GameContext): (m: TweetMedia) => void {
-  return (m) => ctx.openModal((c) => renderMediaModal(c, m));
+function openMedia(ctx: GameContext): (t: Tweet) => void {
+  return (t) => ctx.openModal((c) => renderMediaModal(c, t));
 }
 
 /* ===================== 페이지 진입(네비게이션) ===================== */

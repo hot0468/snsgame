@@ -1,10 +1,24 @@
-import type { Tweet, TweetMedia, TweetReply } from "@/core/types";
+import type { Tweet, TweetReply } from "@/core/types";
 import { likeReply } from "@/systems/reactions";
+import { imageForTweet } from "@/systems/mediaImages";
+import { imageForItem } from "@/data/itemImages";
 import { el, formatNumber } from "@/utils/dom";
 import { dateLabel } from "@/systems/time";
 import { SLOT_LABELS } from "@/core/state";
 import type { GameContext } from "./context";
 import { icon, avatar } from "./icons";
+
+/**
+ * 아이템 id에 붙은 썸네일 이미지. **없으면 null을 돌려준다** — el()이 null 자식을 무시하므로
+ * 호출부는 `thumb(..., itemImg(id), ...)`로 끼워 넣기만 하면 폴백(그라데이션/이모지)이 그대로 산다.
+ * 이미지 없는 아이템이 기본값이고 대부분이다.
+ *
+ * 담는 그릇은 position:relative여야 한다(.item-thumb-img가 inset:0으로 덮는다).
+ */
+export function itemImg(id: string, alt = ""): HTMLElement | null {
+  const url = imageForItem(id);
+  return url ? el("img", { class: "item-thumb-img", src: url, alt }) : null;
+}
 
 /** 라벨 + 게이지 바 한 줄 (fillClass로 스탯별 색상 지정) */
 export function statBar(
@@ -91,26 +105,45 @@ interface TweetCardOpts {
   /** 행사 트윗의 '참여하기'를 눌렀을 때 동작(있으면 버튼 활성) */
   onJoinEvent?: () => void;
   /** 사진/영상 자리를 눌렀을 때 동작(설명 팝업 열기) */
-  onMedia?: (media: TweetMedia) => void;
+  onMedia?: (tweet: Tweet) => void;
   /** 있으면 카드 전체가 클릭 가능해지고(트윗 상세 열기), 액션 버튼은 개별 동작을 유지한다 */
   onOpen?: () => void;
   /** 멘션(답글) 본문을 항상 펼쳐 보여준다(개별 트윗 상세 화면 전용) */
   forceMentions?: boolean;
 }
 
-/** 사진/영상 첨부 자리(실제 파일 없이 자리만) */
-function mediaBlock(media: TweetMedia, onMedia?: (m: TweetMedia) => void): HTMLElement {
+/**
+ * 사진/영상 첨부 자리.
+ * 파일명(키워드)이 맞는 이미지가 있으면 실제 이미지를, 없으면 아이콘 자리표시자를 그린다
+ * (이미지 없는 트윗이 대다수라 자리표시자가 기본 경로다).
+ */
+function mediaBlock(tweet: Tweet, onMedia?: (t: Tweet) => void): HTMLElement {
+  const media = tweet.media!;
   const isVideo = media.kind === "video";
+  const img = imageForTweet(tweet);
   return el(
     "button",
     {
-      class: "tweet-media" + (isVideo ? " tweet-media--video" : ""),
+      class:
+        "tweet-media" +
+        (isVideo ? " tweet-media--video" : "") +
+        (img ? " tweet-media--img" : ""),
       onclick: (e: Event) => {
         e.stopPropagation();
-        onMedia?.(media);
+        onMedia?.(tweet);
       },
     },
-    el("span", { class: "tweet-media__icon" }, icon(isVideo ? "film" : "image", { size: 30 })),
+    img
+      ? el("img", {
+          // ⚠️ 블러는 **출처가 성인 풀일 때만**이다. tweet.isAdult로 판정하지 마라 —
+          //    isAdult가 붙은 아이돌 트윗은 아이돌 이미지를 받으므로(카테고리가 이긴다)
+          //    그것까지 뭉갠다. systems/mediaImages.ts의 TweetImageSource 주석 참고.
+          class: "tweet-media__img" + (img.source === "adult" ? " tweet-media__img--blur" : ""),
+          src: img.url,
+          alt: media.prompt,
+        })
+      : el("span", { class: "tweet-media__icon" }, icon(isVideo ? "film" : "image", { size: 30 })),
+    // 영상은 이미지가 붙어도 재생 아이콘을 위에 얹는다(썸네일처럼).
     isVideo ? el("span", { class: "tweet-media__play" }, icon("youtube", { size: 26 })) : null,
   );
 }
@@ -216,7 +249,7 @@ export function tweetCard(tweet: Tweet, opts: TweetCardOpts = {}): HTMLElement {
           ? garbleText(tweet.text, tweet.difficulty, opts.readerVocab)
           : tweet.text,
       ),
-      tweet.media ? mediaBlock(tweet.media, opts.onMedia) : null,
+      tweet.media ? mediaBlock(tweet, opts.onMedia) : null,
       eventBox(tweet, opts.onJoinEvent),
       el(
         "div",
