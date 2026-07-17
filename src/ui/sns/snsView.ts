@@ -15,6 +15,7 @@ import { interleaveFeed } from "./feedLayout";
 import { renderComposeModal } from "./composeModal";
 import { renderAccountModal } from "./accountModal";
 import { renderMediaModal } from "@/ui/mediaModal";
+import { renderAdultWarnModal } from "@/ui/adultWarnModal";
 import {
   adPage,
   dmPage,
@@ -135,10 +136,22 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
           "aria-label": "성인물 보기",
           onclick: () => {
             const wasOn = s.adultMode;
-            ctx.update((st) => {
-              st.adultMode = !wasOn;
-            });
-            ctx.toast(wasOn ? "성인물 보기 OFF" : "성인물 보기 ON");
+            // 끌 때는 확인 없이 바로. 켤 때만 경고 팝업을 거친다.
+            if (wasOn) {
+              ctx.update((st) => {
+                st.adultMode = false;
+              });
+              ctx.toast("성인물 보기 OFF");
+              return;
+            }
+            ctx.openModal((c) =>
+              renderAdultWarnModal(c, () => {
+                ctx.update((st) => {
+                  st.adultMode = true;
+                });
+                ctx.toast("성인물 보기 ON");
+              }),
+            );
           },
         }),
       ),
@@ -282,7 +295,7 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
           tweetCard(t, {
             showGain: true,
             ctx,
-            onMedia: (m) => ctx.openModal((c) => renderMediaModal(c, m)),
+            onMedia: (mt) => ctx.openModal((c) => renderMediaModal(c, mt)),
             onOpen: () => enterTweetDetail(ctx, t.id),
           }),
         );

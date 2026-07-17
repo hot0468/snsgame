@@ -2,6 +2,7 @@ import type { GameContext } from "./context";
 import type { Video } from "@/data/videos";
 import { makeRandomVideos, DEFAULT_VIDEO_ATTRS } from "@/data/videos";
 import { getActiveAccount } from "@/core/state";
+import { imageForVideo } from "@/systems/youtubeImages";
 import { el } from "@/utils/dom";
 import { icon, avatar } from "./icons";
 import { renderVideoModal } from "./videoModal";
@@ -22,11 +23,25 @@ function duration(seed: string): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+/**
+ * 썸네일 기본값 — 카테고리 이미지가 없을 때의 그라데이션.
+ * **이 경로가 대다수다**(이미지는 있는 카테고리만 붙는다). 이미지가 붙어도 뒤에 그대로 깔아둔다.
+ */
 function thumbStyle(hue: number): string {
   return (
     `background:linear-gradient(135deg, hsl(${hue}deg 60% 58%),` +
     ` hsl(${(hue + 40) % 360}deg 60% 42%))`
   );
+}
+
+/**
+ * 영상 카테고리 썸네일. 그 카테고리 이미지가 없으면 null → 호출부는 그라데이션만 남긴다.
+ * 쇼츠(9:16)에도 **같은 가로 이미지**를 쓴다 — object-fit:cover로 좌우가 크게 잘리는데,
+ * 그게 의도다(사용자 확정). 쇼츠용 세로 이미지를 따로 만들지 마라.
+ */
+function thumbImg(video: Video, alt: string): HTMLElement | null {
+  const url = imageForVideo(video);
+  return url ? el("img", { class: "tube-thumb-img", src: url, alt }) : null;
 }
 
 /* ===================== 마스트헤드(장식) ===================== */
@@ -126,6 +141,7 @@ function chips(): HTMLElement {
 /* ===================== 영상 카드(클릭 가능) ===================== */
 
 function videoCard(ctx: GameContext, video: Video): HTMLElement {
+  const img = thumbImg(video, video.title);
   return el(
     "button",
     {
@@ -135,7 +151,9 @@ function videoCard(ctx: GameContext, video: Video): HTMLElement {
     el(
       "div",
       { class: "tube-card__thumb", style: thumbStyle(video.hue) },
-      el("span", { class: "tube-card__play" }, icon("youtube", { size: 26 })),
+      // 이미지가 붙으면 재생 글리프는 빼고 사진만 보여준다(진짜 유튜브 썸네일이 그렇다).
+      // 없을 때만 글리프를 남긴다 — 그라데이션만 있는 칸이 영상임을 알리는 유일한 표시라서다.
+      img ?? el("span", { class: "tube-card__play" }, icon("youtube", { size: 26 })),
       el("span", { class: "tube-card__tag" }, duration(video.id)),
     ),
     el(
@@ -173,7 +191,11 @@ function shortsSection(videos: Video[]): HTMLElement {
         el(
           "div",
           { class: "tube__short" },
-          el("div", { class: "tube__short-thumb", style: thumbStyle((v.hue + 120) % 360) }),
+          el(
+            "div",
+            { class: "tube__short-thumb", style: thumbStyle((v.hue + 120) % 360) },
+            thumbImg(v, v.title),
+          ),
           el("div", { class: "tube__short-title" }, v.title),
         ),
       ),

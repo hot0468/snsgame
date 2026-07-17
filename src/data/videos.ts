@@ -5,7 +5,7 @@ import { pick, randInt, sample, uid } from "@/utils/random";
 /** 너튜브에 뜨는 영상이 다루는 카테고리 */
 export type VideoAttribute = Extract<
   AttributeId,
-  "idol" | "actor" | "anime" | "fitness" | "politics" | "info" | "animal" | "humor"
+  "idol" | "actor" | "anime" | "fitness" | "politics" | "info" | "animal" | "humor" | "gaming"
 >;
 
 export interface Video {
@@ -39,6 +39,7 @@ const CHANNELS: Record<VideoAttribute, string[]> = {
   info: ["지식한스푼", "1분상식", "궁금해서TV", "알아두면쓸모", "세상의모든지식"],
   animal: ["개냥이일기", "야생의모든것", "댕댕TV", "우리집동물원", "냥냥펀치"],
   humor: ["웃음벨", "짤방공장", "빵터짐닷컴", "밈창고", "오늘도평화로운SNS"],
+  gaming: ["겜생역전", "공략의민족", "패드부수기", "1티어연구소", "오늘도접속중"],
 };
 
 const TEMPLATES: Record<VideoAttribute, VideoTemplate[]> = {
@@ -352,6 +353,50 @@ const TEMPLATES: Record<VideoAttribute, VideoTemplate[]> = {
       ],
     },
   ],
+  gaming: [
+    {
+      title: "[공략] 첫 보스 3분 컷 하는 법 (초보 필수)",
+      tweetLines: [
+        "첫 보스한테 40번 죽고 공략 영상 봤는데 패턴이 이렇게 쉬웠다고? 억울해서 눈물 남",
+        "공략 하나 봤다고 3분 컷 나는 거 실화냐 진작 볼걸 ㅋㅋㅋ",
+      ],
+    },
+    {
+      title: "랭커 1위 화면 그대로 - 이게 사람 손인가요?",
+      tweetLines: [
+        "랭커 1위 플레이 보는데 이거 사람 손 맞아? 나랑 같은 게임 하는 거 맞음?",
+        "1티어 화면 보고 조용히 게임 껐다... 세상은 넓고 고수는 많다",
+      ],
+    },
+    {
+      title: "신작 솔직 리뷰 - 이거 정가 주고 살 만한가?",
+      tweetLines: [
+        "신작 리뷰 영상 보고 위시리스트에 조용히 담았다 세일만 기다린다",
+        "정가 주고 살 만하냐고? 리뷰 보니 답 나옴 이번 달 텅장 확정",
+      ],
+    },
+    {
+      title: "스피드런 세계기록 경신 순간 (마지막 12초 소름)",
+      tweetLines: [
+        "스피드런 세계기록 경신 영상 마지막 12초에서 진짜 소름 돋았다",
+        "이걸 이렇게 깬다고? 스피드런 보는 맛에 산다 저 손 좀 빌리고 싶다",
+      ],
+    },
+    {
+      title: "확률형 아이템 300뽑 실험 - 지갑이 운다",
+      tweetLines: [
+        "300뽑 실험 영상 보고 정신 차림 저 돈이면 갓겜 다섯 개는 산다",
+        "확률형 아이템 실험 결과 보는데 남 지갑인데 왜 내가 아프지 ㅋㅋㅋ",
+      ],
+    },
+    {
+      title: "증기 세일 이건 꼭 사라 TOP10 (지갑 준비)",
+      tweetLines: [
+        "증기 세일 추천 영상 보다가 어느새 장바구니 꽉 참 이 영상 위험하다",
+        "세일 추천 TOP10 봤는데 이미 여덟 개 갖고 있음 나 게임 좀 했구나",
+      ],
+    },
+  ],
 };
 
 const VIEW_UNITS = ["만회", "천회"];
@@ -378,6 +423,7 @@ export const DEFAULT_VIDEO_ATTRS: VideoAttribute[] = [
   "info",
   "animal",
   "humor",
+  "gaming",
 ];
 
 /** 영상을 무작위로 n개 생성한다. attrs로 노출 카테고리를 제한/추가할 수 있다. */

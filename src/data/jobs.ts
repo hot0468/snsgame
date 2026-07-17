@@ -130,16 +130,48 @@ function makePosting(tier: CompanyTier, currentDay: number): JobPosting {
   };
 }
 
+/** 변호사 자격증 보유자에게만 뜨는 공고의 회사명(테스트·UI가 참조한다) */
+export const LAWYER_JOB_COMPANY = "나루호도 법률사무소";
+
+/**
+ * 변호사 자격증(`lawyer`) 보유자에게만 뜨는 공고.
+ *
+ * 등급이 `micro`인 건 의도다 — 가장 어려운 자격증(기준 92)을 따고 극소기업에 가는 게
+ * 이 공고의 개그이고, 원작의 그 사무소도 망하기 직전의 구멍가게다. 월급 20만·야근률 65%가
+ * 붙지만 그건 등급이 정하는 값이지 이 공고의 페널티가 아니다.
+ */
+function makeLawyerPosting(currentDay: number): JobPosting {
+  return {
+    id: uid("job"),
+    company: LAWYER_JOB_COMPANY,
+    tier: "micro",
+    role: "형사사건 맡아주실 변호사님 급구 (역전 가능하신 분 우대)",
+    workDays: "월~금",
+    workHours: "09:00~18:00",
+    ...makeSalary(),
+    postedDay: Math.max(1, currentDay - randInt(0, 8)),
+  };
+}
+
 /**
  * 채용공고 n종을 랜덤으로 생성한다.
  * 등급이 골고루 섞이도록 각 등급을 최소 1개 이상 노출하려 시도한다.
+ *
  * @param currentDay 현재 게임 day (공고 게시일 산정용)
+ * @param hasLawyer 변호사 자격증 보유 여부. true면 5칸 중 **한 칸이** 나루호도 법률사무소로
+ *   바뀐다(칸을 늘리지 않는다 — 사용자 확정).
+ *
+ * ⚠️ 자격증 보유 여부를 여기서 직접 조회하지 않고 **인자로 받는** 건 계층 규칙 때문이다.
+ *    `hasCertification`은 systems에 있고 data는 systems를 import할 수 없다(data → systems → ui).
+ *    호출부(ui)가 조회해서 넘긴다.
  */
-export function makeJobPostings(n = 5, currentDay = 0): JobPosting[] {
+export function makeJobPostings(n = 5, currentDay = 0, hasLawyer = false): JobPosting[] {
   const tiers: CompanyTier[] = [...TIER_ORDER];
   // 5칸: 각 등급 1개씩(4) + 랜덤 1개
   const chosen: CompanyTier[] = [...tiers, pick(tiers)];
   const list = sample(chosen, Math.min(n, chosen.length)).map((t) => makePosting(t, currentDay));
   while (list.length < n) list.push(makePosting(pick(tiers), currentDay));
+  // 자리를 무작위로 고른다 — 항상 맨 위면 특별 공고인 게 티나고, 목록을 읽을 이유가 없어진다.
+  if (hasLawyer && list.length > 0) list[randInt(0, list.length - 1)] = makeLawyerPosting(currentDay);
   return list;
 }

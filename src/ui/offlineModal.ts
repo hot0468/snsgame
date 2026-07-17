@@ -12,6 +12,7 @@ import { postTweet } from "@/systems/tweetSystem";
 import { outdoorShoot } from "@/systems/events";
 import { AUTHOR_WORKLOAD_TARGET, AUTHOR_MAX_MISS, isAuthorPrepMonth } from "@/systems/author";
 import { salaryOf } from "@/systems/employment";
+import { hasCertification } from "@/systems/certification";
 import { isWeekday } from "@/systems/time";
 import { makeJobPostings, TIERS } from "@/data/jobs";
 import { SKILL_STATS } from "@/data/stats";
@@ -238,7 +239,10 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           disabled: !canApply,
           onclick: () => {
             if (!canApply) return;
-            const postings = makeJobPostings(5, ctx.store.getState().day);
+            const st = ctx.store.getState();
+            // 변호사 자격증이 있으면 5칸 중 한 칸이 나루호도 법률사무소로 바뀐다.
+            // data는 systems를 import할 수 없으므로 조회는 여기서 해서 넘긴다.
+            const postings = makeJobPostings(5, st.day, hasCertification(st, "lawyer"));
             ctx.update((st) => {
               st.lastJobBoardDay = st.day; // 하루 1회 소진
             });
@@ -409,10 +413,7 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
                 const text = pick(act.tweetLines);
                 let delta = 0;
                 ctx.update((s) => {
-                  // 활동 후 트윗: 선행 활동이 이미 타임블록을 썼으므로 시간은 추가 소모하지 않는다.
-                  delta = postTweet(s, act.tweetAttr, text, false, "meetup", 1, {
-                    skipTime: true,
-                  }).followerDelta;
+                  delta = postTweet(s, act.tweetAttr, text, false, "meetup", 1).followerDelta;
                 });
                 ctx.closeModal();
                 ctx.toast(

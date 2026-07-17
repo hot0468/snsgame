@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TIERS, TIER_ORDER } from "@/data/jobs";
+import { TIERS, TIER_ORDER, makeJobPostings, LAWYER_JOB_COMPANY } from "@/data/jobs";
 import { CERTIFICATIONS } from "@/data/certifications";
 import { DARTPIN_POSTS } from "@/data/dartpin";
 import { createInitialState } from "@/core/state";
@@ -141,5 +141,40 @@ describe("데이터 정합성", () => {
   it("다트 핀 게시물 id가 유일하다", () => {
     const ids = DARTPIN_POSTS.map((p) => p.id);
     expect(ids.length).toBe(new Set(ids).size);
+  });
+});
+
+describe("나루호도 법률사무소 — 변호사 자격증 보유자에게만 뜬다", () => {
+  it("자격증이 없으면 절대 뜨지 않는다", () => {
+    for (let i = 0; i < 200; i++) {
+      const list = makeJobPostings(5, 30, false);
+      expect(list.some((j) => j.company === LAWYER_JOB_COMPANY)).toBe(false);
+    }
+  });
+
+  it("자격증이 있으면 항상 뜬다", () => {
+    for (let i = 0; i < 200; i++) {
+      const list = makeJobPostings(5, 30, true);
+      expect(list.filter((j) => j.company === LAWYER_JOB_COMPANY).length).toBe(1);
+    }
+  });
+
+  it("칸을 늘리지 않는다 — 5칸 중 하나를 차지한다", () => {
+    expect(makeJobPostings(5, 30, true).length).toBe(5);
+    expect(makeJobPostings(5, 30, false).length).toBe(5);
+  });
+
+  it("맨 위에 고정되지 않는다(자리가 섞인다)", () => {
+    const seen = new Set<number>();
+    for (let i = 0; i < 200; i++) {
+      const idx = makeJobPostings(5, 30, true).findIndex((j) => j.company === LAWYER_JOB_COMPANY);
+      seen.add(idx);
+    }
+    expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it("극소기업 등급이다 — 가장 어려운 자격증으로 구멍가게에 간다는 개그가 이 값에 걸려 있다", () => {
+    const job = makeJobPostings(5, 30, true).find((j) => j.company === LAWYER_JOB_COMPANY);
+    expect(job?.tier).toBe("micro");
   });
 });

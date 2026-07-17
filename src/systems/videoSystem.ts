@@ -41,6 +41,7 @@ const RELATED_SKILL: Record<VideoAttribute, { skill: SkillStatId; amount: number
   info: { skill: "knowledge", amount: 10 },
   animal: { skill: "sociability", amount: 10 },
   humor: { skill: "comedy", amount: 10 },
+  gaming: { skill: "game", amount: 10 },
 };
 
 const FLAVOR: Record<VideoAttribute, string[]> = {
@@ -83,6 +84,12 @@ const FLAVOR: Record<VideoAttribute, string[]> = {
     "짤방 모음을 보다가 혼자 빵 터졌다. 이건 못 참지.",
     "웃긴 영상에 스트레스가 싹 날아갔다. 역시 웃음이 보약이다.",
     "요즘 밈을 싹 정리했다. 이제 대화에 낄 수 있겠다.",
+  ],
+  gaming: [
+    "공략을 눈에 담고 나니 손이 근질거린다. 오늘은 그 보스 잡는다.",
+    "랭커의 플레이에 감탄만 하다 시간 순삭. 나도 저렇게 되고 싶다.",
+    "신작 리뷰를 정주행했다. 위시리스트가 또 늘었다.",
+    "스피드런 기록 경신 순간에 소름이 돋았다. 이 맛에 겜방을 챙겨본다.",
   ],
 };
 

@@ -639,6 +639,115 @@ body {
   filter: drop-shadow(0 2px 4px rgba(80, 60, 200, 0.3));
 }
 
+/* 네이놈 로또 카드 — 네이버 '로또6/45' 섹션 패러디.
+   위쪽(회차·공·당첨금)은 전부 고정 가짜값, 맨 아래 __action만 실제 게임이다. */
+.lotto-card {
+  max-width: 860px;
+  width: 100%;
+  margin: 20px auto 0;
+  padding: 18px 22px 16px;
+  border: 1px solid #e5e8eb;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.lotto-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lotto-card__title {
+  font-size: 19px;
+  font-weight: 800;
+  color: #1d1d1f;
+  letter-spacing: -0.02em;
+}
+
+.lotto-card__kebab {
+  color: #8b95a1;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.lotto-card__round {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1d1d1f;
+}
+
+.lotto-card__balls {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lotto-ball {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  /* 공 위 하이라이트 — 네이버 공의 입체감을 한 겹으로 흉내낸다 */
+  box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.12), inset 0 3px 5px rgba(255, 255, 255, 0.45);
+}
+
+.lotto-card__plus {
+  color: #8b95a1;
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 2px;
+}
+
+.lotto-card__prize {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 14px;
+  color: #4e5968;
+}
+
+.lotto-card__prize b {
+  font-size: 16px;
+  font-weight: 800;
+  color: #1d1d1f;
+}
+
+/* 실제 게임 입구(복권 구입 / 추첨 확인). 가짜 결과와 시각적으로 분리한다. */
+.lotto-card__action {
+  margin-top: 16px;
+  width: 100%;
+  padding: 11px;
+  border: none;
+  border-top: 1px solid #f2f4f6;
+  border-radius: 0 0 8px 8px;
+  background: transparent;
+  color: #3182f6;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.lotto-card__action:hover {
+  background: #f7f8fa;
+}
+
+/* 추첨일이 지났을 때만 눈에 띄게 — 결과 확인을 놓치면 복권이 그대로 묶여 있다. */
+.lotto-card__action--ready {
+  color: #e8283c;
+}
+
 /* --- 증시 / 쇼핑 블록 --- */
 .portal-blocks {
   max-width: 860px;
@@ -1039,13 +1148,15 @@ body {
   flex-shrink: 0;
 }
 
-/* --- 하단 사이트 진입 카드(남의방·마켓걸리버) --- */
+/* --- 하단 사이트 광고 띠(남의방·마켓걸리버·피망마켓) --- */
 .portal-sites {
   max-width: 860px;
   margin: 18px auto 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
 }
 
 @media (max-width: 640px) {
@@ -1056,37 +1167,39 @@ body {
 
 .site-card {
   display: flex;
-  align-items: center;
-  gap: 14px;
+  align-items: flex-start;
+  gap: 12px;
   min-width: 0;
-  padding: 16px 18px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: #fff;
+  padding: 0;
+  border: none;
+  background: transparent;
   cursor: pointer;
   font-family: inherit;
   text-align: left;
-  transition: box-shadow 0.12s, transform 0.12s;
+  transition: opacity 0.12s, transform 0.12s;
 }
 
 .site-card:hover {
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  opacity: 0.82;
 }
 
 .site-card:active {
-  transform: scale(0.995);
+  transform: scale(0.99);
 }
 
-.site-card__mark {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 12px;
-  background: #f5f6f7;
+.site-card__banner {
+  flex: 0 0 118px;
+  width: 118px;
+  aspect-ratio: 1.9 / 1;
+  border-radius: 8px;
+  overflow: hidden;
   line-height: 0;
+}
+
+.site-card__banner svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .site-card__copy {
@@ -1094,31 +1207,34 @@ body {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: flex-start;
+  gap: 3px;
 }
 
 .site-card__brand {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-}
-
-.site-card__title {
-  font-size: 17px;
-  font-weight: 900;
-  color: #1d1d1f;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #4a4e57;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
 
+.site-card__title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #101012;
+  letter-spacing: -0.02em;
+}
+
 .site-card__desc {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  word-break: keep-all;
 }
 
 /* --- 기사 상세 --- */
@@ -1708,6 +1824,18 @@ body {
 
 .sns__post:hover {
   background: var(--accent-hover);
+}
+
+/* 성인물 보기 경고 팝업의 콘텐츠 유형 목록(adultWarnModal.ts) */
+.adult-warn__list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--text);
+}
+.adult-warn__list li {
+  margin: 2px 0;
 }
 
 .nav-toggle {
@@ -4593,6 +4721,23 @@ body {
   width: 150px;
   aspect-ratio: 9 / 16;
   border-radius: 12px;
+  /* 썸네일 이미지(.tube-thumb-img)가 모서리를 넘지 않게 + inset:0의 기준이 되게 */
+  position: relative;
+  overflow: hidden;
+}
+
+/*
+ * 너튜브 카테고리 썸네일 이미지 — 가로 카드(16:9)와 쇼츠(9:16)가 **같은 가로 이미지**를 쓴다.
+ * 쇼츠에선 cover가 좌우를 크게 잘라내는데 그게 의도다(사용자 확정).
+ * 이미지가 없으면 이 요소 자체가 없고 부모의 그라데이션이 그대로 보인다 — 그게 기본값이다.
+ */
+.tube-thumb-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .tube__short-title {
@@ -5479,6 +5624,40 @@ body {
 .tweet-media--video .tweet-media__icon,
 .tweet-media--video .tweet-media__label { opacity: 0.5; }
 
+/* 실제 이미지가 붙은 첨부 자리.
+   ⚠️ **크기를 다시 정의하지 않는다.** 위 .tweet-media의 자리표시자 규격
+   (width:100%, 16/9, max-height:240px → 넓은 화면에서 495x240)을 그대로 채운다.
+   저장본은 그 1/6인 83x40이라 6배로 늘어나 크게 흐려지는데, **그게 목적이다** —
+   원본 사진이 뭐였는지 알아볼 수 없게 하려는 것이다(admin/mediaEditor.ts의 MEDIA_W 주석).
+   한때 여기 width:160px; aspect-ratio:1/1이 있었다. 뭉개짐을 '고치려고' 넣은 건데
+   전제가 틀렸다 — 흐릿함이 기능이다. 선명하게 만들려고 크기를 도로 줄이지 마라. */
+.tweet-media--img {
+  padding: 0;
+  overflow: hidden;
+  background: var(--bg-panel);
+}
+.tweet-media__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 성인 풀에서 온 이미지에만 얹는 블러.
+   ⚠️ 붙이는 조건은 `tweet.isAdult`가 **아니라** 이미지의 출처다(ui/components.ts 참고) —
+   성인물 보기가 켜지면 아이돌 트윗의 ~18%도 isAdult를 달지만 그건 아이돌 이미지를 받으므로
+   블러 대상이 아니다.
+   저장본이 이미 83x40 → 6배로 늘어나 흐린 상태인데, 그 위에 한 겹 더 얹는 것이다.
+   scale은 blur가 만드는 가장자리 투명 띠를 프레임 밖으로 밀어내려는 것 — 빼면 테두리가 비친다. */
+.tweet-media__img--blur,
+.media-modal__img--blur {
+  filter: blur(7px);
+  transform: scale(1.08);
+}
+.tweet-media--img.tweet-media--video .tweet-media__play {
+  width: 44px; height: 44px;
+}
+
 /* 추천탭 광고 트윗 */
 .ad-tweet__label {
   font-size: 11px;
@@ -5533,6 +5712,19 @@ body {
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
+}
+/* 이미지가 있어도 프레임 규격은 위 .media-modal__frame 그대로다(16/9, max-height 220px).
+   카드와 같은 이유로 크기를 다시 정의하지 않는다 — 저장본 83x40이 늘어나 흐려지는 게 목적이다.
+   정사각 200px로 되돌리면 2:1 이미지가 좌우로 크게 잘려나가기까지 한다. */
+.media-modal__frame--img {
+  overflow: hidden;
+  background: var(--bg-panel);
+}
+.media-modal__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 .media-modal__prompt {
   margin: 14px 0 0;
@@ -8769,7 +8961,8 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
   line-height: 1.55;
 }
 
-/* ---- 피망마켓 ---- */
+/* ---- 피망마켓(당근마켓 패러디) ----
+   검색바·추천 검색어·좌측 필터(.pm-side)는 전부 장식이다. ui/peemang.ts 상단 주석 참고. */
 .pm {
   height: 100%;
   overflow-y: auto;
@@ -8777,10 +8970,7 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
 }
 
 .pm__mast {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 20px;
+  padding: 12px 20px 0;
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
@@ -8788,14 +8978,60 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
   z-index: 3;
 }
 
+.pm__mast-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .pm__logo {
   font-size: 19px;
   font-weight: 900;
   color: #2fa84f;
+  white-space: nowrap;
 }
 
-.pm__slogan {
-  font-size: 12.5px;
+.pm__cat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pm__caret,
+.pm-side__caret {
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.pm__search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 180px;
+  min-width: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #f4f5f6;
+}
+
+.pm__search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.pm__search .icon {
   color: var(--text-muted);
 }
 
@@ -8806,58 +9042,171 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
   margin-left: auto;
   font-size: 13px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
-.pm__tabs {
+.pm-nav {
   display: flex;
   gap: 4px;
-  padding: 0 20px;
-  border-bottom: 1px solid var(--border);
+  margin-top: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-.pm__tab {
-  padding: 12px 16px;
+.pm-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.pm-nav__chip {
+  padding: 9px 12px;
   border: none;
   border-bottom: 2.5px solid transparent;
   background: none;
   color: var(--text-muted);
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.pm__tab--on {
+.pm-nav__chip--on {
   border-bottom-color: #2fa84f;
   color: #2fa84f;
 }
 
-.pm__pane {
-  padding: 16px 20px 28px;
+.pm__suggest {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-.pm__grid {
+.pm__suggest::-webkit-scrollbar {
+  display: none;
+}
+
+.pm__suggest-label {
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.pm__suggest-word {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.pm__body {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 20px;
+}
+
+.pm__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.pm__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.pm__pane {
+  padding: 16px 0 8px;
+}
+
+/* ---- 장식용 필터 사이드바 ---- */
+.pm-side {
+  flex: 0 0 168px;
+  padding-top: 4px;
+}
+
+.pm-side__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.pm-side__title {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.pm-side__reset,
+.pm-side__link {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: underline;
+}
+
+.pm-side__group {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.pm-side__label {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.pm-side__select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.pm-side__opt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.pm-side__opt input {
+  accent-color: #2fa84f;
+  cursor: pointer;
+}
+
+/* ---- 매물 그리드(4열) ---- */
+.pm__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px 12px;
 }
 
 .pm-card {
   display: flex;
-  align-items: stretch;
-  gap: 14px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #fff;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0;
+  border: none;
+  background: none;
   font-family: inherit;
   text-align: left;
   cursor: pointer;
-  transition: box-shadow 0.12s;
 }
 
-.pm-card:hover {
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
+.pm-card:hover .pm-card__thumb {
+  filter: brightness(0.96);
 }
 
 .pm-card--owned {
@@ -8867,9 +9216,14 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
 
 .pm-card__thumb {
   position: relative;
-  flex: 0 0 auto;
-  width: 84px;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  margin-bottom: 7px;
   border-radius: 10px;
+  /* 아이템 이미지(.item-thumb-img)가 모서리를 넘지 않게 */
+  overflow: hidden;
+  transition: filter 0.12s;
 }
 
 .pm-card__soldout {
@@ -8881,38 +9235,24 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 800;
 }
 
-.pm-card__copy {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
 .pm-card__name {
-  font-size: 14.5px;
-  font-weight: 700;
-}
-
-.pm-card__where {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.pm-card__desc {
-  font-size: 12.5px;
-  color: var(--text-muted);
-  line-height: 1.5;
+  font-size: 13.5px;
+  line-height: 1.45;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .pm-card__foot {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 4px;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .pm-card__price {
@@ -8921,10 +9261,87 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
 }
 
 .pm-card__stat {
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 999px;
   background: rgba(47, 168, 79, 0.12);
   color: #1f8038;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 800;
+}
+
+.pm-card__where {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+/* 창이 좁아지면 필터를 접는다. 그리드는 4열을 풀고 폭에 맞게 흘린다 —
+   2열로 못박으면 좁은 창에서 사진만 거대해진다. */
+@media (max-width: 720px) {
+  .pm-side {
+    display: none;
+  }
+
+  .pm__grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+}
+
+/* ============================================================
+ * 아이템 썸네일 이미지 (data/itemImages.ts · 쇼핑·피망마켓·마켓걸리버)
+ * 기존 썸네일 그릇(.shop-card__thumb / .pm-card__thumb / .grocery-item__media)은
+ * 전부 position:relative + 정사각이라, 그 위를 덮기만 하면 배지·담기버튼이 그대로 산다.
+ * 이미지가 없는 아이템이 기본값이고 대부분이다 — 그때는 이 요소 자체가 없다.
+ * ============================================================ */
+.item-thumb-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ============================================================
+ * 남의방 — 부동산 매물 카드.
+ * 미디북스 책 표지(.mb-book__cover 44x62 세로)를 재사용하다 집 사진에 안 맞아 분리했다.
+ * ⚠️ 미디북스와 클래스를 공유하지 마라 — 여긴 가로 4:3, 저긴 세로 책이다.
+ * (글자 스타일 .mb-book__info/__title/__author/__rating은 순수 텍스트라 계속 공유한다)
+ * ============================================================ */
+.nb__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 4px 20px;
+}
+
+.nb-house {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 6px;
+  border-radius: 10px;
+}
+
+.nb-house:hover {
+  background: rgba(15, 20, 25, 0.03);
+}
+
+/* 매물 사진: 160x120(4:3) — 어드민 아이템 모드의 남의방 저장 규격과 같은 비율이다. */
+.nb-house__cover {
+  position: relative;
+  flex: 0 0 auto;
+  width: 160px;
+  height: 120px;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 720px) {
+  .nb__list {
+    grid-template-columns: 1fr;
+  }
+  .nb-house__cover {
+    width: 120px;
+    height: 90px;
+  }
 }

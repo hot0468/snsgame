@@ -686,31 +686,88 @@ function shopBlock(ctx: GameContext): HTMLElement {
   );
 }
 
-/** 네이놈 로또 배너: 클릭 시 복권 구입/추첨 확인 모달. */
+/**
+ * 로또 카드에 박제된 '지난 회차 추첨 결과'.
+ *
+ * ⚠️ **전부 가짜다. 항상 똑같이 보인다**(사용자 확정) — 개발자 도구 팝업과 같은 취급이다.
+ * 게임의 복권 당첨은 `systems/lotto.ts`의 확률 판정이고 **번호와 아무 관계가 없다.**
+ * 이 카드는 진짜 네이버 로또 칸이 그렇듯 '공개된 추첨 결과'를 보여주는 정보 영역일 뿐,
+ * 플레이어의 복권과 대조되지 않는다.
+ *
+ * 그러니 여기에 `Math.random`이나 day 기반 생성을 넣지 마라 — 번호가 바뀌는 순간
+ * "내 번호랑 맞춰봐야 하나?"라는 없는 규칙을 약속하게 된다.
+ */
+const LOTTO_DRAW = {
+  round: 1232,
+  date: "2026.07.11.",
+  numbers: [12, 15, 19, 22, 24, 36],
+  bonus: 3,
+  prize: 2_533_260_819,
+  winners: 11,
+};
+
+/** 로또 번호 구간별 공 색(네이버 로또 팔레트 그대로). */
+function ballColor(n: number): string {
+  if (n <= 10) return "#fbc400"; // 노랑
+  if (n <= 20) return "#69c8f2"; // 파랑
+  if (n <= 30) return "#ff7272"; // 빨강
+  if (n <= 40) return "#aaaaaa"; // 회색
+  return "#b0d840"; // 초록
+}
+
+function lottoBall(n: number): HTMLElement {
+  return el("span", { class: "lotto-ball", style: `background:${ballColor(n)}` }, String(n));
+}
+
+/**
+ * 네이놈 로또 카드(네이버 '로또6/45' 섹션 패러디).
+ *
+ * 위쪽 추첨 결과는 전부 가짜 고정값이고, **아래 상태 줄만 실제 게임**이다
+ * (복권 구입 / 추첨 확인 모달로 들어가는 유일한 입구). 카드를 손볼 때 상태 줄을
+ * 장식으로 착각해 지우지 마라 — 지우면 플레이어가 당첨 확인을 영영 못 한다.
+ */
 function lottoBlock(ctx: GameContext): HTMLElement {
   const st = lottoStatus(ctx.store.getState());
-  const sub =
+  const status =
     st.kind === "none"
-      ? `1등 ${formatNumber(LOTTO_PRIZE)}원! 한 장 ${formatNumber(LOTTO_PRICE)}원`
+      ? `복권 사기 — 한 장 ${formatNumber(LOTTO_PRICE)}원, 1등 ${formatNumber(LOTTO_PRIZE)}원`
       : st.kind === "waiting"
-        ? `추첨일 ${dateLabel(st.drawDay!)}(${weekdayLabel(st.drawDay!)})에 확인하세요`
+        ? `구매한 복권이 있어요 — 추첨일 ${dateLabel(st.drawDay!)}(${weekdayLabel(st.drawDay!)})`
         : "추첨일이 지났어요! 결과를 확인하세요";
+
   return el(
-    "button",
-    { class: "portal-ad", onclick: () => openLottoModal(ctx) },
+    "div",
+    { class: "lotto-card" },
     el(
-      "span",
-      { class: "portal-ad__logo" },
-      el("span", { class: "portal-ad__logo-n", style: "background:#d81b60" }, "L"),
-      el("span", { class: "portal-ad__logo-txt" }, "로또"),
+      "div",
+      { class: "lotto-card__head" },
+      el("span", { class: "lotto-card__title" }, "로또6/45"),
+      // ⋮ 는 네이버 칸의 모양만 흉내낸 장식이다(누를 게 없다).
+      el("span", { class: "lotto-card__kebab" }, "⋮"),
+    ),
+    el("div", { class: "lotto-card__round" }, `${LOTTO_DRAW.round}회차 (${LOTTO_DRAW.date})`),
+    el(
+      "div",
+      { class: "lotto-card__balls" },
+      ...LOTTO_DRAW.numbers.map(lottoBall),
+      el("span", { class: "lotto-card__plus" }, "+"),
+      lottoBall(LOTTO_DRAW.bonus),
     ),
     el(
-      "span",
-      { class: "portal-ad__copy" },
-      el("span", { class: "portal-ad__title" }, "네이놈 로또 — 인생역전 한 방"),
-      el("span", { class: "portal-ad__sub" }, sub),
+      "div",
+      { class: "lotto-card__prize" },
+      "1등 당첨금 ",
+      el("b", {}, `${formatNumber(LOTTO_DRAW.prize)}원`),
+      ` (당첨게임 수 ${LOTTO_DRAW.winners}개)`,
     ),
-    el("span", { class: "portal-ad__gift" }, "🎟️"),
+    el(
+      "button",
+      {
+        class: "lotto-card__action" + (st.kind === "ready" ? " lotto-card__action--ready" : ""),
+        onclick: () => openLottoModal(ctx),
+      },
+      status,
+    ),
   );
 }
 
@@ -834,58 +891,104 @@ function openLottoModal(ctx: GameContext): void {
 }
 
 /**
- * 네이놈 하단 사이트 광고 카드(남의방·마켓걸리버).
+ * 네이놈 하단 사이트 광고 띠(남의방·마켓걸리버·피망마켓).
  * 상단 탭이 아니라 여기서 진입한다(증권·쇼핑과 동일 패턴).
+ * 배너는 인라인 SVG 크리에이티브 — 이너 860px에 3개가 들어가므로
+ * 유닛당 ~277px(배너 118 + 카피 ~145)이다. 설명은 두 줄에 맞춰 쓴 것이니
+ * 늘릴 때는 실제로 띄워서 세 줄로 안 넘치는지 확인할 것.
  */
 function sitesBlock(ctx: GameContext): HTMLElement {
   interface SiteAd {
     tab: BrowserTabId;
     brand: string;
-    color: string;
     title: string;
-    desc: string;
-    mark: string;
+    /** 설명 두 줄. 자동 줄바꿈에 맡기면 "오늘 뭐 / 해 먹지"처럼 어절이 끊긴다.
+     *  한 줄에 12자 남짓만 들어간다(카피 폭 ~147px). */
+    desc: [string, string];
+    banner: string;
   }
 
-  const housingMark =
-    `<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">` +
-    `<rect width="24" height="24" rx="6" fill="#ff6f3c"/>` +
-    `<path d="M12 5 5 11h2v7h10v-7h2z" fill="#fff"/></svg>`;
-  const groceryMark =
-    `<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">` +
-    `<rect width="24" height="24" rx="6" fill="#5f0080"/>` +
-    `<path d="M6 8h12l-1.2 8H7.2z" fill="#fff"/>` +
-    `<path d="M9 8a3 3 0 0 1 6 0" fill="none" stroke="#fff" stroke-width="1.5"/></svg>`;
-  const peemangMark =
-    `<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">` +
-    `<rect width="24" height="24" rx="6" fill="#2fa84f"/>` +
-    `<path d="M7.5 12.5c0-2.2 2-3.5 4.5-3.5s4.5 1.3 4.5 3.5c0 3-2 5.5-4.5 5.5s-4.5-2.5-4.5-5.5z" fill="#fff"/>` +
-    `<path d="M12 9V6.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+  /** 남의방 — 불 켜진 밤 스카이라인 위로 떠 있는 방 하나 */
+  const housingBanner =
+    `<svg viewBox="0 0 190 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true">` +
+    `<defs><linearGradient id="pba-h" x1="0" y1="0" x2="0.6" y2="1">` +
+    `<stop offset="0" stop-color="#ffa269"/><stop offset="1" stop-color="#d13f0c"/></linearGradient></defs>` +
+    `<rect width="190" height="100" fill="url(#pba-h)"/>` +
+    `<g fill="#7a1f00" opacity=".38">` +
+    `<rect x="0" y="56" width="26" height="44"/><rect x="30" y="42" width="20" height="58"/>` +
+    `<rect x="118" y="50" width="24" height="50"/><rect x="146" y="36" width="18" height="64"/>` +
+    `<rect x="168" y="58" width="22" height="42"/></g>` +
+    `<g fill="#ffe6b8" opacity=".85">` +
+    `<rect x="6" y="62" width="5" height="5"/><rect x="16" y="72" width="5" height="5"/>` +
+    `<rect x="35" y="48" width="5" height="5"/><rect x="35" y="62" width="5" height="5"/>` +
+    `<rect x="124" y="56" width="5" height="5"/><rect x="132" y="70" width="5" height="5"/>` +
+    `<rect x="151" y="44" width="5" height="5"/><rect x="173" y="66" width="5" height="5"/></g>` +
+    `<path d="M95 22 66 45h7v33h44V45h7z" fill="#fff"/>` +
+    `<rect x="86" y="58" width="18" height="20" fill="#ff6f3c"/>` +
+    `<text x="95" y="94" fill="#fff" font-size="11" font-weight="700" text-anchor="middle" font-family="inherit">이 방, 지금 비었어요</text>` +
+    `</svg>`;
+
+  /** 마켓걸리버 — 새벽, 문 앞에 놓인 보라색 박스 */
+  const groceryBanner =
+    `<svg viewBox="0 0 190 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true">` +
+    `<defs><linearGradient id="pba-g" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop offset="0" stop-color="#8a2ab5"/><stop offset="1" stop-color="#3d0053"/></linearGradient></defs>` +
+    `<rect width="190" height="100" fill="url(#pba-g)"/>` +
+    `<circle cx="156" cy="22" r="12" fill="#ffe9fb" opacity=".85"/>` +
+    `<circle cx="151" cy="19" r="12" fill="#6d1090"/>` +
+    `<rect x="20" y="14" width="52" height="86" rx="3" fill="#2a0038"/>` +
+    `<rect x="26" y="20" width="40" height="74" rx="2" fill="#4a0066"/>` +
+    `<circle cx="60" cy="58" r="2.5" fill="#e9c9ff"/>` +
+    `<rect x="80" y="52" width="46" height="34" rx="3" fill="#fff"/>` +
+    `<path d="M80 62h46" stroke="#5f0080" stroke-width="4"/>` +
+    `<path d="M99 52v34" stroke="#5f0080" stroke-width="3"/>` +
+    `<path d="M88 52a11 8 0 0 1 22 0" fill="none" stroke="#fff" stroke-width="3"/>` +
+    `<text x="157" y="66" fill="#fff" font-size="13" font-weight="800" text-anchor="middle" font-family="inherit">새벽 도착</text>` +
+    `<text x="157" y="80" fill="#e0b3f5" font-size="9" font-weight="600" text-anchor="middle" font-family="inherit">AM 05:30</text>` +
+    `</svg>`;
+
+  /** 피망마켓 — 동네 이웃 둘의 말풍선 흥정 */
+  const peemangBanner =
+    `<svg viewBox="0 0 190 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true">` +
+    `<defs><linearGradient id="pba-p" x1="0" y1="1" x2="1" y2="0">` +
+    `<stop offset="0" stop-color="#1d7a37"/><stop offset="1" stop-color="#63d182"/></linearGradient></defs>` +
+    `<rect width="190" height="100" fill="url(#pba-p)"/>` +
+    `<circle cx="30" cy="80" r="34" fill="#fff" opacity=".1"/>` +
+    `<circle cx="164" cy="18" r="26" fill="#fff" opacity=".1"/>` +
+    `<g>` +
+    `<rect x="10" y="16" width="86" height="30" rx="12" fill="#fff"/>` +
+    `<path d="M26 46l-2 10 14-10z" fill="#fff"/>` +
+    `<text x="53" y="36" fill="#1d7a37" font-size="12" font-weight="800" text-anchor="middle" font-family="inherit">얼마에 파세요?</text></g>` +
+    `<g>` +
+    `<rect x="70" y="56" width="112" height="30" rx="12" fill="#136b2c"/>` +
+    `<path d="M166 56l2-10-14 10z" fill="#136b2c"/>` +
+    `<text x="126" y="76" fill="#fff" font-size="12" font-weight="800" text-anchor="middle" font-family="inherit">그냥 가져가세요</text></g>` +
+    `<path d="M18 76c0-5.4 5-8.6 11-8.6s11 3.2 11 8.6c0 7.4-4.9 13.5-11 13.5S18 83.4 18 76z" fill="#fff" opacity=".92"/>` +
+    `<path d="M29 67.4V60" stroke="#fff" stroke-width="3.4" stroke-linecap="round" opacity=".92"/>` +
+    `<path d="M29 61.5c3-2.5 6.5-2 8.5.5" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".92"/>` +
+    `</svg>`;
 
   const ads: SiteAd[] = [
     {
       tab: "housing",
       brand: "남의방",
-      color: "#ff6f3c",
       title: "남의방",
-      desc: "요즘 뜨는 자취방, 남의방에서 미리 구경하세요",
-      mark: housingMark,
+      desc: ["옆집은 어떻게 살까", "방 구경부터 계약까지"],
+      banner: housingBanner,
     },
     {
       tab: "grocery",
       brand: "마켓걸리버",
-      color: "#5f0080",
       title: "마켓걸리버",
-      desc: "오늘 밤 주문하면 내일 새벽 문 앞에 도착",
-      mark: groceryMark,
+      desc: ["밤에 담으면 새벽 도착", "오늘 뭐 해 먹지?"],
+      banner: groceryBanner,
     },
     {
       tab: "peemang",
       brand: "피망마켓",
-      color: "#2fa84f",
       title: "피망마켓",
-      desc: "당신 근처의 중고 직거래 · 안 쓰는 물건은 팔고, 필요한 건 싸게",
-      mark: peemangMark,
+      desc: ["우리 동네 중고 직거래", "팔고 사고 다 여기서"],
+      banner: peemangBanner,
     },
   ];
 
@@ -902,17 +1005,19 @@ function sitesBlock(ctx: GameContext): HTMLElement {
             ctx.refresh();
           },
         },
-        el("span", { class: "site-card__mark", html: ad.mark }),
+        el("span", { class: "site-card__banner", html: ad.banner }),
         el(
           "span",
           { class: "site-card__copy" },
+          el("span", { class: "site-card__brand" }, ad.brand),
+          el("span", { class: "site-card__title" }, ad.title),
           el(
             "span",
-            { class: "site-card__brand", style: `color:${ad.color}` },
-            ad.brand,
+            { class: "site-card__desc" },
+            ad.desc[0],
+            el("br"),
+            ad.desc[1],
           ),
-          el("span", { class: "site-card__title" }, ad.title),
-          el("span", { class: "site-card__desc" }, ad.desc),
         ),
       ),
     ),
