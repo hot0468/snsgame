@@ -149,7 +149,10 @@ function statusInner(ctx: GameContext): HTMLElement[] {
             "✕",
           ),
         ),
-        ...SKILL_STAT_IDS.map((id) => {
+        el(
+          "div",
+          { class: "detail-grid" },
+          ...SKILL_STAT_IDS.map((id) => {
           const def = SKILL_STATS[id];
           const val = Math.round(s.skills[id]);
           const pct = Math.round((Math.max(0, val) / def.max) * 100);
@@ -165,7 +168,8 @@ function statusInner(ctx: GameContext): HTMLElement[] {
             ),
             el("span", { class: "detail-row__val" }, String(val)),
           );
-        }),
+          }),
+        ),
         renderCertSection(s),
       )
     : null;

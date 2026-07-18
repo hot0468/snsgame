@@ -7,6 +7,7 @@ import { dateLabel } from "@/systems/time";
 import { SLOT_LABELS } from "@/core/state";
 import type { GameContext } from "./context";
 import { icon, avatar } from "./icons";
+import { faviconHtml } from "./browser";
 
 /**
  * 아이템 id에 붙은 썸네일 이미지. **없으면 null을 돌려준다** — el()이 null 자식을 무시하므로
@@ -119,6 +120,21 @@ interface TweetCardOpts {
  */
 function mediaBlock(tweet: Tweet, onMedia?: (t: Tweet) => void): HTMLElement {
   const media = tweet.media!;
+  // 앱 홍보 광고(너튜브·미디북스·증기)는 프롬프트 이미지 대신 그 사이트 파비콘을 로고처럼 그린다.
+  const promoApp = tweet.adPromo?.app;
+  if (promoApp) {
+    return el(
+      "button",
+      {
+        class: "tweet-media tweet-media--favicon",
+        onclick: (e: Event) => {
+          e.stopPropagation();
+          onMedia?.(tweet);
+        },
+      },
+      el("span", { class: "tweet-media__favicon", html: faviconHtml(promoApp) }),
+    );
+  }
   const isVideo = media.kind === "video";
   const img = imageForTweet(tweet);
   return el(

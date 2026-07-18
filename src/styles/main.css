@@ -3963,7 +3963,8 @@ body {
   position: fixed;
   right: 300px;
   top: 96px;
-  width: 232px;
+  width: 360px;
+  max-width: calc(100vw - 24px);
   max-height: 72vh;
   overflow-y: auto;
   background: var(--bg-window);
@@ -4025,12 +4026,20 @@ body {
   text-transform: uppercase;
 }
 
+/* 세부 스탯 2열 배열 */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
 .detail-row {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 12px;
+  min-width: 0;
 }
+.detail-grid .bar { flex: 1; min-width: 34px; }
 
 .detail-row__icon {
   width: 24px;
@@ -5739,6 +5748,10 @@ body {
 .tweet-media:hover { filter: brightness(0.97); }
 .tweet-media__icon { display: inline-flex; }
 .tweet-media__label { font-size: 12px; font-weight: 700; }
+/* 앱 홍보 광고: 프롬프트 줄무늬 대신 사이트 파비콘을 로고처럼 크게 */
+.tweet-media--favicon { background: var(--bg-panel); }
+.tweet-media__favicon { display: inline-flex; }
+.tweet-media__favicon svg { width: 96px; height: 96px; }
 .tweet-media--video .tweet-media__play {
   position: absolute;
   display: inline-flex;

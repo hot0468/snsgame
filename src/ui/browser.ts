@@ -59,7 +59,8 @@ const SUBPAGES: TabDef[] = [
 ];
 
 /** 탭/주소창에 쓰는 사이트 파비콘(브랜드 마크) SVG */
-function faviconHtml(id: BrowserTabId): string {
+// 광고 트윗 미디어(components.ts)도 앱 홍보 파비콘을 이걸로 그린다.
+export function faviconHtml(id: BrowserTabId): string {
   switch (id) {
     case "sns": // X(트위터)
       return (
