@@ -6,6 +6,8 @@ import { claimAdReward, ensureAdTweetsSeeded, unlockAppTab } from "@/systems/adT
 import { unreadDMCount } from "@/systems/dm";
 import { followingFeedTweets } from "@/systems/exploreSystem";
 import { totalFollowers } from "@/systems/economy";
+import { maxPostSlots } from "@/systems/followers";
+import { remainingPostSlots } from "@/systems/eggs";
 import { ATTRIBUTES } from "@/data/attributes";
 import { getTrendingCategories } from "@/data/trends";
 import { el, formatNumber } from "@/utils/dom";
@@ -257,6 +259,11 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
         "button",
         { class: "composer__fake", onclick: () => ctx.openModal(renderComposeModal) },
         mentalLow ? "우울해서 밝은 글이 안 써진다..." : "무슨 일이 일어나고 있나요?",
+      ),
+      el(
+        "div",
+        { class: "compose-slots", style: "margin:0" },
+        `오늘 게시 ${maxPostSlots(account.followers) - remainingPostSlots(s)}/${maxPostSlots(account.followers)}`,
       ),
       el(
         "button",

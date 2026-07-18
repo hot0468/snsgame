@@ -1,7 +1,8 @@
-import type { AttributeId } from "@/core/types";
-import { allSetTexts, setTextsFor } from "./tweetSets";
-import { allMediaSetTexts, mediaSetTextsFor } from "./mediaTweets";
-import { allLongTexts, longTextsFor } from "./longTweets";
+import type { AttributeId, TweetKind } from "@/core/types";
+import { TWEET_KINDS } from "@/core/types";
+import { allSetTexts } from "./tweetSets";
+import { allMediaSetTexts, mediaKindTexts } from "./mediaTweets";
+import { allLongTexts, longKindTexts } from "./longTweets";
 import { short as dailyShort } from "./categories/daily";
 import { short as politicsShort } from "./categories/politics";
 import { short as idolShort } from "./categories/idol";
@@ -21,8 +22,12 @@ import { short as plantShort } from "./categories/plant";
 import { short as cookingShort } from "./categories/cooking";
 import { short as adultShort } from "./categories/adult";
 
-/** 트윗 감정 톤 — 유저는 카테고리(속성)와 이 톤만 고른다. */
+/** 트윗 감정 톤 — NPC 타임라인 생성·기사 모드용(플레이어 톤 선택은 성격으로 대체됨). */
 export type TweetTone = "positive" | "negative";
+
+/** 트윗 성격 4종 고정 순서(UI 카드 순서). 타입은 core/types.ts. */
+export { TWEET_KINDS };
+export type { TweetKind } from "@/core/types";
 
 /**
  * 성인 트윗 종류(만남추구·체벌·주종관계·그룹)·종류별 문구·모텔 결과 문구는
@@ -32,17 +37,31 @@ export { ADULT_KINDS, ADULT_TWEETS, MOTEL_RESULT_TWEETS } from "./categories/adu
 
 /**
  * 속성별 트윗 문구 템플릿.
- * - positive: 긍정 톤 문구
- * - negative: 부정 톤 문구
+ * - kinds: 성격(TweetKind)별 문구 풀. **단일 소스** — 플레이어 4성격 후보와 NPC 피드가 모두 여기서 나간다.
  * - adult: 성인물 해제 시에만 섞이는 야한 문구(노골적인 성인 톤)
+ * - positive/negative: (레거시·옵셔널) 성인 계열(adult.ts)만 아직 보유. kinds가 비었을 때의 폴백으로만 읽힌다.
+ *   일반 계열 17개는 kinds로 이관 후 이 두 배열을 지운다(옵셔널이라 삭제해도 typecheck 통과).
  * 각 문구는 140자 이내이며, 짧은 것과 긴 것을 섞어 자연스러운 타임라인을 만든다.
- * 유저가 카테고리+톤을 고르면 해당 풀에서 랜덤으로 한 문장이 뽑혀 트윗된다.
  * 실제 문구는 카테고리별 파일(categories/*.ts)의 short export에 있다.
  */
 export interface TweetTemplateSet {
-  positive: string[];
-  negative: string[];
+  /**
+   * 성격(TweetKind)별 플레이어 작성 후보 풀 & NPC 피드 소스. 카테고리 파일(categories/*.ts)이 채운다.
+   * 일반 계열 17개는 4키(plain/provoke/info/emotional)를 모두 채운다.
+   * 특정 성격 풀이 비면 kindTemplatesFor가 kinds 전체 합집합으로 폴백한다.
+   */
+  kinds?: Partial<Record<TweetKind, string[]>>;
   adult?: string[];
+  /** @deprecated 성인 계열(adult.ts)만 잔존. kinds로 완전 이관 후 이 두 필드는 타입에서 제거 예정. */
+  positive?: string[];
+  /** @deprecated positive 참조. */
+  negative?: string[];
+}
+
+/** 한 세트의 kinds 4종 풀을 TWEET_KINDS 순서로 이어붙인 합집합. 없으면 빈 배열. */
+function kindsUnion(set: TweetTemplateSet): string[] {
+  if (!set.kinds) return [];
+  return TWEET_KINDS.flatMap((k) => set.kinds?.[k] ?? []);
 }
 
 export const TWEET_TEMPLATES: Record<AttributeId, TweetTemplateSet> = {
@@ -66,26 +85,47 @@ export const TWEET_TEMPLATES: Record<AttributeId, TweetTemplateSet> = {
   adult: adultShort,
 };
 
-/** 속성·톤·성인여부에 맞는 문구 후보를 반환(유저 작성용) */
-export function templatesFor(attr: AttributeId, tone: TweetTone, adult: boolean): string[] {
+/**
+ * 속성·성인여부에 맞는 문구 후보를 반환(유저 작성 일반 트윗 폴백용).
+ * kinds 단일 소스로 재배선 — 4성격 picker(kindTemplatesFor)와 같은 풀을 쓴다.
+ * `_tone`은 시그니처 호환용으로만 남겨 두며 더 이상 참조하지 않는다(article 모드는 UI가 자체 처리).
+ */
+export function templatesFor(attr: AttributeId, _tone: TweetTone, adult: boolean): string[] {
   const set = TWEET_TEMPLATES[attr];
-  // 기본 톤 문구 + '트윗+멘션 세트' + '미디어 트윗 세트' 문구
-  const base = [
-    ...(tone === "negative" ? set.negative : set.positive),
-    ...setTextsFor(attr, tone),
-    ...mediaSetTextsFor(attr, tone),
-    ...longTextsFor(attr, tone),
-  ];
+  const base = kindsUnion(set);
   if (adult && set.adult) return [...base, ...set.adult];
   return base;
 }
 
-/** 톤과 무관한 전체 문구 후보(남의 계정 타임라인 생성용) */
+/**
+ * 성격(TweetKind)별 플레이어 작성 후보 풀을 반환한다(4성격 picker가 성격당 1줄씩 뽑을 때 사용).
+ * 풀 = short kinds[kind] ∪ 그 계열 롱트윗 중 kind일치 ∪ 그 계열 미디어세트 중 kind일치.
+ * → 한 성격 카드에 짧은글/장문/미디어가 섞여 나온다(롱/미디어는 content가 kind를 채운 뒤부터 섞임).
+ * 합쳐도 비면 그 계열의 kinds 전체 합집합으로, 그래도 비면 positive/negative로 최후 폴백.
+ */
+export function kindTemplatesFor(attr: AttributeId, kind: TweetKind): string[] {
+  const set = TWEET_TEMPLATES[attr];
+  const pool = [
+    ...(set.kinds?.[kind] ?? []),
+    ...longKindTexts(attr, kind),
+    ...mediaKindTexts(attr, kind),
+  ];
+  if (pool.length > 0) return pool;
+  const union = kindsUnion(set);
+  if (union.length > 0) return union;
+  return [...(set.positive ?? []), ...(set.negative ?? [])];
+}
+
+/** 톤과 무관한 전체 문구 후보(남의 계정 타임라인 생성용). NPC 피드도 kinds에서 나간다. */
 export function allTemplatesFor(attr: AttributeId, adult: boolean): string[] {
   const set = TWEET_TEMPLATES[attr];
+  // kinds가 단일 소스. kinds 없는 계열(성인)만 레거시 positive/negative로 폴백.
+  const short =
+    kindsUnion(set).length > 0
+      ? kindsUnion(set)
+      : [...(set.positive ?? []), ...(set.negative ?? [])];
   const base = [
-    ...set.positive,
-    ...set.negative,
+    ...short,
     ...allSetTexts(attr),
     ...allMediaSetTexts(attr),
     ...allLongTexts(attr),

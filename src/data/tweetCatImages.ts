@@ -33,7 +33,7 @@ import type { AttributeId } from "@/core/types";
 const DEDUP_SEP = "__";
 
 /**
- * 이미지를 등록할 수 있는 트윗 속성 — **현재 아이돌·애니 둘뿐이다(사용자 확정).**
+ * 이미지를 등록할 수 있는 트윗 속성 — 현재 아이돌·애니·배우·게임·강아지·고양이.
  *
  * 속성은 18종이지만(core/types.ts의 AttributeId) 그 전부에 이미지를 두지는 않는다.
  * 등록되지 않은 속성의 트윗은 기존 키워드 축(media/)이 그대로 처리한다.
@@ -42,7 +42,7 @@ const DEDUP_SEP = "__";
  * `fillTweetCats`)이 이 배열을 그대로 읽으므로 어드민을 따로 고칠 필요가 없다.
  * `AttributeId` 타입이 걸려 있어 오타·없는 속성은 typecheck에서 잡힌다.
  */
-export const TWEET_CAT_IDS: AttributeId[] = ["idol", "anime"];
+export const TWEET_CAT_IDS: AttributeId[] = ["idol", "anime", "actor", "gaming", "dog", "cat"];
 
 export interface TweetCatImage {
   /**

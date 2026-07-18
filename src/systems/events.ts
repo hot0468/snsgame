@@ -10,7 +10,7 @@ import { ATTRIBUTES, getAffinity } from "@/data/attributes";
 import { MAX_SKILL } from "@/data/stats";
 import { getTrendingCategories } from "@/data/trends";
 import { allTemplatesFor } from "@/data/tweets";
-import { pick, randInt, uid } from "@/utils/random";
+import { chance, pick, randInt, uid } from "@/utils/random";
 import { calcTweetOutcome, changeFollowers } from "./followers";
 import { clampAction, clampResource, clampSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
@@ -191,6 +191,19 @@ function openPaidChannel(state: GameState): string {
   return "유료 구독 채널을 개설했다. 골수팬들이 하나둘 구독하기 시작했다. 이제 매달 구독 수익이 정산된다.";
 }
 
+/** 대형 협찬 수락 — 목돈·팔로워는 이미 선언형 effect가 줬다. 여기선 낮은 확률로 뒷광고 논란만 굴린다. */
+const SPONSOR_CONTROVERSY_CHANCE = 0.25;
+function sponsorDeal(state: GameState): string {
+  addSchedule(state, "대형 협찬 계약", "sns");
+  // rollControversy는 '아무 논란이나' 랜덤이라 여기 못 쓴다 — 협찬엔 뒷광고 논란이라야 말이 된다.
+  // pendingControversy를 직접 지정하고, 이미 진행 중인 논란이 있으면 덮지 않는다.
+  if (!state.pendingControversy && chance(SPONSOR_CONTROVERSY_CHANCE)) {
+    state.pendingControversy = "ctrl_paid_promo";
+    return "두둑한 계약금이 입금됐다. 그런데 며칠 뒤, 협찬 트윗을 두고 뭔가 술렁이기 시작했다…";
+  }
+  return "두둑한 계약금이 입금됐다. 광고 표기도 깔끔히 달아 잡음 없이 마무리했다.";
+}
+
 /** 단체 회식 참석 — 저녁 시간 블록과 정신력을 소모하고 동료와 조금 가까워진다. */
 function companyDinner(state: GameState): string {
   state.resources.mental = clampResource(state.resources.mental - 12);
@@ -242,6 +255,7 @@ const CUSTOM_EFFECTS: Record<NonNullable<EventEffect["customKey"]>, (s: GameStat
   companyDinner,
   hackRansom,
   lottery,
+  sponsorDeal,
 };
 
 /** 선언형 효과를 상태에 적용. customKey가 있으면 동적 결과 문구를 반환한다. */

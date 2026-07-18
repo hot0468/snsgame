@@ -2,7 +2,7 @@ import type { GameState, ScheduleEvent, Tweet, Account, SkillStatId } from "@/co
 import { getActiveAccount, LATE_SLOT } from "@/core/state";
 import { MAX_SKILL, SKILL_STATS } from "@/data/stats";
 import { chance, pick, randInt, uid } from "@/utils/random";
-import { changeFollowers } from "./followers";
+import { changeFollowers, maxPostSlots } from "./followers";
 import { pushKakao } from "./kakao";
 import { clampSkill } from "./stats";
 
@@ -66,6 +66,44 @@ export function ensureEggDay(state: GameState): void {
     state.eggs.dailyTweetDay = state.day;
     state.eggs.dailyTweetCount = 0;
   }
+}
+
+/* ─────────────────── 게시 슬롯(트윗 전용 일일 예산) ─────────────────── */
+
+/**
+ * 게시 슬롯. **행동력(resources.action)과 무관한 트윗 전용 카운터다** — 초반 슬롯이 1이어도
+ * 공부·운동·근무·휴식은 행동력으로 정상 작동한다(데드락 없음). 상한은 활성 계정 팔로워로 계산,
+ * 소비는 하루 전역(다계정 단순화). 도배 카운트(dailyTweetCount)와 별도 필드라 free 게시가
+ * 슬롯을 갉지 않는다.
+ */
+
+/** 슬롯 날짜가 바뀌었으면 오늘 소비량을 초기화한다(ensureEggDay와 같은 패턴). */
+export function ensurePostSlotDay(state: GameState): void {
+  if (state.eggs.postSlotsDay !== state.day) {
+    state.eggs.postSlotsDay = state.day;
+    state.eggs.postSlotsUsed = 0;
+  }
+}
+
+/**
+ * 오늘 남은 게시 슬롯 수(0 이상). **순수 읽기 — 상태를 변형하지 않는다**(렌더 중 UI가 호출).
+ * 날짜가 지난 소비량은 0으로 간주하므로 하루가 바뀌면 리셋 없이도 만충으로 읽힌다.
+ */
+export function remainingPostSlots(state: GameState): number {
+  const max = maxPostSlots(getActiveAccount(state).followers);
+  const used = state.eggs.postSlotsDay === state.day ? state.eggs.postSlotsUsed : 0;
+  return Math.max(0, max - (Number.isFinite(used) ? used : 0));
+}
+
+/** 오늘 슬롯이 남아 트윗을 올릴 수 있는지(UI 게이트). */
+export function canPostBySlot(state: GameState): boolean {
+  return remainingPostSlots(state) > 0;
+}
+
+/** 게시 슬롯 1개 소비(트윗 게시 시). free 게시는 호출하지 않는다. */
+export function consumePostSlot(state: GameState): void {
+  ensurePostSlotDay(state);
+  state.eggs.postSlotsUsed += 1;
 }
 
 /* ─────────────────── 좋아요/리트윗 ─────────────────── */

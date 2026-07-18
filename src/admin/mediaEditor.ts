@@ -1,7 +1,7 @@
 /**
  * 어드민 · 이미지 편집기 — `admin-media.html`로 진입한다(예: /admin-media.html).
  *
- * 다섯 축을 한 편집기에서 다룬다. **성격이 달라 섞으면 안 된다:**
+ * 여섯 축을 한 편집기에서 다룬다. **성격이 달라 섞으면 안 된다:**
  *
  * | 모드 | 저장 위치 | 파일명 | 매칭 |
  * |---|---|---|---|
@@ -10,6 +10,7 @@
  * | 너튜브 | `src/assets/youtube/` | **영상 카테고리**(목록에서 고름) | 카테고리 정확일치 + 영상 id 해시로 택1 |
  * | 성인 트윗 | `src/assets/adult/` | **자동**(`adult`·`adult__2`…) | `isAdult`만 본다 + 트윗 id 해시로 택1 |
  * | 트윗 카테고리 | `src/assets/tweetcat/` | **트윗 속성**(목록에서 고름) | `tweet.attribute` 정확일치 + 트윗 id 해시로 택1 |
+ * | 야밤 영상 | `src/assets/yabam/` | **영상 id**(목록에서 고름) | id 1:1 정확 매칭. 확률 없음(아이템과 같은 결) |
  *
  * ⚠️ 「너튜브」와 「트윗 카테고리」는 둘 다 '카테고리'지만 **다른 축이다.** 너튜브는 영상
  *    카테고리(VideoAttribute), 트윗 카테고리는 트윗 속성(AttributeId)이다. 겹치는 이름이
@@ -26,6 +27,8 @@ import { ITEM_IMAGES } from "@/data/itemImages";
 import { YOUTUBE_IMAGES } from "@/data/youtubeImages";
 import { ADULT_IMAGES } from "@/data/adultImages";
 import { TWEET_CAT_IMAGES, TWEET_CAT_IDS } from "@/data/tweetCatImages";
+import { YABAM_IMAGES } from "@/data/yabamImages";
+import { YABAM_VIDEOS } from "@/data/yabam";
 import type { VideoAttribute } from "@/data/videos";
 import { ATTRIBUTES } from "@/data/attributes";
 import { SHOP_ITEMS } from "@/data/shop";
@@ -34,8 +37,12 @@ import { INGREDIENTS } from "@/data/grocery";
 import { HOUSINGS } from "@/data/housing";
 import { el, mount } from "@/utils/dom";
 
-/** 파일명 규칙. 서버(vite.config.ts)의 SAFE_NAME과 같은 규칙을 클라이언트에서도 먼저 검사한다. */
-const SAFE_NAME = /^[가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9_-]{1,50}$/;
+/**
+ * 파일명 규칙. 서버(vite.config.ts)의 SAFE_NAME과 같은 규칙을 클라이언트에서도 먼저 검사한다.
+ * 공백을 허용한다 — 키워드 매칭이 본문 부분일치라(systems/mediaImages.ts), '핸드폰 배터리'처럼
+ * 겹단어를 넣으면 그 구절이 통째로 들어간 트윗에 붙는다. 경로문자·`../`는 여전히 막힌다.
+ */
+const SAFE_NAME = /^[가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9 _-]{1,50}$/;
 /** 크롭 무대의 가로 폭(px). 세로는 저장 비율에 맞춰 계산한다. */
 const STAGE_W = 320;
 /** 확대 미리보기의 최대 가로 폭 — 240짜리를 2배로 띄우면 패널을 뚫는다. */
@@ -43,6 +50,12 @@ const ZOOM_MAX_W = 360;
 
 /** 저장 직후 dev 서버가 페이지를 새로고침해버려, 성공 문구를 이 키로 넘겨 되살린다. */
 const SAVED_MSG_KEY = "mediaEditor:saved";
+/**
+ * 저장 직후의 full reload로 모듈 상태(mode·화면·카테고리 선택)가 초기화되는 걸 막는다.
+ * 저장 시 현재 선택을 여기 담고, init()이 apply() 전에 되살린다 — 연속 등록 시 매번
+ * '미디어 트윗'으로 튕기지 않게(사용자 요청).
+ */
+const SAVED_SEL_KEY = "mediaEditor:selection";
 
 /**
  * 아이템 이미지를 붙일 화면들. **크기는 여기서 정해진다** — 화면마다 썸네일 그릇이 달라서다.
@@ -81,7 +94,15 @@ const VIDEO_CATEGORIES: VideoAttribute[] = [
   "gaming",
 ];
 
-type Mode = "media" | "item" | "youtube" | "adult" | "tweetcat";
+type Mode = "media" | "item" | "youtube" | "adult" | "tweetcat" | "yabam";
+
+/**
+ * 야밤 영상 커버 저장 규격 — `.yabam-vid__cover`가 16:10이라 240x150으로 저장한다.
+ * 아이템과 같은 결(선명, id 1:1)이지만 화면별 규격이 아니라 이 한 값으로 고정이다.
+ * ⚠️ 두 숫자를 손으로 적지 마라 — 세로는 16:10 비율에서 유도한다(어긋나면 cover가 잘라낸다).
+ */
+const YABAM_IMG_W = 240;
+const YABAM_IMG_H = Math.round((YABAM_IMG_W * 10) / 16); // 150
 
 /**
  * 성인 이미지의 고정 파일명. **사용자가 이름을 짓지 않는다 — 입력칸 자체가 없다.**
@@ -186,6 +207,8 @@ const WEBP_QUALITY: Record<Mode, number> = {
   // 값이 갈릴 이유가 없다.
   adult: 0.5,
   tweetcat: 0.5,
+  // 야밤 커버는 아이템과 같은 결(선명해야 하는 상품/영상 이미지)이라 0.7.
+  yabam: 0.7,
 };
 
 /**
@@ -196,6 +219,7 @@ const WEBP_QUALITY: Record<Mode, number> = {
  */
 function outSize(): { w: number; h: number } {
   if (mode === "item") return { w: target.w, h: target.h };
+  if (mode === "yabam") return { w: YABAM_IMG_W, h: YABAM_IMG_H };
   return mode === "youtube" ? { w: TUBE_W, h: TUBE_H } : { w: MEDIA_W, h: MEDIA_H };
 }
 /** 무대 세로 — 무대가 곧 크롭 영역이라 저장 비율과 같아야 한다. */
@@ -209,6 +233,7 @@ function stageH(): number {
  */
 function outName(): string {
   if (mode === "item") return itemSelect.value;
+  if (mode === "yabam") return yabamSelect.value;
   if (mode === "adult") return ADULT_NAME;
   if (mode === "tweetcat") return tweetCatSelect.value;
   return mode === "youtube" ? catSelect.value : nameInput.value.trim();
@@ -221,6 +246,7 @@ const nameInput = el("input", { type: "text", placeholder: "예: 커피 (확장�
 const itemSelect = el("select", {});
 const catSelect = el("select", {});
 const tweetCatSelect = el("select", {});
+const yabamSelect = el("select", {});
 const screenSelect = el("select", {});
 const saveBtn = el("button", { class: "btn" }, "저장");
 const msg = el("div", { class: "msg" });
@@ -274,7 +300,8 @@ function resize(): void {
   // 원본이 알아볼 만한지 아닌지를 알 수 있다 — 그게 이 미리보기의 존재 이유다.
   // 아이템은 반대다: 저장본이 표시 크기보다 크고(240 → 화면 ~180) 선명해야 하는 쪽이라
   // '실제 크기'로 띄우면 판정이 안 된다. 디테일을 보라고 확대를 유지한다.
-  const blurry = mode !== "item";
+  // 아이템·야밤은 선명 규격(저장본 확대 미리보기 + pixelated) — 흐림 축과 반대.
+  const blurry = mode !== "item" && mode !== "yabam";
   const zw = blurry
     ? mode === "youtube"
       ? TUBE_IMG_W
@@ -387,6 +414,17 @@ async function save(): Promise<void> {
     // (data/*Images.ts의 eager glob이 갱신되며 full reload). 그래서 화면에 띄운 성공
     // 문구가 즉시 날아간다 — 새로고침 뒤에도 살아남도록 sessionStorage로 넘긴다.
     sessionStorage.setItem(SAVED_MSG_KEY, note);
+    // 새로고침 후 같은 모드·선택으로 돌아오도록 현재 선택을 넘긴다.
+    sessionStorage.setItem(
+      SAVED_SEL_KEY,
+      JSON.stringify({
+        mode,
+        screen: screenSelect.value,
+        cat: catSelect.value,
+        tweetCat: tweetCatSelect.value,
+        yabam: yabamSelect.value,
+      }),
+    );
     setMsg(note, "ok");
   } catch (e) {
     setMsg(`저장 실패: ${String(e)}`, "err");
@@ -425,6 +463,15 @@ function fillCats(): void {
       const n = tubeCount(c);
       return el("option", { value: c }, `${n > 0 ? `✓${n}장` : "—"} ${ATTRIBUTES[c].label} (${c})`);
     }),
+  );
+}
+
+/** 야밤 영상 목록 — 이미 커버가 있으면 ✓. 아이템과 같은 id 1:1이라 ✓는 "교체 대상"이다. */
+function fillYabam(): void {
+  yabamSelect.replaceChildren(
+    ...YABAM_VIDEOS.map((v) =>
+      el("option", { value: v.id }, `${YABAM_IMAGES[v.id] ? "✓" : "—"} ${v.title} (${v.id})`),
+    ),
   );
 }
 
@@ -565,6 +612,28 @@ function fillSaved(): void {
     );
     return;
   }
+  if (mode === "yabam") {
+    const doneY = YABAM_VIDEOS.filter((v) => YABAM_IMAGES[v.id]);
+    savedTitle.textContent = `야밤 영상 커버 (${doneY.length}/${YABAM_VIDEOS.length})`;
+    savedBox.replaceChildren(
+      el(
+        "div",
+        { class: "saved" },
+        ...YABAM_VIDEOS.map((v) => {
+          const url = YABAM_IMAGES[v.id];
+          return el(
+            "div",
+            { class: "saved__item" + (url ? "" : " saved__item--empty") },
+            url
+              ? el("img", { src: url, alt: v.title })
+              : el("div", { class: "saved__none" }, "없음"),
+            el("div", { class: "saved__kw" }, `${v.title} (${v.id})`),
+          );
+        }),
+      ),
+    );
+    return;
+  }
   const done = target.items.filter((it) => ITEM_IMAGES[it.id]);
   savedTitle.textContent = `${target.label} 이미지 (${done.length}/${target.items.length})`;
   savedBox.replaceChildren(
@@ -592,15 +661,17 @@ function apply(): void {
   const isTube = mode === "youtube";
   const isAdult = mode === "adult";
   const isTweetCat = mode === "tweetcat";
+  const isYabam = mode === "yabam";
   itemRow.style.display = isItem ? "" : "none";
   screenRow.style.display = isItem ? "" : "none";
   catRow.style.display = isTube ? "" : "none";
   tweetCatRow.style.display = isTweetCat ? "" : "none";
+  yabamRow.style.display = isYabam ? "" : "none";
   // 파일명 입력은 트윗(키워드) 전용이다 — 아이템은 id, 너튜브는 영상 카테고리, 트윗 카테고리는
   // 트윗 속성을 목록에서 고르고, 성인은 이름이 아무 역할도 안 해서 아예 묻지 않는다
   // (ADULT_NAME 주석). 여기에 트윗 카테고리용 이름 입력을 되살리지 마라 — 매칭이 속성
   // 정확일치라 목록에 없는 이름은 어떤 트윗에도 안 붙는다(사용자 확정).
-  const named = isItem || isTube || isAdult || isTweetCat;
+  const named = isItem || isTube || isAdult || isTweetCat || isYabam;
   nameRow.style.display = named ? "none" : "";
   mediaNotes.style.display = named ? "none" : "";
   itemNote.style.display = named ? "" : "none";
@@ -620,6 +691,11 @@ function apply(): void {
       ` 키워드가 없으니 '어떤 트윗에 붙일지'는 고를 수 없습니다.`;
   } else if (isItem) {
     itemNote.textContent = `${target.label} 규격 ${target.w}x${target.h} · 파일명은 아이템 id(${itemSelect.value || "—"})로 저장됩니다.`;
+  } else if (isYabam) {
+    itemNote.textContent =
+      `야밤 영상 커버 ${YABAM_IMG_W}x${YABAM_IMG_H} (16:10, 아이템처럼 선명).` +
+      ` 파일명은 영상 id(${yabamSelect.value || "—"})로 저장되고, id 1:1 정확 매칭입니다(확률·해시 없음).` +
+      ` 같은 영상을 다시 저장하면 커버가 교체됩니다.`;
   } else if (isTube) {
     const n = tubeCount(catSelect.value);
     itemNote.textContent =
@@ -646,14 +722,16 @@ const modeSelect = el(
   el("option", { value: "youtube" }, "너튜브 (카테고리 정확일치)"),
   el("option", { value: "adult" }, "성인 트윗 (isAdult 매칭 · 이름 없음)"),
   el("option", { value: "tweetcat" }, "트윗 카테고리 (속성 정확일치)"),
+  el("option", { value: "yabam" }, "야밤 영상 (id 1:1)"),
 );
-const MODES: Mode[] = ["media", "item", "youtube", "adult", "tweetcat"];
+const MODES: Mode[] = ["media", "item", "youtube", "adult", "tweetcat", "yabam"];
 modeSelect.addEventListener("change", () => {
   mode = MODES.find((m) => m === modeSelect.value) ?? "media";
   apply();
 });
 catSelect.addEventListener("change", () => apply());
 tweetCatSelect.addEventListener("change", () => apply());
+yabamSelect.addEventListener("change", () => apply());
 
 screenSelect.replaceChildren(
   ...TARGETS.map((t) => el("option", { value: t.key }, `${t.label} (${t.w}x${t.h})`)),
@@ -679,25 +757,48 @@ const stage = el(
   "div",
   { class: "stage" },
   stageCanvas,
-  el("div", { class: "stage__hint" }, "드래그로 이동 · 휠로 확대/축소"),
+  el("div", { class: "stage__hint" }, "드래그로 이동 · Shift+드래그 축 고정 · 휠로 확대/축소"),
 );
 
 let dragging = false;
 let lastX = 0;
 let lastY = 0;
+// 드래그 시작점 + 그때의 크롭 중심. Shift 축 고정은 '이동량'을 기준으로 하므로 시작점이 필요하다.
+let startX = 0;
+let startY = 0;
+let baseCx = 0;
+let baseCy = 0;
 stage.addEventListener("pointerdown", (e: PointerEvent) => {
   if (!img) return;
   dragging = true;
   lastX = e.clientX;
   lastY = e.clientY;
+  startX = e.clientX;
+  startY = e.clientY;
+  baseCx = cx;
+  baseCy = cy;
   stage.classList.add("stage--drag");
   stage.setPointerCapture(e.pointerId);
 });
 stage.addEventListener("pointermove", (e: PointerEvent) => {
   if (!dragging) return;
   // 무대는 CSS로 320px 폭 그대로라 클라이언트 픽셀 = 무대 좌표.
-  cx += e.clientX - lastX;
-  cy += e.clientY - lastY;
+  if (e.shiftKey) {
+    // Shift: 시작점 대비 더 많이 움직인 축 하나로 고정(수직 또는 수평만).
+    // 시작점 기준이라 '지배 축'이 드래그 도중 흔들리지 않는다(마지막 프레임 기준이면 떨린다).
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      cx = baseCx + dx;
+      cy = baseCy;
+    } else {
+      cx = baseCx;
+      cy = baseCy + dy;
+    }
+  } else {
+    cx += e.clientX - lastX;
+    cy += e.clientY - lastY;
+  }
   lastX = e.clientX;
   lastY = e.clientY;
   redraw();
@@ -756,6 +857,7 @@ const screenRow = el("div", { class: "row" }, el("label", {}, "화면"), screenS
 const itemRow = el("div", { class: "row" }, el("label", {}, "아이템"), itemSelect);
 const catRow = el("div", { class: "row" }, el("label", {}, "카테고리"), catSelect);
 const tweetCatRow = el("div", { class: "row" }, el("label", {}, "트윗 속성"), tweetCatSelect);
+const yabamRow = el("div", { class: "row" }, el("label", {}, "야밤 영상"), yabamSelect);
 const nameRow = el("div", { class: "row" }, el("label", {}, "파일명"), nameInput);
 const itemNote = el("p", { class: "note" });
 const mediaNotes = el(
@@ -764,7 +866,8 @@ const mediaNotes = el(
   el(
     "p",
     { class: "note" },
-    "한글·영문·숫자·_·- 만, 1~50자. 게임 속 미디어 트윗에 나오는 단어로 지어야 자동으로 붙습니다.",
+    "한글·영문·숫자·공백·_·- 만, 1~50자. 게임 속 미디어 트윗에 나오는 단어로 지어야 자동으로 붙습니다. " +
+      "'핸드폰 배터리'처럼 공백을 넣으면 그 구절이 통째로 들어간 트윗에만 붙습니다.",
   ),
   // 실측 경고 — 이 두 단어는 프롬프트의 구조적 접미사라("…담은 사진") 무차별 매칭된다.
   // 가장 자연스럽게 고를 법한 파일명이 하필 가장 위험해서 여기 적어둔다.
@@ -788,7 +891,7 @@ if (root) {
         class: "sub",
         html:
           '트윗 이미지(키워드) · 아이템 이미지(id 1:1) · 너튜브 썸네일(카테고리) · 성인 트윗(isAdult) · ' +
-          '트윗 카테고리(속성) · <a href="/admin.html">← 숨은 이벤트 도감</a>',
+          '트윗 카테고리(속성) · 야밤 영상(id 1:1) · <a href="/admin.html">← 숨은 이벤트 도감</a>',
       }),
     ),
     el(
@@ -806,6 +909,7 @@ if (root) {
           itemRow,
           catRow,
           tweetCatRow,
+          yabamRow,
           el(
             "p",
             { class: "note" },
@@ -844,6 +948,38 @@ if (root) {
   fillItems();
   fillCats();
   fillTweetCats();
+  fillYabam();
+
+  // 저장 직전의 모드·선택을 되살린다(있으면). 드롭다운이 채워진 뒤여야 .value가 먹는다.
+  // apply()보다 먼저 — apply()가 이 상태로 화면을 그린다.
+  const sel = sessionStorage.getItem(SAVED_SEL_KEY);
+  if (sel !== null) {
+    sessionStorage.removeItem(SAVED_SEL_KEY);
+    try {
+      const s = JSON.parse(sel) as {
+        mode: Mode;
+        screen: string;
+        cat: string;
+        tweetCat: string;
+        yabam?: string;
+      };
+      if (MODES.includes(s.mode)) {
+        mode = s.mode;
+        modeSelect.value = s.mode;
+      }
+      // 없는 값이면 브라우저가 무시하므로 별도 검증 불필요.
+      if (s.screen) {
+        screenSelect.value = s.screen;
+        target = TARGETS.find((t) => t.key === s.screen) ?? target;
+      }
+      if (s.cat) catSelect.value = s.cat;
+      if (s.tweetCat) tweetCatSelect.value = s.tweetCat;
+      if (s.yabam) yabamSelect.value = s.yabam;
+    } catch {
+      // 손상된 값은 무시하고 기본(media)로 시작.
+    }
+  }
+
   apply();
 
   // 저장 → dev 서버 새로고침으로 날아간 성공 문구를 복원한다(새로고침 자체가 목록 갱신이다).

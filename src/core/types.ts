@@ -24,6 +24,18 @@ export type AttributeId =
   | "cooking" // 요리계
   | "adult"; // 성인계
 
+/**
+ * 트윗 성격 — 계열(AttributeId)과 독립된 축. 작성 시 4종 후보 중 하나를 골라 등록한다.
+ * 성과 계산에 실제 리스크/보상을 준다(가짜 톤 선택을 대체). 효과는 systems/followers.ts의
+ * TWEET_KIND_EFFECTS가 정의한다. 이 배열 순서가 UI 카드 순서이자 content의 kinds 풀 순서다.
+ * - plain(무난): 기준점, 리스크 없음
+ * - provoke(자극): 고성과·고분산 + 논란 확률↑·평판 리스크
+ * - info(정보): 유입 소폭↓ 대신 평판↑·지식 스킬↑
+ * - emotional(감성): 유입↑, 부가 이득 없음
+ */
+export const TWEET_KINDS = ["plain", "provoke", "info", "emotional"] as const;
+export type TweetKind = (typeof TWEET_KINDS)[number];
+
 /** 데려올 수 있는 반려동물 종류 */
 export type PetKind = "dog" | "cat";
 
@@ -46,6 +58,13 @@ export interface EggState {
   dailyTweetDay: number;
   /** 오늘 올린 트윗 수(도배 판정) */
   dailyTweetCount: number;
+  /**
+   * 게시 슬롯 소비 기준 날짜(일차). dailyTweetDay와 **분리**한다 —
+   * free 게시(opts.free)는 도배 카운트엔 잡히되 슬롯은 미소모라 두 카운터의 의미가 다르다.
+   */
+  postSlotsDay: number;
+  /** 오늘 소비한 게시 슬롯 수(트윗 전용 일일 예산). */
+  postSlotsUsed: number;
   /** 연속 심야 트윗 일수 */
   lateStreak: number;
   /** 마지막으로 심야 트윗한 일차(연속 판정) */

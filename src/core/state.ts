@@ -218,6 +218,8 @@ export function createInitialState(): GameState {
     eggs: {
       dailyTweetDay: 1,
       dailyTweetCount: 0,
+      postSlotsDay: 1,
+      postSlotsUsed: 0,
       lateStreak: 0,
       lastLateDay: -1,
       botFollows: 0,

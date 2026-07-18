@@ -1,4 +1,4 @@
-import type { AdultKind, AttributeId, GameState, Tweet } from "@/core/types";
+import type { AdultKind, AttributeId, GameState, Tweet, TweetKind } from "@/core/types";
 import {
   dominantAttribute,
   getActiveAccount,
@@ -7,15 +7,15 @@ import {
 import { chance, randInt, uid } from "@/utils/random";
 import { makeMedia } from "@/data/media";
 import { mediaSetFor } from "@/data/mediaTweets";
-import { calcTweetOutcome, changeFollowers } from "./followers";
+import { calcTweetOutcome, changeFollowers, TWEET_KIND_EFFECTS } from "./followers";
 import { maybeSpawnDickPicDM, maybeSpawnFanDM, maybeSpawnMotelDM, maybeSpawnTicketDM } from "./dm";
 import { maybeSpawnSavannaDM } from "./savanna";
-import { onTweetPosted, smartTweetMultiplier } from "./eggs";
+import { consumePostSlot, onTweetPosted, smartTweetMultiplier } from "./eggs";
 import { maybeSpawnCrewInviteDM } from "./crew";
 import { maybeSpawnPushDM } from "./pushtime";
 import { maybeSpawnYabamDM } from "./yabam";
 import { generateReactions } from "./reactions";
-import { clampAction, clampResource } from "./stats";
+import { clampAction, clampResource, clampSkill } from "./stats";
 import { addStrike } from "./ban";
 import { rollControversy, CONTROVERSY_REP_THRESHOLD } from "./controversy";
 import { addSchedule } from "./time";
@@ -39,6 +39,12 @@ export interface PostTweetOptions {
    * 등록·DM 스폰 등은 그대로 수행된다.
    */
   free?: boolean;
+  /**
+   * 트윗 성격(무난/자극/정보/감성). 미지정 시 "plain"(중립값)이라 특수 모드
+   * (성인·기사·야밤 리뷰·창작·홍보 등) 경로는 기존 동작과 동일하다.
+   * 일반 트윗 작성(composeModal 4성격 picker)에서만 선택값이 전달된다.
+   */
+  kind?: TweetKind;
 }
 
 /**
@@ -58,7 +64,9 @@ export function postTweet(
   opts: PostTweetOptions = {},
 ): PostTweetResult {
   const account = getActiveAccount(state);
-  const outcome = calcTweetOutcome(state, attr);
+  const kind = opts.kind ?? "plain";
+  const kindEff = TWEET_KIND_EFFECTS[kind];
+  const outcome = calcTweetOutcome(state, attr, kind);
   // 성인 트윗은 신규 팔로워 1.5배, 박학다식 달성 시 정보성 트윗 성과 상승,
   // 창작(1차/2차)·이달의 인기작 적중 시 followerMultiplier로 추가 가중.
   const followers = Math.round(
@@ -89,9 +97,10 @@ export function postTweet(
   if (mset) tweet.media = mset.media;
   else if (chance(0.2)) tweet.media = makeMedia(attr);
 
-  // 무료 게시(opts.free)면 행동력 소모를 건너뛴다.
+  // 무료 게시(opts.free)면 행동력 소모와 게시 슬롯 소비를 둘 다 건너뛴다.
   if (!opts.free) {
     state.resources.action = clampAction(state, state.resources.action - TWEET_ACTION_COST);
+    consumePostSlot(state);
   }
   changeFollowers(state, followers);
   account.timeline.unshift(tweet);
@@ -116,8 +125,16 @@ export function postTweet(
   // 애니덕 트윗이면(성인+음란 높음) 확률적으로 푸시타임 링크 DM이 온다
   else if (attr === "anime") maybeSpawnPushDM(state);
 
-  // 평판이 낮거나 성인 트윗은 논란/박제가 터질 수 있다
-  let ctrlChance = 0;
+  // 성격별 부수효과: 정보=평판·지식↑, 자극=평판 리스크(감성/무난은 0). plain은 전부 0이라 특수 모드는 무영향.
+  if (kindEff.reputationDelta !== 0) {
+    state.resources.reputation = clampResource(state.resources.reputation + kindEff.reputationDelta);
+  }
+  if (kindEff.knowledgeDelta !== 0) {
+    state.skills.knowledge = clampSkill(state.skills.knowledge + kindEff.knowledgeDelta);
+  }
+
+  // 평판이 낮거나 성인 트윗은 논란/박제가 터질 수 있다. 자극 성격은 논란 확률이 추가된다.
+  let ctrlChance = kindEff.controversyBonus;
   if (state.resources.reputation < CONTROVERSY_REP_THRESHOLD) ctrlChance += 0.18;
   if (isAdult && state.resources.morality < 30) ctrlChance += 0.15;
   rollControversy(state, ctrlChance);
@@ -178,6 +195,7 @@ export function postScamTweet(state: GameState, text: string): ScamTweetResult {
   };
 
   state.resources.action = clampAction(state, state.resources.action - TWEET_ACTION_COST);
+  consumePostSlot(state);
   account.timeline.unshift(tweet);
   account.lastTweetDay = state.day;
   addSchedule(state, `사기 트윗 (+${earned.toLocaleString("ko-KR")}원)`, "sns");

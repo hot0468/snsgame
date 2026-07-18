@@ -1,12 +1,18 @@
 import type { GameContext } from "@/ui/context";
-import type { AdultKind, AttributeId } from "@/core/types";
+import type { AdultKind, AttributeId, TweetKind, TweetMedia } from "@/core/types";
+import { mediaSetFor } from "@/data/mediaTweets";
 import { canWriteScam, getActiveAccount, isMentalLow, isSuspended } from "@/core/state";
-import { ATTRIBUTES } from "@/data/attributes";
+import { ATTRIBUTES, getAffinity } from "@/data/attributes";
+import { isTrending } from "@/data/trends";
+import { maxPostSlots } from "@/systems/followers";
+import { canPostBySlot, remainingPostSlots } from "@/systems/eggs";
 import {
   ADULT_KINDS,
   ADULT_TWEETS,
   GLOOMY_TWEETS,
   SCAM_TWEETS,
+  TWEET_KINDS,
+  kindTemplatesFor,
   templatesFor,
   type TweetTone,
 } from "@/data/tweets";
@@ -34,8 +40,19 @@ import { icon, ATTR_ICON } from "@/ui/icons";
 /** 창작 모드 — 꺼짐 / 1차창작 / 2차창작 */
 type CreationMode = "off" | "original" | "fan";
 
-/** 마법사 단계 — 1: 무엇을 쓸까(카테고리), 2: 어떤 분위기로 쓸까(톤/종류) */
+/** 마법사 단계 — 1: 무엇을 쓸까(카테고리), 2: 어떤 성격으로 쓸까(성격/종류) */
 type Step = 1 | 2;
+
+/**
+ * 일반 트윗 성격 카드의 표시용 메타(라벨 + 질적 효과 힌트).
+ * 힌트는 수치 노출 금지 — 방향성만. 실제 효과 수치는 systems(TWEET_KIND_EFFECTS)가 소유.
+ */
+const KIND_META: Record<TweetKind, { label: string; hint: string; warn?: boolean }> = {
+  plain: { label: "무난", hint: "안정적" },
+  provoke: { label: "자극", hint: "🔥 대박 가능 · 논란 위험", warn: true },
+  info: { label: "정보", hint: "평판↑ · 꾸준" },
+  emotional: { label: "감성", hint: "유입↑" },
+};
 
 /** "일상계" → "일상" 처럼 카테고리 라벨의 '계' 접미사를 뗀다. */
 function categoryLabel(id: AttributeId): string {
@@ -100,6 +117,14 @@ export function renderComposeModal(
   const canScam = !gloomy && !articleTitle && canWriteScam(s.resources.morality);
   let scamMode = false;
 
+  // 일반 트윗 성격 picker: 선택된 성격(미선택이면 등록 비활성) + 후보 문구 캐시.
+  // 후보는 selectedAttr당 1번만 뽑아 캐시 → 카드 클릭(재렌더)에도 문구가 흔들리지 않게 한다.
+  // 미디어 판별(mediaSetFor)도 이 시점에 함께 계산해 캐시 → 재렌더에 안정적.
+  let selectedKind: TweetKind | null = null;
+  type KindCandidate = { text: string; media?: TweetMedia };
+  let kindCandidates: Record<TweetKind, KindCandidate> | null = null;
+  let kindCandidatesAttr: AttributeId | null = null;
+
   // 강아지계/고양이계는 산책에서 해당 동물을 '데려와야'만 열린다('사람' 단위 보유).
   const petCats: AttributeId[] = [];
   if (s.pets.dog && !account.unlockedAttributes.includes("dog")) petCats.push("dog");
@@ -146,6 +171,13 @@ export function renderComposeModal(
   /** 성인 카테고리 선택 = 성인 트윗 */
   const isAdultTweet = () => selectedAttr === "adult";
 
+  /**
+   * 일반 트윗(성격 4카드 picker를 쓰는 경로): 특수 모드가 하나도 아닌 보통 계열 트윗.
+   * 우울·기사·사기·성인·창작·홍보는 각자 기존 흐름을 쓰므로 제외한다.
+   */
+  const isGeneralTweet = (): boolean =>
+    !gloomy && !articleTitle && !scamMode && !isAdultTweet() && !isCreating() && !isPromo();
+
   /** 기사 트윗 모드: 톤에 맞는 반응 + 기사 헤드라인 */
   function articlePool(): string[] {
     const reactions =
@@ -182,6 +214,78 @@ export function renderComposeModal(
     );
     const fresh = pool.filter((t) => !used.has(t));
     return pick(fresh.length ? fresh : pool);
+  }
+
+  /**
+   * 일반 트윗 4성격 후보를 뽑는다 — TWEET_KINDS 순서로 성격당 1줄씩.
+   * 이미 올린 내 트윗(used)과, 이번 4장끼리(chosen)의 중복을 피한다(폴백 시 재사용 허용).
+   */
+  function buildKindCandidates(attr: AttributeId): Record<TweetKind, KindCandidate> {
+    const used = new Set(
+      account.timeline
+        .filter((t) => t.authorHandle === account.handle && !t.isRetweet)
+        .map((t) => t.text),
+    );
+    const chosen = new Set<string>();
+    const out = {} as Record<TweetKind, KindCandidate>;
+    for (const kind of TWEET_KINDS) {
+      const pool = kindTemplatesFor(attr, kind); // 비면 kinds합집합→positive+negative 폴백(항상 채워짐)
+      const fresh = pool.filter((t) => !used.has(t) && !chosen.has(t));
+      const unchosen = pool.filter((t) => !chosen.has(t));
+      const text = pick(fresh.length ? fresh : unchosen.length ? unchosen : pool);
+      // 후보가 미디어 세트 문구면 게시 시 미디어가 자동 첨부된다(postTweet). 여기선 표시용으로만 판별.
+      out[kind] = { text, media: mediaSetFor(text)?.media };
+      chosen.add(text);
+    }
+    return out;
+  }
+
+  /** 성격별 후보 4카드(문구 + 라벨 + 질적 효과 힌트). 하나 선택하면 그 성격·문구로 등록. */
+  function renderKindCards(): HTMLElement {
+    return el(
+      "div",
+      { class: "compose-kind-cards" },
+      ...TWEET_KINDS.map((kind) => {
+        const meta = KIND_META[kind];
+        const cand = kindCandidates?.[kind];
+        const media = cand?.media;
+        return el(
+          "button",
+          {
+            class: "compose-kind-card" + (selectedKind === kind ? " compose-kind-card--active" : ""),
+            onclick: () => {
+              selectedKind = kind;
+              paint();
+            },
+          },
+          // 롱트윗이면 문구가 길다 → CSS로 3줄 클램프(...말줄임). short는 그대로 보임.
+          el("div", { class: "compose-kind-card__text" }, cand?.text ?? ""),
+          // 미디어 후보면 뱃지(📷/🎬) + 축약 프롬프트. 게시 시 media는 자동 첨부됨.
+          media
+            ? el(
+                "div",
+                { class: "compose-kind-card__media" },
+                el(
+                  "span",
+                  { class: "compose-kind-card__badge" },
+                  media.kind === "video" ? "🎬 영상" : "📷 사진",
+                ),
+                el("span", { class: "compose-kind-card__prompt" }, media.prompt),
+              )
+            : null,
+          el(
+            "div",
+            { class: "compose-kind-card__meta" },
+            el("span", { class: "compose-kind-card__label" }, meta.label),
+            el(
+              "span",
+              { class: "compose-kind-card__hint" + (meta.warn ? " compose-signal__warn" : "") },
+              meta.hint,
+            ),
+          ),
+        );
+      }),
+    );
   }
 
   /** 창작 종류 칩(일반/1차창작/2차창작) */
@@ -436,45 +540,69 @@ export function renderComposeModal(
       );
     }
 
-    // 성인 카테고리면 톤 대신 '종류' 선택, 아니면 긍정/부정 톤 (사기·창작·홍보 모드는 톤 선택 없음)
-    const toneChips =
-      gloomy || scamMode || isCreating() || isPromo()
-        ? null
-        : isAdultTweet()
-          ? el(
-              "div",
-              { class: "chip-row chip-row--center" },
-              ...adultKinds.map((k) =>
-                el(
-                  "button",
-                  {
-                    class: "chip" + (k.id === adultKind ? " chip--active" : ""),
-                    onclick: () => {
-                      if (k.id === adultKind) return;
-                      adultKind = k.id;
-                      paint();
-                    },
-                  },
-                  k.label,
-                ),
-              ),
-            )
-          : el(
-              "div",
-              { class: "chip-row chip-row--center" },
-              toneChip("positive", "긍정"),
-              toneChip("negative", "부정"),
-            );
+    // 종류/톤 선택:
+    //  - 성인 카테고리 → 성인 '종류' 칩
+    //  - 기사 모드 → 긍정/부정 톤(기사 반응이 톤 기반, 기존 유지)
+    //  - 그 외 특수 모드(우울·사기·창작·홍보) → 없음
+    //  - 일반 트윗 → 톤 대신 아래 성격 4카드(kindCards)로 대체
+    const toneChips = isAdultTweet()
+      ? el(
+          "div",
+          { class: "chip-row chip-row--center" },
+          ...adultKinds.map((k) =>
+            el(
+              "button",
+              {
+                class: "chip" + (k.id === adultKind ? " chip--active" : ""),
+                onclick: () => {
+                  if (k.id === adultKind) return;
+                  adultKind = k.id;
+                  paint();
+                },
+              },
+              k.label,
+            ),
+          ),
+        )
+      : articleTitle
+        ? el(
+            "div",
+            { class: "chip-row chip-row--center" },
+            toneChip("positive", "긍정"),
+            toneChip("negative", "부정"),
+          )
+        : null;
+
+    // 일반 트윗이면 성격 4카드 picker. 후보 문구는 selectedAttr당 1회만 뽑아 캐시.
+    let kindCards: HTMLElement | null = null;
+    if (isGeneralTweet() && selectedAttr) {
+      if (!kindCandidates || kindCandidatesAttr !== selectedAttr) {
+        kindCandidates = buildKindCandidates(selectedAttr);
+        kindCandidatesAttr = selectedAttr;
+        selectedKind = null; // 계열이 바뀌면 선택 초기화
+      }
+      kindCards = renderKindCards();
+    }
 
     // 2차창작인데 아직 작품을 안 골랐으면 게시 불가
     const needsFanWork = isCreating() && creation === "fan" && !fanWorkId;
+    // 일반 트윗인데 성격 카드를 아직 안 골랐으면 게시 불가
+    const needsKind = isGeneralTweet() && !selectedKind;
+    // 슬롯 게이트: 행동력 부족을 우선 사유로, 그 다음 슬롯 소진
+    const slotOk = canPostBySlot(s);
+    const postLabel = !canPostTweet(s) ? "행동력 부족" : !slotOk ? "오늘 게시 슬롯 소진" : "등록";
     const postBtn = el(
       "button",
       {
         class: "btn",
-        disabled: !canPostTweet(s) || needsFanWork,
+        disabled: !canPostTweet(s) || needsFanWork || needsKind || !slotOk,
         onclick: () => {
-          const finalText = pickFreshText(currentPool());
+          const general = isGeneralTweet();
+          // 일반 트윗은 선택된 성격 카드의 문구를, 특수 모드는 기존 풀에서 뽑는다.
+          const finalText =
+            general && selectedKind
+              ? kindCandidates?.[selectedKind]?.text ?? pickFreshText(currentPool())
+              : pickFreshText(currentPool());
           if (scamMode) {
             let earned = 0;
             ctx.update((st) => {
@@ -496,9 +624,11 @@ export function renderComposeModal(
             } else if (isPromo()) {
               mult = NEW_COSMETIC_MULTIPLIER;
             }
+            // 일반 트윗만 성격 전달, 나머지는 opts 생략 → plain(중립)으로 기존 동작 유지
+            const opts = general && selectedKind ? { kind: selectedKind } : {};
             let delta = 0;
             ctx.update((st) => {
-              delta = postTweet(st, finalAttr, finalText, finalAdult, adultKind, mult).followerDelta;
+              delta = postTweet(st, finalAttr, finalText, finalAdult, adultKind, mult, opts).followerDelta;
               // 창작 트윗 누적 → 20개 이상이면 작가 계약 제안 DM이 올 수 있다
               if (creating) {
                 st.creationTweetCount += 1;
@@ -514,22 +644,66 @@ export function renderComposeModal(
           ctx.afterAction("tweet");
         },
       },
-      canPostTweet(s) ? "등록" : "행동력 부족",
+      postLabel,
     );
+
+    // "오늘 게시 X/Y" 인디케이터 — 상한은 활성 계정 팔로워로 계산(순수 읽기)
+    const slotMax = maxPostSlots(account.followers);
+    const slotUsed = slotMax - remainingPostSlots(s);
+    const slotIndicator = el("div", { class: "compose-slots" }, `오늘 게시 ${slotUsed}/${slotMax}`);
+
+    // 슬롯 소진 안내(내일 회복)
+    const slotHint = !slotOk
+      ? el(
+          "div",
+          { class: "compose-hint" },
+          "오늘 게시 슬롯을 다 썼어요. 팔로워를 더 모으면 하루 게시 수가 늘어나요.",
+        )
+      : null;
+
+    // 작성 미리보기 신호 — 선택 카테고리의 예상 반응(질적 신호만, 수치 노출 금지).
+    // 우울·기사·사기 모드는 카테고리 고정/없음이라 생략.
+    let signalEl: HTMLElement | null = null;
+    if (!gloomy && !articleTitle && !scamMode && selectedAttr !== null) {
+      const attr = selectedAttr;
+      const items: HTMLElement[] = [];
+      if (isTrending(s.day, attr)) {
+        items.push(el("div", { class: "compose-signal__item" }, "🔥 오늘 인기 계열! 반응이 커요"));
+      }
+      const aff = getAffinity(account.attribute, attr);
+      if (aff < 0) {
+        items.push(
+          el(
+            "div",
+            { class: "compose-signal__item compose-signal__warn" },
+            "⚠️ 내 계정 성향과 안 맞아요 (언팔 위험)",
+          ),
+        );
+      } else if (aff > 0) {
+        items.push(el("div", { class: "compose-signal__item" }, "👍 내 계정과 찰떡"));
+      } else {
+        items.push(el("div", { class: "compose-signal__item" }, "예상 반응: 보통"));
+      }
+      signalEl = el("div", { class: "compose-signal" }, ...items);
+    }
 
     return el(
       "div",
       { class: "modal__body compose-step" },
+      slotIndicator,
       gloomyNotice,
       articleNote,
       // 고를 게 하나도 없는 모드(우울)에선 분위기 질문을 띄우지 않는다
       gloomy ? null : stepTitle("어떤 분위기로 쓸까?"),
       scamNotice,
+      signalEl,
       creationChips ? el("div", { class: "compose-label" }, "창작") : null,
       creationChips,
       fanSection,
       cosmeticSection,
       toneChips,
+      kindCards,
+      slotHint,
       el("div", { class: "compose-actions" }, skipStep1 ? cancelBtn() : backBtn(), postBtn),
     );
   }

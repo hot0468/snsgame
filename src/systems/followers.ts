@@ -1,4 +1,4 @@
-import type { AttributeId, GameState } from "@/core/types";
+import type { AttributeId, GameState, TweetKind } from "@/core/types";
 import { getActiveAccount } from "@/core/state";
 import { ATTRIBUTES, getAffinity } from "@/data/attributes";
 import { MAX_SKILL } from "@/data/stats";
@@ -25,6 +25,32 @@ export interface TweetOutcome {
 }
 
 /**
+ * 트윗 성격별 효과. **밸런스 튜닝 지점** — 시작값(실측 후 조정 전제).
+ * calcTweetOutcome이 reachMul·varLow·varRange(도달·분산)를 쓰고,
+ * postTweet이 controversyBonus·reputationDelta·knowledgeDelta(게시 후 부수효과)를 적용한다.
+ * plain은 전부 중립값(1.0/0)이라 성격 미지정(특수 모드) 경로는 기존 동작과 동일하다.
+ */
+export interface TweetKindEffect {
+  reachMul: number; // 기본 도달·유입 배율
+  varLow: number; // 좋아요 랜덤 하한 계수
+  varRange: number; // 좋아요 랜덤 폭(클수록 대박/폭망이 갈림)
+  controversyBonus: number; // 게시 후 추가 논란 확률
+  reputationDelta: number; // 게시 후 평판 증감(0~100 스케일)
+  knowledgeDelta: number; // 게시 후 지식 스킬 증감(999 스케일)
+}
+
+export const TWEET_KIND_EFFECTS: Record<TweetKind, TweetKindEffect> = {
+  // 기준점: 배율 1.0, 리스크 없음.
+  plain: { reachMul: 1.0, varLow: 0.8, varRange: 0.6, controversyBonus: 0, reputationDelta: 0, knowledgeDelta: 0 },
+  // 자극: 도달↑ + 분산 대폭↑(0.4~1.9배로 대박/폭망 갈림) + 논란 +0.12 + 평판 소폭 리스크.
+  provoke: { reachMul: 1.35, varLow: 0.4, varRange: 1.5, controversyBonus: 0.12, reputationDelta: -3, knowledgeDelta: 0 },
+  // 정보: 유입 ×0.85(꾸준) 대신 평판 +2, 지식 스킬 +2.
+  info: { reachMul: 0.85, varLow: 0.85, varRange: 0.4, controversyBonus: 0, reputationDelta: 2, knowledgeDelta: 2 },
+  // 감성: 유입 ×1.2(공감·확산), 부가 이득 없음.
+  emotional: { reachMul: 1.2, varLow: 0.8, varRange: 0.6, controversyBonus: 0, reputationDelta: 0, knowledgeDelta: 0 },
+};
+
+/**
  * 평판에 따른 팔로워 '증가분' 배율(0.3~1.0).
  * 평판이 높으면 1.0, 낮을수록 신규 유입이 줄어든다. (감소분에는 적용 안 함)
  */
@@ -38,7 +64,12 @@ export function reputationFactor(state: GameState): number {
  * - 내 계정 주 성향과 트윗 성향의 궁합이 성과 배율에 반영된다.
  * - 팔로워 규모에 비례한 기본 도달도 존재.
  */
-export function calcTweetOutcome(state: GameState, attr: AttributeId): TweetOutcome {
+export function calcTweetOutcome(
+  state: GameState,
+  attr: AttributeId,
+  kind: TweetKind = "plain",
+): TweetOutcome {
+  const eff = TWEET_KIND_EFFECTS[kind];
   const def = ATTRIBUTES[attr];
   const skillAvg =
     def.relatedSkills.reduce((sum, s) => sum + state.skills[s], 0) /
@@ -59,8 +90,9 @@ export function calcTweetOutcome(state: GameState, attr: AttributeId): TweetOutc
   // 오늘의 인기 카테고리면 도달·성과가 크게 상승
   const trendMul = isTrending(state.day, attr) ? TRENDING_MULTIPLIER : 1;
 
-  const base = reach * skillMul * affinityMul * trendMul;
-  const likes = Math.round(base * (0.8 + Math.random() * 0.6));
+  // 성격별 도달 배율(자극↑·정보↓·감성↑)과 분산(자극은 대박/폭망이 갈림)을 반영한다.
+  const base = reach * skillMul * affinityMul * trendMul * eff.reachMul;
+  const likes = Math.round(base * (eff.varLow + Math.random() * eff.varRange));
   const retweets = Math.round(likes * (0.15 + Math.random() * 0.2));
 
   // 신규 팔로워: RT 전환율은 스킬과 무관한 상수(TWEET_CONV_RATE), 궁합 보너스만 스탯에 좌우된다.
@@ -95,4 +127,36 @@ export function calcEncounterFollowerDelta(
 export function changeFollowers(state: GameState, delta: number): void {
   const account = getActiveAccount(state);
   account.followers = Math.max(0, account.followers + delta);
+}
+
+/* ─────────────────── 게시 슬롯 곡선 ─────────────────── */
+
+/** 게시 슬롯 상한(엔드게임 최상위 구간에서 닿는 천장). */
+export const MAX_POST_SLOTS = 10;
+
+/**
+ * 팔로워 수 → 하루 최대 게시 슬롯. **밸런스 튜닝 지점** — 값을 여기서 조정한다.
+ * 각 [최소팔로워, 슬롯] 구간. 내림차순으로 첫 매치가 그날의 슬롯 상한이다.
+ * (시작값 — 실측 후 조정 전제. 0→1, 20→2 … 100만→10.)
+ */
+export const POST_SLOT_TIERS: readonly (readonly [followers: number, slots: number])[] = [
+  [1_000_000, 10],
+  [400_000, 9],
+  [150_000, 8],
+  [50_000, 7],
+  [10_000, 6],
+  [2_000, 5],
+  [500, 4],
+  [100, 3],
+  [20, 2],
+  [0, 1],
+];
+
+/** 활성 계정 팔로워 수 → 오늘 최대 게시 슬롯 수(1~MAX_POST_SLOTS). */
+export function maxPostSlots(followers: number): number {
+  const f = Number.isFinite(followers) ? followers : 0;
+  for (const [threshold, slots] of POST_SLOT_TIERS) {
+    if (f >= threshold) return Math.min(slots, MAX_POST_SLOTS);
+  }
+  return 1;
 }

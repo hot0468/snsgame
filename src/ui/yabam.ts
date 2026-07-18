@@ -13,6 +13,7 @@ import {
   reviewYabamProduct,
 } from "@/systems/yabam";
 import { getActiveAccount } from "@/core/state";
+import { imageForYabamVideo } from "@/data/yabamImages";
 import { el, formatNumber } from "@/utils/dom";
 import { icon } from "./icons";
 import { confirmPurchase } from "./confirmModal";
@@ -88,6 +89,16 @@ function videoCard(ctx: GameContext, v: YabamVideo): HTMLElement {
     el(
       "div",
       { class: "yabam-vid__cover", style: coverStyle(v.hue) },
+      // 이미지가 있으면 커버(.item-thumb-img: inset:0로 채움) — 없으면 그라데이션 그대로.
+      // 이미지는 첫 자식이라, 뒤따르는 절대배치 오버레이(19배지·▶·🔒)가 위에 그대로 얹힌다.
+      // yabam-vid__img로 블러를 얹는다 — .item-thumb-img를 공유하는 아이템(쇼핑·피망)은
+      // 선명해야 하므로 야밤 전용 클래스로만 흐리게 한다.
+      (() => {
+        const url = imageForYabamVideo(v.id);
+        return url
+          ? el("img", { class: "item-thumb-img yabam-vid__img", src: url, alt: v.title })
+          : null;
+      })(),
       el("span", { class: "yabam-vid__adult" }, "🔞 19"),
       el("span", { class: "yabam-vid__play" }, "▶"),
       el(

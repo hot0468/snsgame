@@ -15,8 +15,12 @@ import { access, mkdir, writeFile } from "node:fs/promises";
  */
 const DEDUP_SEP = "__";
 
-/** 파일명 화이트리스트 — 한글·영문·숫자·밑줄·하이픈만. `../`·경로구분자·널바이트·절대경로를 전부 막는다. */
-const SAFE_NAME = /^[가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9_-]{1,50}$/;
+/**
+ * 파일명 화이트리스트 — 한글·영문·숫자·공백·밑줄·하이픈만. `../`·경로구분자·널바이트·절대경로를
+ * 전부 막는다. 공백은 겹단어 키워드('핸드폰 배터리')를 위해 허용한다 — 매칭이 본문 부분일치라
+ * 구절 그대로 붙는다(data/mediaImages.ts). 공백을 넣어도 `../`·`/`는 여전히 못 들어온다.
+ */
+const SAFE_NAME = /^[가-힣ㄱ-ㅎㅏ-ㅣa-zA-Z0-9 _-]{1,50}$/;
 const WEBP_PREFIX = "data:image/webp;base64,";
 
 /**
@@ -25,7 +29,8 @@ const WEBP_PREFIX = "data:image/webp;base64,";
  * media=트윗 이미지(파일명=키워드) · items=아이템 이미지(파일명=아이템 id)
  * · youtube=너튜브 썸네일(파일명=영상 카테고리)
  * · adult=성인 트윗 이미지(파일명은 **매칭에 안 쓰인다** — 어드민이 `adult` 고정으로 보낸다)
- * · tweetcat=트윗 카테고리 이미지(파일명=트윗 속성 AttributeId — 어드민이 목록에서 고른다).
+ * · tweetcat=트윗 카테고리 이미지(파일명=트윗 속성 AttributeId — 어드민이 목록에서 고른다)
+ * · yabam=야밤 영상 커버(파일명=영상 id yv1~yv8 — items와 같은 id 1:1, 확률·해시 없음).
  */
 const DIRS: Record<string, string> = {
   media: "src/assets/media",
@@ -33,11 +38,12 @@ const DIRS: Record<string, string> = {
   youtube: "src/assets/youtube",
   adult: "src/assets/adult",
   tweetcat: "src/assets/tweetcat",
+  yabam: "src/assets/yabam",
 };
 
 /**
  * 같은 이름을 또 저장하면 "한 장 더 추가"인 폴더들 — `uniqueName`으로 번호를 비켜 간다.
- * items는 여기 넣지 마라(파일명이 아이템 id라 덮어쓰는 게 맞다 — uniqueName 주석).
+ * items·yabam은 여기 넣지 마라(파일명이 아이템 id·영상 id라 덮어쓰는 게 맞다 — uniqueName 주석).
  * adult는 이름이 `adult` 고정이라 **번호가 유일한 구분**이다 — 빼면 매번 한 장을 덮어쓴다.
  * tweetcat은 한 속성에 여러 장을 두고 트윗 id 해시로 택1하는 설계다(youtube와 같다) —
  * 빼면 아이돌 이미지를 두 장 넣을 수 없다.
@@ -103,7 +109,7 @@ function adminMediaSave(): Plugin {
               });
             }
             if (typeof name !== "string" || !SAFE_NAME.test(name)) {
-              return send(400, { ok: false, error: "파일명은 한글·영문·숫자·_·- 만 쓸 수 있습니다." });
+              return send(400, { ok: false, error: "파일명은 한글·영문·숫자·공백·_·- 만 쓸 수 있습니다." });
             }
             if (typeof dataUrl !== "string" || !dataUrl.startsWith(WEBP_PREFIX)) {
               return send(400, { ok: false, error: "WebP data URL이 아닙니다." });

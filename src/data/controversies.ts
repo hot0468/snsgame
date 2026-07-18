@@ -111,6 +111,33 @@ export const CONTROVERSY_EVENTS: GameEvent[] = [
       },
     ],
   },
+  {
+    // 대형 협찬(first_big_sponsor) 수락 후 낮은 확률로 소환된다(systems/events.ts sponsorDeal).
+    // triggers:[]이라 스스로 안 뜨고 pendingControversy로만 등장한다.
+    id: "ctrl_paid_promo",
+    emoji: "",
+    title: "뒷광고 논란",
+    description:
+      "협찬 트윗에 '광고' 표기가 빠졌다는 지적이 올라왔다. 캡처가 돌며 '뒷광고 아니냐'는 말이 번지고 있다.",
+    triggers: [],
+    choices: [
+      {
+        label: "바로 광고 표기를 달고 사과한다",
+        effect: { followersPct: -6, reputation: 4, mental: -6, morality: 3 },
+        result: "빠르게 인정하고 표기를 정정했다. 소란은 하루 만에 잦아들었다.",
+      },
+      {
+        label: "'실수였다'며 대수롭지 않게 넘긴다",
+        effect: { followersPct: -16, reputation: -6 },
+        result: "안일한 해명에 오히려 불이 붙어, 지켜보던 사람들까지 등을 돌렸다.",
+      },
+      {
+        label: "재치 있게 받아친다",
+        effect: { customKey: "counterAttack" },
+        result: "",
+      },
+    ],
+  },
 ];
 
 /** id로 논란 시나리오를 찾는다. */

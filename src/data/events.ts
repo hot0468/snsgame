@@ -36,7 +36,8 @@ export interface EventEffect {
     | "openPaidChannel"
     | "companyDinner"
     | "hackRansom"
-    | "lottery";
+    | "lottery"
+    | "sponsorDeal";
 }
 
 export interface EventChoice {
@@ -219,6 +220,32 @@ export const GAME_EVENTS: GameEvent[] = [
         label: "정중히 거절한다",
         effect: { morality: +5, followers: 10 },
         result: "진정성을 지킨 당신에게 팔로워들이 호감을 보였다.",
+      },
+    ],
+  },
+  {
+    // brand_deal(500팔로워·소액)의 후반 확대판 — 규모가 커져야 뜨는 '첫 대형 협찬'.
+    // 수락 시 목돈이 들어오지만 낮은 확률로 뒷광고 논란(ctrl_paid_promo)이 터진다.
+    // 논란 굴림은 데이터로 못 하므로 customKey: "sponsorDeal"이 처리한다(돈·팔로워는 선언형).
+    id: "first_big_sponsor",
+    emoji: "",
+    title: "첫 대형 협찬 제안",
+    description:
+      "제법 큰 브랜드의 마케팅팀에서 정식 협찬을 제안해왔다. 단가도 지금까지와는 자릿수가 다르다.",
+    triggers: ["tweet", "day"],
+    weight: 0.5,
+    condition: hasFollowers(10000),
+    choices: [
+      {
+        label: "계약서에 사인한다",
+        // 목돈 + 협찬 트윗 노출로 소폭 유입. 그 뒤 customKey가 뒷광고 논란을 낮은 확률로 굴린다.
+        effect: { money: 500000, followersPct: 3, customKey: "sponsorDeal" },
+        result: "",
+      },
+      {
+        label: "'광고 없는 계정'을 지킨다",
+        effect: { reputation: 8, followersPct: 2 },
+        result: "돈보다 신뢰를 택한 당신을 두고 '믿고 보는 계정'이라는 말이 돌았다.",
       },
     ],
   },

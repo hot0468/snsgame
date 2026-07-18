@@ -1826,7 +1826,33 @@ body {
   background: var(--accent-hover);
 }
 
-/* 성인물 보기 경고 팝업의 콘텐츠 유형 목록(adultWarnModal.ts) */
+/* 성인물 보기 경고 팝업(adultWarnModal.ts) — 경고 톤으로 빨갛게. */
+.modal--adult-warn {
+  border: 1px solid #f0b4b4;
+}
+/* 타이틀 바 전체를 빨간 그라데이션으로. `.modal__head`의 파란 그라데이션(특정성 0,1,0)을
+   덮어야 하므로 `.modal--adult-warn .modal__head`(0,2,0)로 특정성을 올린다. */
+.modal--adult-warn .modal__head {
+  background: linear-gradient(135deg, #e8493c, #b42318);
+}
+/* 빨간 바 위 글씨·아이콘은 흰색(위 .modal__head가 이미 #fff지만, 명시해 둔다) */
+.modal--adult-warn .modal__head-title {
+  color: #fff;
+}
+.modal--adult-warn .adult-warn__list {
+  color: #b42318;
+}
+/* '확인했어요'만 빨간 버튼 — 취소(.btn--ghost)는 그대로 둔다.
+   ⚠️ `.modal.modal--adult-warn`로 특정성을 올린다 — 아래 `.modal .btn:not(.btn--ghost)`
+   (파란 그라데이션)와 특정성이 같으면 소스 순서상 그쪽이 이겨 빨강이 안 먹는다. */
+.modal.modal--adult-warn .btn:not(.btn--ghost) {
+  background: #d92d20;
+  box-shadow: 0 8px 18px rgba(217, 45, 32, 0.32);
+}
+.modal.modal--adult-warn .btn:not(.btn--ghost):hover {
+  background: #b42318;
+}
+
 .adult-warn__list {
   margin: 0;
   padding-left: 18px;
@@ -2793,6 +2819,108 @@ body {
   font-size: 12px;
   color: var(--text-muted);
   line-height: 1.5;
+}
+
+/* "오늘 게시 X/Y" 슬롯 인디케이터 */
+.compose-slots {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+/* 작성 미리보기 신호(트렌드/궁합) — 질적 신호만 */
+.compose-signal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 10px 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.compose-signal__warn {
+  color: var(--danger);
+}
+
+/* 일반 트윗 성격 4카드 picker (긍정/부정 톤 대체) — 문구 + 라벨 + 질적 효과 힌트 */
+.compose-kind-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px auto 2px;
+  max-width: 420px;
+  text-align: left;
+}
+.compose-kind-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+}
+.compose-kind-card:hover {
+  border-color: var(--accent);
+  background: var(--bg-panel);
+}
+.compose-kind-card--active {
+  border-color: var(--accent);
+  background: var(--bg-panel);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.compose-kind-card__text {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text);
+  /* 롱트윗 후보는 길 수 있으므로 3줄로 클램프(...말줄임). short는 짧아 그대로 보인다. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+/* 미디어 후보 카드의 뱃지 + 축약 프롬프트 */
+.compose-kind-card__media {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+  min-width: 0;
+}
+.compose-kind-card__badge {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.compose-kind-card__prompt {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.compose-kind-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
+}
+.compose-kind-card__label {
+  font-weight: 800;
+  color: var(--accent);
+}
+.compose-kind-card__hint {
+  color: var(--text-muted);
 }
 
 /* 작성 모달 2단계 마법사: 본문 전체(질문·선택지·안내)를 중앙정렬 */
@@ -6680,6 +6808,13 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
 .yabam-vid__cover {
   position: relative; aspect-ratio: 16 / 10;
   display: flex; align-items: center; justify-content: center;
+}
+/* 야밤 커버 이미지는 블러 처리(성인 콘텐츠). .item-thumb-img를 공유하는 아이템 사진은
+   선명해야 하므로 야밤 전용 클래스에만 건다. scale은 blur가 만드는 가장자리 투명 띠를
+   프레임 밖으로 밀어낸다(성인 트윗 블러와 같은 처리). */
+.yabam-vid__img {
+  filter: blur(7px);
+  transform: scale(1.08);
 }
 .yabam-vid__adult {
   position: absolute; top: 8px; left: 8px;

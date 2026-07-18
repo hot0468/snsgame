@@ -1,4 +1,4 @@
-import type { AttributeId } from "@/core/types";
+import type { AttributeId, TweetKind } from "@/core/types";
 import type { TweetTone } from "./tweets";
 import { long as dailyLong } from "./categories/daily";
 import { long as politicsLong } from "./categories/politics";
@@ -26,7 +26,10 @@ import { long as adultLong } from "./categories/adult";
  */
 export interface LongTweet {
   text: string;
-  tone: TweetTone;
+  /** @deprecated 죽은 필드 — kind로 대체됨. 기존 엔트리 호환용으로만 남김(더 이상 읽지 않음). */
+  tone?: TweetTone;
+  /** 성격(TweetKind). content-author가 채우면 kindTemplatesFor가 그 성격 카드에 이 장문을 섞는다. */
+  kind: TweetKind;
 }
 
 export const LONG_TWEETS: Record<AttributeId, LongTweet[]> = {
@@ -50,9 +53,9 @@ export const LONG_TWEETS: Record<AttributeId, LongTweet[]> = {
   adult: adultLong,
 };
 
-/** 카테고리·톤에 맞는 장문 트윗 문구들 */
-export function longTextsFor(attr: AttributeId, tone: TweetTone): string[] {
-  return LONG_TWEETS[attr].filter((t) => t.tone === tone).map((t) => t.text);
+/** 카테고리의 특정 성격(kind) 장문 트윗 문구들(kind 미태깅 엔트리는 제외). */
+export function longKindTexts(attr: AttributeId, kind: TweetKind): string[] {
+  return LONG_TWEETS[attr].filter((t) => t.kind === kind).map((t) => t.text);
 }
 
 /** 카테고리의 모든 장문 트윗 문구(톤 무관) */

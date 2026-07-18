@@ -21,7 +21,7 @@ const WARN_ITEMS = [
 export function renderAdultWarnModal(ctx: GameContext, onConfirm: () => void): HTMLElement {
   return el(
     "div",
-    { class: "modal" },
+    { class: "modal modal--adult-warn" },
     el(
       "div",
       { class: "modal__head" },

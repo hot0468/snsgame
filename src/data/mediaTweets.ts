@@ -1,4 +1,4 @@
-import type { AttributeId, TweetMedia } from "@/core/types";
+import type { AttributeId, TweetKind, TweetMedia } from "@/core/types";
 import type { TweetTone } from "./tweets";
 import { media as dailyMedia } from "./categories/daily";
 import { media as politicsMedia } from "./categories/politics";
@@ -26,9 +26,12 @@ import { media as adultMedia } from "./categories/adult";
  */
 export interface MediaTweetSet {
   text: string;
-  tone: TweetTone;
+  /** @deprecated 죽은 필드 — kind로 대체됨. 기존 엔트리 호환용으로만 남김(더 이상 읽지 않음). */
+  tone?: TweetTone;
   media: TweetMedia;
   mentions: string[];
+  /** 성격(TweetKind). content-author가 채우면 kindTemplatesFor가 그 성격 카드에 이 미디어 세트를 섞는다. */
+  kind: TweetKind;
 }
 
 export const MEDIA_TWEET_SETS: Record<AttributeId, MediaTweetSet[]> = {
@@ -62,9 +65,9 @@ export function mediaSetFor(text: string): MediaTweetSet | undefined {
   return BY_TEXT.get(text);
 }
 
-/** 카테고리·톤에 맞는 미디어 세트 트윗 문구들 */
-export function mediaSetTextsFor(attr: AttributeId, tone: TweetTone): string[] {
-  return MEDIA_TWEET_SETS[attr].filter((s) => s.tone === tone).map((s) => s.text);
+/** 카테고리의 특정 성격(kind) 미디어 세트 트윗 문구들(kind 미태깅 엔트리는 제외). */
+export function mediaKindTexts(attr: AttributeId, kind: TweetKind): string[] {
+  return MEDIA_TWEET_SETS[attr].filter((s) => s.kind === kind).map((s) => s.text);
 }
 
 /** 카테고리의 모든 미디어 세트 트윗 문구(톤 무관) */
