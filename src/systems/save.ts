@@ -117,6 +117,7 @@ function sanitize(state: GameState): GameState {
   if (!Array.isArray(state.appointments)) state.appointments = [];
   state.lastRentReminderDay ??= -1;
   state.crewJoined ??= false;
+  state.privateCrewJoined ??= false;
   state.groupRoomJoined ??= false;
   state.savannaJoined ??= false;
   state.employment ??= null;
@@ -181,6 +182,7 @@ function sanitize(state: GameState): GameState {
   if (!Array.isArray(state.ownedGames)) state.ownedGames = [];
   if (!Array.isArray(state.reviewedGames)) state.reviewedGames = [];
   if (!Array.isArray(state.adTweets)) state.adTweets = [];
+  if (!Array.isArray(state.eventTweetDrafts)) state.eventTweetDrafts = [];
   // '다트 핀'은 신규 기능이라 구세이브엔 키가 없다 — 미발견(false)이 정답이다.
   // youtube/medibooks의 `?? true` 호환과 반대인 이유는 steamUnlocked와 같다: 그 둘은
   // '이미 탭이 있던' 세이브의 탭을 뺏지 않으려는 보정이고, 다트 핀은 존재한 적이 없다.
@@ -197,6 +199,7 @@ function sanitize(state: GameState): GameState {
   // (kakao/appointments와 같은 패턴). 배열이 아니면 includes/push가 즉시 터진다.
   if (!Array.isArray(state.dstoryUnlockedPosts)) state.dstoryUnlockedPosts = [];
   state.adultTweetsPosted ??= 0;
+  state.punishTweetsPosted ??= 0;
   if (!Array.isArray(state.yabamProductsOwned)) state.yabamProductsOwned = [];
   if (!Array.isArray(state.seenWorks)) state.seenWorks = [];
   state.creationTweetCount ??= 0;
@@ -207,6 +210,7 @@ function sanitize(state: GameState): GameState {
   state.fireDeclined ??= false;
   if (!Array.isArray(state.endingsDeclined)) state.endingsDeclined = [];
   if (!Array.isArray(state.seasonalFired)) state.seasonalFired = [];
+  if (!Array.isArray(state.seenMeetings)) state.seenMeetings = [];
   state.postedAdultEver ??= false;
   state.dawnPending ??= false;
   // 회복 표시 필드는 신규 — 최상위 merge가 구세이브(키 부재)엔 기본 객체를 넣지만,

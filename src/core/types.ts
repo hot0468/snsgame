@@ -676,6 +676,22 @@ export interface CheatState {
   cheatExe: boolean;
 }
 
+/**
+ * 이벤트가 즉시 게시하던 트윗을 저장하는 '작성 초안'. 플레이어가 작성 팝업 하단에서
+ * 골라 게시한다(postEventTweetDraft). 게시 비용(슬롯/행동력/팔로워)은 게시 시점으로 이연된다.
+ */
+export interface EventTweetDraft {
+  id: string;
+  source: string; // 표시 라벨(예: "오프라인 활동")
+  attr: AttributeId;
+  text: string;
+  isAdult: boolean;
+  adultKind: AdultKind; // 비성인이면 "meetup" 등 무의미값 허용
+  followerMult: number;
+  kind: TweetKind; // 성과 계산용(기존 이벤트 트윗은 전부 "plain")
+  createdDay: number;
+}
+
 export interface GameState {
   version: number;
 
@@ -729,6 +745,8 @@ export interface GameState {
 
   /** 러닝크루 가입 여부('사람' 단위 — 계정 무관) */
   crewJoined: boolean;
+  /** 비공개 엘리트 러닝크루(SM 규율) 가입 여부 — 가입 후 정기런에 규율 시나리오가 랜덤 표출된다 */
+  privateCrewJoined: boolean;
   /**
    * 성인 그룹방 가입 여부('사람' 단위).
    * true면 매주 토요일 심야 정기 모임 약속이 유지된다.
@@ -862,6 +880,8 @@ export interface GameState {
   reviewedGames: string[];
   /** 추천탭에 노출되는 광고 트윗 풀(매일 스폰, 상한 유지) */
   adTweets: Tweet[];
+  /** 이벤트로 얻어 아직 게시하지 않은 트윗 초안(작성 팝업 하단에서 게시). 상한 15, 초과 시 최오래 shift */
+  eventTweetDrafts: EventTweetDraft[];
   /**
    * '다트 핀'(익명 게시판 사이트) **탭**이 해금됐는지 — 둘러보기 트윗의 링크를 눌러 해금.
    * 신규 기능이라 구세이브도 false(steamUnlocked와 같은 방향).
@@ -885,6 +905,8 @@ export interface GameState {
   dstoryUnlockedPosts: string[];
   /** 성인 트윗 누적 작성 수(야밤 DM 트리거용) */
   adultTweetsPosted: number;
+  /** 체벌(punish) 트윗 누적 작성 수(비공개 크루 권유 게이트용) */
+  punishTweetsPosted: number;
   /** 야밤에서 구매한 성인용품 id 목록(중복 구매 방지) */
   yabamProductsOwned: string[];
   /** 감상한(본) 작품 id 목록 — 너튜브 애니 시청/미디북스 만화 감상. 2차창작 대상이 된다. */
@@ -903,6 +925,8 @@ export interface GameState {
   endingsDeclined: string[];
   /** 이미 발생한 계절/연말 이벤트 키 목록(크리스마스·새해·연말정산 등, 중복 방지) */
   seasonalFired: string[];
+  /** 한 번 본(완료한) 만남 시나리오 id 목록 — 재추첨 시 제외해 반복을 막는다(전부 봤으면 폴백) */
+  seenMeetings: string[];
   /** 성인 트윗을 한 번이라도 올린 적 있는지(성기 사진 DM 등 성인 이벤트 해금) */
   postedAdultEver: boolean;
   /**
