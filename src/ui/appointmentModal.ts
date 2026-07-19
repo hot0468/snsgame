@@ -12,6 +12,9 @@ import {
   type ComicconMode,
 } from "@/systems/appointments";
 import { meetSuccessChance, resolveMeet } from "@/systems/relationship";
+import { canOfferPrivateCrew, joinPrivateCrew } from "@/systems/crew";
+import { PRIVATE_CREW_INVITE } from "@/data/crewSecret";
+import { renderCrewSecretModal } from "./sns/crewSecretModal";
 import { el } from "@/utils/dom";
 import { icon } from "./icons";
 
@@ -146,6 +149,7 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
             disabled: !canGo,
             onclick: () => {
               if (!canGo) return;
+              if (appt.kind === "crew") return handleCrewGo(appt);
               resolve(appt, true);
             },
           },
@@ -366,6 +370,101 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
       if (live) msg = resolveComiccon(s, live, mode).message;
     });
     showResult(msg);
+  }
+
+  /**
+   * 크루 정기런 "간다" 분기.
+   * ① 비공개 크루 가입자 → 일반 정기런 대신 SM 규율 시나리오 모달.
+   * ② 가입 조건 충족(체벌 트윗 10회 등) → 가입 권유 프롬프트.
+   * ③ 그 외 → 기존 일반 정기런.
+   */
+  function handleCrewGo(appt: Appointment): void {
+    const s = ctx.store.getState();
+    if (s.privateCrewJoined) {
+      ctx.openModal(renderCrewSecretModal);
+      return;
+    }
+    if (canOfferPrivateCrew(s)) {
+      showCrewInvite(appt);
+      return;
+    }
+    resolve(appt, true);
+  }
+
+  /**
+   * 비공개 크루 가입 권유(PRIVATE_CREW_INVITE 서사 리더).
+   * 가입 → joinPrivateCrew 후 오늘은 일반 정기런 진행(다음 주부터 비공개).
+   * 거절 → 일반 정기런.
+   */
+  function showCrewInvite(appt: Appointment): void {
+    const pages = PRIVATE_CREW_INVITE.pages;
+    let pageIndex = 0;
+
+    const render = (): void => {
+      const isLast = pageIndex === pages.length - 1;
+      container.replaceChildren(
+        el(
+          "div",
+          { class: "modal__head" },
+          el("span", { class: "modal__head-title" }, icon("walk", { size: 18 }), PRIVATE_CREW_INVITE.title),
+        ),
+        el(
+          "div",
+          { class: "modal__body" },
+          el("p", { style: "font-size:15px;line-height:1.7;margin:0 0 16px;white-space:pre-wrap" }, pages[pageIndex]),
+          el("p", { class: "compose-hint", style: "margin:0 0 16px;text-align:right" }, `${pageIndex + 1} / ${pages.length}`),
+          isLast
+            ? el(
+                "div",
+                {},
+                el(
+                  "button",
+                  {
+                    class: "event-choice",
+                    onclick: () => {
+                      ctx.update((s) => joinPrivateCrew(s));
+                      resolve(appt, true);
+                    },
+                  },
+                  PRIVATE_CREW_INVITE.joinLabel,
+                ),
+                el(
+                  "button",
+                  { class: "event-choice", style: "opacity:.85", onclick: () => resolve(appt, true) },
+                  PRIVATE_CREW_INVITE.declineLabel,
+                ),
+              )
+            : el(
+                "div",
+                { style: "display:flex;gap:8px;justify-content:flex-end" },
+                el(
+                  "button",
+                  {
+                    class: "btn btn--ghost",
+                    disabled: pageIndex === 0,
+                    onclick: () => {
+                      if (pageIndex > 0) pageIndex--;
+                      render();
+                    },
+                  },
+                  "이전",
+                ),
+                el(
+                  "button",
+                  {
+                    class: "btn",
+                    onclick: () => {
+                      if (pageIndex < pages.length - 1) pageIndex++;
+                      render();
+                    },
+                  },
+                  "다음",
+                ),
+              ),
+        ),
+      );
+    };
+    render();
   }
 
   function resolve(appt: Appointment, go: boolean): void {

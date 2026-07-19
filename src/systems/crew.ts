@@ -1,8 +1,12 @@
 import type { DMThread, GameState, PlayerAccount } from "@/core/types";
+import type { CrewSecretScenario } from "@/data/crewSecret";
+import { CREW_SECRET_SCENARIOS } from "@/data/crewSecret";
 import { getActiveAccount } from "@/core/state";
 import { chance, pick, uid } from "@/utils/random";
-import { addSchedule } from "./time";
-import { scheduleNextCrewRun } from "./appointments";
+import { addSchedule, advanceTime } from "./time";
+import { applyEffect } from "./events";
+import { clampAction } from "./stats";
+import { CREW_RUN_ACTION_COST, scheduleNextCrewRun } from "./appointments";
 
 /**
  * 러닝크루 가입 흐름.
@@ -68,4 +72,59 @@ export function joinCrew(state: GameState, thread: DMThread): void {
   thread.unread = true;
   addSchedule(state, "러닝크루 가입", "system");
   scheduleNextCrewRun(state);
+}
+
+/* ─────────────────── 비공개 엘리트 크루(SM 규율) ─────────────────── */
+
+/** 비공개 크루 가입 권유가 뜨는 체벌 트윗 누적 문턱 */
+export const PRIVATE_CREW_PUNISH_THRESHOLD = 10;
+
+/**
+ * 이번 정기런에서 비공개 엘리트 크루 가입을 권유할 조건.
+ * 크루원이면서 성인모드이고, 체벌 트윗을 문턱 이상 올렸으며, 아직 미가입.
+ */
+export function canOfferPrivateCrew(state: GameState): boolean {
+  return (
+    state.crewJoined &&
+    state.adultMode &&
+    state.punishTweetsPosted >= PRIVATE_CREW_PUNISH_THRESHOLD &&
+    !state.privateCrewJoined
+  );
+}
+
+/**
+ * 비공개 엘리트 크루(SM 규율)에 가입한다.
+ * 오늘 런은 일반으로 진행되고, 다음 정기런부터 규율 시나리오가 랜덤 표출된다.
+ * (초대 서사·환영 문구는 ui가 PRIVATE_CREW_INVITE로 표시한다 — 여기선 상태만 확정.)
+ */
+export function joinPrivateCrew(state: GameState): void {
+  state.privateCrewJoined = true;
+  addSchedule(state, "비공개 엘리트 러닝크루 가입", "system");
+}
+
+/** 정기런에 표출할 규율 시나리오를 랜덤으로 고른다(반복 허용 — seen 제외 없음). */
+export function pickCrewSecretScenario(): CrewSecretScenario {
+  return pick(CREW_SECRET_SCENARIOS);
+}
+
+/**
+ * 비공개 크루 규율 시나리오의 선택을 확정한다(정기런 처리).
+ * savanna resolveSavannaIntrusion 패턴 — 효과 적용 + 정기런 행동력 소모 +
+ * 하루 진행 + 다음 주 정기런 재예약. 재예약을 빼먹으면 정기런 사이클이 끊긴다.
+ * @returns 결과 문구(customKey 동적 문구가 있으면 그것, 없으면 choice.result)
+ */
+export function resolveCrewSecret(
+  state: GameState,
+  scenario: CrewSecretScenario,
+  choiceIndex: number,
+): string {
+  const choice = scenario.choices[choiceIndex];
+  if (!choice) return "";
+  // 정기 일정이므로 다음 주를 먼저 다시 잡는다(resolveCrewRun과 동일 순서).
+  scheduleNextCrewRun(state);
+  const dynamic = applyEffect(state, choice.effect);
+  state.resources.action = clampAction(state, state.resources.action - CREW_RUN_ACTION_COST);
+  addSchedule(state, "비공개 크루 정기런", "offline");
+  advanceTime(state, 1);
+  return dynamic || choice.result;
 }
