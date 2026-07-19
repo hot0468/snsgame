@@ -40,8 +40,11 @@ function won(n: number): string {
  */
 export function authorWorkGain(state: GameState): number {
   const s = state.skills;
-  const sum = skillTo100(s.creativity + s.vocabulary + s.comedy + s.knowledge); // 0~400
-  return Math.round(6 + sum / 16);
+  const adult = state.authorContract?.adult ?? false;
+  // 성인물 계약이면 음란도가 성과 스탯에 '가산'된다(월급 만액/반액을 가르는 작업량 게이지에 반영).
+  // 전연령은 기존과 동일(/16). 성인은 음란만큼 추가로 오르므로(상한 37) 페널티 없이 순수 혜택이다.
+  const sum = s.creativity + s.vocabulary + s.comedy + s.knowledge + (adult ? s.lewd : 0);
+  return Math.round(6 + skillTo100(sum) / 16);
 }
 
 /** 다음 월 정산 시 받을 '기본' 월급(작업량 달성 기준). 미달 시 절반. */
@@ -49,16 +52,17 @@ export function authorMonthlySalary(state: GameState, monthsWorked: number): num
   return AUTHOR_BASE_SALARY + monthsWorked * AUTHOR_MONTH_RAISE + totalFollowers(state) * AUTHOR_FOLLOWER_RATE;
 }
 
-/** 작가 계약을 체결한다(제안 DM 수락 시 호출). */
-export function signAuthorContract(state: GameState): void {
+/** 작가 계약을 체결한다(제안 DM 수락 시 호출). adult=성인물 계약 여부. */
+export function signAuthorContract(state: GameState, adult = false): void {
   state.authorContract = {
     signedDay: state.day,
     monthsWorked: 0,
     workload: 0,
     missCount: 0,
     lastSettledMonth: monthKey(state.day),
+    adult,
   };
-  pushSchedule(state, "작가 계약 체결", "system");
+  pushSchedule(state, adult ? "성인물 작가 계약 체결" : "작가 계약 체결", "system");
 }
 
 /* ─────────────────── 작가 계약 제안 DM ─────────────────── */
@@ -104,13 +108,17 @@ export function maybeSpawnAuthorDM(state: GameState): boolean {
   return true;
 }
 
-/** 제안 DM에서 작가 계약을 수락한다(담당자가 환영 메시지를 남긴다). */
-export function acceptAuthorContract(state: GameState, thread: DMThread): void {
-  signAuthorContract(state);
+/** 제안 DM에서 작가 계약을 수락한다(담당자가 환영 메시지를 남긴다). adult=성인물 계약 여부. */
+export function acceptAuthorContract(state: GameState, thread: DMThread, adult = false): void {
+  signAuthorContract(state, adult);
   thread.messages.push({
     id: uid("dmm"),
     from: "partner",
-    text: "계약 감사합니다! 🎉 이번 달은 준비 기간이에요. 다음 달부터 '현생 살기 → 작업'으로 작업량을 채우시면, 그다음 달 1일에 첫 월급이 정산됩니다!",
+    text:
+      (adult
+        ? "성인물 연재로 계약 감사합니다! 🔞 수위 높은 작품인 만큼 음란도도 작업 성과에 반영돼요. "
+        : "계약 감사합니다! 🎉 ") +
+      "이번 달은 준비 기간이에요. 다음 달부터 '현생 살기 → 작업'으로 작업량을 채우시면, 그다음 달 1일에 첫 월급이 정산됩니다!",
     day: state.day,
   });
   thread.unread = true;

@@ -85,7 +85,7 @@ export function renderJobBoardModal(ctx: GameContext, postings: JobPosting[]): H
         el(
           "p",
           { class: "compose-hint", style: "margin-top:0" },
-          "지원할 곳을 골라 지원하세요. 스탯(어휘력·친화력·미용)이 높을수록 합격에 유리합니다. (하루 1회)",
+          "갈 만한 곳이 없어 보인다...자격증이라도 따야 하나? 네이놈에 자격증 검색 좀 해봐야겠다.",
         ),
         el("div", { class: "job-list job-list--board" }, ...items),
       ),

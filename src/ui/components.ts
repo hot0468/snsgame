@@ -1,6 +1,6 @@
 import type { Tweet, TweetReply } from "@/core/types";
 import { likeReply } from "@/systems/reactions";
-import { imageForTweet } from "@/systems/mediaImages";
+import { resolvedTweetImage } from "@/systems/mediaImages";
 import { imageForItem } from "@/data/itemImages";
 import { el, formatNumber } from "@/utils/dom";
 import { dateLabel } from "@/systems/time";
@@ -27,11 +27,12 @@ export function statBar(
   value: number,
   max: number,
   fillClass?: string,
+  flash?: boolean,
 ): HTMLElement {
   const pct = Math.round((Math.max(0, value) / max) * 100);
   return el(
     "div",
-    { class: "stat-row" },
+    { class: "stat-row" + (flash ? " stat-drop" : "") },
     el("span", { class: "stat-row__label" }, label),
     el(
       "div",
@@ -136,7 +137,7 @@ function mediaBlock(tweet: Tweet, onMedia?: (t: Tweet) => void): HTMLElement {
     );
   }
   const isVideo = media.kind === "video";
-  const img = imageForTweet(tweet);
+  const img = resolvedTweetImage(tweet);
   return el(
     "button",
     {

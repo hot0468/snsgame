@@ -12,6 +12,7 @@ import { renderGameOver } from "./gameOverModal";
 import { dueAppointments } from "@/systems/appointments";
 import { renderAppointmentModal } from "./appointmentModal";
 import { renderKakaoToast } from "./kakaoModal";
+import { renderWorkToast } from "./workMessengerView";
 import { isLoanDue } from "@/systems/loan";
 import { renderLoanModal } from "./loanModal";
 import { isWorkNow } from "@/systems/employment";
@@ -26,9 +27,11 @@ import { pendingEndingOffer } from "@/systems/endings";
 import { renderEndingOfferModal } from "./endingModal";
 import { renderDawnModal } from "./dawnModal";
 import { renderSleepModal } from "./sns/sleepModal";
+import { renderHauntModal } from "./sns/hauntModal";
 import { renderCatPowerModal } from "./catPowerModal";
 import { renderConsoleReviewModal } from "./auctionModals";
 import { renderLoginScreen } from "./loginScreen";
+import { renderPostSlotModal } from "./postLimitModal";
 
 /**
  * 앱 루트. 스토어를 구독해 전체 화면을 (단순하게) 통째로 다시 그린다.
@@ -49,6 +52,12 @@ export function createApp(root: HTMLElement, store: Store): void {
   let modalNode: HTMLElement | null = null;
   // 로그인 화면 노드 캐시(같은 이유 — 입력 중 재렌더에 입력값이 초기화되지 않게).
   let loginNode: HTMLElement | null = null;
+  // 스크롤 보존용: 직전 렌더의 '뷰 키'. 같은 뷰에서 재렌더될 때만(영상 모달 열고닫기 등)
+  // 스크롤 위치를 복원하고, 탭·페이지가 바뀐 재렌더는 자연히 맨 위에서 시작하게 둔다.
+  let lastViewKey = "";
+  // 전체 재렌더는 스크롤 컨테이너를 새 노드로 갈아끼워 scrollTop을 0으로 되돌린다.
+  // 너튜브(.browser__content)·야밤(.yabam__body) 본문만 최소 보존한다.
+  const SCROLL_SELECTORS = [".browser__content", ".yabam__body"];
 
   const ctx: GameContext = {
     store,
@@ -63,12 +72,20 @@ export function createApp(root: HTMLElement, store: Store): void {
       ui.modal = null;
       render();
     },
-    toast: (message: string) => {
+    toast: (message: string, kind) => {
       ui.toast = message;
+      // 명시 kind 우선. 없으면 메시지 내용으로 부정 알림을 추정해 빨갛게 표시한다.
+      // (음수 증감 "-3" 또는 부정 키워드) — ponytail 휴리스틱: 대다수만 잡으면 충분.
+      ui.toastKind =
+        kind ??
+        (/-\s*\d|실패|하락|빠졌|깎|떨어|미달|추징|부족|손실|이탈|삭감|반으로/.test(message)
+          ? "bad"
+          : null);
       render();
       window.clearTimeout(toastTimer);
       toastTimer = window.setTimeout(() => {
         ui.toast = null;
+        ui.toastKind = null;
         render();
       }, 2200);
     },
@@ -102,13 +119,20 @@ export function createApp(root: HTMLElement, store: Store): void {
 
     const gameOver = state.gameOver;
 
-    // 강제 팝업. 우선순위: 새 날 아침 > 취침 > 논란 > 빚 상환 > 연구실 > 근무 > 약속.
+    // 강제 팝업. 우선순위: 새 날 아침 > 괴담 방문 > 취침 > 논란 > 빚 상환 > 연구실 > 근무 > 약속.
     // (연구실이 근무보다 앞이다 — 겹치는 저녁에 연구실이 이긴다.)
     if (!ui.modal && !gameOver) {
       const controversy = state.pendingControversy ? getControversy(state.pendingControversy) : null;
       if (state.dawnPending) {
-        // 새 날이 밝으면 해돋이 딤팝업을 가장 먼저 보여준다.
+        // 새 날이 밝으면 보던 화면과 무관하게 SNS 홈 추천탭으로 되돌린다(팝업이 막고 있어 무해).
+        ui.activeTab = "sns";
+        ui.snsPage = "home";
+        ui.homeTab = "recommend";
+        // 해돋이 딤팝업을 가장 먼저 보여준다.
         ui.modal = (c) => renderDawnModal(c);
+      } else if (state.hauntVisitNow) {
+        // 괴담 계정 심야 방문. dawn 다음, 취침보다 먼저 — 문을 열어야(resolveHauntVisit) flag가 풀린다.
+        ui.modal = (c) => renderHauntModal(c);
       } else if (state.sleepPending) {
         // 저녁→심야 진입(무엇이 진행시켰든). dawn 다음 우선순위. 모달의 모든 선택지가 클리어한다.
         ui.modal = (c) => renderSleepModal(c);
@@ -129,6 +153,9 @@ export function createApp(root: HTMLElement, store: Store): void {
         ui.modal = (c) => renderWorkModal(c);
       } else if (dueAppointments(state).length > 0) {
         ui.modal = (c) => renderAppointmentModal(c);
+      } else if (state.postSlotIncreasedTo != null) {
+        // 팔로워 티어가 올라 오늘 게시 가능 트윗 수가 늘었다는 안내(확인 시 systems 플래그 클리어).
+        ui.modal = (c) => renderPostSlotModal(c, state.postSlotIncreasedTo!);
       } else if (state.money >= FIRE_MONEY && !state.fireDeclined) {
         // 소지금 100억 도달 — 파이어족(조기 은퇴) 제안
         ui.modal = (c) => renderFireOfferModal(c);
@@ -157,6 +184,10 @@ export function createApp(root: HTMLElement, store: Store): void {
     const kakaoToast = !gameOver
       ? [...state.kakao].reverse().find((t) => t.toastPending) ?? null
       : null;
+    // 업무 메신저 토스트: 카톡과 동시에 뜨면 그 위로 쌓아 겹치지 않게 한다.
+    const workToast = !gameOver
+      ? [...state.workMsgs].reverse().find((m) => m.toastPending) ?? null
+      : null;
 
     // 모달 노드 캐시 갱신: 모달이 바뀌었을 때만 새로 만든다.
     if (ui.modal !== modalFn) {
@@ -173,15 +204,58 @@ export function createApp(root: HTMLElement, store: Store): void {
       ui.calendarOpen ? renderCalendar(ctx) : null,
       ui.startMenuOpen ? renderStartMenu(ctx) : null,
       modalBackdrop,
-      ui.toast ? el("div", { class: "toast" }, ui.toast) : null,
+      ui.toast
+        ? el(
+            "div",
+            {
+              class:
+                "toast" +
+                (ui.toastKind === "bad"
+                  ? " toast--bad"
+                  : ui.toastKind === "good"
+                    ? " toast--good"
+                    : ""),
+            },
+            ui.toast,
+          )
+        : null,
       // 카카오톡 토스트는 모달이 없을 때만(모달과 겹치지 않게)
       kakaoToast && !ui.modal ? renderKakaoToast(ctx, kakaoToast) : null,
+      // 업무 메신저 토스트도 모달이 없을 때만. 카톡 토스트와 동시면 위로 쌓는다.
+      workToast && !ui.modal ? renderWorkToast(ctx, workToast, !!kakaoToast) : null,
       // 고양이 전원 버튼 블랙아웃: 모니터가 꺼진 것처럼 전부 가리고 클릭도 먹는다.
       ui.catBlackout ? el("div", { class: "catpower-blackout" }) : null,
       // 게임 오버 오버레이는 최상단에 표시(다른 상호작용 차단)
       gameOver ? renderGameOver(ctx) : null,
     ];
+    // 스크롤 보존: 뷰(탭·SNS페이지·열린 사이트·상세 id 등)가 직전 렌더와 같으면
+    // 재렌더 전 스크롤 컨테이너의 scrollTop을 저장했다가 재렌더 후 복원한다.
+    const viewKey = [
+      ui.activeTab, ui.snsPage, ui.homeTab, ui.wishSiteOpen, ui.goblinSiteOpen,
+      ui.onetSiteOpen, ui.auctionSiteOpen, ui.dstorySiteOpen, ui.portalArticleId,
+      ui.exploreSelectedId, ui.mailSelectedId, ui.dartpinPostId, ui.dstoryPostId,
+      ui.tweetDetailId, ui.dmThreadId, ui.searchCategory,
+    ].join("|");
+    const savedScroll: Record<string, number> = {};
+    if (viewKey === lastViewKey) {
+      for (const sel of SCROLL_SELECTORS) {
+        const e = root.querySelector<HTMLElement>(sel);
+        if (e) savedScroll[sel] = e.scrollTop;
+      }
+    }
+    lastViewKey = viewKey;
+
     root.replaceChildren(...children.filter((c): c is Node => c !== null));
+
+    for (const sel in savedScroll) {
+      const e = root.querySelector<HTMLElement>(sel);
+      if (e) {
+        // 방금 삽입한 새 노드는 아직 레이아웃이 없어 scrollTop이 0으로 클램프된다.
+        // scrollHeight를 읽어 리플로를 강제한 뒤 복원해야 값이 유지된다.
+        void e.scrollHeight;
+        e.scrollTop = savedScroll[sel];
+      }
+    }
   }
 
   // 상태 변경 시 재렌더

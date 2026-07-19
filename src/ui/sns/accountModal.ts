@@ -4,6 +4,7 @@ import {
   canCreateAccount,
   createNewAccount,
   deleteAccount,
+  renameAccount,
   switchAccount,
 } from "@/systems/accountSystem";
 import { el, formatNumber } from "@/utils/dom";
@@ -18,6 +19,9 @@ export function renderAccountModal(ctx: GameContext): HTMLElement {
   // 새 계정 입력 상태
   let newName = "";
   let newHandle = "";
+  // 개명 편집 상태(계정명만, 핸들은 불변) — 편집 중인 계정 id와 입력값
+  let editingId: string | null = null;
+  let editName = "";
 
   function paint(): void {
     const state = ctx.store.getState();
@@ -25,30 +29,63 @@ export function renderAccountModal(ctx: GameContext): HTMLElement {
 
     const accountRows = state.accounts.map((acc) => {
       const isActive = acc.id === active.id;
-      return el(
-        "div",
-        { class: "explore-card", style: isActive ? "border-color:var(--accent)" : "" },
-        el(
-          "div",
-          { class: "explore-card__head" },
-          el(
+      const editing = editingId === acc.id;
+
+      // 좌측: 이름(편집 중이면 계정명 입력) + 핸들·팔로워(핸들은 변경 불가)
+      const nameBlock = editing
+        ? el("input", {
+            class: "dm__input",
+            type: "text",
+            value: editName,
+            placeholder: "계정 이름",
+            style: "font-weight:700;max-width:180px",
+            oninput: (e: Event) => {
+              editName = (e.target as HTMLInputElement).value;
+            },
+          })
+        : el(
             "div",
-            {},
+            { style: "font-weight:700;display:flex;align-items:center;gap:8px" },
+            avatar(acc.name, 26),
+            acc.name,
+          );
+
+      const saveEdit = () => {
+        ctx.update((s) => renameAccount(s, acc.id, editName));
+        editingId = null;
+        ctx.toast("계정명을 변경했어요");
+        paint();
+      };
+
+      // 우측 액션: 편집 중이면 저장/취소, 아니면 이름변경 + 전환/사용중 + 삭제
+      const actions = editing
+        ? [
+            el("button", { class: "btn", onclick: saveEdit }, "저장"),
             el(
-              "div",
-              { style: "font-weight:700;display:flex;align-items:center;gap:8px" },
-              avatar(acc.name, 26),
-              acc.name,
+              "button",
+              {
+                class: "btn btn--ghost",
+                onclick: () => {
+                  editingId = null;
+                  paint();
+                },
+              },
+              "취소",
             ),
+          ]
+        : [
             el(
-              "div",
-              { style: "font-size:12px;color:var(--text-muted)" },
-              `@${acc.handle} · 팔로워 ${formatNumber(acc.followers)}`,
+              "button",
+              {
+                class: "btn btn--ghost",
+                onclick: () => {
+                  editingId = acc.id;
+                  editName = acc.name;
+                  paint();
+                },
+              },
+              "이름 변경",
             ),
-          ),
-          el(
-            "div",
-            { style: "display:flex;gap:6px" },
             isActive
               ? el("span", { class: "chip chip--active" }, "사용 중")
               : el(
@@ -78,7 +115,25 @@ export function renderAccountModal(ctx: GameContext): HTMLElement {
                   "삭제",
                 )
               : null,
+          ];
+
+      return el(
+        "div",
+        { class: "explore-card", style: isActive ? "border-color:var(--accent)" : "" },
+        el(
+          "div",
+          { class: "explore-card__head" },
+          el(
+            "div",
+            {},
+            nameBlock,
+            el(
+              "div",
+              { style: "font-size:12px;color:var(--text-muted);margin-top:4px" },
+              `@${acc.handle} · 팔로워 ${formatNumber(acc.followers)}`,
+            ),
           ),
+          el("div", { class: "acct-actions" }, ...actions),
         ),
       );
     });
@@ -96,7 +151,7 @@ export function renderAccountModal(ctx: GameContext): HTMLElement {
     const handleInput = el("input", {
       class: "dm__input",
       type: "text",
-      placeholder: "핸들(영문/숫자)",
+      placeholder: "아이디(영문/숫자)",
       value: newHandle,
       oninput: (e) => {
         newHandle = (e.target as HTMLInputElement).value;

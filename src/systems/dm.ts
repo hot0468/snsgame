@@ -68,6 +68,28 @@ export function fanDMAttributePool(state: GameState, account: PlayerAccount): At
 export const DONATION_BASE_CHANCE = 0.25;
 /** 친화력 만렙일 때 후원 DM 확률에 더해지는 최대 보너스 */
 export const DONATION_SOCIABILITY_BONUS = 0.4;
+/** 후원 첨부가 붙기 시작하는 최소 팔로워(이 값 이하이면 팬 DM은 오되 후원은 미첨부) */
+export const DONATION_MIN_FOLLOWERS = 300;
+
+/** 팬 소액 후원 제안 문구(순수 응원 톤). {amount}는 ko-KR 포맷된 금액 문자열. */
+const FAN_DONATION_OPENERS: Array<(amount: string) => string> = [
+  (a) => `늘 잘 보고 있어요! 작지만 후원 ${a}원 보낼게요 💸`,
+  (a) => `항상 힘 나는 콘텐츠 고마워요, ${a}원 보태요! 커피 한 잔 하세요 ☕`,
+  (a) => `팬이에요 ㅎㅎ 얼마 안 되지만 ${a}원 보낼게요, 앞으로도 응원해요!`,
+  (a) => `덕분에 매일이 즐거워요! 소소하게 ${a}원 후원할게요 🙌`,
+  (a) => `이런 거 부담스러워하실까 봐 조심스럽지만... ${a}원 살짝 보태요 💕`,
+  (a) => `오늘도 잘 봤어요! 마음의 ${a}원이에요, 받아주세요 😊`,
+];
+
+/** 후원 수령 후 팬이 보내는 감사 문구(금액 없음). */
+const FAN_DONATION_THANKS: string[] = [
+  "받아주셔서 감사해요 앞으로도 응원할게요! 🙌",
+  "헉 진짜 받아주셨다 ㅠㅠ 앞으로도 쭉 응원해요!",
+  "별거 아닌데 받아주셔서 고마워요, 우리 오래오래 봐요!",
+  "기분 좋다 ㅎㅎ 계속 좋은 콘텐츠 부탁드려요, 화이팅!",
+  "제 작은 마음이 닿았으면 좋겠어요, 늘 건강하세요 💕",
+  "앞으로도 팬으로서 열심히 응원할게요! 😊",
+];
 
 /**
  * 활성 계정으로 새 팬 DM 스레드를 만들어 추가한다.
@@ -98,8 +120,10 @@ export function spawnFanDM(state: GameState): DMThread | null {
     wantsToMeet: false,
     fan: true,
   };
-  // 친화력이 높을수록 후원을 보내는 팬이 늘어난다(만렙에서 25%→65%)
+  // 친화력이 높을수록 후원을 보내는 팬이 늘어난다(만렙에서 25%→65%).
+  // 단, 팔로워가 너무 적으면(≤300) 소액 후원 자체가 안 붙는다 — 팬 DM은 그대로 온다.
   if (
+    account.followers > DONATION_MIN_FOLLOWERS &&
     chance(
       DONATION_BASE_CHANCE +
         (state.skills.sociability / MAX_SKILL) * DONATION_SOCIABILITY_BONUS,
@@ -110,7 +134,7 @@ export function spawnFanDM(state: GameState): DMThread | null {
     thread.messages.push({
       id: uid("dmm"),
       from: "partner",
-      text: `늘 잘 보고 있어요! 작지만 후원 ${amount.toLocaleString("ko-KR")}원 보낼게요 💸`,
+      text: pick(FAN_DONATION_OPENERS)(amount.toLocaleString("ko-KR")),
       day: state.day,
     });
   }
@@ -130,7 +154,7 @@ export function claimDonation(state: GameState, threadId: string): number {
   thread.messages.push({
     id: uid("dmm"),
     from: "partner",
-    text: "받아주셔서 감사해요 앞으로도 응원할게요! 🙌",
+    text: pick(FAN_DONATION_THANKS),
     day: state.day,
   });
   thread.unread = true;
@@ -153,6 +177,7 @@ function maybePropose(state: GameState, thread: DMThread, p: number): void {
   if (thread.metOffline || thread.wantsToMeet) return;
   if (!chance(p)) return;
   thread.wantsToMeet = true;
+  thread.meetProposedDay = state.day;
   thread.messages.push({
     id: uid("dmm"),
     from: "partner",
@@ -251,6 +276,7 @@ export function maybeSpawnTicketDM(state: GameState, attr: "idol" | "actor"): bo
     unread: true,
     metOffline: false,
     wantsToMeet: true,
+    meetProposedDay: state.day,
     ticketKind,
   });
   return true;
@@ -275,6 +301,7 @@ export function maybeSpawnMotelDM(state: GameState, kind: AdultKind): boolean {
     unread: true,
     metOffline: false,
     wantsToMeet: true,
+    meetProposedDay: state.day,
     motel: true,
     motelKind: kind,
   });
@@ -384,6 +411,7 @@ export function replyDM(state: GameState, thread: DMThread, tone: DMTone): DMRep
     });
     thread.unread = true;
     thread.wantsToMeet = true;
+    thread.meetProposedDay = state.day;
     thread.motel = true;
     thread.motelKind = "meetup";
     return { followerDelta, partnerText };

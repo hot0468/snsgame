@@ -5,6 +5,7 @@ import { chance, pick, randInt, uid } from "@/utils/random";
 import { changeFollowers, maxPostSlots } from "./followers";
 import { pushKakao } from "./kakao";
 import { clampSkill } from "./stats";
+import { maybeSpawnGroupRoomInviteDM } from "./groupRoom";
 
 /**
  * 이스터에그·특수 이벤트 로직.
@@ -166,6 +167,9 @@ export function onLikeTweet(state: GameState, tweet: Tweet): void {
     }
     return;
   }
+
+  // 성인 트윗 좋아요 → 확률적으로 그룹방 초대 DM(가입 시 토 심야 정기 모임)
+  maybeSpawnGroupRoomInviteDM(state, tweet);
 }
 
 /** 남의 트윗을 리트윗했을 때(이스터에그 처리). */
@@ -269,10 +273,16 @@ export function checkStatEggs(state: GameState): void {
       { hue: 150 },
     );
   }
-  // 음란 만렙 + 성인모드 → 레전드 BJ(사바나 도네이션 버프)
-  if (state.skills.lewd >= MAX_SKILL && state.adultMode && fire(state, "legendBJ")) {
+  // 음란 만렙 + 성인모드 + 사바나 계약 → 레전드 BJ(사바나 도네이션 버프)
+  // 레전드 BJ = 사바나 BJ라 계약이 전제. 미계약이면 카톡·버프가 뜨면 안 된다.
+  if (
+    state.skills.lewd >= MAX_SKILL &&
+    state.adultMode &&
+    state.savannaJoined &&
+    fire(state, "legendBJ")
+  ) {
     addSchedule(state, "레전드 BJ 등극", "sns");
-    if (state.savannaJoined) state.money += 300_000;
+    state.money += 300_000;
     pushKakao(
       state,
       "사바나 매니저",

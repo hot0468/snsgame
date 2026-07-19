@@ -91,7 +91,7 @@ export function renderLoginScreen(ctx: GameContext): HTMLElement {
         { class: "login__card" },
         el("div", { class: "login__brand", html: X_LOGO }),
         el("h1", { class: "login__title" }, "지금 시작하기"),
-        el("p", { class: "login__sub" }, "계정명과 아이디를 정하면 첫 트윗을 쓸 수 있어요."),
+        el("p", { class: "login__sub" }, "팔로워 100만명을 모아 안정적인 수익을 얻어보세요."),
         form,
       ),
     );

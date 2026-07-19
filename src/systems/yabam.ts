@@ -12,6 +12,7 @@ import { ADULT_KINDS, ADULT_REVIEW_TWEETS } from "@/data/categories/adult";
 import { getActiveAccount } from "@/core/state";
 import { chance, pick, uid } from "@/utils/random";
 import { clampResource, clampSkill } from "./stats";
+import { advanceTime } from "./time";
 import { postTweet } from "./tweetSystem";
 
 /**
@@ -24,6 +25,9 @@ import { postTweet } from "./tweetSystem";
 
 /** 야밤 DM이 뜨는 성인 트윗 누적 최소 작성 수 */
 export { YABAM_TWEET_THRESHOLD };
+
+/** 이 음란도 이상이면 (adultMode ON 시) 야밤 탭이 노출된다 — DM 해금과 무관한 주 표출 기준 */
+export const YABAM_LEWD_SHOW = 40;
 
 /** 이 계정에 이미 야밤 링크 DM이 있는지 */
 function hasYabamDM(state: GameState): boolean {
@@ -73,8 +77,10 @@ export function viewYabamVideo(state: GameState, video: YabamVideo): YabamVideoR
   state.skills.lewd = clampSkill(state.skills.lewd + 10);
   state.resources.mental = clampResource(state.resources.mental + 5);
   state.resources.morality = clampResource(state.resources.morality - 2);
+  // 한 편 감상에 시간 블록 1개를 소모한다(오프라인 활동·근무와 같은 결).
+  advanceTime(state, 1);
   return {
-    message: `『${video.title}』을(를) 결제하고 몰래 감상했다. 야밤의 밤은 짧고 뜨겁다. (음란 +10 · 정신력 +5 · 도덕성 -2)`,
+    message: `『${video.title}』을(를) 결제하고 몰래 감상했다. 야밤의 밤은 짧고 뜨겁다. 어느새 시간이 훌쩍 지났다. (음란 +10 · 정신력 +5 · 도덕성 -2)`,
   };
 }
 

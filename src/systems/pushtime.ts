@@ -11,8 +11,12 @@ import { clampResource, clampSkill } from "./stats";
  * - 링크를 클릭하면 '푸시타임' 탭이 브라우저에 추가된다.
  */
 
+/** 이 음란도 이상이면 푸시타임 탭이 노출된다 — DM 해금과 무관한 주 표출 기준 */
+export const PUSH_LEWD_SHOW = 50;
 /** 푸시타임 DM이 뜨는 최소 음란도 */
 export const PUSH_LEWD_MIN = 100;
+/** 푸시타임 DM이 뜨는 최소 덕질도 */
+export const PUSH_OTAKU_MIN = 100;
 /** 애니덕 트윗 직후 푸시타임 DM이 올 확률 */
 export const PUSH_DM_CHANCE = 0.4;
 
@@ -35,6 +39,7 @@ export function maybeSpawnPushDM(state: GameState): void {
   if (!state.adultMode) return;
   const account = getActiveAccount(state);
   if (state.skills.lewd < PUSH_LEWD_MIN) return;
+  if (state.skills.otaku < PUSH_OTAKU_MIN) return;
   if (hasPushDM(state)) return;
   if (!chance(PUSH_DM_CHANCE)) return;
 

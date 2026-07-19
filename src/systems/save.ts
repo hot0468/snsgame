@@ -6,6 +6,8 @@ import {
   createInitialState,
 } from "@/core/state";
 import { grantAttributeUnlockFloor } from "./attributeUnlock";
+import { maxPostSlots } from "./followers";
+import { getActiveAccount } from "@/core/state";
 import { initialMarket } from "@/data/market";
 
 // 다계정 구조로 바뀌며 v2로 올림(구 v1 저장본은 무시하고 새로 시작).
@@ -87,6 +89,7 @@ function sanitize(state: GameState): GameState {
     acc.followingAccounts ??= [];
     acc.strikes ??= 0;
     acc.suspendedUntilDay ??= 0;
+    acc.relationships ??= {};
     for (const thread of acc.dms) {
       thread.metOffline ??= false;
       thread.wantsToMeet ??= false;
@@ -110,11 +113,20 @@ function sanitize(state: GameState): GameState {
   state.cheats = { ...createInitialCheats(), ...(state.cheats ?? {}) };
   // 신규 필드 보강(구버전 저장본 대비)
   if (!Array.isArray(state.kakao)) state.kakao = [];
+  if (!Array.isArray(state.workMsgs)) state.workMsgs = [];
   if (!Array.isArray(state.appointments)) state.appointments = [];
   state.lastRentReminderDay ??= -1;
   state.crewJoined ??= false;
+  state.groupRoomJoined ??= false;
   state.savannaJoined ??= false;
   state.employment ??= null;
+  // AV배우 직업은 신규 기능 — 구세이브엔 키가 없다(미계약·미제의가 정답).
+  state.avJob ??= null;
+  // 노콘 가산이 영구→월누적으로 바뀌며 필드명이 condomlessThisMonth로 교체됐다.
+  // 구세이브(condomlessCount 또는 필드 부재)는 이번 달 0에서 다시 시작한다.
+  if (state.avJob) state.avJob.condomlessThisMonth ??= 0;
+  if (state.avJob) state.avJob.stdUntilDay ??= -1; // 성병 상태 신규 필드(구세이브는 건강)
+  state.avOffered ??= false;
   state.pendingJobApp ??= null;
   // 자격증은 신규 기능이라 구세이브엔 키 자체가 없다 — 미취득/대기 없음으로 시작.
   if (!Array.isArray(state.certifications)) state.certifications = [];
@@ -189,6 +201,7 @@ function sanitize(state: GameState): GameState {
   if (!Array.isArray(state.seenWorks)) state.seenWorks = [];
   state.creationTweetCount ??= 0;
   state.authorContract ??= null;
+  if (state.authorContract) state.authorContract.adult ??= false; // 구세이브: 성인 계약 필드 보강
   state.housingTier ??= 0;
   state.lotto ??= null;
   state.fireDeclined ??= false;
@@ -196,8 +209,33 @@ function sanitize(state: GameState): GameState {
   if (!Array.isArray(state.seasonalFired)) state.seasonalFired = [];
   state.postedAdultEver ??= false;
   state.dawnPending ??= false;
+  // 회복 표시 필드는 신규 — 최상위 merge가 구세이브(키 부재)엔 기본 객체를 넣지만,
+  // 손상된 non-object가 저장돼 있으면 dawnModal이 .action/.mental에서 터진다(pets와 같은 방어).
+  // onNewDay가 매일 덮으므로 값 정확도보단 shape만 보장하면 된다.
+  if (
+    !state.lastRestGain ||
+    typeof state.lastRestGain !== "object" ||
+    !Number.isFinite(state.lastRestGain.action) ||
+    !Number.isFinite(state.lastRestGain.mental)
+  ) {
+    state.lastRestGain = { action: 0, mental: 0 };
+  }
   state.sleepPending ??= false;
   state.catPowerPending ??= false;
+  // 게시 슬롯 증가 감지 필드는 신규.
+  // ⚠️ lastMaxPostSlots는 초기값 1로 폴백하면 안 된다 — 이미 팔로워 많은 구세이브가 로드 직후
+  //    다음 changeFollowers에서 "슬롯 늘었어요" 오알림을 띄운다. 현 활성 계정 팔로워 기준으로 폴백한다.
+  if (typeof state.lastMaxPostSlots !== "number" || !Number.isFinite(state.lastMaxPostSlots)) {
+    state.lastMaxPostSlots = maxPostSlots(getActiveAccount(state).followers);
+  }
+  state.postSlotIncreasedTo ??= null;
+  // 특수 트윗(오하아사·괴담) 신규 필드. NaN은 ??를 통과하므로 숫자는 isFinite로 검사한다.
+  if (typeof state.lotteryLuck !== "number" || !Number.isFinite(state.lotteryLuck)) {
+    state.lotteryLuck = 0;
+  }
+  state.hauntPending ??= false;
+  state.hauntVisitNow ??= false;
+  state.adultNoCoercion ??= false;
   // 반려동물 보유 상태 보강(구버전 저장본 대비)
   state.pets ??= { dog: false, cat: false };
   state.pets.dog ??= false;

@@ -7,8 +7,10 @@ import {
 import { chance, randInt, uid } from "@/utils/random";
 import { makeMedia } from "@/data/media";
 import { mediaSetFor } from "@/data/mediaTweets";
+import { imageForTweet } from "./mediaImages";
 import { calcTweetOutcome, changeFollowers, TWEET_KIND_EFFECTS } from "./followers";
 import { maybeSpawnDickPicDM, maybeSpawnFanDM, maybeSpawnMotelDM, maybeSpawnTicketDM } from "./dm";
+import { maybeSpawnAvOfferDM } from "./avJob";
 import { maybeSpawnSavannaDM } from "./savanna";
 import { consumePostSlot, onTweetPosted, smartTweetMultiplier } from "./eggs";
 import { maybeSpawnCrewInviteDM } from "./crew";
@@ -18,6 +20,7 @@ import { generateReactions } from "./reactions";
 import { clampAction, clampResource, clampSkill } from "./stats";
 import { addStrike } from "./ban";
 import { rollControversy, CONTROVERSY_REP_THRESHOLD } from "./controversy";
+import { gainAffinityFromTweet } from "./relationship";
 import { addSchedule } from "./time";
 
 /** 트윗 1건 작성에 드는 행동력 */
@@ -96,11 +99,20 @@ export function postTweet(
   const mset = mediaSetFor(text);
   if (mset) tweet.media = mset.media;
   else if (chance(0.2)) tweet.media = makeMedia(attr);
+  // 게시 순간의 이미지를 박제한다 — 등록 이미지 풀이 늘어도 내 트윗 이미지가 다음날 안 바뀌게.
+  if (tweet.media) {
+    const ti = imageForTweet(tweet);
+    if (ti) tweet.mediaImage = { url: ti.url, adult: ti.source === "adult" };
+  }
 
   // 무료 게시(opts.free)면 행동력 소모와 게시 슬롯 소비를 둘 다 건너뛴다.
   if (!opts.free) {
     state.resources.action = clampAction(state, state.resources.action - TWEET_ACTION_COST);
     consumePostSlot(state);
+    // 아이돌/애니/배우 트윗을 실제로 게시하면 덕질 스탯이 오른다(무료 게시 제외).
+    if (attr === "idol" || attr === "anime" || attr === "actor") {
+      state.skills.otaku = clampSkill(state.skills.otaku + 3);
+    }
   }
   changeFollowers(state, followers);
   account.timeline.unshift(tweet);
@@ -108,6 +120,9 @@ export function postTweet(
   // 올린 트윗들의 다수 카테고리로 계정 성향을 갱신(유저에게는 표출되지 않음)
   account.attribute = dominantAttribute(account);
   addSchedule(state, `트윗 등록 (+${followers} 팔로워)`, "sns");
+  // 게시 트윗의 attr+kind가 관계 캐릭터의 좋아하는 계열+유형과 맞으면 호감도가 오른다.
+  // (활성 계정 해금 계열만 순회 — 로스터가 비면 빈 루프라 무영향.)
+  gainAffinityFromTweet(state, attr, kind);
   if (followers > 0) maybeSpawnFanDM(state);
   // 성인 트윗이면 확률적으로 (종류에 맞는) 모텔 제안 DM 또는 성기 사진 DM이 온다
   if (isAdult) {
@@ -117,6 +132,7 @@ export function postTweet(
     maybeSpawnDickPicDM(state);
     maybeSpawnSavannaDM(state);
     maybeSpawnYabamDM(state);
+    maybeSpawnAvOfferDM(state);
   }
   // 아이돌덕/배우덕 트윗이면 확률적으로 티켓 양도 DM이 온다
   else if (attr === "idol" || attr === "actor") maybeSpawnTicketDM(state, attr);

@@ -127,6 +127,11 @@ export function calcEncounterFollowerDelta(
 export function changeFollowers(state: GameState, delta: number): void {
   const account = getActiveAccount(state);
   account.followers = Math.max(0, account.followers + delta);
+  // 게시 슬롯 상한이 팔로워 티어를 넘어 늘었으면 pending 알림을 세운다. maxPostSlots는 순수 계산이라
+  // changeFollowers가 자주 불려도 무해하다. lastMaxPostSlots는 증가·감소 무관하게 항상 동기화한다.
+  const nowMax = maxPostSlots(account.followers);
+  if (nowMax > state.lastMaxPostSlots) state.postSlotIncreasedTo = nowMax;
+  state.lastMaxPostSlots = nowMax;
 }
 
 /* ─────────────────── 게시 슬롯 곡선 ─────────────────── */

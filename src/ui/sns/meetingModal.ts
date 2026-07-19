@@ -19,6 +19,8 @@ export function renderMeetingModal(ctx: GameContext, threadId: string): HTMLElem
     return container;
   }
   const scenario = pickMeetingScenario(state, thread);
+  // 성인 시나리오만 분홍 테마(비성인 만남은 기본색 유지).
+  if (scenario.adultOnly) container.classList.add("modal--adult");
   // 본문을 한 문자열에 몰아 쓴 경우(성인 시나리오 대부분) 빈 줄(\n\n) 기준으로
   // 페이지를 자동 분할해 단계형으로 읽히게 한다. 이미 여러 페이지면 그대로 둔다.
   const pages =

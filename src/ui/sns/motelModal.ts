@@ -12,7 +12,7 @@ import { icon } from "@/ui/icons";
  * 모텔 제안 수락 → 나가기 → 결과(종류·타락도에 따라 다름) → 결과 트윗 업로드.
  */
 export function renderMotelModal(ctx: GameContext, threadId: string): HTMLElement {
-  const container = el("div", { class: "modal" });
+  const container = el("div", { class: "modal modal--adult" });
 
   const thread = getActiveAccount(ctx.store.getState()).dms.find((t) => t.id === threadId);
   if (!thread) {

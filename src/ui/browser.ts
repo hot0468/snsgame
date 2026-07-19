@@ -21,6 +21,8 @@ import { renderOnet } from "./onet";
 import { renderAuction } from "./auction";
 import { renderDartpin } from "./dartpin";
 import { DARTPIN_URL } from "@/systems/dartpin";
+import { YABAM_LEWD_SHOW } from "@/systems/yabam";
+import { PUSH_LEWD_SHOW } from "@/systems/pushtime";
 import { renderDstory } from "./dstory";
 import { DSTORY_URL } from "@/data/dstory";
 import { renderDevtools } from "./devtools";
@@ -201,8 +203,10 @@ function urlbarMenu(ctx: GameContext): HTMLElement {
 export function renderBrowser(ctx: GameContext): HTMLElement {
   const active = ctx.ui.activeTab;
   const state = ctx.store.getState();
-  // 푸시타임은 해금 시, 야밤은 해금 + 성인물 해제(adultMode) ON일 때만 탭으로 노출
-  const yabamVisible = state.yabamUnlocked && state.adultMode;
+  // 탭 표출의 주 기준은 음란도(state.skills.lewd). 기존 DM 해금(unlocked)은 OR로 유지(하위호환).
+  // 야밤은 음란도 기준 위에 성인물 해제(adultMode) ON을 추가로 요구한다.
+  const lewd = state.skills.lewd;
+  const yabamVisible = state.adultMode && (lewd >= YABAM_LEWD_SHOW || state.yabamUnlocked);
   // 너튜브·미디북스는 해금 시에만, 네이놈(blank) 뒤에 자연스럽게 삽입한다.
   const visibleTabs: TabDef[] = [];
   for (const t of TABS) {
@@ -214,7 +218,7 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
       if (state.dartpinUnlocked) visibleTabs.push(DARTPIN_TAB);
     }
   }
-  if (state.pushtimeUnlocked) visibleTabs.push(PUSHTIME_TAB);
+  if (lewd >= PUSH_LEWD_SHOW || state.pushtimeUnlocked) visibleTabs.push(PUSHTIME_TAB);
   if (yabamVisible) visibleTabs.push(YABAM_TAB);
   const activeDef =
     visibleTabs.find((t) => t.id === active) ??

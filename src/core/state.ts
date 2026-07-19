@@ -125,6 +125,7 @@ export function createAccount(
     followingAccounts: [],
     strikes: 0,
     suspendedUntilDay: 0,
+    relationships: {},
   };
 }
 
@@ -141,6 +142,7 @@ export function createInitialState(): GameState {
     accounts: [first],
     activeAccountId: first.id,
     adultMode: false,
+    adultNoCoercion: false,
     money: 500_000, // 초기 저축(약 한 달 반 생활 runway)
     day: 1,
     slot: 0,
@@ -161,6 +163,7 @@ export function createInitialState(): GameState {
       lewd: 0,
       game: 0,
       it: 0,
+      otaku: 0,
     },
     // 새 게임은 상한 보너스 0 · 치트 미사용에서 시작한다 — 치트가 '게임당 1회'인 지점.
     actionMaxBonus: 0,
@@ -168,12 +171,16 @@ export function createInitialState(): GameState {
     schedule: [],
     partTimeCount: 0,
     kakao: [],
+    workMsgs: [],
     lastRentReminderDay: -1,
     crewJoined: false,
+    groupRoomJoined: false,
     savannaJoined: false,
     paidChannelJoined: false,
     appointments: [],
     employment: null,
+    avJob: null,
+    avOffered: false,
     loan: null,
     loanOffered: false,
     unpaidRentStreak: 0,
@@ -230,8 +237,14 @@ export function createInitialState(): GameState {
     },
     lateTweetToday: false,
     dawnPending: false,
+    lastRestGain: { action: 0, mental: 0 },
     sleepPending: false,
     catPowerPending: false,
+    lastMaxPostSlots: 1, // = maxPostSlots(0). 리터럴로 둔다(core→systems 순환 import 방지)
+    postSlotIncreasedTo: null,
+    lotteryLuck: 0,
+    hauntPending: false,
+    hauntVisitNow: false,
     daily: {
       adWatchedDay: -1,
       bannerClaimedDay: -1,

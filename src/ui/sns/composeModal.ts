@@ -16,7 +16,7 @@ import {
   templatesFor,
   type TweetTone,
 } from "@/data/tweets";
-import { canPostTweet, postScamTweet, postTweet } from "@/systems/tweetSystem";
+import { canPostTweet, postScamTweet, postTweet, TWEET_ACTION_COST } from "@/systems/tweetSystem";
 import { availableAdultKinds } from "@/systems/yabam";
 import { hasDrawingTool } from "@/systems/shop";
 import { maybeSpawnAuthorDM } from "@/systems/author";
@@ -388,15 +388,18 @@ export function renderComposeModal(
         : null,
     );
 
-    // 카테고리(또는 사기)를 고르기 전엔 다음으로 넘어갈 수 없다
+    // 카테고리(또는 사기)를 고르기 전엔 다음으로 넘어갈 수 없다.
+    // 행동력이 부족하면(게시 비용 미달) 아예 다음으로 못 넘어간다 — 트윗 게시가 불가하기 때문.
     const chosen = scamMode || selectedAttr !== null;
+    const hasAction = s.resources.action >= TWEET_ACTION_COST;
+    const canNext = chosen && hasAction;
     const nextBtn = el(
       "button",
       {
         class: "btn",
-        disabled: !chosen,
+        disabled: !canNext,
         onclick: () => {
-          if (!chosen) return;
+          if (!canNext) return;
           step = 2;
           paint();
         },
@@ -409,7 +412,11 @@ export function renderComposeModal(
       { class: "modal__body compose-step" },
       stepTitle("어떤 글을 쓸까?"),
       attrChips,
-      chosen ? null : el("div", { class: "compose-hint" }, "카테고리를 골라야 다음으로 넘어갈 수 있어요."),
+      !hasAction
+        ? el("div", { class: "compose-hint" }, `행동력이 부족해 트윗할 수 없어요 (게시에 ${TWEET_ACTION_COST} 필요).`)
+        : chosen
+          ? null
+          : el("div", { class: "compose-hint" }, "카테고리를 골라야 다음으로 넘어갈 수 있어요."),
       el("div", { class: "compose-actions" }, cancelBtn(), nextBtn),
     );
   }

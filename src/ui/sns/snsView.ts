@@ -14,7 +14,7 @@ import { el, formatNumber } from "@/utils/dom";
 import { tweetCard } from "@/ui/components";
 import { icon, avatar, ATTR_ICON, type IconName } from "@/ui/icons";
 import { interleaveFeed } from "./feedLayout";
-import { renderComposeModal } from "./composeModal";
+import { openComposeModal } from "@/ui/postLimitModal";
 import { renderAccountModal } from "./accountModal";
 import { renderMediaModal } from "@/ui/mediaModal";
 import { renderAdultWarnModal } from "@/ui/adultWarnModal";
@@ -119,7 +119,7 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
       }),
       el(
         "button",
-        { class: "sns__post", onclick: () => ctx.openModal(renderComposeModal) },
+        { class: "sns__post", onclick: () => openComposeModal(ctx) },
         icon("pen", { size: 18, className: "sns__post-icon" }),
         el("span", { class: "sns__post-label" }, "게시하기"),
       ),
@@ -157,6 +157,30 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
           },
         }),
       ),
+      // 강압/범죄 필터 — 성인물 보기가 켜졌을 때만 노출되는 하위 설정.
+      // 켜면 비합의(납치·결박·강제) 성인 상황이 후보에서 빠진다(도난 등 도덕성 상황은 무관).
+      s.adultMode
+        ? el(
+            "div",
+            { class: "nav-toggle", style: "padding-left:20px;opacity:.9" },
+            el(
+              "span",
+              { class: "nav-toggle__label" },
+              el("span", { class: "nav-toggle__text", style: "font-size:12px" }, "강압·범죄 안 보기"),
+            ),
+            el("button", {
+              class: "toggle__switch" + (s.adultNoCoercion ? " toggle__switch--on" : ""),
+              "aria-label": "강압·범죄 성인물 안 보기",
+              onclick: () => {
+                const wasFiltering = s.adultNoCoercion;
+                ctx.update((st) => {
+                  st.adultNoCoercion = !st.adultNoCoercion;
+                });
+                ctx.toast(wasFiltering ? "강압·범죄 성인물 표시" : "강압·범죄 성인물 숨김");
+              },
+            }),
+          )
+        : null,
       // 하단 내 계정 pill (클릭 시 내 프로필, 팔로워 수 상시 표시)
       el(
         "button",
@@ -257,7 +281,7 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
       avatar(account.name, 40),
       el(
         "button",
-        { class: "composer__fake", onclick: () => ctx.openModal(renderComposeModal) },
+        { class: "composer__fake", onclick: () => openComposeModal(ctx) },
         mentalLow ? "우울해서 밝은 글이 안 써진다..." : "무슨 일이 일어나고 있나요?",
       ),
       el(
@@ -267,7 +291,7 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
       ),
       el(
         "button",
-        { class: "composer__send", onclick: () => ctx.openModal(renderComposeModal) },
+        { class: "composer__send", onclick: () => openComposeModal(ctx) },
         "게시하기",
       ),
     );

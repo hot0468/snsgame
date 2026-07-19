@@ -128,6 +128,20 @@ select {
   line-height: 1;
 }
 
+/* 시간대 텍스트(아침/저녁/심야) — 어두운 작업표시줄 위에서 시간대별 색 */
+.clock-btn__slot {
+  font-weight: 700;
+}
+.clock-btn__slot--morning {
+  color: #ffca6b;
+}
+.clock-btn__slot--evening {
+  color: #ff9e7a;
+}
+.clock-btn__slot--late {
+  color: #7fb0ff;
+}
+
 .account-switch__info {
   min-width: 0;
 }
@@ -269,6 +283,7 @@ body {
   font-size: 16px;
   line-height: 1.6;
   margin: 4px 0 0;
+  padding: 10px 0 20px;
 }
 
 .life-result__delta {
@@ -286,10 +301,25 @@ body {
 }
 
 .life-result__unlock {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--accent);
   font-weight: 700;
   margin: 8px 0 0;
+}
+
+/* 돈·스탯 하락 시 2초 빨간 플래시. 노드가 매 렌더 새로 생성되므로 클래스만 붙으면 재생된다. */
+@keyframes stat-drop-flash {
+  0% {
+    background-color: rgba(224, 36, 94, 0.4);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+.stat-drop,
+.money-drop {
+  animation: stat-drop-flash 2s ease-out;
+  border-radius: 6px;
 }
 
 @media (max-width: 980px) {
@@ -1317,10 +1347,282 @@ body {
 }
 
 .taskbar__left,
+.taskbar__center,
 .taskbar__right {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* 작업표시줄 가운데 카톡(관계) 버튼 */
+.taskbar-kakao {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.taskbar-kakao:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+/* 카카오 상징색 노란 라운드 스퀘어 + 짙은 갈색 말풍선 */
+.taskbar-kakao__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: #fee500;
+  color: #3c1e1e;
+}
+.taskbar-kakao__icon .icon {
+  display: inline-flex;
+}
+.taskbar-kakao__badge {
+  position: absolute;
+  top: 1px;
+  left: 30px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff3b30;
+  box-shadow: 0 0 0 2px #202327;
+}
+/* 업무 메신저(너아무튼온) 버튼 — 카톡 버튼 구조 재사용, 색조만 파랑/보라로 구분 */
+.taskbar-work__icon {
+  background: #5b6cff;
+  color: #fff;
+}
+
+/* 카카오톡 친구 목록(관계) — 앱 테마와 무관하게 밝은 톤 유지 */
+.kklist-modal {
+  width: 380px;
+  max-width: 94vw;
+  padding: 0;
+  overflow: hidden;
+  background: #fff;
+  color: #1a1a1a;
+  border-radius: 14px;
+}
+.kklist__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  background: #fff;
+}
+.kklist__title {
+  font-size: 19px;
+  font-weight: 800;
+  color: #1a1a1a;
+}
+.kklist__topicons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #444;
+}
+.kklist__topicon {
+  color: #555;
+}
+.kklist__close {
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 4px;
+}
+.kklist__close:hover {
+  color: #222;
+}
+.kklist__panel {
+  max-height: 68vh;
+  overflow-y: auto;
+  background: #fff;
+}
+/* 내 프로필 행 */
+.kklist__me {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.kklist__me-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.kklist__me-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: #1a1a1a;
+}
+.kklist__me-handle {
+  font-size: 12.5px;
+  color: #9a9a9a;
+}
+.kklist {
+  display: flex;
+  flex-direction: column;
+}
+/* 섹션 헤더 + 접기 쉐브론 */
+.kklist__section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 12px 16px 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #999;
+}
+.kklist__chev {
+  color: #bbb;
+  transition: transform 0.15s ease;
+}
+.kklist__chev--up {
+  transform: rotate(-90deg);
+}
+.kklist__group {
+  display: flex;
+  flex-direction: column;
+}
+/* 친구/이벤트 행 */
+.kklist__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 16px;
+}
+.kklist__row:hover {
+  background: #f7f7f7;
+}
+.kklist__ava {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+}
+.kklist__ava .avatar {
+  border-radius: 16px; /* 카톡 특유의 라운드 스퀘어 아바타 */
+}
+.kklist__dot {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff3b30;
+  box-shadow: 0 0 0 2px #fff;
+}
+.kklist__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.kklist__nameline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.kklist__name {
+  font-weight: 700;
+  font-size: 14.5px;
+  color: #1a1a1a;
+}
+.kklist__sex {
+  color: #a8a8a8;
+  font-size: 13px;
+}
+.kklist__sub {
+  font-size: 12.5px;
+  color: #9a9a9a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kklist__bond {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4f46e5;
+}
+.kklist__bond--lover {
+  background: #ffe4ec;
+  color: #db2777;
+}
+/* 호감도 바 — 카톡엔 없지만 게임 정보라 은은하게 유지 */
+.kklist__aff {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 3px;
+  max-width: 240px;
+}
+.kklist__aff .bar {
+  flex: 1;
+  height: 4px;
+  background: #ececec;
+}
+.kklist__affval {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: #b0b0b0;
+  white-space: nowrap;
+}
+/* 알약 버튼(카톡 '선물하기' 스타일: 연회색 테두리 알약) */
+.kklist__pill {
+  flex: none;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid #dcdcdc;
+  background: #fff;
+  color: #444;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.kklist__pill:hover:not([disabled]) {
+  background: #f4f4f4;
+}
+.kklist__pill[disabled] {
+  color: #bbb;
+  border-color: #eee;
+  cursor: default;
+}
+.kklist__pill--accent {
+  border-color: #fee500;
+  background: #fee500;
+  color: #3c1e1e;
+}
+.kklist__pill--accent:hover {
+  background: #ffe000;
+}
+.kklist__empty {
+  padding: 40px 24px;
+  text-align: center;
+  color: #9a9a9a;
+  font-size: 13px;
+  white-space: pre-line;
+  line-height: 1.6;
 }
 
 .start-btn,
@@ -1853,6 +2155,50 @@ body {
   background: #b42318;
 }
 
+/* 노골 성인 서사 모달(모텔·AV·성인 만남·사바나 여캠·괴담 성인분기·성인 조우)의 분홍 테마.
+   헤더 그라데이션(.modal__head 0,1,0)·기본 버튼(.modal .btn... 0,2,0)을 특정성으로 덮는다. */
+.modal--adult {
+  border: 1px solid #f4b8d0;
+}
+.modal--adult .modal__head {
+  background: linear-gradient(135deg, #ff5fa2 0%, #e0247e 100%);
+}
+.modal.modal--adult .btn:not(.btn--ghost) {
+  background: linear-gradient(135deg, #ff5fa2 0%, #e0247e 100%);
+  box-shadow: 0 8px 18px rgba(224, 36, 126, 0.34);
+}
+.modal.modal--adult .btn--ghost {
+  background: rgba(224, 36, 126, 0.1);
+  color: #d61f74;
+}
+.modal.modal--adult .btn--ghost:hover {
+  background: rgba(224, 36, 126, 0.18);
+}
+/* 성인 만남/사바나 웹소설 선택지 hover 포인트도 분홍으로 */
+.modal--adult .novel-choice:hover {
+  border-color: #e0247e;
+  background: #fff2f7;
+}
+/* 성인 모달 안의 accent(파랑) 텍스트 — 조우 프롬프트·해금 안내 등 — 을 분홍으로 통일한다.
+   (.life-result__unlock 등이 var(--accent)라 분홍 모달에서 파랗게 튄다.) */
+.modal--adult .life-result__unlock {
+  color: #e0247e;
+}
+
+/* AV 촬영 업무 버튼 — 성인/AV 톤 분홍(life-btn 구조는 유지, 색만). hover는 공통 brightness 필터. */
+.life-btn--av {
+  background: linear-gradient(135deg, #ff5fa2 0%, #e0247e 100%);
+}
+
+/* 취침 모달의 AV 촬영 업무 선택지 — 성인/AV 톤으로 분홍 강조(상태-독 버튼과 색 통일). */
+.event-choice--av {
+  border-color: #e0247e;
+  background: linear-gradient(135deg, rgba(255, 95, 162, 0.12), rgba(224, 36, 126, 0.12));
+}
+.event-choice--av > b {
+  color: #e0247e;
+}
+
 .adult-warn__list {
   margin: 0;
   padding-left: 18px;
@@ -2209,6 +2555,18 @@ body {
   border-color: var(--text);
   color: #fff;
   font-weight: 800;
+}
+
+/* 성인 카테고리 칩만 로즈 톤으로 구분(🔞) */
+.search-tab--adult {
+  border-color: #f2a8c9;
+  color: #d6337f;
+}
+
+.search-tab--adult.search-tab--active {
+  background: #d6337f;
+  border-color: #d6337f;
+  color: #fff;
 }
 
 /* 인라인 DM 페이지 */
@@ -2786,8 +3144,18 @@ body {
 }
 
 .modal__body {
-  padding: 16px 18px;
+  /* 팝업 본문 상하 여백 +50px(위아래 넉넉하게) — 스크롤(overflow:auto)과 함께여도 헤더/버튼과 안 겹침 */
+  padding: 18px;
   overflow: auto;
+}
+
+/* 확인 버튼 하나만 단독으로 놓인 팝업 본문 — 가로 중앙 정렬.
+   :only-of-type = 본문 직속 <button>이 그것 하나뿐일 때만(2버튼 행은 .compose-actions 안이라 미해당). */
+.modal__body > .btn:only-of-type {
+  display: block;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .modal textarea {
@@ -3128,6 +3496,23 @@ body {
   flex-shrink: 0;
 }
 
+/* 계정 관리 카드의 액션 버튼 — 기본 .btn보다 작게(이름 변경/전환/삭제가 카드를 안 뚫게). */
+.acct-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.acct-actions .btn {
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.acct-actions .chip {
+  padding: 5px 11px;
+  font-size: 12px;
+}
+
 /* ===== 계정 탐색: 상세 프로필 ===== */
 .modal__body.profile {
   padding: 0;
@@ -3275,6 +3660,9 @@ body {
   z-index: 300;
   box-shadow: var(--shadow);
 }
+/* 부정 알림(수치 하락 등)은 빨강, 긍정은 초록으로. */
+.toast--bad { background: #d7263d; }
+.toast--good { background: #00893c; }
 
 /* ── 카카오톡 알림 ─────────────────────────── */
 .kakao-toast {
@@ -3343,6 +3731,51 @@ body {
   white-space: nowrap;
 }
 
+/* 업무 메신저 토스트 — 카톡 토스트 그릇 재사용, 색만 파랑. 동시 표출 시 위로 쌓는다. */
+.kakao-toast--work {
+  background: #5b6cff;
+  color: #fff;
+}
+.kakao-toast--work .kakao-toast__badge {
+  background: #fff;
+  color: #5b6cff;
+}
+.kakao-toast--stacked {
+  bottom: calc(var(--taskbar-h) + 16px + 72px);
+}
+
+/* 업무 메신저(너아무튼온) 목록 — kklist 룩앤필 재사용, 헤더/수락 버튼만 파랑 */
+.wmsg__topbar {
+  background: #5b6cff;
+}
+.wmsg__topbar .kklist__title,
+.wmsg__topbar .kklist__close {
+  color: #fff;
+}
+.wmsg-modal .kklist__pill--accent {
+  border-color: #5b6cff;
+  background: #5b6cff;
+  color: #fff;
+}
+.wmsg-modal .kklist__pill--accent:hover {
+  background: #4a5bef;
+}
+.kklist__pill--done {
+  flex: none;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #aaa;
+  white-space: nowrap;
+}
+.kklist__row--done {
+  opacity: 0.6;
+}
+.wmsg__text {
+  white-space: normal;
+  margin-top: 3px;
+}
+
 /* 카카오톡 메시지창(데스크톱 스타일) */
 .kakao-modal {
   width: min(400px, 96vw);
@@ -3403,10 +3836,13 @@ body {
   border-top: 1px solid var(--border);
   padding: 10px 12px 12px;
 }
-.kk-quick { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-bottom: 10px; }
+/* 답장/선택 버튼은 회색 메시지 입력란(.kk-input) 자리에 채워 넣는다(입력바 위에 크게 뜨지 않게). */
+.kk-quick { display: flex; gap: 8px; align-items: center; }
+.kk-quick .btn { flex: 1; }
 .kk-input {
-  min-height: 42px; padding: 11px 12px; border-radius: 8px; background: #f2f3f5;
+  min-height: 42px; padding: 8px 10px; border-radius: 8px; background: #f2f3f5;
   color: var(--text-muted); font-size: 13px;
+  display: flex; align-items: center;
 }
 .kk-inputbar { display: flex; align-items: center; gap: 16px; padding: 9px 4px 0; }
 .kk-inputbar__ic { font-size: 16px; color: #9aa0a6; cursor: default; }
@@ -3963,9 +4399,10 @@ body {
   position: fixed;
   right: 300px;
   top: 96px;
-  width: 360px;
+  width: 480px;
   max-width: calc(100vw - 24px);
   max-height: 72vh;
+  overflow-x: hidden;
   overflow-y: auto;
   background: var(--bg-window);
   border: 1px solid var(--border);
@@ -3976,20 +4413,6 @@ body {
   flex-direction: column;
   gap: 8px;
   z-index: 50;
-}
-
-.detail-pop::after {
-  /* 도크 쪽을 가리키는 작은 꼬리 */
-  content: "";
-  position: absolute;
-  right: -7px;
-  top: 22px;
-  width: 12px;
-  height: 12px;
-  background: var(--bg-window);
-  border-right: 1px solid var(--border);
-  border-top: 1px solid var(--border);
-  transform: rotate(45deg);
 }
 
 .detail-pop__head {
@@ -4013,9 +4436,6 @@ body {
     top: auto;
     bottom: 64px;
   }
-  .detail-pop::after {
-    display: none;
-  }
 }
 
 .detail-stats__title {
@@ -4026,20 +4446,20 @@ body {
   text-transform: uppercase;
 }
 
-/* 세부 스탯 2열 배열 */
+/* 세부 스탯 3열 배열 (스킬 11개 → 3열×4행) */
 .detail-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 10px;
 }
 .detail-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 12px;
   min-width: 0;
 }
-.detail-grid .bar { flex: 1; min-width: 34px; }
+.detail-grid .bar { flex: 1; min-width: 20px; }
 
 .detail-row__icon {
   width: 24px;
@@ -4054,7 +4474,7 @@ body {
 }
 
 .detail-row__label {
-  width: 44px;
+  width: 40px;
   font-weight: 700;
   color: var(--ink);
   flex-shrink: 0;
@@ -4070,14 +4490,32 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* 음란(lewd)은 3열 그리드에서 빼 별도 전폭 행으로 분리하고 빨간색으로 강조한다 */
+.detail-row--lewd {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.detail-row--lewd .bar {
+  flex: 1;
+  min-width: 20px;
+}
+.detail-row--lewd .detail-row__icon {
+  background: var(--danger);
+}
+.detail-row--lewd .detail-row__label,
+.detail-row--lewd .detail-row__val {
+  color: var(--danger);
+}
+.detail-row--lewd .bar__fill--skill {
+  background: var(--danger);
+}
+
 /* ---- 현생살기 아이콘: 글래스모피즘(그라데이션 틴트) ---- */
 .offline-grid .life-item__icon {
-  width: 44px;
-  height: 44px;
+  width: 24px;
+  height: 24px;
   border-radius: 13px;
-  background: linear-gradient(135deg, rgba(42, 164, 244, 0.28), rgba(123, 92, 255, 0.18));
-  border: 1px solid rgba(255, 255, 255, 0.75);
-  box-shadow: 0 6px 16px rgba(80, 90, 240, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   color: #6a5bf0;
@@ -4085,6 +4523,10 @@ body {
   align-items: center;
   justify-content: center;
   margin-top: 0;
+}
+
+.offline-grid .life-item__icon .icon {
+  justify-content: flex-start;
 }
 
 /* ---- 포인트 컬러 버튼(유일한 컬러) ---- */
@@ -4312,6 +4754,13 @@ body {
   color: #6b4a1e;
 }
 
+.dawn__rest {
+  margin: -8px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #b8791f;
+}
+
 .dawn__actions {
   margin-top: 4px;
   justify-content: center;
@@ -4405,7 +4854,13 @@ body {
 
 /* ---- 현생살기 선택지 3열 배열 ---- */
 .modal--life {
-  width: min(680px, 100%);
+  width: min(800px, 100%);
+}
+
+/* 현생 휴식/자기개발 탭 바 — 홈 피드 탭 스타일 재사용 + 본문 안에 맞춘 구분선 */
+.life-tabs {
+  border-bottom: 1px solid var(--border);
+  margin: 4px 0 14px;
 }
 
 .offline-grid {
@@ -4452,6 +4907,24 @@ body {
 }
 .popup .menu-item:hover {
   background: #f2f3f5;
+}
+
+/* 시간대별 스테이터스 제목 배경 (아침/저녁/심야) — 팝업·도킹 패널 공통.
+   .status-dock .popup__title 오버라이드를 이기려 두 셀렉터를 함께 둔다. */
+.popup__title--morning,
+.status-dock .popup__title--morning {
+  background: linear-gradient(135deg, #ffd98a 0%, #ff9e6b 100%);
+  color: #4a2600;
+}
+.popup__title--evening,
+.status-dock .popup__title--evening {
+  background: linear-gradient(135deg, #ff8a5c 0%, #8a5cd6 100%);
+  color: #fff;
+}
+.popup__title--late,
+.status-dock .popup__title--late {
+  background: linear-gradient(135deg, #16224e 0%, #3a2f6b 100%);
+  color: #fff;
 }
 
 /* ---- 기사 트윗 관련 ---- */
@@ -5422,6 +5895,22 @@ body {
   margin-top: 14px;
   padding-top: 12px;
   border-top: 1px dashed var(--border);
+}
+
+/* 취업 / 하루 그냥 보내기 버튼을 한 줄에 나란히 — 현생 팝업 세로 스크롤 방지 */
+.life-foot-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+.life-foot-row > .job-section {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
 .job-apply-btn {
@@ -6705,66 +7194,119 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
 }
 
 /* ===================== 푸시타임(포스타입 스타일 성인 콘텐츠) ===================== */
-.pt { display: flex; flex-direction: column; height: 100%; background: #f6f6f7; }
+/* 포스타임 룩: 밝은 톤 고정(다크에서도 흰 배경 유지). 좌·중·우 3열. */
+.pt { display: flex; flex-direction: column; height: 100%; background: #f2f2f4; color: #1a1a1a; }
+
+/* 상단 바 */
 .pt__mast {
-  display: flex; align-items: center; gap: 14px;
-  padding: 12px 20px; border-bottom: 1px solid #e5e5e8; background: #fff;
+  display: flex; align-items: center; gap: 16px;
+  padding: 10px 22px; border-bottom: 1px solid #e5e5e8; background: #fff; flex-shrink: 0;
 }
-.pt__logo { font-size: 19px; font-weight: 900; color: #111; letter-spacing: -0.5px; }
+.pt__logo { font-size: 20px; font-weight: 900; color: #111; letter-spacing: -0.5px; flex-shrink: 0; }
 .pt__search {
   flex: 1; display: flex; align-items: center; gap: 8px;
-  max-width: 420px; padding: 8px 14px; border-radius: 999px;
+  max-width: 520px; padding: 9px 16px; border-radius: 999px;
   background: #f0f0f2; color: #9aa0a6;
 }
 .pt__search-ph { font-size: 13px; }
-.pt__mast-right { display: flex; align-items: center; gap: 12px; margin-left: auto; }
-.pt__cash { font-size: 12.5px; color: #666; }
-.pt__login { font-size: 13px; font-weight: 700; color: #111; }
-.pt__body { flex: 1; min-height: 0; overflow: auto; padding: 16px 20px; }
-.pt__chips { display: flex; gap: 8px; margin-bottom: 12px; }
-.pt__chip {
-  font-size: 13px; font-weight: 600; color: #555;
-  padding: 6px 14px; border-radius: 999px; background: #ececed;
+.pt__mast-right { display: flex; align-items: center; gap: 12px; margin-left: auto; flex-shrink: 0; }
+.pt__make {
+  font-size: 12.5px; font-weight: 800; color: #fff; background: #ff4e6a;
+  padding: 7px 13px; border-radius: 999px; border: 0; cursor: default; white-space: nowrap;
 }
-.pt__chip--on { background: #111; color: #fff; }
-.pt__feed {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px;
-}
-.pt-card {
-  display: flex; flex-direction: column; text-align: left; padding: 0;
-  border: 1px solid #e8e8ea; border-radius: 12px; overflow: hidden;
-  background: #fff; cursor: pointer; transition: box-shadow 0.12s, transform 0.12s;
-}
-.pt-card:hover { box-shadow: 0 8px 22px rgba(0, 0, 0, 0.1); transform: translateY(-2px); }
-.pt-card__cover {
-  position: relative; aspect-ratio: 16 / 10;
+.pt__mast-ic { position: relative; font-size: 15px; color: #555; cursor: default; }
+.pt__badge {
+  position: absolute; top: -6px; right: -8px; min-width: 15px; height: 15px; padding: 0 3px;
   display: flex; align-items: center; justify-content: center;
+  background: #ff4e6a; color: #fff; font-size: 9px; font-weight: 800; border-radius: 999px;
 }
-.pt-card__adult {
-  position: absolute; top: 8px; left: 8px;
+.pt__cash { font-size: 12.5px; font-weight: 700; color: #444; background: #f0f0f2; padding: 4px 10px; border-radius: 999px; }
+.pt__avatar { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; }
+
+/* 3열 컨테이너 */
+.pt__cols { flex: 1; min-height: 0; display: flex; justify-content: center; gap: 20px; padding: 18px 22px; overflow: hidden; }
+.pt__side { width: 200px; flex-shrink: 0; overflow: auto; display: flex; flex-direction: column; gap: 18px; }
+.pt__side--right { width: 240px; }
+.pt__main { flex: 1; min-width: 0; max-width: 620px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
+
+/* 좌측 nav */
+.pt__nav { display: flex; flex-direction: column; gap: 2px; }
+.pt__nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px;
+  font-size: 14px; font-weight: 600; color: #333; cursor: default;
+}
+.pt__nav-item--on { background: #ececed; color: #111; font-weight: 800; }
+.pt__nav-ic { font-size: 15px; width: 18px; text-align: center; }
+.pt__promo {
+  border-radius: 14px; padding: 16px; color: #fff;
+  background: linear-gradient(150deg, #8b5cf6, #6d28d9);
+}
+.pt__promo-title { font-size: 13.5px; font-weight: 800; line-height: 1.45; }
+.pt__promo-btn {
+  margin-top: 10px; width: 100%; padding: 7px 0; border: 0; border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92); color: #6d28d9; font-size: 12.5px; font-weight: 800; cursor: default;
+}
+.pt__side-sec { display: flex; flex-direction: column; gap: 6px; }
+.pt__side-h { font-size: 12px; font-weight: 800; color: #999; margin-bottom: 2px; }
+.pt__side-row {
+  display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 8px;
+  font-size: 13px; color: #333; cursor: default; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.pt__side-row--add { color: #ff4e6a; font-weight: 700; }
+.pt__side-thumb { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; }
+
+/* 중앙 탭·안내 */
+.pt__tabs { display: flex; gap: 20px; border-bottom: 1px solid #e5e5e8; }
+.pt__tab { font-size: 14px; font-weight: 700; color: #999; padding: 4px 0 10px; cursor: default; }
+.pt__tab--on { color: #111; box-shadow: inset 0 -2px 0 #111; }
+.pt__notice { font-size: 11.5px; color: #a05; background: #fff0f4; padding: 8px 12px; border-radius: 8px; margin: 0; }
+
+/* 포스트 엔트리 */
+.pt-post {
+  background: #fff; border: 1px solid #e8e8ea; border-radius: 14px; padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.pt-post__head { display: flex; align-items: center; gap: 10px; }
+.pt-post__avatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; }
+.pt-post__by { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.pt-post__author { font-size: 13.5px; font-weight: 800; color: #111; }
+.pt-post__sub { font-size: 11.5px; color: #999; }
+.pt-post__sub-btn {
+  margin-left: auto; font-size: 12px; font-weight: 800; color: #ff4e6a;
+  background: #fff0f4; border: 0; padding: 5px 14px; border-radius: 999px; cursor: default;
+}
+.pt-post__more { font-size: 16px; color: #bbb; cursor: default; }
+.pt-post__title { font-size: 16.5px; font-weight: 800; color: #111; margin: 2px 0 0; line-height: 1.35; }
+.pt-post__tagline { font-size: 12.5px; color: #8b5cf6; }
+.pt-post__excerpt {
+  font-size: 13px; color: #555; line-height: 1.6;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.pt-post__tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.pt-post__tag { font-size: 11.5px; color: #7c3aed; background: #f3f0ff; padding: 2px 9px; border-radius: 6px; }
+.pt-post__cover {
+  position: relative; margin-top: 4px; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  filter: saturate(0.9); transition: filter 0.12s;
+}
+.pt-post__cover:hover { filter: saturate(1.05) brightness(1.05); }
+.pt-post__adult {
+  position: absolute; top: 10px; left: 10px;
   background: rgba(0, 0, 0, 0.6); color: #fff;
-  font-size: 10.5px; font-weight: 800; padding: 2px 7px; border-radius: 5px;
+  font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 6px;
 }
-.pt-card__lock {
+.pt-post__lock {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
-  color: #fff; font-size: 12px; font-weight: 700; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  color: #fff; font-size: 13px; font-weight: 700; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
 }
-.pt-card__lock-ic { font-size: 26px; }
-.pt-card__body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; }
-.pt-card__title { font-size: 15px; font-weight: 800; color: #111; line-height: 1.35; }
-.pt-card__creator { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #666; }
-.pt-card__avatar { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; }
-.pt-card__excerpt {
-  font-size: 12.5px; color: #555; line-height: 1.5;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-}
-.pt-card__tags { display: flex; flex-wrap: wrap; gap: 5px; }
-.pt-card__tag { font-size: 11.5px; color: #7c3aed; background: #f3f0ff; padding: 1px 7px; border-radius: 5px; }
-.pt-card__meta {
-  display: flex; align-items: center; gap: 12px; margin-top: 2px;
-  font-size: 12px; color: #888;
-}
-.pt-card__price { margin-left: auto; font-weight: 800; color: #111; }
+.pt-post__lock-ic { font-size: 30px; }
+
+/* 우측 미니 포스트 */
+.pt__mini { display: flex; align-items: center; gap: 10px; padding: 5px 4px; cursor: default; }
+.pt__mini-thumb { width: 44px; height: 44px; border-radius: 8px; flex-shrink: 0; }
+.pt__mini-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pt__mini-title { font-size: 12.5px; font-weight: 700; color: #222; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pt__mini-sub { font-size: 11px; color: #999; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
 /* ===================== 야밤(성인 사이트 · 다크 무드) ===================== */
 .yabam {
@@ -7072,7 +7614,7 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
 .steam-card__tags { display: flex; flex-wrap: wrap; gap: 5px; }
 
 /* ===================== 세부 스탯 팝오버: 자격증 섹션 ===================== */
-/* .detail-pop이 232px(콘텐츠 ~204px)로 좁다 — 이름은 잘라내지 말고 줄바꿈시킨다. */
+/* 자격증 이름은 잘라내지 말고 줄바꿈시킨다(칸이 좁아도 안전). */
 .detail-cert {
   border-top: 1px solid var(--line);
   padding-top: 8px;

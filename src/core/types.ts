@@ -95,7 +95,8 @@ export type SkillStatId =
   | "creativity" // 창작
   | "lewd" // 음란
   | "game" // 게임
-  | "it"; // IT
+  | "it" // IT
+  | "otaku"; // 덕질
 
 export type StatId = ResourceStatId | SkillStatId;
 
@@ -163,6 +164,13 @@ export interface Tweet {
   event?: TweetEvent;
   /** 첨부된 사진/영상(자리만, 클릭 시 설명 팝업) */
   media?: TweetMedia;
+  /**
+   * 게시 시점에 고정된 미디어 이미지(내가 등록한 트윗 전용).
+   * imageForTweet은 등록 이미지 풀 크기로 hash%len을 굴려 풀이 늘면 같은 트윗도 다른 이미지가
+   * 뽑힐 수 있다 — 게시 순간의 이미지를 여기 박제해 다음날에도 바뀌지 않게 한다.
+   * adult=성인 풀 출처(블러 대상) 여부. 없으면(NPC/피드 트윗) imageForTweet으로 매번 해석.
+   */
+  mediaImage?: { url: string; adult: boolean };
   /**
    * 글 난이도(0~999 — 어휘력과 같은 스킬 스케일).
    * 읽는 사람의 어휘력이 이보다 낮으면 그만큼 글자가 깨져 보인다.
@@ -255,6 +263,11 @@ export interface DMThread {
   metOffline: boolean;
   /** 상대가 오프라인 만남을 제안했는지(제안해야만 만날 수 있음) */
   wantsToMeet: boolean;
+  /**
+   * 만남 제안이 온 날(일차). 만남은 이 날 하루만 유효 — 익일이 되면 '만나러 가기'가 비활성화된다.
+   * (구세이브엔 없을 수 있어 optional; 없으면 만료 판정을 건너뛴다.)
+   */
+  meetProposedDay?: number;
   /** 성인 트윗으로 유입된 '모텔 제안' 스레드인지 */
   motel?: boolean;
   /** 모텔 스레드일 때, 어떤 성인 트윗에서 유입됐는지(플레이 종류 결정) */
@@ -272,6 +285,11 @@ export interface DMThread {
   genitalSize?: DickSize;
   /** 러닝크루 가입 권유 스레드인지(운동 트윗으로 유입) */
   crew?: boolean;
+  /**
+   * 성인 그룹방 초대 스레드인지(성인 트윗 좋아요로 유입).
+   * 수락 시 매주 토 심야 '정기 모임' 약속이 잡힌다.
+   */
+  groupRoom?: boolean;
   /** 사바나 여캠(라이브방송) 제의 스레드인지(성인 트윗으로 유입) */
   savanna?: boolean;
   /** 플랫폼 작가 계약 제안 스레드인지(창작 트윗이 쌓이면 유입) */
@@ -294,8 +312,14 @@ export interface DMThread {
   pushLink?: boolean;
   /** '야밤'(성인 사이트) 링크가 담긴 스레드인지(링크 클릭 시 탭 해금) */
   yabamLink?: boolean;
+  /** '불법 스탯 부스트상' 뒷거래 링크가 담긴 스레드인지(거래 후 삭제) */
+  boostLink?: boolean;
+  /** '의문의 심리테스트' 결과 링크가 담긴 스레드인지(결과 확인 시 삭제) */
+  psychoLink?: boolean;
   /** 팬이 후원을 제안한 스레드면 그 정보 */
   donation?: { amount: number; claimed?: boolean };
+  /** AV배우 제의 스레드인지(성인 트윗 누적 시 유입). ui가 수락/거절 버튼을 렌더한다 */
+  avOffer?: boolean;
 }
 
 /** 카카오톡 메시지 한 줄 */
@@ -342,6 +366,19 @@ export interface KakaoThread {
   loanOffer?: KakaoLoanOffer;
 }
 
+/** 업무 메신저("너아무튼온") 업무 요청 메시지(재직 중 평일 저녁·심야·주말에 도착) */
+export interface WorkMsg {
+  id: string;
+  day: number;
+  slot: number;
+  /** 업무 요청 본문(데이터 풀에서 선택) */
+  text: string;
+  /** 토스트 대기(app.ts가 소비) */
+  toastPending: boolean;
+  /** 수락 완료 */
+  resolved: boolean;
+}
+
 /** 소지금이 마이너스일 때 오는 대부업체 대출 제안 */
 export interface KakaoLoanOffer {
   /** 빌려주는 원금 */
@@ -355,7 +392,7 @@ export interface KakaoLoanOffer {
 }
 
 /** 예정된 약속의 종류 */
-export type AppointmentKind = "crew" | "friend" | "event" | "ticketing";
+export type AppointmentKind = "crew" | "friend" | "event" | "ticketing" | "groupRoom";
 
 /**
  * 미래에 예정된 약속. 해당 (day, slot)이 되면 '할지/말지' 팝업이 뜬다.
@@ -369,6 +406,8 @@ export interface Appointment {
   title: string;
   /** friend 약속일 때 상대 이름 */
   partnerName?: string;
+  /** 관계 캐릭터와의 만남 약속일 때, 그 캐릭터 id(도래 시 resolveMeet 대상). 있으면 관계 만남으로 처리한다. */
+  charId?: string;
   attribute?: AttributeId;
   /** 행사 약속의 특별 진행 종류(예: 코믹콘) */
   variant?: EventVariant;
@@ -400,6 +439,29 @@ export interface Employment {
   overtimeDay: number;
   /** 마지막으로 월급을 준 '달 키'(연*12+월). -1이면 아직 없음 */
   lastSalaryMonth: number;
+}
+
+/**
+ * AV배우 직업(성인). 성인 트윗 누적 시 DM 제의 → 수락하면 계약.
+ * 매월 25일 정산(익월부터), 월 근무일 20일 미만이면 월급 반감.
+ * 노콘 촬영 승락 누적마다 월급이 영구 가산된다.
+ */
+export interface AvJob {
+  /** 계약한 날(day). 근무·정산은 익월부터 */
+  joinedDay: number;
+  /** 이번 달 심야 근무 일수(정산 시 0으로 리셋) */
+  workDaysThisMonth: number;
+  /** 마지막으로 근무한 day(하루 1회만 카운트). -1이면 없음 */
+  lastWorkDay: number;
+  /** 이번 달 노콘 촬영 승락 횟수 → 이번 달 월급 +30만/회. 월 정산 시 0으로 리셋(영구 아님). */
+  condomlessThisMonth: number;
+  /** 마지막으로 월급을 준 '달 키'(monthKey). -1이면 없음 */
+  lastSalaryMonth: number;
+  /**
+   * 성병 회복일(day). 노콘 촬영 시 낮은 확률로 감염 → 이 날까지 촬영 불가.
+   * state.day가 이 값 이하면 아직 아픈 상태. -1이면 건강.
+   */
+  stdUntilDay: number;
 }
 
 /** 대부업체에서 빌린 빚 */
@@ -446,6 +508,23 @@ export interface PlayerAccount {
   strikes: number;
   /** 계정 정지 해제일(day). 이 날 전까지는 활동 정지. 0이면 정상 */
   suspendedUntilDay: number;
+  /**
+   * 관계 시스템 진행 상태(캐릭터 id → 진행). 계정별로 따로 추적한다.
+   * 구세이브엔 없으므로 save.sanitize가 `{}`로 채운다.
+   */
+  relationships: Record<string, RelationshipProgress>;
+}
+
+/**
+ * 관계 시스템 진행 상태(캐릭터별, PlayerAccount 단위).
+ * - affinity: 호감도(트윗 매칭 +8 / 만남 성사 +20). 임계 30/60/90에서 arc가 열린다.
+ * - stage: 완주한 arc 수(0~3). advanceRelStage가 arc 완주 시 올린다.
+ * - bond: Arc2 선택으로 확정되는 관계(서사만 분기, 보상 동일).
+ */
+export interface RelationshipProgress {
+  affinity: number;
+  stage: 0 | 1 | 2 | 3;
+  bond: "none" | "friend" | "lover";
 }
 
 /** 투자 시장 상태(자산별 현재가·전일가·보유량) */
@@ -467,6 +546,8 @@ export interface AuthorContract {
   missCount: number;
   /** 마지막으로 월 정산한 달(monthKey) — 중복 정산 방지 */
   lastSettledMonth: number;
+  /** 성인물 작가 계약 여부. true면 작업량 게이지 성과 스탯에 음란도가 포함된다. */
+  adult: boolean;
 }
 
 /** 취업 지원 — 결과는 지원 익일에 피메일로 통보된다. */
@@ -605,6 +686,8 @@ export interface GameState {
 
   /** 성인물 해제(유저 전역 설정 — 계정별이 아니다) */
   adultMode: boolean;
+  /** 성인물 보기 하위 설정: 강압/범죄(비합의) 성인 상황을 숨긴다. adultMode가 켜졌을 때만 의미. */
+  adultNoCoercion: boolean;
 
   money: number;
 
@@ -639,11 +722,18 @@ export interface GameState {
 
   /** 카카오톡 수신함(발신자별 대화) */
   kakao: KakaoThread[];
+  /** 업무 메신저("너아무튼온") 업무 요청함(재직 중에만 도착) */
+  workMsgs: WorkMsg[];
   /** 마지막으로 월세 리마인더 카톡을 보낸 '월세 납부일'(중복 방지). -1이면 아직 없음 */
   lastRentReminderDay: number;
 
   /** 러닝크루 가입 여부('사람' 단위 — 계정 무관) */
   crewJoined: boolean;
+  /**
+   * 성인 그룹방 가입 여부('사람' 단위).
+   * true면 매주 토요일 심야 정기 모임 약속이 유지된다.
+   */
+  groupRoomJoined: boolean;
   /** 사바나 여캠(라이브방송) 계약 여부 — 매 심야에 방송 행동이 열린다 */
   savannaJoined: boolean;
   /** 유료 구독 채널 개설 여부 — 매월 구독 수익이 정산된다 */
@@ -659,6 +749,12 @@ export interface GameState {
   dawnPending: boolean;
 
   /**
+   * 자고 일어날 때 실제 회복된 행동력/정신력(클램프 후 델타, 상한이면 0).
+   * onNewDay가 매일 갱신하고, dawnModal이 "행동력 +N · 정신력 +N 회복" 표시에 읽는다.
+   */
+  lastRestGain: { action: number; mental: number };
+
+  /**
    * 취침 선택 팝업 대기 플래그. advanceTime이 저녁→심야(LATE_SLOT) 전환 시 true,
    * sleepModal의 모든 선택지가 false로 클리어한다. 무엇이 시간을 진행시켰든(트윗은 이제
    * 시간을 안 쓰므로 오프라인 활동·근무 등) 심야 진입이면 뜬다.
@@ -668,8 +764,36 @@ export interface GameState {
   /** 고양이가 전원 버튼을 눌렀음(UI가 감지해 2초 블랙아웃 후 팝업을 띄우고, 닫을 때 false로 되돌린다). */
   catPowerPending: boolean;
 
+  /**
+   * 마지막으로 본 하루 최대 게시 슬롯 상한(maxPostSlots). 팔로워 티어를 넘으면 changeFollowers가 갱신한다.
+   * 전역 필드(계정별 아님) — 활성 계정 팔로워 기준으로 동기화한다.
+   */
+  lastMaxPostSlots: number;
+  /**
+   * 방금 게시 슬롯 상한이 늘었으면 그 새 값(pending 알림). 없으면 null.
+   * changeFollowers가 증가 감지 시 세팅, ui(app.ts)가 안내 모달을 띄운 뒤 null로 클리어한다.
+   */
+  postSlotIncreasedTo: number | null;
+
+  /**
+   * 오하아사(아침 운세) 좋아요/RT로 누적된 로또 당첨 운(0~LOTTERY_LUCK_CAP).
+   * lottery()가 꽝 경계를 낮추는 데 쓰고, 추첨 직후 0으로 리셋한다. 다른 데서 건드리지 말 것.
+   */
+  lotteryLuck: number;
+  /** 괴담 계정 좋아요 → 그날 심야 방문 예약. onLateNight의 maybeHauntVisit이 소비한다. */
+  hauntPending: boolean;
+  /**
+   * 괴담 방문이 '지금(심야)' 발동됐음. onLateNight에서 hauntPending이면 true.
+   * ui(app.ts)가 감지해 괴담 모달을 띄우고, resolveHauntVisit이 false로 되돌린다(sleepPending과 공존).
+   */
+  hauntVisitNow: boolean;
+
   /** 재직 정보(없으면 무직) */
   employment: Employment | null;
+  /** AV배우 계약(없으면 미계약). 성인 트윗 누적 시 DM 제의 수락으로 생성 */
+  avJob: AvJob | null;
+  /** AV배우 제의 DM을 이미 한 번 보냈는지(중복 제의 방지). 초기 false */
+  avOffered: boolean;
   /** 결과 대기 중인 취업 지원(익일 메일 통보). 없으면 null */
   pendingJobApp: JobApplication | null;
   /** 취득한 자격증 id 목록 */

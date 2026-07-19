@@ -13,6 +13,7 @@ import {
   maybeStealCrimsonEye,
 } from "./auction";
 import { maybeSpawnSpamEmail } from "./spam";
+import { maybeHauntVisit } from "./haunt";
 import { maybeSpawnAdEmail } from "./adMail";
 import { spawnDailyAdTweets } from "./adTweets";
 import { applySeasonalEvents } from "./seasonal";
@@ -20,6 +21,7 @@ import { sendLandlordOverdue, sendLandlordRentReminder } from "./kakao";
 import { updateMarket } from "./market";
 import { expireSuspensions } from "./ban";
 import { checkStatEggs, maybeCatPowerButton } from "./eggs";
+import { maybeSpawnWorkMsg } from "./workMessenger";
 import { HOUSINGS } from "@/data/housing";
 import { clampAction } from "./stats";
 // 달력/요일 헬퍼는 calendar.ts에 있다(순환 참조 방지). 내부에서 dateLabel을 쓰고, 나머지는 재노출한다.
@@ -29,6 +31,7 @@ import {
   dayOfWeek,
   weekdayLabel,
   THURSDAY,
+  SATURDAY,
   isWeekday,
   dateOfMonth,
   monthKey,
@@ -36,7 +39,18 @@ import {
 } from "./calendar";
 
 // 기존 `from "./time"` import 경로 호환을 위해 그대로 재노출.
-export { dateLabel, dateOf, dayOfWeek, weekdayLabel, THURSDAY, isWeekday, dateOfMonth, monthKey, weekIndex };
+export {
+  dateLabel,
+  dateOf,
+  dayOfWeek,
+  weekdayLabel,
+  THURSDAY,
+  SATURDAY,
+  isWeekday,
+  dateOfMonth,
+  monthKey,
+  weekIndex,
+};
 
 /** 현재 시간 라벨 (예: "3월 4일(수) 저녁") */
 export function timeLabel(state: GameState): string {
@@ -87,6 +101,8 @@ export function advanceTime(state: GameState, slots = 1): void {
     } else if (state.slot === LATE_SLOT) {
       onLateNight(state);
     }
+    // 재직 중이면 슬롯 전환마다 업무 메신저("너아무튼온") 요청을 판정한다(내부 가드로 자격/확률 필터).
+    maybeSpawnWorkMsg(state);
   }
   // 스탯 임계값 이스터에그(도덕성 0, 지식/어휘 100, 음란 100+성인) 점검
   checkStatEggs(state);
@@ -109,6 +125,9 @@ function onLateNight(state: GameState): void {
   state.sleepPending = true;
   // 서던피스 경매 초대장(헌터 자격증 보유 + 9월 6일 심야에만) 도착
   maybeSendAuctionMail(state);
+  // 괴담 계정 좋아요 예약(hauntPending)이 있으면 오늘 심야 방문을 발동(hauntVisitNow).
+  // ui는 취침(sleepPending)보다 먼저 괴담 모달을 띄운다.
+  maybeHauntVisit(state);
 }
 
 function onNewDay(state: GameState): void {
@@ -118,6 +137,10 @@ function onNewDay(state: GameState): void {
   // 좋은 집일수록(주거 단계) 회복량이 늘어난다.
   const rested = !state.lateTweetToday;
   const home = HOUSINGS[state.housingTier] ?? HOUSINGS[0];
+  // dawnModal이 "행동력 +N · 정신력 +N 회복"을 표시하려면 실제 적용한 증가분이 필요하다.
+  // lateTweetToday 리셋 전에, 클램프 후 델타(상한이면 0)를 기록한다.
+  const actionBefore = state.resources.action;
+  const mentalBefore = state.resources.mental;
   // ⚠️ 행동력 상한은 가변(치트로 +20)이라 100을 하드코딩하면 안 된다 — clampAction이 상한을 안다.
   //    정신력은 상한이 고정 100이므로 아래 줄은 그대로 둔다.
   state.resources.action = clampAction(
@@ -125,6 +148,10 @@ function onNewDay(state: GameState): void {
     state.resources.action + (rested ? 30 : 10) + home.actionBonus,
   );
   state.resources.mental = Math.min(100, state.resources.mental + (rested ? 20 : 8) + home.mentalBonus);
+  state.lastRestGain = {
+    action: state.resources.action - actionBefore,
+    mental: state.resources.mental - mentalBefore,
+  };
   state.lateTweetToday = false;
   // 오래 트윗을 안 올리면 팔로워 소폭 감소
   applyInactivityDecay(state);

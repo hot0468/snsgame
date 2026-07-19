@@ -1,14 +1,47 @@
 import type { GameContext } from "./context";
 import { clockLabel, timeLabel } from "@/systems/time";
+import { hasPendingRelEvent } from "@/systems/relationship";
+import { hasPendingWorkMsg } from "@/systems/workMessenger";
 import { el } from "@/utils/dom";
 import { icon } from "./icons";
+import { renderKakaoListView } from "./kakaoListView";
+import { renderWorkMessengerView } from "./workMessengerView";
 
 /**
  * 하단 작업표시줄.
- * 왼쪽: 윈도우(시작) 버튼 / 오른쪽: 시계.
+ * 왼쪽: 윈도우(시작) 버튼 / 가운데: 카톡(관계) / 오른쪽: 시계.
  */
 export function renderTaskbar(ctx: GameContext): HTMLElement {
   const s = ctx.store.getState();
+
+  const kakaoBtn = el(
+    "button",
+    {
+      class: "taskbar-kakao",
+      title: "카톡 친구",
+      onclick: () => ctx.openModal(renderKakaoListView),
+    },
+    el("span", { class: "taskbar-kakao__icon" }, icon("comment", { size: 16 })),
+    el("span", { class: "taskbar-kakao__label" }, "카톡"),
+    hasPendingRelEvent(s) ? el("span", { class: "taskbar-kakao__badge" }) : null,
+  );
+
+  const workBtn = el(
+    "button",
+    {
+      class: "taskbar-kakao taskbar-work",
+      title: "너아무튼온 (업무 메신저)",
+      onclick: () => {
+        ctx.update((st) => {
+          for (const m of st.workMsgs) m.toastPending = false;
+        });
+        ctx.openModal(renderWorkMessengerView);
+      },
+    },
+    el("span", { class: "taskbar-kakao__icon taskbar-work__icon" }, icon("mail", { size: 16 })),
+    el("span", { class: "taskbar-kakao__label" }, "너아무튼온"),
+    hasPendingWorkMsg(s) ? el("span", { class: "taskbar-kakao__badge" }) : null,
+  );
 
   const startBtn = el(
     "button",
@@ -40,7 +73,11 @@ export function renderTaskbar(ctx: GameContext): HTMLElement {
       "span",
       { class: "clock-btn__text" },
       el("span", {}, clockLabel(s)),
-      el("span", { style: "opacity:0.7" }, timeLabel(s)),
+      el(
+        "span",
+        { class: `clock-btn__slot clock-btn__slot--${["morning", "evening", "late"][s.slot] ?? "morning"}` },
+        timeLabel(s),
+      ),
     ),
   );
 
@@ -48,6 +85,7 @@ export function renderTaskbar(ctx: GameContext): HTMLElement {
     "footer",
     { class: "taskbar" },
     el("div", { class: "taskbar__left" }, startBtn),
+    el("div", { class: "taskbar__center" }, kakaoBtn, workBtn),
     el("div", { class: "taskbar__right" }, clockBtn),
   );
 }

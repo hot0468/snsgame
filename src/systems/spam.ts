@@ -66,13 +66,10 @@ const SPAM_TEMPLATES: SpamTemplate[] = [
   },
 ];
 
-/** 하루가 지날 때 확률적으로 스팸 메일을 수신함에 넣는다(time.onNewDay에서 호출). */
-export function maybeSpawnSpamEmail(state: GameState): void {
-  const unreadSpam = state.emails.filter((e) => e.spam && !e.read).length;
-  if (unreadSpam >= SPAM_MAX_UNREAD) return;
-  if (!chance(SPAM_EMAIL_CHANCE)) return;
+/** 스팸 템플릿 하나로 미열람 스팸 메일 객체를 만든다. */
+function makeSpamEmail(state: GameState): Email {
   const t = pick(SPAM_TEMPLATES);
-  const email: Email = {
+  return {
     id: uid("mail"),
     from: t.from,
     subject: t.subject,
@@ -81,7 +78,22 @@ export function maybeSpawnSpamEmail(state: GameState): void {
     read: false,
     spam: true,
   };
-  state.emails.unshift(email);
+}
+
+/** 하루가 지날 때 확률적으로 스팸 메일을 수신함에 넣는다(time.onNewDay에서 호출). */
+export function maybeSpawnSpamEmail(state: GameState): void {
+  const unreadSpam = state.emails.filter((e) => e.spam && !e.read).length;
+  if (unreadSpam >= SPAM_MAX_UNREAD) return;
+  if (!chance(SPAM_EMAIL_CHANCE)) return;
+  state.emails.unshift(makeSpamEmail(state));
+}
+
+/**
+ * 스팸 메일 count통을 수신함에 강제로 밀어넣는다(피싱 결과 등 하루 확률·미열람 상한을 무시).
+ * 심리테스트 피싱(psychoTest.resolvePsychoTest)에서 사용한다.
+ */
+export function spawnSpamEmails(state: GameState, count: number): void {
+  for (let i = 0; i < count; i++) state.emails.unshift(makeSpamEmail(state));
 }
 
 function pushSchedule(state: GameState, title: string, kind: ScheduleEvent["kind"]): void {

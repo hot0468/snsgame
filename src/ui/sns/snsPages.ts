@@ -7,9 +7,19 @@ import { DICK_SIZE_LABELS } from "@/data/dmContent";
 import { canUseBoldTone, claimDonation, replyDM, sendCustomDM } from "@/systems/dm";
 import { canMeet, MEETING_ACTION_COST } from "@/systems/meeting";
 import { joinCrew } from "@/systems/crew";
+import { joinGroupRoom } from "@/systems/groupRoom";
 import { joinSavanna } from "@/systems/savanna";
 import { acceptAuthorContract } from "@/systems/author";
+import { acceptAvJob, declineAvJob, switchToAvJob } from "@/systems/avJob";
+import { currentJobLabel, hasAnyJob } from "@/systems/employment";
+import { confirmPurchase } from "@/ui/confirmModal";
 import { consumeWishLink, isWishTweet, rollWishOptions, spawnWishDM } from "@/systems/wish";
+import { isChainLetterTweet, resolveChainLetter } from "@/systems/chainLetter";
+import { BOOST_COST, consumeBoostLink, isBoostTweet, resolveBoostDeal, spawnBoostDM } from "@/systems/statBoost";
+import { bumpLotteryLuck, isOhaasaTweet } from "@/systems/ohaasa";
+import { isPsychoTweet, resolvePsychoTest, spawnPsychoDM } from "@/systems/psychoTest";
+import { SKILL_STATS, SKILL_STAT_IDS } from "@/data/stats";
+import { isHauntTweet } from "@/systems/haunt";
 import { DARTPIN_URL, isDartpinTweet, unlockDartpin } from "@/systems/dartpin";
 import { isDstoryTweet } from "@/systems/dstory";
 import { DSTORY_URL } from "@/data/dstory";
@@ -23,15 +33,12 @@ import { addAppointment } from "@/systems/appointments";
 import { dateLabel } from "@/systems/time";
 import { SLOT_LABELS, MORNING_SLOT } from "@/core/state";
 import {
-  canReactNicely,
   exploreAccounts,
   exploreTweets,
   searchTweetsByCategory,
   followAccount,
   reactToTweet,
   retweetTweet,
-  spendExplore,
-  SOCIABILITY_NICE_MIN,
 } from "@/systems/exploreSystem";
 import { canWatchAd, watchAd } from "@/systems/ads";
 import { el, enableDragScroll, formatNumber } from "@/utils/dom";
@@ -56,35 +63,36 @@ export function goHome(ctx: GameContext): void {
   ctx.refresh();
 }
 
-/** 탐색 페이지 진입: 랜덤 계정 생성 + 탐색 비용 처리 */
+/** 탐색 페이지 진입: 랜덤 계정 생성(무비용, 누를 때마다 갱신) */
 export function enterExplore(ctx: GameContext): void {
   ctx.ui.exploreAccounts = exploreAccounts(ctx.store.getState());
   ctx.ui.exploreSelectedId = null;
   ctx.ui.snsPage = "explore";
-  ctx.update((s) => spendExplore(s));
-  ctx.afterAction("explore");
+  ctx.refresh();
 }
 
-/** 둘러보기 페이지 진입: 랜덤 트윗 생성 + 탐색 비용 처리 */
+/** 둘러보기 페이지 진입: 랜덤 트윗 생성(무비용, 누를 때마다 갱신) */
 export function enterPosts(ctx: GameContext): void {
   ctx.ui.explorePosts = exploreTweets(ctx.store.getState());
   ctx.ui.snsPage = "posts";
-  ctx.update((s) => spendExplore(s));
-  ctx.afterAction("explore");
+  ctx.refresh();
 }
 
 /**
  * 검색 페이지에서 볼 수 있는 카테고리 — 내가 아직 트윗을 못 쓰는(미해금) 성향은 제외한다.
- * (성인계는 해금돼 있어도 성인물 해제가 꺼져 있으면 숨긴다.)
+ * 단, **열람은 게시와 별개**라 성인물 해제(adultMode)가 켜져 있으면 "adult"는 해금 여부와
+ * 무관하게 항상 포함한다(중복 방지).
  */
 function searchCategories(ctx: GameContext): AttributeId[] {
   const s = ctx.store.getState();
   const account = getActiveAccount(s);
   const adult = s.adultMode;
-  return ALL_ATTRIBUTE_IDS.filter(
+  const cats = ALL_ATTRIBUTE_IDS.filter(
     (a) =>
       account.unlockedAttributes.includes(a) && (adult || !ATTRIBUTES[a].adultOnly),
   );
+  if (adult && !cats.includes("adult")) cats.push("adult");
+  return cats;
 }
 
 /** 특정 카테고리를 선택해 해당 성향 트윗 3개를 랜덤 생성 */
@@ -144,6 +152,23 @@ function alreadyRetweeted(state: GameState, sourceId: string): boolean {
 
 /** 남의 트윗을 리트윗해 내 탐라에 등록 */
 function doRetweet(ctx: GameContext, tweet: Tweet): void {
+  // 행운의 편지: 일반 리트윗 대신 도박을 발동한다(내 탐라에 등록하지 않음).
+  if (isChainLetterTweet(tweet)) {
+    let msg = "";
+    ctx.update((s) => {
+      msg = resolveChainLetter(s);
+    });
+    ctx.toast(msg);
+    ctx.afterAction("retweet");
+    return;
+  }
+  // 오하아사: 리트윗해도 로또 운 +1(좋아요와 동일).
+  if (isOhaasaTweet(tweet)) {
+    ctx.update((s) => bumpLotteryLuck(s));
+    ctx.toast("오하아사의 기운을 받았다. 오늘은 왠지 운이 트일 것 같다…");
+    ctx.afterAction("retweet");
+    return;
+  }
   let delta: number | null = 0;
   ctx.update((s) => {
     delta = retweetTweet(s, tweet);
@@ -153,6 +178,7 @@ function doRetweet(ctx: GameContext, tweet: Tweet): void {
     return;
   }
   ctx.toast(delta >= 0 ? `리트윗! 내 탐라에 등록 · 팔로워 +${delta}` : `리트윗... 상충 ${delta}`);
+  ctx.afterAction("retweet");
 }
 
 /** 남의 트윗에 반응(좋아요/악플)을 남긴다. */
@@ -164,14 +190,41 @@ function doReact(ctx: GameContext, tweet: Tweet, positive: boolean): void {
     ctx.toast("의문의 계정에게서 쪽지가 도착했다…");
     return;
   }
+  // 불법 스탯 부스트상: 좋아요 → 뒷거래 링크 DM.
+  if (positive && isBoostTweet(tweet)) {
+    ctx.update((s) => spawnBoostDM(s));
+    ctx.toast("의문의 계정에게서 쪽지가 도착했다…");
+    return;
+  }
+  // 의문의 심리테스트: 좋아요 → 결과 링크 DM(피싱).
+  if (positive && isPsychoTweet(tweet)) {
+    ctx.update((s) => spawnPsychoDM(s));
+    ctx.toast("'결과 보기' 링크가 쪽지로 도착했다. …이름을 넣으라는데?");
+    return;
+  }
+  // 오하아사(아침 운세): 좋아요 → 로또 운 +1.
+  if (positive && isOhaasaTweet(tweet)) {
+    ctx.update((s) => bumpLotteryLuck(s));
+    ctx.toast("오하아사의 기운을 받았다. 오늘은 왠지 운이 트일 것 같다…");
+    return;
+  }
+  // 괴담 계정: 좋아요 → 그날 심야 방문 예약(hauntPending).
+  if (positive && isHauntTweet(tweet)) {
+    ctx.update((s) => {
+      s.hauntPending = true;
+    });
+    ctx.toast("…방금, 좋아요를 누르지 말았어야 했다.");
+    return;
+  }
   let delta = 0;
   ctx.update((s) => {
     delta = reactToTweet(s, tweet, positive);
   });
   if (positive) {
     ctx.toast(delta > 0 ? `응원했다! 팔로워 +${delta}` : "응원했지만 반응은 미지근하다.");
+    ctx.afterAction("like");
   } else {
-    ctx.toast(`악플을 남겼다... 팔로워 ${delta >= 0 ? "+" : ""}${delta} · 도덕성 하락`);
+    ctx.toast(`악플을 남겼다... 팔로워 ${delta >= 0 ? "+" : ""}${delta} · 도덕성 하락`, "bad");
   }
 }
 
@@ -289,8 +342,6 @@ export function reactableCard(ctx: GameContext, tweet: Tweet): HTMLElement {
   const state = ctx.store.getState();
   const rtDone = alreadyRetweeted(state, tweet.id);
   const reacted = ctx.ui.reactedTweetIds.has(tweet.id);
-  // 까칠한외눈(소원 계정)만은 친화력과 무관하게 좋아요를 누를 수 있다.
-  const nice = canReactNicely(state) || isWishTweet(tweet);
 
   const card = tweetCard(tweet, {
     retweet: { done: rtDone, onClick: () => doRetweet(ctx, tweet) },
@@ -324,8 +375,7 @@ export function reactableCard(ctx: GameContext, tweet: Tweet): HTMLElement {
         "button",
         {
           class: "react-btn react-btn--pos" + (reacted ? " react-btn--done" : ""),
-          disabled: reacted || !nice,
-          title: nice ? "" : `친화력이 낮아 좋은 말이 안 나온다 (필요 ${SOCIABILITY_NICE_MIN})`,
+          disabled: reacted,
           onclick: () => doReact(ctx, tweet, true),
         },
         icon("heart", { size: 14 }),
@@ -588,10 +638,13 @@ export function searchPage(ctx: GameContext): HTMLElement {
       el(
         "button",
         {
-          class: "search-tab" + (attr === active ? " search-tab--active" : ""),
+          class:
+            "search-tab" +
+            (attr === active ? " search-tab--active" : "") +
+            (attr === "adult" ? " search-tab--adult" : ""),
           onclick: () => selectSearchCategory(ctx, attr),
         },
-        icon(ATTR_ICON[attr], { size: 14 }),
+        attr === "adult" ? "🔞" : icon(ATTR_ICON[attr], { size: 14 }),
         el("span", {}, ATTRIBUTES[attr].label.replace(/(계|덕)$/, "")),
       ),
     ),
@@ -702,10 +755,10 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
       "러닝크루 가입",
     );
   }
-  // 작가 계약 제안 스레드: 계약 버튼(계약 후엔 표시만)
-  if (thread.authorOffer) {
-    if (ctx.store.getState().authorContract) {
-      return el("span", { class: "chip", style: "opacity:.6" }, "계약함");
+  // 성인 그룹방 초대: 가입 시 매주 토 심야 정기 모임
+  if (thread.groupRoom) {
+    if (ctx.store.getState().groupRoomJoined) {
+      return el("span", { class: "chip", style: "opacity:.6" }, "가입함");
     }
     return el(
       "button",
@@ -714,13 +767,40 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
         onclick: () => {
           ctx.update((s) => {
             const t = getActiveAccount(s).dms.find((x) => x.id === thread.id);
-            if (t) acceptAuthorContract(s, t);
+            if (t) joinGroupRoom(s, t);
           });
-          ctx.toast("작가 계약 체결! 다음 달부터 매월 월급이 들어와요 ✍️");
+          ctx.toast("그룹방에 가입했어요! 매주 토요일 심야 정기 모임이 생겼어요 🔞");
         },
       },
-      "작가 계약하기",
+      "그룹방 들어가기",
     );
+  }
+  // 작가 계약 제안 스레드: 계약 버튼(계약 후엔 표시만)
+  if (thread.authorOffer) {
+    if (ctx.store.getState().authorContract) {
+      return el("span", { class: "chip", style: "opacity:.6" }, "계약함");
+    }
+    const sign = (adult: boolean) => {
+      ctx.update((s) => {
+        const t = getActiveAccount(s).dms.find((x) => x.id === thread.id);
+        if (t) acceptAuthorContract(s, t, adult);
+      });
+      ctx.toast(
+        adult
+          ? "성인물 작가 계약! 음란도도 작업 성과에 반영돼요 🔞"
+          : "작가 계약 체결! 다음 달부터 매월 월급이 들어와요 ✍️",
+      );
+    };
+    // 성인물 보기가 켜졌으면 작품 유형(전연령/성인물)을 고르게 한다.
+    if (ctx.store.getState().adultMode) {
+      return el(
+        "div",
+        { style: "display:flex;gap:6px;flex-wrap:wrap" },
+        el("button", { class: "btn", onclick: () => sign(false) }, "전연령으로 계약"),
+        el("button", { class: "btn", onclick: () => sign(true) }, "성인물로 계약"),
+      );
+    }
+    return el("button", { class: "btn", onclick: () => sign(false) }, "작가 계약하기");
   }
   // 사바나 여캠 제의 스레드: 계약 버튼(계약 후엔 표시만)
   if (thread.savanna) {
@@ -740,6 +820,50 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
         },
       },
       "여캠 계약하기",
+    );
+  }
+  // AV배우 제의 스레드: 계약/거절 버튼(처리 후엔 표시만)
+  if (thread.avOffer) {
+    return el(
+      "div",
+      { class: "compose-actions", style: "gap:8px" },
+      el(
+        "button",
+        {
+          class: "btn",
+          onclick: () => {
+            // 이미 다른 직업(회사/AV)이 있으면 전환 여부를 먼저 묻는다(직업 배타).
+            const st = ctx.store.getState();
+            if (hasAnyJob(st)) {
+              confirmPurchase(ctx, {
+                title: "직업 변경",
+                message: `현재 '${currentJobLabel(st)}' 직업이 있어요. 'AV배우'로 바꿀까요? (기존 직업은 그만둡니다)`,
+                confirmLabel: "바꾼다",
+                cancelLabel: "유지",
+                onConfirm: () => {
+                  ctx.update((s) => switchToAvJob(s, thread.id));
+                  ctx.toast("AV배우로 직업을 바꿨어요 🔞");
+                },
+              });
+              return;
+            }
+            ctx.update((s) => acceptAvJob(s, thread.id));
+            ctx.toast("AV배우 계약 완료! 다음 날 심야부터 촬영 업무를 볼 수 있어요 🔞");
+          },
+        },
+        "AV 계약한다",
+      ),
+      el(
+        "button",
+        {
+          class: "btn btn--ghost",
+          onclick: () => {
+            ctx.update((s) => declineAvJob(s, thread.id));
+            ctx.toast("제의를 거절했어요.");
+          },
+        },
+        "거절한다",
+      ),
     );
   }
   if (thread.metOffline) {
@@ -900,6 +1024,82 @@ function labOfferReplies(ctx: GameContext): HTMLElement {
   );
 }
 
+/** 서사 한 줄 + 닫기 버튼짜리 결과 모달(심리테스트 피싱 결과 등에 재사용). */
+function simpleResultModal(ctx: GameContext, title: string, message: string): HTMLElement {
+  return el(
+    "div",
+    { class: "modal" },
+    el("div", { class: "modal__head" }, el("span", { class: "modal__head-title" }, title)),
+    el(
+      "div",
+      { class: "modal__body" },
+      el("p", { style: "font-size:15px;line-height:1.8;margin:0 0 16px" }, message),
+      el("button", { class: "btn", onclick: () => ctx.closeModal() }, "닫기"),
+    ),
+  );
+}
+
+/** 불법 스탯 부스트상 뒷거래: 스탯 하나를 골라 30만원에 산다(성공↑ or 사기). */
+function openBoostDealModal(ctx: GameContext): void {
+  ctx.openModal((c) => {
+    const container = el("div", { class: "modal" });
+    const affordable = c.store.getState().money >= BOOST_COST;
+
+    function showResult(message: string): void {
+      container.replaceChildren(
+        el("div", { class: "modal__head" }, el("span", { class: "modal__head-title" }, "뒷거래 결과")),
+        el(
+          "div",
+          { class: "modal__body" },
+          el("p", { style: "font-size:15px;line-height:1.8;margin:0 0 16px" }, message),
+          el("button", { class: "btn", onclick: () => c.closeModal() }, "닫기"),
+        ),
+      );
+    }
+
+    const statButtons = SKILL_STAT_IDS.map((stat) =>
+      el(
+        "button",
+        {
+          class: "event-choice",
+          disabled: !affordable,
+          onclick: () => {
+            let message = "";
+            c.update((s) => {
+              message = resolveBoostDeal(s, stat).message; // 비용 지불·스탯/사기 판정
+              consumeBoostLink(s); // 재거래 불가(스레드 제거)
+            });
+            showResult(message);
+          },
+        },
+        el("b", {}, SKILL_STATS[stat].label),
+        el("div", { class: "sleep-choice__desc" }, `${BOOST_COST.toLocaleString("ko-KR")}원`),
+      ),
+    );
+
+    container.replaceChildren(
+      el(
+        "div",
+        { class: "modal__head" },
+        el("span", { class: "modal__head-title" }, "뒷거래 — 능력 고르기"),
+      ),
+      el(
+        "div",
+        { class: "modal__body" },
+        el(
+          "p",
+          { class: "compose-hint", style: "margin-top:0;font-size:14px" },
+          affordable
+            ? "어떤 능력을 올릴까? 한 번에 30만원, 환불은 없다."
+            : `소지금이 부족하다. 거래엔 ${BOOST_COST.toLocaleString("ko-KR")}원이 필요하다.`,
+        ),
+        ...statButtons,
+      ),
+    );
+    return container;
+  });
+}
+
 function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement {
   if (!thread) {
     return el("div", { class: "dm__convo" }, el("div", { class: "empty" }, "대화를 선택하세요."));
@@ -1029,6 +1229,41 @@ function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement 
               },
             },
             "🔗 yabam.click 들어가기",
+          ),
+        )
+      : thread.boostLink
+      ? el(
+          "div",
+          { class: "dm__replies" },
+          el(
+            "button",
+            {
+              class: "btn",
+              style: "width:100%",
+              onclick: () => openBoostDealModal(ctx),
+            },
+            "🔗 뒷거래 하러 가기",
+          ),
+        )
+      : thread.psychoLink
+      ? el(
+          "div",
+          { class: "dm__replies" },
+          el(
+            "button",
+            {
+              class: "btn",
+              style: "width:100%",
+              onclick: () => {
+                let msg = "";
+                ctx.update((s) => {
+                  msg = resolvePsychoTest(s); // 링크 소비·스팸 유입은 함수가 처리
+                });
+                ctx.toast("개인정보가 털린 듯…");
+                if (msg) ctx.openModal(() => simpleResultModal(ctx, "결과 확인", msg));
+              },
+            },
+            "🔗 결과 보기",
           ),
         )
       : el(

@@ -33,6 +33,8 @@ export interface UIState {
   /** 현재 떠 있는 모달을 그리는 함수. null이면 없음 */
   modal: ((ctx: GameContext) => HTMLElement) | null;
   toast: string | null;
+  /** 현재 토스트 색조(빨강=부정/초록=긍정). null이면 기본(중립). */
+  toastKind: "bad" | "good" | null;
   /** 고양이 전원 버튼 블랙아웃 연출 중인지(2초 후 팝업으로 이어진다) */
   catBlackout: boolean;
   /** 멘션이 펼쳐진 트윗 id 집합(전체 재렌더에도 유지) */
@@ -64,6 +66,8 @@ export interface UIState {
   portalArticleId: string | null;
   /** 너튜브 탭에 표시 중인 랜덤 영상 목록 */
   youtubeVideos: Video[];
+  /** 현재 너튜브 목록이 생성된 게임 날짜(day). 날짜가 바뀌면 재생성한다. */
+  youtubeVideosDay?: number;
   /** 현재 너튜브 목록이 운동/스포츠 영상을 포함해 생성됐는지(운동 스탯 30 초과) */
   youtubeFitnessMode: boolean;
   /** '소원을 이루어주는 가게' 사이트가 열려 있는지(탭 이동 시 닫히고 재진입 불가) */
@@ -102,6 +106,7 @@ export function createUIState(): UIState {
     calendarMonthOffset: 0,
     modal: null,
     toast: null,
+    toastKind: null,
     catBlackout: false,
     expandedTweets: new Set(),
     snsPage: "home",
@@ -144,7 +149,11 @@ export interface GameContext {
   refresh: () => void;
   openModal: (render: (ctx: GameContext) => HTMLElement) => void;
   closeModal: () => void;
-  toast: (message: string) => void;
+  /**
+   * 토스트를 띄운다. kind로 색조를 지정("bad"=빨강/"good"=초록).
+   * 생략하면 메시지 내용으로 부정 여부를 추정해 부정이면 빨강으로 표시한다.
+   */
+  toast: (message: string, kind?: "bad" | "good") => void;
   /**
    * 행동 직후 이벤트 발생을 시도한다.
    * 다른 모달이 떠 있으면 겹치지 않도록 그냥 넘어간다.

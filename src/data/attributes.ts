@@ -38,7 +38,7 @@ export const ATTRIBUTES: Record<AttributeId, AttributeDef> = {
     label: "아이돌덕",
     emoji: "",
     bio: "내 최애가 세상에서 제일 잘함. 이견 안 받음",
-    relatedSkills: ["sociability", "beauty"],
+    relatedSkills: ["sociability", "beauty", "otaku"],
     adultOnly: false,
   },
   anime: {
@@ -46,7 +46,7 @@ export const ATTRIBUTES: Record<AttributeId, AttributeDef> = {
     label: "애니덕",
     emoji: "",
     bio: "이번 분기도 정주행 중. 원작 얘기는 언제든 환영",
-    relatedSkills: ["comedy", "vocabulary"],
+    relatedSkills: ["comedy", "vocabulary", "otaku"],
     adultOnly: false,
   },
   actor: {
@@ -54,7 +54,7 @@ export const ATTRIBUTES: Record<AttributeId, AttributeDef> = {
     label: "배우덕",
     emoji: "",
     bio: "필모 정주행이 취미. 여운은 며칠씩 갑니다",
-    relatedSkills: ["beauty", "vocabulary"],
+    relatedSkills: ["beauty", "vocabulary", "otaku"],
     adultOnly: false,
   },
   gaming: {

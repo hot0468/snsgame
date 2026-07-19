@@ -23,6 +23,8 @@ export type IconName =
   | "lock"
   | "chevron"
   | "star"
+  | "sun"
+  | "moon"
   | "walk"
   | "bed"
   | "book"
@@ -45,6 +47,7 @@ export type IconName =
   | "leaf"
   | "pot"
   | "drawer"
+  | "camera"
   | "image";
 
 const PATHS: Record<IconName, string> = {
@@ -66,6 +69,8 @@ const PATHS: Record<IconName, string> = {
   lock: `<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>`,
   chevron: `<path d="m6 9 6 6 6-6"/>`,
   star: `<path d="M12 3l2.6 5.6 6 .8-4.4 4.2 1.1 6L12 16.9 6.7 19.8l1.1-6L3.4 9.4l6-.8z"/>`,
+  sun: `<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>`,
+  moon: `<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>`,
   walk: `<circle cx="13" cy="4" r="2"/><path d="M12 8l-2 4 3 2 1 6"/><path d="M10 12 7 10"/><path d="m14 12 3 1"/>`,
   bed: `<path d="M3 18V8"/><path d="M3 13h13a5 5 0 0 1 5 5"/><path d="M21 18v-1"/><circle cx="8" cy="10.5" r="1.6"/>`,
   book: `<path d="M5 4a2 2 0 0 1 2-2h12v15H7a2 2 0 0 0-2 2z"/><path d="M5 19a2 2 0 0 1 2-2h12"/>`,
@@ -88,6 +93,7 @@ const PATHS: Record<IconName, string> = {
   leaf: `<path d="M4 20C4 11 11 4 20 4c0 9-7 16-16 16z"/><path d="M4 20C8 14 12 11 17 9"/>`,
   pot: `<path d="M4 10h16v3a6 6 0 0 1-6 6h-4a6 6 0 0 1-6-6z"/><path d="M2 10h20"/><path d="M9 7c0-1.5-1.5-1.5-1.5-3M13 7c0-1.5-1.5-1.5-1.5-3"/>`,
   drawer: `<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 12h18"/><path d="M10 8h4M10 16h4"/>`,
+  camera: `<path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L19 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/>`,
   image: `<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m5 18 4.5-4.5 3 3L16 12l3 3.5"/>`,
 };
 

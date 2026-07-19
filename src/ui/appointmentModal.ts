@@ -2,6 +2,7 @@ import type { GameContext } from "./context";
 import type { Appointment } from "@/core/types";
 import {
   CREW_RUN_ACTION_COST,
+  GROUP_NIGHT_ACTION_COST,
   canLewdCosplay,
   dropAppointment,
   dueAppointments,
@@ -10,6 +11,7 @@ import {
   ticketingTimeLimitMs,
   type ComicconMode,
 } from "@/systems/appointments";
+import { meetSuccessChance, resolveMeet } from "@/systems/relationship";
 import { el } from "@/utils/dom";
 import { icon } from "./icons";
 
@@ -106,18 +108,26 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
 
   /** 단일 약속: 할지/말지 (코믹콘은 참여 방식 선택, 티켓팅은 좌석 미니게임) */
   function showGoSkip(appt: Appointment): void {
+    if (appt.charId) return showRelMeet(appt);
     if (appt.kind === "ticketing") return showTicketing(appt);
     if (appt.variant === "comiccon") return showComiccon(appt);
     const action = ctx.store.getState().resources.action;
-    const needAction = appt.kind === "crew" ? CREW_RUN_ACTION_COST : 10;
+    const needAction =
+      appt.kind === "crew"
+        ? CREW_RUN_ACTION_COST
+        : appt.kind === "groupRoom"
+          ? GROUP_NIGHT_ACTION_COST
+          : 10;
     const canGo = action >= needAction;
 
     const prompt =
       appt.kind === "crew"
         ? "목요일 저녁, 러닝크루 정기런 시간이다. 체력 부담은 적지만 함께 뛰면 운동 효과가 쏠쏠하다. 오늘 나갈까?"
-        : appt.kind === "event"
-          ? `오늘은 「${appt.title}」 날이다. 행사에 참여하러 갈까?`
-          : `${appt.partnerName ?? "친구"}와 만나기로 한 날이다. 오늘 만나러 갈까?`;
+        : appt.kind === "groupRoom"
+          ? "토요일 심야, 그룹방 정기 모임 시간이다. 단톡에 찍힌 장소로 가면 인원이 모여 교대 플레이가 이어진다. 오늘 나갈까?"
+          : appt.kind === "event"
+            ? `오늘은 「${appt.title}」 날이다. 행사에 참여하러 갈까?`
+            : `${appt.partnerName ?? "친구"}와 만나기로 한 날이다. 오늘 만나러 갈까?`;
 
     container.replaceChildren(
       el(
@@ -148,6 +158,62 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
         ),
       ),
     );
+  }
+
+  /** 관계 캐릭터와의 만남 약속: 만나러 갈지 고른다. 발동 시 resolveMeet가 성사/바람맞음을 판정한다. */
+  function showRelMeet(appt: Appointment): void {
+    const name = appt.partnerName ?? "친구";
+    const chance = Math.round(meetSuccessChance(ctx.store.getState()) * 100);
+    container.replaceChildren(
+      el(
+        "div",
+        { class: "modal__head" },
+        el("span", { class: "modal__head-title" }, icon("walk", { size: 18 }), appt.title),
+      ),
+      el(
+        "div",
+        { class: "modal__body" },
+        el(
+          "p",
+          { style: "font-size:15px;line-height:1.6;margin:0 0 8px" },
+          `${name}와 만나기로 한 날이다. 나가면 성사될 수도, 바람맞을 수도 있다.`,
+        ),
+        el(
+          "p",
+          { class: "compose-hint", style: "margin:0 0 16px" },
+          `성사 확률 ${chance}% · 성사하면 호감도가 크게 오른다`,
+        ),
+        el(
+          "button",
+          { class: "event-choice", onclick: () => resolveRelMeet(appt) },
+          "만나러 간다",
+        ),
+        el(
+          "button",
+          { class: "event-choice", onclick: () => resolveRelMeet(appt, true) },
+          "오늘은 안 나간다",
+        ),
+      ),
+    );
+  }
+
+  /** 관계 만남 확정 — resolveMeet 판정 후 약속을 제거하고 결과 문구를 보여준다. */
+  function resolveRelMeet(appt: Appointment, skip = false): void {
+    const name = appt.partnerName ?? "친구";
+    let msg = "";
+    ctx.update((s) => {
+      s.appointments = s.appointments.filter((a) => a.id !== appt.id);
+      if (skip) {
+        msg = `${name}에게 오늘은 못 나갈 것 같다고 양해를 구했다.`;
+        return;
+      }
+      const r = resolveMeet(s, appt.charId!);
+      msg = r.success
+        ? `${name}을(를) 만나 즐거운 시간을 보냈다. 부쩍 가까워진 기분이다. (호감도 +${r.gain})`
+        : `한참을 기다렸지만 ${name}은(는) 끝내 나오지 않았다... 바람맞았다. (호감도 +${r.gain})`;
+      if (r.pending !== null) msg += "\n\n카톡에 새 이벤트가 도착했다!";
+    });
+    showResult(msg);
   }
 
   /** 티켓팅 도입: 좌석 미니게임을 시작할지, 포기할지 */

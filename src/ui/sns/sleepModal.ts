@@ -3,6 +3,8 @@ import { advanceTime } from "@/systems/time";
 import { runSavannaStream } from "@/systems/savanna";
 import { doOfflineActivity, AUTHOR_WORK_ACTIVITY } from "@/systems/offline";
 import { renderSavannaIntrusionModal } from "./savannaModal";
+import { canWorkAvNow } from "@/systems/avJob";
+import { renderAvWorkModal } from "@/ui/avWorkModal";
 import { el } from "@/utils/dom";
 import { icon } from "@/ui/icons";
 
@@ -17,10 +19,10 @@ import { icon } from "@/ui/icons";
 export function renderSleepModal(ctx: GameContext): HTMLElement {
   const container = el("div", { class: "modal" });
 
-  function choice(title: string, desc: string, onclick: () => void): HTMLElement {
+  function choice(title: string, desc: string, onclick: () => void, cls = ""): HTMLElement {
     return el(
       "button",
-      { class: "event-choice", onclick },
+      { class: "event-choice" + (cls ? " " + cls : ""), onclick },
       el("b", {}, title),
       el("div", { class: "sleep-choice__desc" }, desc),
     );
@@ -121,6 +123,21 @@ export function renderSleepModal(ctx: GameContext): HTMLElement {
                   showResult(msg);
                 }
               },
+            )
+          : null,
+        // AV 촬영 업무 — 심야 활동이라 취침 모달에서 접근한다(상태-독 버튼은 취침 모달에 가려짐).
+        canWorkAvNow(state)
+          ? choice(
+              "🎬 AV 촬영 업무",
+              "심야 성인물 촬영을 뛰고 이번 달 근무일·수입을 채운다. 행동력을 쓰고 다음날로 넘어간다.",
+              () => {
+                ctx.update((s) => {
+                  s.sleepPending = false; // avWorkModal의 resolveAvWork가 다음날로 넘긴다
+                });
+                ctx.closeModal();
+                ctx.openModal(renderAvWorkModal);
+              },
+              "event-choice--av",
             )
           : null,
       ),

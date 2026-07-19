@@ -1,5 +1,5 @@
 import { MAX_RESOURCE, MAX_SKILL } from "@/data/stats";
-import type { GameState } from "@/core/types";
+import type { GameState, SkillStatId } from "@/core/types";
 
 /**
  * 스탯 클램프 단일 출처.
@@ -60,4 +60,25 @@ export const SKILL_SCALE = MAX_SKILL / 100;
  */
 export function skillTo100(v: number): number {
   return v / SKILL_SCALE;
+}
+
+/**
+ * 반복 grind 소스의 스킬 상승 감쇠 계수. 스킬이 높을수록 획득이 줄어
+ * 능동 플레이 만렙 도달을 2달→~5달대로 늦춘다. content-author가 미세조정한다.
+ */
+export const SKILL_GAIN_DECAY = 0.8;
+
+/**
+ * 스킬 획득 공용 헬퍼 — 반복 소스(오프라인 활동·AV 촬영·사바나·정기런·이벤트 등)의
+ * 스킬 상승을 여기로 라우팅해 상단 감쇠를 한 지점에서 건다.
+ * `eff = amount * (1 - SKILL_GAIN_DECAY * skill/MAX_SKILL)` 후 clampSkill로 저장.
+ * ⚠️ 감쇠는 **획득(양수)에만** 건다 — 음수(페널티/드롭)는 그대로 통과시켜
+ *    스킬이 높을수록 페널티가 약해지는 역효과를 막는다.
+ * @returns 실제 반영된 델타(상한 clamp·감쇠 후).
+ */
+export function gainSkill(state: GameState, key: SkillStatId, amount: number): number {
+  const before = state.skills[key];
+  const eff = amount > 0 ? amount * (1 - SKILL_GAIN_DECAY * (before / MAX_SKILL)) : amount;
+  state.skills[key] = clampSkill(before + Math.round(eff));
+  return state.skills[key] - before;
 }

@@ -1024,9 +1024,22 @@ function sitesBlock(ctx: GameContext): HTMLElement {
   );
 }
 
+/** 그날(day)에 따라 결정적으로 섞은 뉴스 목록 — 하루가 지나면 배열이 새로 뽑힌다. */
+function newsForDay(day: number): Article[] {
+  const arr = [...NEWS];
+  let h = (day + 1) * 2654435761;
+  for (let i = arr.length - 1; i > 0; i--) {
+    h = (h * 1103515245 + 12345) & 0x7fffffff;
+    const j = h % (i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 function renderNewsHome(ctx: GameContext): HTMLElement {
-  const featured = NEWS.slice(0, 2);
-  const list = NEWS.slice(2, 7);
+  const daily = newsForDay(ctx.store.getState().day);
+  const featured = daily.slice(0, 2);
+  const list = daily.slice(2, 7);
 
   const featuredCol = el(
     "div",

@@ -207,11 +207,18 @@ function shortsSection(videos: Video[]): HTMLElement {
 
 export function renderYoutube(ctx: GameContext): HTMLElement {
   // 운동 스탯 300 초과면 너튜브에 운동/스포츠 영상도 섞인다.
+  const day = ctx.store.getState().day;
   const wantFitness = ctx.store.getState().skills.fitness > 300;
-  if (ctx.ui.youtubeVideos.length === 0 || ctx.ui.youtubeFitnessMode !== wantFitness) {
+  // 목록이 비었거나, fitness 모드가 바뀌었거나, 날짜가 바뀌면 새 영상으로 갱신한다.
+  if (
+    ctx.ui.youtubeVideos.length === 0 ||
+    ctx.ui.youtubeFitnessMode !== wantFitness ||
+    ctx.ui.youtubeVideosDay !== day
+  ) {
     const attrs = wantFitness ? [...DEFAULT_VIDEO_ATTRS, "fitness" as const] : DEFAULT_VIDEO_ATTRS;
     ctx.ui.youtubeVideos = makeRandomVideos(12, attrs);
     ctx.ui.youtubeFitnessMode = wantFitness;
+    ctx.ui.youtubeVideosDay = day;
   }
   const videos = ctx.ui.youtubeVideos;
   // 첫 줄 3개 → Shorts → 나머지, 유튜브 홈 배치를 흉내낸다.

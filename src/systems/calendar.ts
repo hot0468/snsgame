@@ -33,6 +33,8 @@ export function weekdayLabel(day: number): string {
 
 /** 목요일 요일 인덱스 */
 export const THURSDAY = 4;
+/** 토요일 요일 인덱스(성인 그룹방 정기 모임 등) */
+export const SATURDAY = 6;
 
 /** 평일(월~금)인지 */
 export function isWeekday(day: number): boolean {

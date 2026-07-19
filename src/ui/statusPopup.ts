@@ -2,14 +2,17 @@ import type { GameContext } from "./context";
 import { RESOURCE_STATS, RESOURCE_STAT_IDS, SKILL_STATS, SKILL_STAT_IDS } from "@/data/stats";
 import { daysUntilRent, livingCostToday, rentAmount } from "@/systems/economy";
 import { salaryOf } from "@/systems/employment";
+import { avSalaryOf, canWorkAvNow, AV_MONTHLY_QUOTA } from "@/systems/avJob";
 import { certById } from "@/systems/certification";
 import { actionMax } from "@/systems/stats";
 import type { SkillStatId } from "@/core/types";
+import { SLOT_LABELS } from "@/core/state";
 import { el, formatNumber } from "@/utils/dom";
 import { statBar } from "./components";
 import { icon, type IconName } from "./icons";
 import { renderOfflineModal } from "./offlineModal";
 import { renderInventoryModal } from "./inventory";
+import { renderAvWorkModal } from "./avWorkModal";
 
 /** 세부 스탯 아이콘 */
 const SKILL_ICON: Record<SkillStatId, IconName> = {
@@ -24,6 +27,8 @@ const SKILL_ICON: Record<SkillStatId, IconName> = {
   game: "gamepad",
   // IT계 속성 아이콘(ATTR_ICON.it)과 같은 grid를 쓴다 — 같은 개념에 다른 그림을 주지 않는다.
   it: "grid",
+  // 덕질(팬덤 열정·최애) — 꽉 찬 별로 팬심을 표현. sociability(heart)와 겹치지 않게.
+  otaku: "star",
 };
 
 /**
@@ -32,13 +37,43 @@ const SKILL_ICON: Record<SkillStatId, IconName> = {
  */
 let detailOpen = false;
 
+/**
+ * 돈·리소스가 이전 렌더보다 감소하면 2초 빨간 플래시를 준다(하락만, 상승·동일 무시).
+ * ⚠️ statusInner는 팝업+도크가 공유해 한 프레임에 두 번 호출된다. 비교는 매 호출 순수하게
+ * 하되(둘 다 같은 prev를 봐 같은 결과), prev 커밋은 마이크로태스크로 프레임당 1회만 —
+ * 첫 호출에서 prev를 갱신하면 둘째 호출이 감소를 못 보고 한쪽만 플래시하는 오작동이 난다.
+ */
+let prevMoney: number | null = null;
+const prevRes: Record<string, number> = {};
+let commitScheduled = false;
+
+function computeDrops(s: import("@/core/types").GameState): {
+  money: boolean;
+  res: Record<string, boolean>;
+} {
+  const money = prevMoney !== null && s.money < prevMoney;
+  const res: Record<string, boolean> = {};
+  for (const id of RESOURCE_STAT_IDS) {
+    const p = prevRes[id];
+    res[id] = p !== undefined && s.resources[id] < p;
+  }
+  if (!commitScheduled) {
+    commitScheduled = true;
+    queueMicrotask(() => {
+      prevMoney = s.money;
+      for (const id of RESOURCE_STAT_IDS) prevRes[id] = s.resources[id];
+      commitScheduled = false;
+    });
+  }
+  return { money, res };
+}
+
 /** 생활비/월세/재직 안내 */
 function renderMoneyInfo(s: import("@/core/types").GameState): HTMLElement {
   const dRent = daysUntilRent(s);
   const rentText = dRent === 0 ? "오늘 납부일!" : `${dRent}일 후`;
   const rent = rentAmount(s);
   const living = livingCostToday(s);
-  const emp = s.employment;
 
   return el(
     "div",
@@ -46,13 +81,6 @@ function renderMoneyInfo(s: import("@/core/types").GameState): HTMLElement {
       class: "money-info",
       style: s.money < 0 ? "color:var(--danger)" : "",
     },
-    emp
-      ? el(
-          "div",
-          { style: "color:var(--good);font-weight:700" },
-          `재직: ${emp.company} · 월급 ${formatNumber(salaryOf(s))}원 (10일)`,
-        )
-      : null,
     el(
       "div",
       {},
@@ -76,8 +104,55 @@ function renderMoneyInfo(s: import("@/core/types").GameState): HTMLElement {
 }
 
 /**
+ * 직업란 — 회사 재직·AV배우 계약을 함께 보여준다.
+ * 둘 다 없으면 null(빈 박스 금지). "상세 스탯 보기" 버튼 바로 위에 놓인다.
+ */
+function renderJobInfo(s: import("@/core/types").GameState): HTMLElement | null {
+  const emp = s.employment;
+  const av = s.avJob;
+  if (!emp && !av) return null;
+
+  const rows: (HTMLElement | null)[] = [
+    el("div", { style: "font-weight:700;color:var(--text)" }, "직업"),
+  ];
+  if (emp) {
+    rows.push(
+      el(
+        "div",
+        { style: "color:var(--good);font-weight:700" },
+        `재직: ${emp.company} · 월급 ${formatNumber(salaryOf(s))}원 (10일)`,
+      ),
+    );
+  }
+  if (av) {
+    const halved = av.workDaysThisMonth < AV_MONTHLY_QUOTA;
+    rows.push(
+      el("div", { style: "font-weight:700" }, `AV배우 · 월급 ${formatNumber(avSalaryOf(s))}원 (25일)`),
+    );
+    rows.push(
+      el(
+        "div",
+        { style: halved ? "color:var(--danger);font-weight:700" : "" },
+        `이번달 근무 ${av.workDaysThisMonth}/${AV_MONTHLY_QUOTA}일` + (halved ? " · 월급 반감 중" : ""),
+      ),
+    );
+    rows.push(el("div", {}, `이번 달 노콘 ${av.condomlessThisMonth}회 (월급 +${formatNumber(av.condomlessThisMonth * 300000)}원)`));
+    if (av.stdUntilDay >= s.day) {
+      rows.push(
+        el(
+          "div",
+          { style: "color:var(--danger);font-weight:700" },
+          `성병 치료 중 · 촬영 불가 (${av.stdUntilDay - s.day + 1}일 남음)`,
+        ),
+      );
+    }
+  }
+  return el("div", { class: "money-info" }, ...rows);
+}
+
+/**
  * 세부 스탯 팝오버 하단의 자격증 목록.
- * .detail-pop이 232px로 좁아 이름이 길면 잘리므로, 이름은 한 줄에 가두지 않고
+ * 이름이 길면 잘리므로, 이름은 한 줄에 가두지 않고
  * .detail-cert__name에서 줄바꿈시킨다(CSS: word-break:keep-all).
  */
 function renderCertSection(s: import("@/core/types").GameState): HTMLElement {
@@ -114,9 +189,33 @@ function renderCertSection(s: import("@/core/types").GameState): HTMLElement {
   );
 }
 
+/** 세부 스탯 한 줄(아이콘·라벨·바·수치). extraClass로 음란 행을 빨갛게 강조한다. */
+function detailStatRow(
+  s: import("@/core/types").GameState,
+  id: SkillStatId,
+  extraClass = "",
+): HTMLElement {
+  const def = SKILL_STATS[id];
+  const val = Math.round(s.skills[id]);
+  const pct = Math.round((Math.max(0, val) / def.max) * 100);
+  return el(
+    "div",
+    { class: "detail-row" + (extraClass ? " " + extraClass : "") },
+    el("span", { class: "detail-row__icon" }, icon(SKILL_ICON[id], { size: 13 })),
+    el("span", { class: "detail-row__label" }, def.label),
+    el(
+      "div",
+      { class: "bar bar--sm" },
+      el("div", { class: "bar__fill bar__fill--skill", style: `width:${pct}%` }),
+    ),
+    el("span", { class: "detail-row__val" }, String(val)),
+  );
+}
+
 /** 스테이터스 내용(제목 + 본문) — 팝업/도킹 패널이 공유한다. */
 function statusInner(ctx: GameContext): HTMLElement[] {
   const s = ctx.store.getState();
+  const drops = computeDrops(s);
 
   const resourceRows = RESOURCE_STAT_IDS.map((id) => {
     const def = RESOURCE_STATS[id];
@@ -124,7 +223,7 @@ function statusInner(ctx: GameContext): HTMLElement[] {
     //    행동력 120이 바에서 꽉 찬 것처럼 보여 상한이 오른 티가 나지 않는다.
     //    정신력·도덕성·평판은 상한이 고정 100이므로 def.max 그대로.
     const max = id === "action" ? actionMax(s) : def.max;
-    return statBar(def.label, s.resources[id], max, `bar__fill--${id}`);
+    return statBar(def.label, s.resources[id], max, `bar__fill--${id}`, drops.res[id]);
   });
 
   // 세부 스탯은 스크롤 대신 왼쪽에 뜨는 팝오버로 표시한다.
@@ -152,37 +251,26 @@ function statusInner(ctx: GameContext): HTMLElement[] {
         el(
           "div",
           { class: "detail-grid" },
-          ...SKILL_STAT_IDS.map((id) => {
-          const def = SKILL_STATS[id];
-          const val = Math.round(s.skills[id]);
-          const pct = Math.round((Math.max(0, val) / def.max) * 100);
-          return el(
-            "div",
-            { class: "detail-row" },
-            el("span", { class: "detail-row__icon" }, icon(SKILL_ICON[id], { size: 13 })),
-            el("span", { class: "detail-row__label" }, def.label),
-            el(
-              "div",
-              { class: "bar bar--sm" },
-              el("div", { class: "bar__fill bar__fill--skill", style: `width:${pct}%` }),
-            ),
-            el("span", { class: "detail-row__val" }, String(val)),
-          );
-          }),
+          ...SKILL_STAT_IDS.filter((id) => id !== "lewd").map((id) => detailStatRow(s, id)),
         ),
+        // 음란은 그리드에서 빼 별도 행으로 분리하고 빨간색으로 강조한다.
+        detailStatRow(s, "lewd", "detail-row--lewd"),
         renderCertSection(s),
       )
     : null;
 
+  const slotClass = ["morning", "evening", "late"][s.slot] ?? "morning";
+  // "스테이터스" 텍스트 대신 시간대 아이콘(아침=해 / 저녁=별=땅거미 / 심야=달)을 얹는다.
+  const slotIcon = (["sun", "star", "moon"] as const)[s.slot] ?? "sun";
   const nodes: HTMLElement[] = [
     el(
       "div",
-      { class: "popup__title" },
-      "스테이터스",
+      { class: `popup__title popup__title--${slotClass}` },
+      el("span", { class: "popup__title-slot", title: SLOT_LABELS[s.slot] }, icon(slotIcon, { size: 18 })),
       el(
         "span",
         {
-          class: "money-badge",
+          class: "money-badge" + (drops.money ? " money-drop" : ""),
           style:
             "font-weight:700;font-size:12px;" +
             (s.money < 0 ? "color:var(--danger)" : ""),
@@ -196,6 +284,7 @@ function statusInner(ctx: GameContext): HTMLElement[] {
       { class: "popup__body" },
       ...resourceRows,
       renderMoneyInfo(s),
+      renderJobInfo(s),
       el(
         "button",
         {
@@ -237,6 +326,18 @@ export function renderStatusDock(ctx: GameContext): HTMLElement {
         icon("drawer", { size: 18 }),
         "서랍장",
       ),
+      // AV 촬영은 서랍장 아래·현생살기 위. 성인/AV 톤으로 분홍(life-btn--av).
+      canWorkAvNow(ctx.store.getState())
+        ? el(
+            "button",
+            {
+              class: "life-btn life-btn--av",
+              onclick: () => ctx.openModal(renderAvWorkModal),
+            },
+            icon("camera", { size: 18 }),
+            "AV 촬영 업무",
+          )
+        : null,
       el(
         "button",
         { class: "life-btn", onclick: () => ctx.openModal(renderOfflineModal) },

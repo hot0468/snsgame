@@ -4,6 +4,7 @@ import { SHOP_ITEMS } from "@/data/shop";
 import { COSMETICS } from "@/data/cosmetics";
 import { GOBLIN_ITEMS } from "@/data/goblin";
 import { PEEMANG_ITEMS } from "@/data/peemang";
+import { REL_GIFTS } from "@/data/relationships";
 import { getActiveAccount } from "@/core/state";
 import { randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
@@ -100,7 +101,20 @@ const ITEM_INDEX = new Map<string, OwnedItemInfo>([
         { id: g.id, name: g.name, desc: g.desc, price: g.price, boosts: g.boosts, repeatable: false },
       ] as const,
   ),
+  // 관계 완주 선물 — 스탯 부스트 없음. 판매 시 rep/도덕 페널티는 sellOwnedItem이 붙인다.
+  ...REL_GIFTS.map(
+    (g) =>
+      [g.id, { id: g.id, name: g.name, desc: g.desc, price: g.price, boosts: {}, repeatable: false }] as const,
+  ),
 ]);
+
+/** 관계 선물 id 집합 — 판매 시 추가 페널티(평판/도덕) 판정용 */
+const REL_GIFT_IDS = new Set(REL_GIFTS.map((g) => g.id));
+
+/** 이 아이템이 관계 완주 선물인지(ui가 판매 경고 문구를 띄울 때 사용) */
+export function isRelGift(id: string): boolean {
+  return REL_GIFT_IDS.has(id);
+}
 
 /** 보유 id를 아이템으로 해석한다. 어느 출처에도 없는 id(구세이브 유실)면 null. */
 export function resolveItem(id: string): OwnedItemInfo | null {
@@ -148,8 +162,18 @@ export function sellOwnedItem(state: GameState, id: string): number | null {
   for (const [skill, boost] of Object.entries(item.boosts) as [SkillStatId, number][]) {
     state.skills[skill] = clampSkill(state.skills[skill] - boost);
   }
+  // 관계 선물을 팔면 정을 판 대가로 평판·도덕이 크게 깎인다(소지금은 위에서 이미 지급).
+  if (REL_GIFT_IDS.has(id)) {
+    state.resources.reputation = clampResource(state.resources.reputation - GIFT_SELL_REP_PENALTY);
+    state.resources.morality = clampResource(state.resources.morality - GIFT_SELL_MORALITY_PENALTY);
+  }
   return payout;
 }
+
+/** 관계 선물 판매 시 평판 페널티 */
+export const GIFT_SELL_REP_PENALTY = 30;
+/** 관계 선물 판매 시 도덕 페널티 */
+export const GIFT_SELL_MORALITY_PENALTY = 30;
 
 /* ─────────────────── 상품 광고(협찬 트윗) ─────────────────── */
 

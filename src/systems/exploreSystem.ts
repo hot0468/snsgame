@@ -6,6 +6,11 @@ import { allTemplatesFor } from "@/data/tweets";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { calcEncounterFollowerDelta, changeFollowers } from "./followers";
 import { makeWishTweet } from "./wish";
+import { makeOhaasaTweet } from "./ohaasa";
+import { makeChainLetterTweet } from "./chainLetter";
+import { makeBoostTweet } from "./statBoost";
+import { makePsychoTweet } from "./psychoTest";
+import { makeHauntTweet } from "./haunt";
 import { DARTPIN_TWEET_CHANCE, makeDartpinTweet } from "./dartpin";
 import { DSTORY_TWEET_CHANCE, isDstoryDone, makeDstoryTweet } from "./dstory";
 import { maybeSpawnFanDM } from "./dm";
@@ -52,6 +57,8 @@ export function exploreTweets(state: GameState): Tweet[] {
   const tweets = Array.from({ length: 3 }, () => makeRandomTweet(adult, state.day));
   // 낮은 확률로 한 칸을 이스터에그 트윗으로 교체
   if (chance(0.4)) tweets[randInt(0, 2)] = makeEggTweet(pick(EGG_KINDS), state.day);
+  // 오하아사(아침 운세)는 자주 떠야 하므로 사슬 위쪽·높은 확률(사용자 확정 예외).
+  else if (chance(0.15)) tweets[randInt(0, 2)] = makeOhaasaTweet(state);
   // 아주 낮은 확률로 '까칠한외눈' 소원 트윗이 섞인다
   else if (chance(0.12)) tweets[randInt(0, 2)] = makeWishTweet(state);
   // 낮은 확률로 '다트 핀' 발견 트윗(링크 첨부)이 섞인다 — 아직 발견 전일 때만.
@@ -59,6 +66,11 @@ export function exploreTweets(state: GameState): Tweet[] {
   else if (!state.dartpinUnlocked && chance(DARTPIN_TWEET_CHANCE)) {
     tweets[randInt(0, 2)] = makeDartpinTweet(state);
   }
+  // 나머지 특수 트윗 4종은 사슬 '뒤쪽'·낮은 확률(소원/다트핀을 과희석하지 않도록).
+  else if (chance(0.06)) tweets[randInt(0, 2)] = makeChainLetterTweet(state);
+  else if (chance(0.06)) tweets[randInt(0, 2)] = makeBoostTweet(state);
+  else if (chance(0.05)) tweets[randInt(0, 2)] = makePsychoTweet(state);
+  else if (chance(0.06)) tweets[randInt(0, 2)] = makeHauntTweet(state);
   return tweets;
 }
 

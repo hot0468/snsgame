@@ -2,7 +2,7 @@ import type { AttributeId, GameState, SkillStatId } from "@/core/types";
 import { getActiveAccount } from "@/core/state";
 
 /** 이벤트를 발생시킬 수 있는 행동 트리거 */
-export type EventTrigger = "offline" | "tweet" | "explore" | "ad" | "day";
+export type EventTrigger = "offline" | "tweet" | "explore" | "ad" | "day" | "like" | "retweet";
 
 /**
  * 선언형 효과. 로직은 systems/events.ts가 적용한다(데이터는 규칙에 의존하지 않음).
@@ -37,7 +37,13 @@ export interface EventEffect {
     | "companyDinner"
     | "hackRansom"
     | "lottery"
-    | "sponsorDeal";
+    | "sponsorDeal"
+    | "taxPay"
+    | "taxDodge"
+    | "whaleOrgy"
+    | "blackVanOrgy"
+    | "crewGangDrill"
+    | "mutualFollowDM";
 }
 
 export interface EventChoice {
@@ -69,6 +75,8 @@ const hasFollowers = (n: number) => (s: GameState) => getActiveAccount(s).follow
 const moralityBelow = (n: number) => (s: GameState) => s.resources.morality < n;
 /** 성인물 해제(유저 전역 설정)가 켜져 있어야 함 */
 const adultOn = (s: GameState) => s.adultMode;
+/** '강압/범죄 안 보기'가 꺼져 있어야 함(비합의 성인 상황 게이트) */
+const coercionOk = (s: GameState) => !s.adultNoCoercion;
 /** 여러 조건을 모두 만족해야 함 */
 const all =
   (...conds: ((s: GameState) => boolean)[]) =>
@@ -485,6 +493,317 @@ export const GAME_EVENTS: GameEvent[] = [
     ],
   },
 
+  {
+    // 후반 돈 싱크 — 협찬·후원 수입이 쌓이면 종합소득세가 날아온다.
+    // 세액은 소지금 비례라(선언형으로 못 함) 두 선택지 모두 customKey가 처리한다.
+    // 축소 신고는 낮은 확률로 세무조사에 걸려 가산세까지 추징당하는 도박이다.
+    id: "tax_bomb",
+    emoji: "",
+    title: "종합소득세 신고 안내",
+    description:
+      "국세청에서 종합소득세 신고 안내문이 날아왔다. 그동안 쌓인 협찬·후원 수입에 세금이 붙는다. 어떻게 신고할까?",
+    triggers: ["day"],
+    weight: 0.6,
+    condition: (s) => s.money >= 500000,
+    choices: [
+      {
+        label: "성실하게 신고·납부한다",
+        effect: { customKey: "taxPay" },
+        result: "",
+      },
+      {
+        label: "수입을 줄여 신고한다 (적발 시 추징)",
+        effect: { customKey: "taxDodge" },
+        result: "",
+      },
+    ],
+  },
+
+  // ── 현생(offline) 스탯 게이팅 — 키운 스탯이 현실에서 빛을 본다 ────────
+  {
+    id: "street_snatch",
+    emoji: "",
+    title: "날치기 목격",
+    description: "길을 걷는데 오토바이를 탄 날치기가 행인의 가방을 낚아채 달아난다!",
+    triggers: ["offline"],
+    condition: (s) => s.skills.fitness >= 400,
+    choices: [
+      {
+        label: "쫓아가 제압한다",
+        effect: { reputation: 8, followers: 50, mental: -6, skills: { fitness: 10 } },
+        result:
+          "단련된 몸으로 순식간에 따라잡아 제압했다! 시민 영웅으로 목격담이 퍼지며 계정이 화제가 됐다.",
+      },
+      {
+        label: "괜히 다칠라 못 본 척한다",
+        effect: { mental: +2 },
+        result: "위험한 일에 끼어들 필요 없지. 못 본 척 발길을 옮겼다.",
+      },
+    ],
+  },
+  {
+    id: "street_debate",
+    emoji: "",
+    title: "길거리 토론 배틀",
+    description:
+      "광장에서 열변을 토하던 사람이 지나가는 당신을 붙잡고 논쟁을 걸어왔다. 구경꾼이 모여든다.",
+    triggers: ["offline"],
+    condition: (s) => s.skills.vocabulary >= 350 && s.skills.knowledge >= 350,
+    choices: [
+      {
+        label: "논리로 완벽하게 논파한다",
+        effect: { followers: 45, mental: -5, skills: { vocabulary: 15, knowledge: 5 } },
+        result:
+          "빈틈없는 논리로 상대를 말문 막히게 했다. 구경하던 사람들이 감탄하며 계정을 찾아왔다.",
+      },
+      {
+        label: "말 섞기 싫어 지나친다",
+        effect: { mental: +2 },
+        result: "굳이 길에서 입씨름할 이유가 없지. 조용히 자리를 떴다.",
+      },
+    ],
+  },
+  {
+    id: "instant_network",
+    emoji: "",
+    title: "즉석 인맥",
+    description: "카페 옆자리 사람과 눈이 마주쳤다. 자연스레 말을 트니 대화가 술술 풀린다.",
+    triggers: ["offline"],
+    condition: (s) => s.skills.sociability >= 400,
+    choices: [
+      {
+        label: "친화력을 발휘해 친해진다",
+        effect: { followers: 60, mental: +5, skills: { sociability: 15 } },
+        result:
+          "특유의 붙임성으로 금세 친해졌다. 알고 보니 인플루언서라 서로 계정을 팔로우하며 팬층이 유입됐다.",
+      },
+      {
+        label: "가볍게 인사만 하고 만다",
+        effect: {},
+        result: "적당히 인사만 나누고 각자 갈 길을 갔다.",
+      },
+    ],
+  },
+  {
+    id: "street_busking",
+    emoji: "",
+    title: "길거리 버스킹",
+    description: "번화가 한켠, 사람들이 모여 있다. 여기서 즉석 개그 한 판 펼쳐볼까?",
+    triggers: ["offline"],
+    condition: (s) => s.skills.comedy >= 350,
+    choices: [
+      {
+        label: "즉석 만담으로 좌중을 휘어잡는다",
+        effect: { followers: 45, mental: +8, skills: { comedy: 15 } },
+        result: "던지는 드립마다 빵빵 터졌다! 촬영된 영상이 SNS에 퍼지며 팔로워가 늘었다.",
+      },
+      {
+        label: "괜히 부끄러워 관둔다",
+        effect: { mental: +2 },
+        result: "사람들 앞에 나서기엔 아직... 슬그머니 자리를 떴다.",
+      },
+    ],
+  },
+  {
+    id: "flea_market_stall",
+    emoji: "",
+    title: "벼룩시장 좌판",
+    description: "주말 벼룩시장이 열렸다. 직접 만든 소품을 들고 좌판을 깔아볼까?",
+    triggers: ["offline"],
+    condition: (s) => s.skills.creativity >= 350,
+    choices: [
+      {
+        label: "손수 만든 굿즈를 판다",
+        effect: { money: 80000, mental: -4, skills: { creativity: 10 } },
+        result: "정성껏 만든 소품이 제법 팔려나갔다. 쏠쏠한 부수입에 창작 재미도 붙었다.",
+      },
+      {
+        label: "귀찮아서 구경만 한다",
+        effect: { mental: +3 },
+        result: "남의 좌판만 실컷 구경하다 왔다.",
+      },
+    ],
+  },
+  {
+    id: "arcade_ranking",
+    emoji: "",
+    title: "오락실 랭킹 도전",
+    description: "동네 오락실 기계에 전국 랭킹 보드가 붙어 있다. 1위 기록에 도전해볼까?",
+    triggers: ["offline"],
+    condition: (s) => s.skills.game >= 400,
+    choices: [
+      {
+        label: "동전을 쏟아부어 1위에 도전한다",
+        effect: { money: -3000, followers: 40, skills: { game: 15 } },
+        result: "손이 보이지 않는 컨트롤로 전국 1위를 갈아치웠다! 인증 영상이 게이머들 사이에 퍼졌다.",
+        requires: (s) => s.money >= 3000,
+      },
+      {
+        label: "돈 아깝다, 눈으로만 즐긴다",
+        effect: { mental: +2 },
+        result: "괜히 동전만 날릴라. 남 플레이나 구경하다 왔다.",
+      },
+    ],
+  },
+  {
+    id: "kiosk_fix",
+    emoji: "",
+    title: "먹통 된 무인점포 키오스크",
+    description: "무인 편의점 키오스크가 먹통이 돼 손님들이 발을 동동 구른다. 슬쩍 봐줄까?",
+    triggers: ["offline"],
+    condition: (s) => s.skills.it >= 350,
+    choices: [
+      {
+        label: "능숙하게 손봐 고쳐준다",
+        effect: { reputation: 6, mental: +5, skills: { it: 10 } },
+        result: "몇 번 만지니 금방 정상 작동. 지켜보던 사람들이 '금손'이라며 고마워했다.",
+      },
+      {
+        label: "내 일 아니니 지나친다",
+        effect: {},
+        result: "괜히 건드렸다 책임질라. 그냥 지나쳤다.",
+      },
+    ],
+  },
+  {
+    id: "luxury_splurge",
+    emoji: "",
+    title: "명품샵의 유혹",
+    description: "백화점 명품관을 지나는데 점원이 '딱 어울리신다'며 은근슬쩍 지갑을 노린다.",
+    triggers: ["offline"],
+    condition: (s) => s.money >= 1000000,
+    choices: [
+      {
+        label: "질러버린다 (거금 지출)",
+        effect: { money: -500000, mental: +10 },
+        result: "눈 딱 감고 카드를 긁었다. 통장은 홀쭉해졌지만 새 명품을 걸치니 기분만은 최고다.",
+        requires: (s) => s.money >= 500000,
+      },
+      {
+        label: "이성을 붙잡고 참는다",
+        effect: { mental: -5, morality: +2 },
+        result: "하마터면 지를 뻔했다. 아쉬움을 삼키며 매장을 빠져나왔다.",
+      },
+    ],
+  },
+  {
+    // 도덕성 저점 전용 어두운 이벤트(성인 카테고리로 요청) — lost_wallet '돈만 챙기기'의 심화판.
+    id: "mugging_temptation",
+    emoji: "",
+    title: "삥뜯기 유혹",
+    description: "인적 드문 골목, 앞서 걷던 이가 방심한 채 지갑을 흘릴 듯 걷는다. 어두운 충동이 스친다.",
+    triggers: ["offline"],
+    condition: all(adultOn, moralityBelow(30)),
+    choices: [
+      {
+        label: "약한 상대를 골라 등쳐먹는다",
+        effect: { money: 50000, morality: -15, mental: +2 },
+        result: "겁을 줘 손쉽게 돈을 뜯어냈다. 죄책감은 옅고 주머니만 두둑해졌다.",
+      },
+      {
+        label: "그래도 사람인데, 참는다",
+        effect: { morality: +3, mental: +1 },
+        result: "아무리 그래도 선은 넘지 말자. 스치는 충동을 애써 눌렀다.",
+      },
+    ],
+  },
+
+  // ── 좋아요/리트윗 트리거 — 무심코 누른 상호작용이 일을 키운다 ────────
+  {
+    id: "like_mutual_dm",
+    emoji: "",
+    title: "좋아요 알림을 본 상대",
+    description: "방금 좋아요를 누른 계정 주인이 알림을 보고 먼저 말을 걸어왔다. 반가운 눈치다.",
+    triggers: ["like"],
+    weight: 0.7,
+    condition: (s) => s.skills.sociability >= 300,
+    choices: [
+      {
+        label: "맞팔하고 친하게 지낸다",
+        effect: { followers: 20, skills: { sociability: 10 }, customKey: "mutualFollowDM" },
+        result: "",
+      },
+      {
+        label: "그냥 좋아요만 남긴다",
+        effect: { mental: +2 },
+        result: "굳이 대화까지 트진 않고, 가볍게 좋아요만 남겼다.",
+      },
+    ],
+  },
+  {
+    id: "rt_misinfo",
+    emoji: "",
+    title: "허위정보 리트윗",
+    description: "방금 리트윗한 글이 알고 보니 근거 없는 가짜뉴스였다. 지적하는 답글이 달리기 시작한다.",
+    triggers: ["retweet"],
+    weight: 0.7,
+    choices: [
+      {
+        label: "바로 삭제하고 정정한다",
+        effect: { reputation: 5, followers: -10, mental: -4 },
+        result: "재빨리 리트윗을 지우고 정정 글을 올렸다. 발 빠른 대처에 신뢰는 지켰다.",
+      },
+      {
+        label: "'뭐 어때' 하고 버틴다",
+        effect: { reputation: -8, followersPct: -5, morality: -3 },
+        result: "굳이 내리지 않고 버텼다. 가짜뉴스 퍼뜨린 계정으로 찍히며 사람들이 등을 돌렸다.",
+      },
+    ],
+  },
+  {
+    id: "rt_spam_chain",
+    emoji: "",
+    title: "스팸 리트윗 체인",
+    description: "'이 글을 리트윗하면 추첨을 통해 상품권 증정!' 수상한 이벤트 계정이 참여를 유도한다.",
+    triggers: ["retweet"],
+    choices: [
+      {
+        label: "혹해서 참여한다",
+        effect: { followers: 15, reputation: -6, morality: -2 },
+        result: "얼떨결에 체인에 동참했다. 타임라인이 스팸으로 도배되며 팔로워는 늘었지만 눈총을 샀다.",
+      },
+      {
+        label: "사기 냄새가 나 무시한다",
+        effect: { morality: +2 },
+        result: "이런 건 백이면 백 낚시지. 깔끔하게 무시했다.",
+      },
+    ],
+  },
+  {
+    id: "rt_trap_hookup",
+    emoji: "",
+    title: "RT 함정 글",
+    description:
+      "방금 리트윗한 글이 '실종 제보·긴급 구조'처럼 보였는데, 곧 DM이 온다. " +
+      "'RT 고마워요. 제보자 맞죠? 지금 근처인데 잠깐만 나와 주세요. 위치 보냈어요.' " +
+      "지도 핀은 외진 상가 뒤편이다.",
+    triggers: ["retweet"],
+    weight: 0.55,
+    condition: all(adultOn, (s) => s.skills.lewd >= 380),
+    choices: [
+      {
+        label: "위치로 나간다",
+        effect: { mental: -12, morality: -15, followers: 55, skills: { lewd: 48 } },
+        result:
+          "상가 뒤에 도착하자 제보자가 아니라 남자 서넛이 서 있었다. 'RT한 거 네가 맞지?' " +
+          "말이 끝나기 전에 팔이 잡히고 건물 뒷편 창고로 끌려 들어갔다. 미끼 글은 낚싯바늘이었다. " +
+          "좁은 방에서 번갈아 유린당한 뒤 밤에 큰길에 버려지듯 나왔다. 리트윗 버튼이 한동안 두려워졌다.",
+      },
+      {
+        label: "DM만 보고 차단한다",
+        effect: { mental: -2, morality: +3 },
+        result:
+          "위치가 수상해 바로 차단하고 리트윗을 내렸다. 이후 유사 제보 글은 손대지 않기로 했다.",
+      },
+      {
+        label: "캡처해 플랫폼에 신고한다",
+        effect: { mental: -1, morality: +4, reputation: +2 },
+        result:
+          "DM과 원글을 캡처해 신고했다. 처리 메일은 늦었지만, 함정에 몸으로 뛰어들진 않았다.",
+      },
+    ],
+  },
+
   // ── 성인(계정 성인물 해제 필요) ────────────────────────────────
   {
     id: "adult_awakening",
@@ -657,6 +976,30 @@ export const GAME_EVENTS: GameEvent[] = [
     ],
   },
   {
+    id: "whale_meetup",
+    emoji: "",
+    title: "고액 후원자의 만남 요청",
+    description:
+      "100만원을 후원한 '큰손'이 DM을 보냈다. 얼굴 한번 보고 싶다며, 조용한 주택으로 초대한다. " +
+      "돈은 이미 두둑이 넣어줬다는데...",
+    triggers: ["explore", "day"],
+    weight: 0.5,
+    // 저택 결박·희롱 난교(비합의) — '강압/범죄 안 보기' 켜면 이 이벤트 자체가 후보에서 빠진다.
+    condition: all(adultOn, coercionOk, (s) => s.skills.lewd >= 300),
+    choices: [
+      {
+        label: "만나러 간다",
+        effect: { customKey: "whaleOrgy" },
+        result: "",
+      },
+      {
+        label: "후원만 받고 거절한다",
+        effect: { money: 1_000_000, mental: 2 },
+        result: "찜찜해서 후원 100만원만 챙기고 만남은 정중히 거절했다.",
+      },
+    ],
+  },
+  {
     id: "paid_channel_open",
     emoji: "",
     title: "유료 구독 채널 개설 제안",
@@ -674,6 +1017,35 @@ export const GAME_EVENTS: GameEvent[] = [
         label: "지금은 안 한다",
         effect: {},
         result: "아직은 무료로 팬들과 소통하는 게 낫겠다.",
+      },
+    ],
+  },
+  {
+    id: "crew_gang_drill",
+    emoji: "",
+    title: "크루 합동 훈련",
+    description:
+      "크루 단톡에 공지가 떴다. '합동 훈련 — 카메라 OFF, 체력·호흡·교대 감각 점검. 참가 인원만 디엠.' " +
+      "겉으로는 합방 리허설이지만, 이미 애프터를 아는 멤버들 사이에서는 다른 의미로 통한다.",
+    triggers: ["explore", "day"],
+    weight: 0.7,
+    condition: all(
+      adultOn,
+      (s) => s.crewJoined,
+      (s) => getActiveAccount(s).groupUnlocked,
+      (s) => s.skills.lewd >= 350,
+    ),
+    choices: [
+      {
+        label: "합동 훈련에 참가한다",
+        effect: { customKey: "crewGangDrill" },
+        result: "",
+      },
+      {
+        label: "이번엔 빠져 있는다",
+        effect: { mental: +2, morality: +2 },
+        result:
+          "단톡에 '일정 겹침'이라고만 남겼다. 다음 날 합방 리허설 클립만 공유됐고, 애프터 이야기는 슬쩍 피했다.",
       },
     ],
   },

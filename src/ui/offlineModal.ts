@@ -7,9 +7,13 @@ import {
   doOfflineActivity,
   partTimePay,
   petLabel,
+  canSpendDay,
+  spendDayResting,
 } from "@/systems/offline";
 import { postTweet } from "@/systems/tweetSystem";
-import { outdoorShoot } from "@/systems/events";
+import { outdoorShoot, blackVanOrgy } from "@/systems/events";
+import { getAdultOfflineEncounter } from "@/data/adultOffline";
+import { resolveAdultOfflineEncounter } from "@/systems/adultOffline";
 import { AUTHOR_WORKLOAD_TARGET, AUTHOR_MAX_MISS, isAuthorPrepMonth } from "@/systems/author";
 import { salaryOf } from "@/systems/employment";
 import { hasCertification } from "@/systems/certification";
@@ -47,42 +51,63 @@ function activityDeltas(act: OfflineActivity, partTimeCount: number): string {
  */
 export function renderOfflineModal(ctx: GameContext): HTMLElement {
   const container = el("div", { class: "modal modal--life" });
+  // 휴식 / 자기개발 2탭. 모달은 함수 identity로 캐시돼 이 클로저 상태가 재렌더에도 보존된다.
+  let lifeTab: OfflineActivity["group"] = "rest";
 
   function closeBtn(): HTMLElement {
     return el("button", { class: "popup__close", onclick: () => ctx.closeModal() }, "✕");
+  }
+
+  function activityItem(act: OfflineActivity, partTimeCount: number): HTMLElement {
+    return el(
+      "button",
+      {
+        class: "life-item",
+        onclick: () => {
+          let outcome: OfflineOutcome | undefined;
+          ctx.update((s) => {
+            outcome = doOfflineActivity(s, act);
+          });
+          if (outcome) showResult(act, outcome);
+        },
+      },
+      el("span", { class: "life-item__icon" }, icon(ACTIVITY_ICON[act.id] ?? "star", { size: 22 })),
+      el(
+        "span",
+        { class: "life-item__body" },
+        el("span", { class: "life-item__label" }, act.label),
+        el("span", { class: "life-item__desc" }, act.description),
+        el("span", { class: "life-item__delta" }, activityDeltas(act, partTimeCount)),
+      ),
+    );
   }
 
   function showChoices(): void {
     const partTimeCount = ctx.store.getState().partTimeCount;
     // 작가 원고 작업은 계약 중일 때만 노출
     const underContract = ctx.store.getState().authorContract != null;
-    const items = OFFLINE_ACTIVITIES.filter((act) => !act.authorWork || underContract).map((act) =>
+    const growth = lifeTab === "growth";
+
+    const adultMode = ctx.store.getState().adultMode;
+    const items = OFFLINE_ACTIVITIES.filter(
+      (act) =>
+        act.group === lifeTab &&
+        (!act.authorWork || underContract) &&
+        (!act.adultOnly || adultMode), // 해피타임 등 성인 활동은 성인물 보기 ON일 때만
+    ).map((act) => activityItem(act, partTimeCount));
+
+    const lifeTabBtn = (label: string, group: OfflineActivity["group"]) =>
       el(
-        "button",
+        "div",
         {
-          class: "life-item",
+          class: "feed__tab" + (lifeTab === group ? " feed__tab--active" : ""),
           onclick: () => {
-            let outcome: OfflineOutcome | undefined;
-            ctx.update((s) => {
-              outcome = doOfflineActivity(s, act);
-            });
-            if (outcome) showResult(act, outcome);
+            lifeTab = group;
+            showChoices();
           },
         },
-        el(
-          "span",
-          { class: "life-item__icon" },
-          icon(ACTIVITY_ICON[act.id] ?? "star", { size: 22 }),
-        ),
-        el(
-          "span",
-          { class: "life-item__body" },
-          el("span", { class: "life-item__label" }, act.label),
-          el("span", { class: "life-item__desc" }, act.description),
-          el("span", { class: "life-item__delta" }, activityDeltas(act, partTimeCount)),
-        ),
-      ),
-    );
+        el("span", { class: "feed__tab-label" }, label),
+      );
 
     container.replaceChildren(
       el(
@@ -99,9 +124,48 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           { class: "compose-hint", style: "margin-top:0" },
           "오프라인 활동으로 스탯을 관리하고 새 트윗 소재를 얻으세요. (시간 1칸 소요)",
         ),
+        el(
+          "div",
+          { class: "feed__tabs life-tabs" },
+          lifeTabBtn("휴식", "rest"),
+          lifeTabBtn("자기개발", "growth"),
+        ),
         el("div", { class: "offline-grid" }, ...items),
-        authorSection(),
-        jobSection(),
+        // 작가 계약 게이지는 자기개발(작업) 탭에서만
+        growth ? authorSection() : null,
+        // 취업 / 하루 그냥 보내기 — 탭 밖 하단, 가로 한 줄(세로 스크롤 방지)
+        el("div", { class: "life-foot-row" }, jobSection(), restDaySection()),
+      ),
+    );
+  }
+
+  /**
+   * '하루 그냥 보내기' — 오늘 남은 시간 블록을 전부 휴식으로 넘긴다.
+   * spendDayResting이 day를 다음날로 넘기므로(취침·새벽 팝업 발생) 모달은 닫는다.
+   * 재직/무직 무관 노출. 남은 블록이 없거나 게임오버면 비활성.
+   */
+  function restDaySection(): HTMLElement {
+    const can = canSpendDay(ctx.store.getState());
+    return el(
+      "div",
+      { class: "job-section" },
+      el(
+        "button",
+        {
+          class: "life-btn" + (can ? "" : " job-apply-btn--off"),
+          disabled: !can,
+          onclick: () => {
+            if (!can) return;
+            let gain = { action: 0, mental: 0 };
+            ctx.update((st) => {
+              gain = spendDayResting(st);
+            });
+            ctx.toast(`남은 하루를 쉬었다 · 행동력 +${gain.action} 정신력 +${gain.mental}`);
+            ctx.closeModal();
+          },
+        },
+        icon("bed", { size: 18 }),
+        "하루 그냥 보내기",
       ),
     );
   }
@@ -274,7 +338,73 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
     ];
 
     const kind = outcome.petEncounter;
-    if (outcome.nudeExposure) {
+    if (outcome.blackVanEncounter) {
+      // 고음란 산책 — 검정 봉고. 길을 알려주러 다가가면 납치 난교 루트.
+      bodyChildren.push(
+        el(
+          "p",
+          { class: "life-result__unlock" },
+          "골목 어귀에 검은 봉고 한 대가 시동을 켠 채 서 있다. 조수석 창이 내려가더니 남자가 길을 물으며 손짓한다. …가까이 가볼까?",
+        ),
+        el(
+          "p",
+          { class: "compose-hint", style: "margin-top:14px" },
+          "그냥 지나치면 아무 일도 없을 것 같다. 다가가면 되돌리기 어려울지도 모른다.",
+        ),
+        el(
+          "div",
+          { class: "compose-actions", style: "gap:10px" },
+          el(
+            "button",
+            {
+              class: "btn btn--ghost",
+              onclick: () => {
+                ctx.closeModal();
+                ctx.afterAction("offline");
+              },
+            },
+            "무시하고 지나간다",
+          ),
+          el(
+            "button",
+            {
+              class: "btn",
+              onclick: () => {
+                let msg = "";
+                ctx.update((s) => {
+                  msg = blackVanOrgy(s);
+                });
+                container.replaceChildren(
+                  el(
+                    "div",
+                    { class: "modal__head" },
+                    el("span", { class: "modal__head-title" }, icon("shield", { size: 18 }), "검은 봉고"),
+                  ),
+                  el(
+                    "div",
+                    { class: "modal__body" },
+                    el("p", { class: "life-result__flavor" }, msg),
+                    el(
+                      "button",
+                      {
+                        class: "btn",
+                        style: "margin-top:14px",
+                        onclick: () => {
+                          ctx.closeModal();
+                          ctx.afterAction("offline");
+                        },
+                      },
+                      "확인",
+                    ),
+                  ),
+                );
+              },
+            },
+            "길을 알려주러 다가간다",
+          ),
+        ),
+      );
+    } else if (outcome.nudeExposure) {
       // 심야 산책 야외노출 이벤트 — 감행하면 적발 리스크가 걸린 도박.
       bodyChildren.push(
         el(
@@ -340,6 +470,63 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           ),
         ),
       );
+    } else if (outcome.adultEncounter) {
+      const enc = getAdultOfflineEncounter(outcome.adultEncounter);
+      if (enc) {
+        const encId = outcome.adultEncounter;
+        bodyChildren.push(
+          el("p", { class: "life-result__unlock" }, enc.prompt),
+          el("p", { class: "compose-hint", style: "margin-top:14px" }, enc.hint),
+          el(
+            "div",
+            { class: "compose-actions", style: "gap:10px; flex-wrap:wrap" },
+            ...enc.choices.map((choice, idx) =>
+              el(
+                "button",
+                {
+                  class: idx === 0 ? "btn" : "btn btn--ghost",
+                  onclick: () => {
+                    let msg = "";
+                    ctx.update((s) => {
+                      msg = resolveAdultOfflineEncounter(s, encId, idx);
+                    });
+                    container.replaceChildren(
+                      el(
+                        "div",
+                        { class: "modal__head" },
+                        el(
+                          "span",
+                          { class: "modal__head-title" },
+                          icon("shield", { size: 18 }),
+                          enc.title,
+                        ),
+                      ),
+                      el(
+                        "div",
+                        { class: "modal__body" },
+                        el("p", { class: "life-result__flavor" }, msg),
+                        el(
+                          "button",
+                          {
+                            class: "btn",
+                            style: "margin-top:14px",
+                            onclick: () => {
+                              ctx.closeModal();
+                              ctx.afterAction("offline");
+                            },
+                          },
+                          "확인",
+                        ),
+                      ),
+                    );
+                  },
+                },
+                choice.label,
+              ),
+            ),
+          ),
+        );
+      }
     } else if (kind) {
       // 산책 중 길동물을 만난 이벤트 — 데려가면 해당 동물 주접 트윗이 열린다.
       const flavor =
@@ -426,6 +613,12 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         ),
       );
     }
+
+    // 노골 성인 조우(검은 봉고·야외노출·성인 조우)만 분홍 테마 — 일반 현생 결과는 기본색.
+    container.classList.toggle(
+      "modal--adult",
+      !!(outcome.blackVanEncounter || outcome.nudeExposure || outcome.adultEncounter),
+    );
 
     container.replaceChildren(
       el(

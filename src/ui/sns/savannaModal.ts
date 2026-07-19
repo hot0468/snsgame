@@ -11,7 +11,7 @@ import { el } from "@/utils/dom";
  * 페이지를 넘겨 읽고 마지막 장에서 선택하면, 효과가 적용되고 다음날로 넘어간다.
  */
 export function renderSavannaIntrusionModal(ctx: GameContext): HTMLElement {
-  const container = el("div", { class: "modal modal--novel" });
+  const container = el("div", { class: "modal modal--novel modal--adult" });
   const pages = SAVANNA_INTRUSION_PAGES;
   let pageIndex = 0;
 

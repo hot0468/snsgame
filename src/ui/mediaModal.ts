@@ -1,6 +1,6 @@
 import type { GameContext } from "./context";
 import type { Tweet } from "@/core/types";
-import { imageForTweet } from "@/systems/mediaImages";
+import { resolvedTweetImage } from "@/systems/mediaImages";
 import { el } from "@/utils/dom";
 import { icon } from "./icons";
 
@@ -15,7 +15,7 @@ import { icon } from "./icons";
 export function renderMediaModal(ctx: GameContext, tweet: Tweet): HTMLElement {
   const media = tweet.media;
   const isVideo = media?.kind === "video";
-  const img = imageForTweet(tweet);
+  const img = resolvedTweetImage(tweet);
   return el(
     "div",
     { class: "modal" },

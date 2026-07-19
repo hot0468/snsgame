@@ -4,7 +4,7 @@ import { chance, pick, randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { legendBJMultiplier } from "./eggs";
 import { ownedCount } from "./shop";
-import { clampSkill, SKILL_SCALE } from "./stats";
+import { gainSkill, SKILL_SCALE } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 
 /**
@@ -171,7 +171,7 @@ export function resolveSavannaIntrusion(state: GameState, choiceIndex: number): 
     : Math.round(account.followers * 0.06) + 40;
   changeFollowers(state, gain);
 
-  state.skills.lewd = clampSkill(state.skills.lewd + (onCam ? 40 : 30));
+  gainSkill(state, "lewd", onCam ? 24 : 18);
   state.resources.morality = Math.max(0, state.resources.morality - (onCam ? 12 : 8));
   state.resources.mental = Math.max(0, state.resources.mental - (onCam ? 6 : 3));
 
@@ -208,7 +208,7 @@ export function runSavannaStream(state: GameState): SavannaResult {
 
   const amount = savannaDonation(state);
   state.money += amount;
-  state.skills.lewd = clampSkill(state.skills.lewd + 5);
+  gainSkill(state, "lewd", 3);
   state.resources.mental = Math.max(0, state.resources.mental - 8);
   state.lateTweetToday = true; // 밤샘 방송 → 다음날 회복 감소
   addSchedule(state, `사바나 라이브방송 (+${amount.toLocaleString("ko-KR")}원)`, "sns");

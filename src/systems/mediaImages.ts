@@ -123,3 +123,15 @@ export function pickTweetImage(
 export function imageForTweet(tweet: Tweet): TweetImage | null {
   return pickTweetImage(tweet, ADULT_IMAGES, MEDIA_IMAGES, TWEET_CAT_IMAGES);
 }
+
+/**
+ * 표시용 이미지 해석 — 게시 시점에 박제된 `tweet.mediaImage`가 있으면 그걸 쓰고(내 트윗),
+ * 없으면 imageForTweet으로 매번 해석한다(NPC/피드 트윗). 렌더(인라인·팝업)는 이걸 써야
+ * 내가 등록한 트윗의 이미지가 등록 풀 변화에도 다음날 바뀌지 않는다.
+ */
+export function resolvedTweetImage(tweet: Tweet): TweetImage | null {
+  if (tweet.mediaImage) {
+    return { url: tweet.mediaImage.url, source: tweet.mediaImage.adult ? "adult" : "keyword" };
+  }
+  return imageForTweet(tweet);
+}

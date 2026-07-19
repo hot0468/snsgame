@@ -1,11 +1,11 @@
 import type { Appointment, AttributeId, GameState } from "@/core/types";
-import { EVENING_SLOT, SLOTS_PER_DAY, SLOT_LABELS } from "@/core/state";
+import { EVENING_SLOT, LATE_SLOT, SLOTS_PER_DAY, SLOT_LABELS, getActiveAccount } from "@/core/state";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { pushKakao } from "./kakao";
 import { ownedCount } from "./shop";
-import { clampAction, clampResource, clampSkill, skillTo100 } from "./stats";
-import { addSchedule, advanceTime, dateLabel, dayOfWeek, THURSDAY } from "./time";
+import { clampAction, clampResource, clampSkill, gainSkill, skillTo100 } from "./stats";
+import { addSchedule, advanceTime, dateLabel, dayOfWeek, THURSDAY, SATURDAY } from "./time";
 
 /**
  * 약속(Appointment) 시스템 — 앞으로 할 일을 등록하고, 해당 (day, slot)이 되면
@@ -80,9 +80,9 @@ function resolveCrewRun(state: GameState, go: boolean): string {
   }
 
   state.resources.action = clampAction(state, state.resources.action - CREW_RUN_ACTION_COST);
-  state.skills.fitness = clampSkill(state.skills.fitness + 35);
-  state.skills.sociability = clampSkill(state.skills.sociability + 15);
-  state.skills.beauty = clampSkill(state.skills.beauty + 5);
+  gainSkill(state, "fitness", 22);
+  gainSkill(state, "sociability", 10);
+  gainSkill(state, "beauty", 3);
   state.resources.mental = clampResource(state.resources.mental + 5);
   const delta = randInt(3, 9);
   changeFollowers(state, delta);
@@ -97,6 +97,69 @@ function resolveCrewRun(state: GameState, go: boolean): string {
     "결승 지점에 도착했을 땐 다들 숨을 헐떡이면서도 서로를 보며 웃음이 터졌다. 함께 스트레칭을 하고 " +
     "가볍게 음료를 나눠 마시며 도란도란 이야기를 나누는 시간이 오늘 러닝의 진짜 보상 같았다. 땀은 " +
     "뻘뻘 났지만 몸도 마음도 더없이 개운하다. 오늘 만난 크루원 몇몇이 내 계정을 팔로우해줬다. " +
+    `(팔로워 +${delta})`
+  );
+}
+
+/* ─────────────────── 성인 그룹방 정기 모임 ─────────────────── */
+
+/** 정기 모임 참석 시 행동력 소모 */
+export const GROUP_NIGHT_ACTION_COST = 12;
+
+/** 지금 이후의 다음 토요일(정기 모임은 심야 슬롯) */
+function nextGroupNightDay(state: GameState): number {
+  let d = state.day;
+  while (!(dayOfWeek(d) === SATURDAY && (d > state.day || state.slot < LATE_SLOT))) {
+    d += 1;
+  }
+  return d;
+}
+
+/**
+ * 다음 토요일 심야 그룹 모임을 예약한다(기존 groupRoom 약속은 갈아끼운다).
+ * 가입 직후, 그리고 매주 모임을 소화/취소한 뒤에 호출된다.
+ */
+export function scheduleNextGroupNight(state: GameState): void {
+  if (!state.groupRoomJoined) return;
+  state.appointments = state.appointments.filter((a) => a.kind !== "groupRoom");
+  addAppointment(state, {
+    day: nextGroupNightDay(state),
+    slot: LATE_SLOT,
+    kind: "groupRoom",
+    title: "그룹방 정기 모임",
+  });
+}
+
+function resolveGroupNight(state: GameState, go: boolean): string {
+  scheduleNextGroupNight(state);
+
+  if (!go) {
+    addSchedule(state, "그룹방 정기 모임 불참", "system");
+    state.resources.mental = clampResource(state.resources.mental + 3);
+    state.resources.morality = clampResource(state.resources.morality + 1);
+    return (
+      "단톡에 ‘이번 주는 패스’라고만 남겼다. 아쉽다는 이모지가 몇 개 붙었지만, " +
+      "다음 토요일 심야 일정은 그대로 잡혀 있다."
+    );
+  }
+
+  state.resources.action = clampAction(state, state.resources.action - GROUP_NIGHT_ACTION_COST);
+  gainSkill(state, "lewd", 24);
+  gainSkill(state, "sociability", 6);
+  state.resources.mental = clampResource(state.resources.mental - 8);
+  state.resources.morality = clampResource(state.resources.morality - 10);
+  getActiveAccount(state).groupUnlocked = true;
+  const delta = randInt(12, 28);
+  changeFollowers(state, delta);
+  addSchedule(state, "그룹방 정기 모임", "offline");
+  advanceTime(state, 1);
+  return (
+    "토 심야, 단톡에 찍힌 주소는 외곽 모텔 한 동이었다. 문을 열자 이미 서넛이 술을 나눠 마시며 " +
+    "기다리고 있었고, 곧 인원이 더 늘어 거실 매트리스가 가득 찼다. 번호 없이 교대하듯 몸이 바뀌었고, " +
+    "입·허리·손이 동시에 쓰이는 동안 누군가는 타이머로 순번만 관리했다.\n\n" +
+    "정액과 땀이 섞인 공기가 방을 채울 무렵, 마지막 사정이 끝나고 나서야 물티슈 통이 돌았다. " +
+    "촬영은 합의된 각도만, 얼굴은 가린 채. 단톡에는 ‘오늘 호흡 좋았음. 다음 토 심야 동일’ " +
+    "한 줄만 남았다. 몸은 무거웠지만 성인 피드 알림은 유난히 시끄러웠다. " +
     `(팔로워 +${delta})`
   );
 }
@@ -378,6 +441,7 @@ export function resolveAppointment(
   removeAppointment(state, appt.id);
   let message: string;
   if (appt.kind === "crew") message = resolveCrewRun(state, go);
+  else if (appt.kind === "groupRoom") message = resolveGroupNight(state, go);
   else if (appt.kind === "ticketing") message = resolveTicketing(state, appt, go);
   else if (appt.kind === "event") message = resolveEventVisit(state, appt, go);
   else message = resolveFriendMeet(state, appt, go);
@@ -386,13 +450,16 @@ export function resolveAppointment(
 
 /**
  * 중복으로 밀려난(선택받지 못한) 약속을 취소한다.
- * 크루는 다음 주로 다시 잡히고, 나머지(친구·행사)는 그대로 사라진다.
+ * 크루·그룹방은 다음 주로 다시 잡히고, 나머지(친구·행사)는 그대로 사라진다.
  */
 export function dropAppointment(state: GameState, appt: Appointment): void {
   removeAppointment(state, appt.id);
   if (appt.kind === "crew") {
     scheduleNextCrewRun(state);
     addSchedule(state, "정기런 취소(일정 겹침)", "system");
+  } else if (appt.kind === "groupRoom") {
+    scheduleNextGroupNight(state);
+    addSchedule(state, "그룹방 정기 모임 취소(일정 겹침)", "system");
   } else {
     addSchedule(state, `${appt.title} 취소(일정 겹침)`, "system");
   }

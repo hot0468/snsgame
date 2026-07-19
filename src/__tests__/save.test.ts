@@ -71,9 +71,11 @@ describe("구세이브 하위호환", () => {
       delete o.dartpinUnlocked;
       delete o.dartpinBoard;
       delete o.ownedItems;
+      delete o.workMsgs;
     });
     expect(Array.isArray(s.certifications)).toBe(true);
     expect(Array.isArray(s.ownedItems)).toBe(true);
+    expect(Array.isArray(s.workMsgs)).toBe(true);
     expect(s.pendingExam).toBeNull();
     expect(s.auction).toBeTruthy();
     expect(s.lab).toBeTruthy();

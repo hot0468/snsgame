@@ -16,12 +16,14 @@ export function confirmPurchase(
     priceText?: string; // 가격 문구(있으면 표시, 예 "18,390원")
     message?: string; // 기본 "구매하시겠습니까?"
     confirmLabel?: string; // 기본 "구매"
+    cancelLabel?: string; // 기본 "취소"
     onConfirm: () => void;
   },
 ): void {
   const title = opts.title ?? "구매 확인";
   const message = opts.message ?? "구매하시겠습니까?";
   const confirmLabel = opts.confirmLabel ?? "구매";
+  const cancelLabel = opts.cancelLabel ?? "취소";
 
   ctx.openModal((c) =>
     el(
@@ -54,7 +56,7 @@ export function confirmPurchase(
         el(
           "div",
           { class: "compose-actions", style: "gap:10px" },
-          el("button", { class: "btn btn--ghost", onclick: () => c.closeModal() }, "취소"),
+          el("button", { class: "btn btn--ghost", onclick: () => c.closeModal() }, cancelLabel),
           el(
             "button",
             {

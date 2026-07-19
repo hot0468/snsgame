@@ -3,7 +3,13 @@ import type { AdOffer, Email } from "@/core/types";
 import type { ShopItem } from "@/data/shop";
 import { SKILL_STATS } from "@/data/stats";
 import { adOfferItem, adOfferPrice, adOfferStatus, buyFromAdOffer } from "@/systems/adMail";
-import { acceptJobOffer, declineJobOffer } from "@/systems/employment";
+import {
+  acceptJobOffer,
+  currentJobLabel,
+  declineJobOffer,
+  hasAnyJob,
+  switchToCompanyJob,
+} from "@/systems/employment";
 import { openSpamEmail } from "@/systems/spam";
 import { dateLabel } from "@/systems/time";
 import { el, formatNumber, mount } from "@/utils/dom";
@@ -335,6 +341,22 @@ function emailView(ctx: GameContext, mail: Email | null): HTMLElement {
             {
               class: "btn",
               onclick: () => {
+                // 이미 다른 직업(회사/AV)이 있으면 전환 여부를 먼저 묻는다(직업 배타).
+                const st = ctx.store.getState();
+                if (hasAnyJob(st)) {
+                  confirmPurchase(ctx, {
+                    title: "직업 변경",
+                    message: `현재 '${currentJobLabel(st)}' 직업이 있어요. '${offer.company}'(으)로 바꿀까요? (기존 직업은 그만둡니다)`,
+                    confirmLabel: "바꾼다",
+                    cancelLabel: "유지",
+                    onConfirm: () => {
+                      ctx.update((s) => switchToCompanyJob(s, mail.id));
+                      ctx.toast(`${offer.company}(으)로 직업을 바꿨어요`);
+                      ctx.refresh();
+                    },
+                  });
+                  return;
+                }
                 ctx.update((s) => acceptJobOffer(s, mail.id));
                 ctx.toast(`${offer.company} 입사 결정! 다음 근무일부터 출근해요`);
                 ctx.refresh();

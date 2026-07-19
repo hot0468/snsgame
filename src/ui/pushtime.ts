@@ -6,8 +6,10 @@ import { el, formatNumber } from "@/utils/dom";
 import { icon } from "./icons";
 
 /* ============================================================
- * 푸시타임 — 포스타입 스타일 성인 콘텐츠 피드.
+ * 푸시타임 — 포스타임(포스타입 룩) 성인 콘텐츠 피드.
  * DM 링크로 해금. 실제 이미지 없이 모자이크 자리·암시적 제목만.
+ * 3열: 좌 사이드바(장식) / 중앙 포스트 엔트리 피드 / 우 사이드바(장식).
+ * 기능은 감상 결제(viewPushWork)뿐 — 나머지 nav·아이콘·구독 버튼은 전부 장식.
  * ============================================================ */
 
 function hashInt(seed: string): number {
@@ -18,10 +20,13 @@ function hashInt(seed: string): number {
 function coverStyle(hue: number): string {
   return `background:linear-gradient(150deg, hsl(${hue}deg 40% 34%), hsl(${(hue + 30) % 360}deg 38% 20%))`;
 }
+/** 장식용 날짜(결정론) — 실제 게임 날짜 아님 */
+function fauxDate(seed: string): string {
+  const h = hashInt(seed);
+  return `2026.${1 + (h % 12)}.${1 + (h % 27)}`;
+}
 
-/* ── 마스트헤드/카테고리(장식) ── */
-const CHIPS = ["추천", "구독", "최신", "랭킹", "이벤트"];
-
+/* ── 상단 바 ── */
 function masthead(ctx: GameContext): HTMLElement {
   const s = ctx.store.getState();
   return el(
@@ -32,67 +37,177 @@ function masthead(ctx: GameContext): HTMLElement {
       "div",
       { class: "pt__search" },
       icon("search", { size: 15 }),
-      el("span", { class: "pt__search-ph" }, "작품·태그 검색"),
+      el("span", { class: "pt__search-ph" }, "검색어를 입력하세요"),
     ),
     el(
       "div",
       { class: "pt__mast-right" },
+      el("button", { class: "pt__make" }, "+ 만들기"),
+      el("span", { class: "pt__mast-ic", title: "선물" }, "🎁"),
+      el(
+        "span",
+        { class: "pt__mast-ic pt__mast-ic--badge", title: "알림" },
+        "🔔",
+        el("span", { class: "pt__badge" }, "3"),
+      ),
+      el("span", { class: "pt__mast-ic", title: "메일" }, "✉"),
       el("span", { class: "pt__cash" }, `${formatNumber(s.money)}원`),
-      el("span", { class: "pt__login" }, "내 서재"),
+      el("span", { class: "pt__avatar", style: coverStyle(300) }),
     ),
   );
 }
 
-function chips(): HTMLElement {
+/* ── 좌측 사이드바(장식) ── */
+const LEFT_NAV: [string, string][] = [
+  ["🏠", "홈"],
+  ["📡", "오픈 채널"],
+  ["✍", "리퀘스트"],
+  ["💬", "캐릭터톡"],
+  ["🔖", "보관함"],
+];
+
+function leftbar(): HTMLElement {
   return el(
-    "div",
-    { class: "pt__chips" },
-    ...CHIPS.map((c, i) => el("span", { class: "pt__chip" + (i === 0 ? " pt__chip--on" : "") }, c)),
+    "aside",
+    { class: "pt__side pt__side--left" },
+    el(
+      "nav",
+      { class: "pt__nav" },
+      ...LEFT_NAV.map(([ic, label], i) =>
+        el(
+          "span",
+          { class: "pt__nav-item" + (i === 0 ? " pt__nav-item--on" : "") },
+          el("span", { class: "pt__nav-ic" }, ic),
+          label,
+        ),
+      ),
+    ),
+    el(
+      "div",
+      { class: "pt__promo" },
+      el("div", { class: "pt__promo-title" }, "프리미엄 가입하고"),
+      el("div", { class: "pt__promo-title" }, "푸시타임을 더 완벽하게"),
+      el("button", { class: "pt__promo-btn" }, "프리미엄 가입"),
+    ),
+    el(
+      "div",
+      { class: "pt__side-sec" },
+      el("div", { class: "pt__side-h" }, "내 채널"),
+      el("span", { class: "pt__side-row pt__side-row--add" }, "+ 채널 만들기"),
+      el(
+        "span",
+        { class: "pt__side-row" },
+        el("span", { class: "pt__side-thumb", style: coverStyle(330) }),
+        "나의 밤 기록",
+      ),
+    ),
+    el(
+      "div",
+      { class: "pt__side-sec" },
+      el("div", { class: "pt__side-h" }, "구독·참여"),
+      ...PUSH_WORKS.slice(0, 4).map((w) =>
+        el(
+          "span",
+          { class: "pt__side-row" },
+          el("span", { class: "pt__side-thumb", style: coverStyle(w.hue) }),
+          w.circle,
+        ),
+      ),
+    ),
   );
 }
 
-/* ── 포스트 카드 ── */
-function postCard(ctx: GameContext, w: PushWork): HTMLElement {
-  const h = hashInt(w.id);
-  const likes = 120 + (h % 4200);
-  const comments = 3 + (h % 180);
+/* ── 포스트 엔트리(중앙 피드) ── */
+function postEntry(ctx: GameContext, w: PushWork): HTMLElement {
+  const category = w.tags[0] ?? "성인";
   return el(
     "article",
-    { class: "pt-card", onclick: () => openViewModal(ctx, w) },
+    { class: "pt-post" },
     el(
       "div",
-      { class: "pt-card__cover", style: coverStyle(w.hue) },
-      el("span", { class: "pt-card__adult" }, "🔞 성인"),
+      { class: "pt-post__head" },
+      el("span", { class: "pt-post__avatar", style: coverStyle(w.hue) }),
       el(
         "div",
-        { class: "pt-card__lock" },
-        el("span", { class: "pt-card__lock-ic" }, "🔒"),
-        el("span", {}, "성인 인증 필요"),
+        { class: "pt-post__by" },
+        el("span", { class: "pt-post__author" }, w.circle),
+        el("span", { class: "pt-post__sub" }, `${fauxDate(w.id)} · ${category}`),
       ),
+      el("button", { class: "pt-post__sub-btn" }, "구독"),
+      el("span", { class: "pt-post__more" }, "⋯"),
+    ),
+    el("h3", { class: "pt-post__title" }, w.title),
+    el("div", { class: "pt-post__tagline" }, w.tags.map((t) => "#" + t).join(" ")),
+    el("p", { class: "pt-post__excerpt" }, w.excerpt),
+    el(
+      "div",
+      { class: "pt-post__tags" },
+      el("span", { class: "pt-post__tag" }, "#성인"),
+      ...w.tags.map((t) => el("span", { class: "pt-post__tag" }, `#${t}`)),
     ),
     el(
       "div",
-      { class: "pt-card__body" },
-      el("div", { class: "pt-card__title" }, w.title),
+      { class: "pt-post__cover", style: coverStyle(w.hue), onclick: () => openViewModal(ctx, w) },
+      el("span", { class: "pt-post__adult" }, "🔞 성인"),
       el(
         "div",
-        { class: "pt-card__creator" },
-        el("span", { class: "pt-card__avatar", style: coverStyle(w.hue) }),
-        `@${w.circle}`,
+        { class: "pt-post__lock" },
+        el("span", { class: "pt-post__lock-ic" }, "🔒"),
+        el("span", {}, `열람 ${formatNumber(PUSH_VIEW_COST)}원`),
       ),
-      el("div", { class: "pt-card__excerpt" }, w.excerpt),
-      el(
-        "div",
-        { class: "pt-card__tags" },
-        ...w.tags.map((t) => el("span", { class: "pt-card__tag" }, `#${t}`)),
-      ),
-      el(
-        "div",
-        { class: "pt-card__meta" },
-        el("span", {}, `♥ ${formatNumber(likes)}`),
-        el("span", {}, `💬 ${formatNumber(comments)}`),
-        el("span", { class: "pt-card__price" }, `${formatNumber(PUSH_VIEW_COST)}원`),
-      ),
+    ),
+  );
+}
+
+function feed(ctx: GameContext): HTMLElement {
+  return el(
+    "main",
+    { class: "pt__main" },
+    el(
+      "div",
+      { class: "pt__tabs" },
+      el("span", { class: "pt__tab pt__tab--on" }, "발견"),
+      el("span", { class: "pt__tab" }, "구독·참여"),
+    ),
+    el(
+      "p",
+      { class: "pt__notice" },
+      "19세 미만 이용 불가. 포스트를 결제하면 열람할 수 있어요. (음란·정신력↑, 도덕성↓)",
+    ),
+    ...PUSH_WORKS.map((w) => postEntry(ctx, w)),
+  );
+}
+
+/* ── 우측 사이드바(장식) ── */
+function miniPost(w: PushWork): HTMLElement {
+  return el(
+    "span",
+    { class: "pt__mini" },
+    el("span", { class: "pt__mini-thumb", style: coverStyle(w.hue) }),
+    el(
+      "span",
+      { class: "pt__mini-body" },
+      el("span", { class: "pt__mini-title" }, w.title),
+      el("span", { class: "pt__mini-sub" }, `${w.circle} · ${fauxDate(w.id)}`),
+    ),
+  );
+}
+
+function rightbar(): HTMLElement {
+  return el(
+    "aside",
+    { class: "pt__side pt__side--right" },
+    el(
+      "div",
+      { class: "pt__side-sec" },
+      el("div", { class: "pt__side-h" }, "최근 스크랩한 포스트"),
+      ...PUSH_WORKS.slice(0, 3).map(miniPost),
+    ),
+    el(
+      "div",
+      { class: "pt__side-sec" },
+      el("div", { class: "pt__side-h" }, "최근 본 포스트"),
+      ...PUSH_WORKS.slice(3, 6).map(miniPost),
     ),
   );
 }
@@ -159,16 +274,6 @@ export function renderPushtime(ctx: GameContext): HTMLElement {
     "div",
     { class: "pt" },
     masthead(ctx),
-    el(
-      "div",
-      { class: "pt__body" },
-      chips(),
-      el(
-        "p",
-        { class: "compose-hint", style: "margin:0 4px 12px" },
-        "19세 미만 이용 불가. 포스트를 결제하면 열람할 수 있어요. (음란·정신력↑, 도덕성↓)",
-      ),
-      el("div", { class: "pt__feed" }, ...PUSH_WORKS.map((w) => postCard(ctx, w))),
-    ),
+    el("div", { class: "pt__cols" }, leftbar(), feed(ctx), rightbar()),
   );
 }

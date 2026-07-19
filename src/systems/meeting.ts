@@ -387,6 +387,8 @@ export function canMeet(state: GameState, thread: DMThread): boolean {
   return (
     thread.wantsToMeet &&
     !thread.metOffline &&
+    // 만남 제안은 그날 하루만 유효 — 익일이 되면 만료(구세이브는 필드 부재 → 만료 없음).
+    (thread.meetProposedDay === undefined || state.day <= thread.meetProposedDay) &&
     state.resources.action >= MEETING_ACTION_COST
   );
 }

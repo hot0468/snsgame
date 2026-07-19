@@ -6,6 +6,7 @@ import { MAX_SKILL } from "@/data/stats";
 import { dateOfMonth, isLastDayOfMonth, isWeekday, monthKey } from "./calendar";
 import { sendSalaryKakao, sendTwitterSettlementKakao } from "./kakao";
 import { offerLoan } from "./loan";
+import { AV_PAYDAY_DATE, avSalaryOf, firstAvWorkDay } from "./avJob";
 
 /** 하루 생활비 */
 export const DAILY_LIVING_COST = 10_000;
@@ -119,6 +120,37 @@ function maybePayday(state: GameState): void {
 }
 
 /**
+ * AV 월급날(매월 25일) 처리. 회사 월급(10일)과 독립. 사이클은 26일에 앵커된다:
+ * 25일 지급 → 26일에 근무일·노콘 리셋(maybeAvMonthReset) → 26~25가 한 '달'.
+ * 첫 지급은 첫 근무일(계약 후 처음 오는 26일) 이후의 25일부터.
+ * ⚠️ 지급만 하고 리셋은 안 한다 — 리셋은 다음날 26일이 담당한다(사용자 확정).
+ */
+function maybeAvPayday(state: GameState): void {
+  const job = state.avJob;
+  if (!job) return;
+  if (dateOfMonth(state.day) !== AV_PAYDAY_DATE) return;
+  if (state.day < firstAvWorkDay(job.joinedDay)) return; // 첫 근무일(첫 26일) 전엔 지급 없음
+  const mk = monthKey(state.day);
+  if (job.lastSalaryMonth === mk) return;
+  job.lastSalaryMonth = mk;
+  const salary = avSalaryOf(state);
+  state.money += salary;
+  pushSchedule(state, `AV 월급 +${fmt(salary)}원`, "system");
+}
+
+/**
+ * AV 근무일·노콘 월 리셋 — 월급 다음날인 매월 26일에 새 '달'이 시작된다(사용자 확정).
+ * onNewDay가 하루 1회 부르고 26일은 월 1회뿐이라 별도 중복 가드 불필요.
+ */
+function maybeAvMonthReset(state: GameState): void {
+  const job = state.avJob;
+  if (!job) return;
+  if (dateOfMonth(state.day) !== 26) return;
+  job.workDaysThisMonth = 0;
+  job.condomlessThisMonth = 0;
+}
+
+/**
  * 매월 1일 트위터(X) 수익(팔로워 + 유료 구독)을 정산해 money에 크레딧하고 알림 카톡을 보낸다.
  * 1일 저녁 슬롯 진입 시 time.advanceTime에서 호출된다(내부 가드로 1일에만 실제 동작, 월 1회).
  */
@@ -158,6 +190,9 @@ function updateLoanOffer(state: GameState): void {
 export function applyDailyCosts(state: GameState): void {
   // 월급(익월부터, 매월 10일)
   maybePayday(state);
+  // AV 월급(매월 25일) — 회사 월급과 독립. 다음날 26일에 근무일·노콘 리셋.
+  maybeAvPayday(state);
+  maybeAvMonthReset(state);
 
   // 생활비
   const living = livingCostToday(state);

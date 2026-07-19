@@ -100,17 +100,14 @@ export function renderKakaoModal(ctx: GameContext, threadId: string): HTMLElemen
       el("button", { class: "kk-head__close", onclick: () => ctx.closeModal() }, "✕"),
     );
 
-    // 하단: 실제 답장/선택 버튼(있으면) + 장식용 입력바
+    // 하단: 실제 답장/선택 버튼(있으면 회색 입력란 자리에 채운다) + 장식용 입력바
     const actions = footButtons(thread);
     const foot = el(
       "div",
       { class: "kk-foot" },
-      actions.length ? el("div", { class: "kk-quick" }, ...actions) : null,
-      el(
-        "div",
-        { class: "kk-input" },
-        el("span", { class: "kk-input__ph" }, "메시지 입력"),
-      ),
+      actions.length
+        ? el("div", { class: "kk-input kk-quick" }, ...actions)
+        : el("div", { class: "kk-input" }, el("span", { class: "kk-input__ph" }, "메시지 입력")),
       el(
         "div",
         { class: "kk-inputbar" },
@@ -259,7 +256,9 @@ export function renderKakaoModal(ctx: GameContext, threadId: string): HTMLElemen
       return [decline, accept];
     }
 
-    // 일반 카톡(집주인 등) — 간단 답장
+    // 일반 카톡(집주인 등) — 간단 답장. 한 번 답하면(내 메시지가 생기면) 버튼을 없앤다.
+    // (일반 스레드의 'me' 메시지는 이 답장뿐이라 이 검사가 곧 '이미 답함' 판정이다.)
+    if (thread.messages.some((m) => m.from === "me")) return [];
     const reply = el(
       "button",
       {

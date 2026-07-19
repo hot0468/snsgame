@@ -122,10 +122,43 @@ export function deliverJobResultEmail(state: GameState): void {
   addSchedule(state, app.hired ? "채용 합격 메일 도착" : "채용 결과 메일 도착", "system");
 }
 
-/** 합격 메일에서 '출근한다'를 선택 — 입사한다(근무는 다음 근무일부터). */
+/* ─────────────────── 직업 배타(회사·AV 택1) ─────────────────── */
+
+/** 회사·AV 중 어느 직업이든 하나라도 재직 중인지. */
+export function hasAnyJob(state: GameState): boolean {
+  return !!state.employment || !!state.avJob;
+}
+
+/** 현재 직업의 표시 라벨(회사명 또는 "AV배우"). 직업 없으면 빈 문자열. */
+export function currentJobLabel(state: GameState): string {
+  if (state.employment) return state.employment.company;
+  if (state.avJob) return "AV배우";
+  return "";
+}
+
+/**
+ * 현재 가진 직업(회사/AV)을 그만둔다 — 직업 전환(switch)의 선행 단계.
+ * 월 정산 등 별도 마감 없이 상태만 해지한다(다음 정산부터 미지급).
+ */
+export function quitCurrentJob(state: GameState): void {
+  if (state.employment) {
+    addSchedule(state, `${state.employment.company} 퇴사`, "system");
+    state.employment = null;
+  }
+  if (state.avJob) {
+    addSchedule(state, "AV배우 계약 해지", "system");
+    state.avJob = null;
+  }
+}
+
+/**
+ * 합격 메일에서 '출근한다'를 선택 — 입사한다(근무는 다음 근무일부터).
+ * ⚠️ **기존 직업(회사/AV)이 있으면 아무것도 하지 않는다** — UI가 전환 여부를 물어
+ *    switchToCompanyJob을 호출한다(직업 배타).
+ */
 export function acceptJobOffer(state: GameState, emailId: string): void {
   const email = state.emails.find((e) => e.id === emailId);
-  if (!email?.jobOffer || state.employment) return;
+  if (!email?.jobOffer || hasAnyJob(state)) return;
   const { company, tier } = email.jobOffer;
   state.employment = {
     company,
@@ -139,6 +172,12 @@ export function acceptJobOffer(state: GameState, emailId: string): void {
   email.jobOffer = undefined;
   email.read = true;
   addSchedule(state, `${company} 입사!`, "system");
+}
+
+/** 기존 직업을 그만두고 회사 오퍼로 갈아탄다(UI 전환 확정 시). */
+export function switchToCompanyJob(state: GameState, emailId: string): void {
+  quitCurrentJob(state);
+  acceptJobOffer(state, emailId);
 }
 
 /** 합격 메일에서 '안 한다'를 선택 — 입사를 거절한다. */
@@ -175,7 +214,7 @@ function rollOvertime(state: GameState): void {
 }
 
 /** 성과를 올리고 레벨업을 처리한다. @returns 레벨업했으면 true */
-function gainPerformance(state: GameState, amount: number): boolean {
+export function gainPerformance(state: GameState, amount: number): boolean {
   const emp = state.employment!;
   emp.performance += amount;
   let leveled = false;

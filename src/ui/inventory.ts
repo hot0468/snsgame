@@ -1,6 +1,14 @@
 import type { GameContext } from "./context";
 import type { OwnedItemInfo } from "@/systems/shop";
-import { DRAWING_TOOL_IDS, ownedInventory, sellOwnedItem, sellPrice } from "@/systems/shop";
+import {
+  DRAWING_TOOL_IDS,
+  GIFT_SELL_MORALITY_PENALTY,
+  GIFT_SELL_REP_PENALTY,
+  isRelGift,
+  ownedInventory,
+  sellOwnedItem,
+  sellPrice,
+} from "@/systems/shop";
 import { SKILL_STATS } from "@/data/stats";
 import type { SkillStatId } from "@/core/types";
 import { el, formatNumber } from "@/utils/dom";
@@ -35,6 +43,7 @@ export function openSellConfirm(ctx: GameContext, item: OwnedItemInfo): void {
   const payout = sellPrice(item);
   const boosts = boostText(item);
   const relock = isLastDrawingTool(ctx, item.id);
+  const gift = isRelGift(item.id);
 
   ctx.openModal((c) =>
     el(
@@ -76,6 +85,13 @@ export function openSellConfirm(ctx: GameContext, item: OwnedItemInfo): void {
               "p",
               { class: "pm-sell__warn" },
               "⚠️ 마지막 남은 창작 도구예요. 이걸 팔면 애니·만화 창작이 다시 잠깁니다.",
+            )
+          : null,
+        gift
+          ? el(
+              "p",
+              { class: "pm-sell__warn" },
+              `⚠️ 소중한 사람에게 받은 선물이에요. 팔면 평판 −${GIFT_SELL_REP_PENALTY} · 도덕 −${GIFT_SELL_MORALITY_PENALTY}로 크게 떨어집니다.`,
             )
           : null,
         el(

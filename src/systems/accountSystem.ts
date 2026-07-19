@@ -63,3 +63,10 @@ export function renameActiveAccount(state: GameState, name: string): void {
   const account = getActiveAccount(state);
   account.name = name.trim() || account.name;
 }
+
+/** 특정 계정의 계정명(핸들 아님)을 변경한다. 빈 이름이면 무시. 첫 계정 포함 모든 계정 개명 가능. */
+export function renameAccount(state: GameState, accountId: string, name: string): void {
+  const acc = state.accounts.find((a) => a.id === accountId);
+  const trimmed = name.trim();
+  if (acc && trimmed) acc.name = trimmed;
+}
