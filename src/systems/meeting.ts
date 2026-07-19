@@ -393,6 +393,13 @@ export function canMeet(state: GameState, thread: DMThread): boolean {
   );
 }
 
+/** 성인 트윗 누적으로 해금되는 만남 시나리오들의 문턱값(중복 제거). tweetSystem이 크로싱 판정에 쓴다. */
+export const MEETING_GATE_THRESHOLDS: readonly number[] = [
+  ...new Set(
+    MEETING_SCENARIOS.filter((s) => s.minAdultTweets != null).map((s) => s.minAdultTweets as number),
+  ),
+];
+
 /**
  * 이 상대에게 어울리는 만남 시나리오를 하나 고른다.
  * - 성향 전용 시나리오가 있으면 우선, 없으면 범용.
@@ -404,20 +411,25 @@ export function pickMeetingScenario(state: GameState, thread: DMThread): Meeting
   const eligible = MEETING_SCENARIOS.filter((sc) => {
     if (sc.adultOnly && !allowAdult) return false;
     if (sc.attribute && sc.attribute !== thread.attribute) return false;
+    if (sc.minAdultTweets && state.adultTweetsPosted < sc.minAdultTweets) return false;
     return true;
   });
 
+  // 한 번 본(완료한) 시나리오는 제외해 반복을 막는다. 전부 봐서 남는 게 없으면 어쩔 수 없이 전체 후보로 폴백.
+  const fresh = eligible.filter((sc) => !state.seenMeetings.includes(sc.id));
+  const pool = fresh.length > 0 ? fresh : eligible;
+
   // 성인 상대 + 성인모드면 성인 시나리오를 우선 노출
   if (allowAdult) {
-    const adultOnes = eligible.filter((sc) => sc.adultOnly);
+    const adultOnes = pool.filter((sc) => sc.adultOnly);
     if (adultOnes.length > 0 && Math.random() < 0.6) return pick(adultOnes);
   }
   // 성향 전용이 있으면 우선
-  const specific = eligible.filter((sc) => sc.attribute === thread.attribute);
+  const specific = pool.filter((sc) => sc.attribute === thread.attribute);
   if (specific.length > 0 && Math.random() < 0.7) return pick(specific);
 
-  const generic = eligible.filter((sc) => !sc.attribute && !sc.adultOnly);
-  return pick(generic.length > 0 ? generic : eligible);
+  const generic = pool.filter((sc) => !sc.attribute && !sc.adultOnly);
+  return pick(generic.length > 0 ? generic : pool);
 }
 
 /** "{name}" 토큰을 상대 이름으로 치환 */
@@ -439,6 +451,9 @@ export function resolveMeeting(
 ): string {
   const choice = scenario.choices[choiceIndex];
   if (!choice) return "";
+
+  // 완료한 시나리오는 seen에 기록 — 다음 추첨부터 제외돼 반복되지 않는다.
+  if (!state.seenMeetings.includes(scenario.id)) state.seenMeetings.push(scenario.id);
 
   applyEffect(state, choice.effect);
   state.resources.action = clampAction(state, state.resources.action - MEETING_ACTION_COST);

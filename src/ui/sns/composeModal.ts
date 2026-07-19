@@ -1,5 +1,5 @@
 import type { GameContext } from "@/ui/context";
-import type { AdultKind, AttributeId, TweetKind, TweetMedia } from "@/core/types";
+import type { AdultKind, AttributeId, EventTweetDraft, TweetKind, TweetMedia } from "@/core/types";
 import { mediaSetFor } from "@/data/mediaTweets";
 import { canWriteScam, getActiveAccount, isMentalLow, isSuspended } from "@/core/state";
 import { ATTRIBUTES, getAffinity } from "@/data/attributes";
@@ -33,8 +33,9 @@ import {
   cosmeticTweetLines,
   monthlyNewCosmetics,
 } from "@/data/cosmetics";
+import { postEventTweetDraft, removeEventTweetDraft } from "@/systems/eventTweets";
 import { pick } from "@/utils/random";
-import { el } from "@/utils/dom";
+import { el, mount } from "@/utils/dom";
 import { icon, ATTR_ICON } from "@/ui/icons";
 
 /** 창작 모드 — 꺼짐 / 1차창작 / 2차창작 */
@@ -634,8 +635,11 @@ export function renderComposeModal(
             // 일반 트윗만 성격 전달, 나머지는 opts 생략 → plain(중립)으로 기존 동작 유지
             const opts = general && selectedKind ? { kind: selectedKind } : {};
             let delta = 0;
+            let unlockedMeeting = false;
             ctx.update((st) => {
-              delta = postTweet(st, finalAttr, finalText, finalAdult, adultKind, mult, opts).followerDelta;
+              const res = postTweet(st, finalAttr, finalText, finalAdult, adultKind, mult, opts);
+              delta = res.followerDelta;
+              unlockedMeeting = res.unlockedMeeting;
               // 창작 트윗 누적 → 20개 이상이면 작가 계약 제안 DM이 올 수 있다
               if (creating) {
                 st.creationTweetCount += 1;
@@ -645,6 +649,7 @@ export function renderComposeModal(
             ctx.toast(
               delta >= 0 ? `트윗 등록! +${delta} 팔로워` : `트윗 등록... ${delta} 팔로워`,
             );
+            if (unlockedMeeting) ctx.toast("🔓 성인 콘텐츠가 풀렸다 — 새로운 만남의 문이 열렸다.");
           }
           // 트윗은 슬롯을 넘기지 않는다 — 닫고 이벤트 판정만.
           ctx.closeModal();
@@ -715,6 +720,94 @@ export function renderComposeModal(
     );
   }
 
+  // ── 이벤트 트윗 초안 리스트 (모달 상시 하단 푸터) ──────────
+  // 이벤트로 저장한 트윗 소재를 최신순으로 나열하고 골라서 게시/삭제한다.
+  // draftsWrap은 재사용 컨테이너 — 단계 전환·게시/삭제 후 repaintDrafts로 fresh state를 다시 그린다.
+  const draftsWrap = el("div", { class: "event-drafts" });
+
+  /** 초안 한 줄: 소스 + 미리보기 + 계열/성인 표식 + [게시]/[삭제]. */
+  function renderDraftRow(d: EventTweetDraft, slotOk: boolean): HTMLElement {
+    return el(
+      "div",
+      { class: "event-draft" + (d.isAdult ? " event-draft--adult" : "") },
+      el(
+        "div",
+        { class: "event-draft__main" },
+        el(
+          "div",
+          { class: "event-draft__meta" },
+          el("span", { class: "event-draft__source" }, d.source),
+          el(
+            "span",
+            { class: "event-draft__tag" },
+            d.isAdult ? "🔞 성인" : categoryLabel(d.attr),
+          ),
+        ),
+        el("div", { class: "event-draft__text" }, d.text),
+      ),
+      el(
+        "div",
+        { class: "event-draft__actions" },
+        el(
+          "button",
+          {
+            class: "btn btn--ghost event-draft__btn",
+            disabled: !slotOk,
+            onclick: () => {
+              let delta: number | null = null;
+              ctx.update((st) => {
+                const res = postEventTweetDraft(st, d.id);
+                delta = res ? res.followerDelta : null;
+              });
+              if (delta === null) {
+                ctx.toast("오늘 게시 한도를 다 써서 지금은 올릴 수 없어요.");
+              } else {
+                ctx.toast(
+                  delta >= 0 ? `트윗 게시! +${delta} 팔로워` : `트윗 게시... ${delta} 팔로워`,
+                );
+                ctx.afterAction("tweet");
+              }
+              // paint()로 전체 재구성 — 게시로 슬롯이 소진되면 step2 [등록] 게이트·게시 카운터도
+              // fresh state로 다시 읽어야 한다(하단 리스트만 갱신하면 step2가 stale해져 한도 우회).
+              paint();
+            },
+          },
+          "게시",
+        ),
+        el(
+          "button",
+          {
+            class: "btn btn--ghost event-draft__btn",
+            onclick: () => {
+              ctx.update((st) => removeEventTweetDraft(st, d.id));
+              repaintDrafts();
+            },
+          },
+          "삭제",
+        ),
+      ),
+    );
+  }
+
+  /** 초안 리스트를 fresh state로 다시 그린다. 없으면 섹션을 비운다(숨김). */
+  function repaintDrafts(): void {
+    const drafts = ctx.store.getState().eventTweetDrafts;
+    if (drafts.length === 0) {
+      mount(draftsWrap);
+      return;
+    }
+    const slotOk = canPostBySlot(ctx.store.getState());
+    mount(
+      draftsWrap,
+      el("div", { class: "event-drafts__title" }, `이벤트 트윗 소재 (${drafts.length})`),
+      !slotOk
+        ? el("div", { class: "compose-hint" }, "오늘 게시 한도 소진 — 내일 다시 올릴 수 있어요.")
+        : null,
+      // push 순서 = 오래된→최신 이므로 뒤에서 앞으로(최신순) 나열.
+      ...[...drafts].reverse().map((d) => renderDraftRow(d, slotOk)),
+    );
+  }
+
   const head = el(
     "div",
     { class: "modal__head" },
@@ -723,7 +816,8 @@ export function renderComposeModal(
   );
 
   function paint() {
-    container.replaceChildren(head, step === 1 ? renderStep1() : renderStep2());
+    container.replaceChildren(head, step === 1 ? renderStep1() : renderStep2(), draftsWrap);
+    repaintDrafts();
   }
 
   paint();

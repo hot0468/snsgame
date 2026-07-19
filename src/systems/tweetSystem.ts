@@ -22,6 +22,7 @@ import { addStrike } from "./ban";
 import { rollControversy, CONTROVERSY_REP_THRESHOLD } from "./controversy";
 import { gainAffinityFromTweet } from "./relationship";
 import { addSchedule } from "./time";
+import { MEETING_GATE_THRESHOLDS } from "./meeting";
 
 /** 트윗 1건 작성에 드는 행동력 */
 export const TWEET_ACTION_COST = 10;
@@ -32,6 +33,8 @@ export const ADULT_FOLLOWER_MULTIPLIER = 1.5;
 export interface PostTweetResult {
   tweet: Tweet;
   followerDelta: number;
+  /** 이번 성인 트윗으로 만남 시나리오 해금 문턱을 막 넘었으면 true */
+  unlockedMeeting: boolean;
 }
 
 /** postTweet 부가 옵션 */
@@ -67,6 +70,8 @@ export function postTweet(
   opts: PostTweetOptions = {},
 ): PostTweetResult {
   const account = getActiveAccount(state);
+  // 성인 해금 크로싱 판정용: adultTweetsPosted 증가 전 값을 잡아둔다.
+  const beforeAdult = state.adultTweetsPosted;
   const kind = opts.kind ?? "plain";
   const kindEff = TWEET_KIND_EFFECTS[kind];
   const outcome = calcTweetOutcome(state, attr, kind);
@@ -128,6 +133,7 @@ export function postTweet(
   if (isAdult) {
     state.postedAdultEver = true;
     state.adultTweetsPosted++;
+    if (adultKind === "punish") state.punishTweetsPosted++;
     maybeSpawnMotelDM(state, adultKind);
     maybeSpawnDickPicDM(state);
     maybeSpawnSavannaDM(state);
@@ -163,7 +169,10 @@ export function postTweet(
   onTweetPosted(state, postedSlot);
 
   // 트윗은 시간을 진행시키지 않는다(슬롯 전환은 오프라인 활동·근무 등이 담당).
-  return { tweet, followerDelta: followers };
+  const unlockedMeeting =
+    isAdult &&
+    MEETING_GATE_THRESHOLDS.some((t) => beforeAdult < t && state.adultTweetsPosted >= t);
+  return { tweet, followerDelta: followers, unlockedMeeting };
 }
 
 /** 트윗 작성이 가능한지(행동력 체크) */
