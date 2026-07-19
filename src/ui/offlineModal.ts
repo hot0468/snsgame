@@ -10,7 +10,7 @@ import {
   canSpendDay,
   spendDayResting,
 } from "@/systems/offline";
-import { postTweet } from "@/systems/tweetSystem";
+import { enqueueEventTweet } from "@/systems/eventTweets";
 import { outdoorShoot, blackVanOrgy } from "@/systems/events";
 import { getAdultOfflineEncounter } from "@/data/adultOffline";
 import { resolveAdultOfflineEncounter } from "@/systems/adultOffline";
@@ -25,6 +25,7 @@ import { pick } from "@/utils/random";
 import { el, formatNumber } from "@/utils/dom";
 import { icon, ACTIVITY_ICON } from "./icons";
 import { renderJobBoardModal } from "./jobBoardModal";
+import { renderSystemNotice } from "./systemNotice";
 
 /** +/- 부호를 붙인 수치 문자열 */
 function signed(n: number): string {
@@ -320,6 +321,20 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
   }
 
   function showResult(act: OfflineActivity, outcome: OfflineOutcome): void {
+    const isSpecial = !!(
+      outcome.blackVanEncounter ||
+      outcome.nudeExposure ||
+      outcome.adultEncounter ||
+      outcome.petEncounter
+    );
+
+    // 일반(특수 조우 아님) 현생 결과는 공용 시스템 알림 카드로 통일한다.
+    // 특수 조우 4종(봉고·노출·성인·펫)은 각자 서사 서브플로우+분홍 테마라 아래 기존 코드 그대로.
+    if (!isSpecial) {
+      showNormalResult(act, outcome);
+      return;
+    }
+
     // 아르바이트 급여는 별도 줄로 표시하므로 델타 요약에선 뺀다.
     const deltaParts = [activityDeltas({ ...act, partTime: false }, 0), outcome.randomSkillLabel]
       .filter(Boolean)
@@ -571,50 +586,9 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           ),
         ),
       );
-    } else {
-      bodyChildren.push(
-        el(
-          "p",
-          { class: "compose-hint", style: "margin-top:14px" },
-          "방금 활동을 트윗으로 올릴까?",
-        ),
-        el(
-          "div",
-          { class: "compose-actions", style: "gap:10px" },
-          el(
-            "button",
-            {
-              class: "btn btn--ghost",
-              onclick: () => {
-                ctx.closeModal();
-                ctx.afterAction("offline");
-              },
-            },
-            "안 올린다",
-          ),
-          el(
-            "button",
-            {
-              class: "btn",
-              onclick: () => {
-                const text = pick(act.tweetLines);
-                let delta = 0;
-                ctx.update((s) => {
-                  delta = postTweet(s, act.tweetAttr, text, false, "meetup", 1).followerDelta;
-                });
-                ctx.closeModal();
-                ctx.toast(
-                  delta >= 0 ? `트윗 등록! +${delta} 팔로워` : `트윗 등록... ${delta} 팔로워`,
-                );
-              },
-            },
-            "트윗한다",
-          ),
-        ),
-      );
     }
 
-    // 노골 성인 조우(검은 봉고·야외노출·성인 조우)만 분홍 테마 — 일반 현생 결과는 기본색.
+    // 노골 성인 조우(검은 봉고·야외노출·성인 조우)만 분홍 테마.
     container.classList.toggle(
       "modal--adult",
       !!(outcome.blackVanEncounter || outcome.nudeExposure || outcome.adultEncounter),
@@ -632,6 +606,72 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         ),
       ),
       el("div", { class: "modal__body" }, ...bodyChildren),
+    );
+  }
+
+  /**
+   * 일반 현생 결과(특수 조우 아님) — 공용 시스템 알림 카드.
+   * tone은 항상 "good"(블루)로 고정한다 — 현생 활동은 본질적으로 생산적이고(스킬·소재·돈 획득),
+   * 행동력·정신력 소모는 나쁜 결과가 아니라 '비용'이다. 자동 판정에 맡기면 공부처럼 정신력을
+   * 쓰는 활동이 부정(레드)으로 오분류된다. 진짜 부정 결과(특수 조우)는 이 분기로 안 온다.
+   */
+  function showNormalResult(act: OfflineActivity, outcome: OfflineOutcome): void {
+    // 스킬 획득(고정 skillGains + 랜덤)·새 소재 해금은 델타로 표현 못 하니 extraLines로 붙인다.
+    const skillParts: string[] = [];
+    for (const [skill, amount] of Object.entries(act.skillGains ?? {})) {
+      skillParts.push(`${SKILL_STATS[skill as keyof typeof SKILL_STATS].label} +${amount}`);
+    }
+    if (outcome.randomSkillLabel) skillParts.push(outcome.randomSkillLabel);
+    const extraLines: string[] = [];
+    if (skillParts.length) extraLines.push(skillParts.join(" · "));
+    if (outcome.unlockedAttribute) {
+      extraLines.push(
+        `새 트윗 소재를 얻었다! (${ATTRIBUTES[outcome.unlockedAttribute].label.replace(/계$/, "")})`,
+      );
+    }
+
+    const skipBtn = el(
+      "button",
+      {
+        class: "sys-notice__confirm sys-notice__confirm--ghost",
+        onclick: () => {
+          ctx.closeModal();
+          ctx.afterAction("offline");
+        },
+      },
+      "안 올린다",
+    );
+    const tweetBtn = el(
+      "button",
+      {
+        class: "sys-notice__confirm",
+        onclick: () => {
+          const text = pick(act.tweetLines);
+          ctx.update((s) =>
+            enqueueEventTweet(s, { source: "오프라인 활동", attr: act.tweetAttr, text }),
+          );
+          ctx.closeModal();
+          ctx.toast("📝 트윗 소재를 작성 목록에 저장했어요 · 작성 팝업에서 게시");
+        },
+      },
+      "트윗한다",
+    );
+
+    // openModal로 모달 정체성을 바꿔 app이 카드 노드를 새로 그리게 한다.
+    ctx.openModal((c) =>
+      renderSystemNotice(c, {
+        message: outcome.message,
+        tone: "good", // 현생 활동은 항상 생산적 — 행동력/정신력 소모로 레드 되지 않게 고정
+        deltas: {
+          action: act.action,
+          mental: act.mental,
+          morality: act.morality,
+          // 아르바이트 급여(earnedMoney)가 있으면 그 값을, 아니면 활동 고정 보상을.
+          money: outcome.earnedMoney ?? act.money,
+        },
+        extraLines,
+        extraActions: [skipBtn, tweetBtn],
+      }),
     );
   }
 

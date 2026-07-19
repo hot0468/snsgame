@@ -23,6 +23,9 @@ export function renderRelEventModal(ctx: GameContext, charId: string): HTMLEleme
   const fill = (t: string): string => t.replace(/\{name\}/g, char.name);
   let pageIndex = 0;
 
+  const closeX = (): HTMLElement =>
+    el("button", { class: "novel-close", "aria-label": "닫기", onclick: () => ctx.closeModal() }, "✕");
+
   function renderReader(): void {
     const isLast = pageIndex === event.pages.length - 1;
 
@@ -84,6 +87,7 @@ export function renderRelEventModal(ctx: GameContext, charId: string): HTMLEleme
     );
 
     container.replaceChildren(
+      closeX(),
       el(
         "div",
         { class: "modal__head" },
@@ -100,6 +104,7 @@ export function renderRelEventModal(ctx: GameContext, charId: string): HTMLEleme
 
   function renderResult(result: string): void {
     container.replaceChildren(
+      closeX(),
       el("div", { class: "modal__head" }, `${char!.name} — 만남`),
       el(
         "div",

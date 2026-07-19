@@ -29,6 +29,9 @@ export function renderMeetingModal(ctx: GameContext, threadId: string): HTMLElem
       : scenario.pages;
   let pageIndex = 0;
 
+  const closeX = (): HTMLElement =>
+    el("button", { class: "novel-close", "aria-label": "닫기", onclick: () => ctx.closeModal() }, "✕");
+
   function renderReader(): void {
     const isLast = pageIndex === pages.length - 1;
 
@@ -91,6 +94,7 @@ export function renderMeetingModal(ctx: GameContext, threadId: string): HTMLElem
     );
 
     container.replaceChildren(
+      closeX(),
       el(
         "div",
         { class: "modal__head" },
@@ -109,6 +113,7 @@ export function renderMeetingModal(ctx: GameContext, threadId: string): HTMLElem
 
   function renderResult(result: string): void {
     container.replaceChildren(
+      closeX(),
       el("div", { class: "modal__head" }, "만남의 끝"),
       el(
         "div",

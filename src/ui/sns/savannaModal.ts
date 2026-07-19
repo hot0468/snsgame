@@ -15,6 +15,9 @@ export function renderSavannaIntrusionModal(ctx: GameContext): HTMLElement {
   const pages = SAVANNA_INTRUSION_PAGES;
   let pageIndex = 0;
 
+  const closeX = (): HTMLElement =>
+    el("button", { class: "novel-close", "aria-label": "닫기", onclick: () => ctx.closeModal() }, "✕");
+
   function renderReader(): void {
     const isLast = pageIndex === pages.length - 1;
 
@@ -76,6 +79,7 @@ export function renderSavannaIntrusionModal(ctx: GameContext): HTMLElement {
     );
 
     container.replaceChildren(
+      closeX(),
       el(
         "div",
         { class: "modal__head" },
@@ -92,6 +96,7 @@ export function renderSavannaIntrusionModal(ctx: GameContext): HTMLElement {
 
   function renderResult(result: string): void {
     container.replaceChildren(
+      closeX(),
       el("div", { class: "modal__head" }, "방송 종료"),
       el(
         "div",

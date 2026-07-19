@@ -3197,6 +3197,78 @@ body {
   margin-bottom: 4px;
 }
 
+/* 이벤트 트윗 초안 리스트 (컴포즈 모달 하단 상시 푸터) */
+.event-drafts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px 4px;
+  border-top: 1px solid var(--border);
+}
+.event-drafts:empty {
+  padding: 0;
+  border-top: none;
+}
+.event-drafts__title {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+.event-draft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-panel);
+}
+.event-draft--adult {
+  border-color: #f4b8d0;
+  background: rgba(224, 36, 126, 0.06);
+}
+.event-draft__main {
+  flex: 1;
+  min-width: 0;
+}
+.event-draft__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.event-draft__source {
+  color: var(--accent);
+}
+.event-draft__tag {
+  color: var(--text-muted);
+}
+.event-draft--adult .event-draft__tag {
+  color: #d61f74;
+}
+.event-draft__text {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.event-draft__actions {
+  flex: none;
+  display: flex;
+  gap: 6px;
+}
+/* 2-class 특이성으로 .btn 기본(padding 8/14)을 확실히 눌러 작게 만든다
+   (.event-draft__btn 단일 클래스는 뒤에 정의된 .btn에 덮여 커졌다). */
+.event-draft__actions .btn.event-draft__btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 /* 작성 미리보기 신호(트렌드/궁합) — 질적 신호만 */
 .compose-signal {
   display: flex;
@@ -4296,6 +4368,138 @@ body {
   background: #f0f9ff;
 }
 
+/* ===== 웹소설 리더 목업 리스킨 (그라데이션 프레임 + 흰 알약 타이틀 + 흰 본문 박스) =====
+   .modal--novel 특정성으로 위 기본 .novel-* 규칙을 덮는다. 색은 --novel-* 변수로,
+   성인 시나리오(.modal--adult)는 맨 아래에서 변수만 핑크→보라로 교체. */
+.modal--novel {
+  --novel-c1: #4aa8ff;
+  --novel-c2: #2e6fe0;
+  --novel-theme: #2e6fe0;
+  width: min(600px, 100%);
+  max-height: 90vh;
+  background: linear-gradient(150deg, var(--novel-c1) 0%, var(--novel-c2) 100%);
+  border-radius: 26px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 우상단 원형 X 닫기 — 프레임 위에 겹쳐 배치 */
+.novel-close {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--novel-theme);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
+  transition: transform 0.1s ease, background 0.1s ease;
+}
+.novel-close:hover {
+  transform: scale(1.08);
+  background: #fff;
+}
+
+/* 타이틀 카드: 흰 알약형, 본문 위쪽에 살짝 겹쳐 뜬다 (기존 .modal__head 변신) */
+.modal--novel .modal__head {
+  align-self: center;
+  max-width: 82%;
+  justify-content: center;
+  gap: 7px;
+  margin: 2px 0 -15px;
+  padding: 9px 24px;
+  border-bottom: none;
+  border-radius: 999px;
+  background: #fff;
+  color: #16305c;
+  font-weight: 800;
+  font-size: 15px;
+  position: relative;
+  z-index: 2;
+  text-align: center;
+}
+
+/* 알약 안 페이지 표시는 숨김(하단 nav에 이미 1/N이 있음) */
+.modal--novel .modal__head .novel-head__page {
+  display: none;
+}
+
+/* 본문 박스: 흰 라운드 사각형 + 테마색 둥근 스크롤바 */
+.modal--novel .novel-body {
+  flex: 1;
+  overflow-y: auto;
+  border-radius: 18px;
+  padding: 32px clamp(20px, 5vw, 40px) 26px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+  min-height: 210px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--novel-theme) transparent;
+}
+.modal--novel .novel-body::-webkit-scrollbar {
+  width: 12px;
+}
+.modal--novel .novel-body::-webkit-scrollbar-thumb {
+  background: var(--novel-theme);
+  border-radius: 999px;
+  border: 3px solid #fff;
+  background-clip: padding-box;
+}
+.modal--novel .novel-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 하단 nav/선택지: 그라데이션 프레임 위에 얹힘 — 경계선/배경 제거 */
+.modal--novel .novel-footer {
+  border-top: none;
+  background: transparent;
+  padding: 16px 4px 2px;
+}
+.modal--novel .novel-nav__page {
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 600;
+}
+.modal--novel .novel-choices__hint {
+  color: rgba(255, 255, 255, 0.95);
+}
+.modal--novel .novel-choice {
+  border-radius: 14px;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  font-weight: 600;
+}
+
+/* 하단 primary 버튼: 테마색 solid (기본 모달의 보라 그라데이션 대신). 이전=반투명 흰 ghost */
+.modal--novel .novel-footer .btn:not(.btn--ghost) {
+  background: var(--novel-theme);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+.modal--novel .novel-footer .btn--ghost {
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--novel-theme);
+}
+.modal--novel .novel-footer .btn--ghost:hover {
+  background: #fff;
+}
+
+/* 성인 시나리오: 프레임/테마를 핑크→보라로 (변수만 교체) */
+.modal--novel.modal--adult {
+  --novel-c1: #ff6bb0;
+  --novel-c2: #a94dd6;
+  --novel-theme: #d6249f;
+}
+
 /* ============================================================
    게임틱 UI — 스테이터스 도킹 패널 + 팝업/모달 (SNS 피드는 제외)
    ============================================================ */
@@ -4778,6 +4982,122 @@ body {
 
 .dawn__btn:hover {
   filter: brightness(1.05);
+}
+
+/* ===== 공용 "시스템 알림" 카드 (긍정=블루 / 부정=레드) =====
+   단순 결과 알림(문구 + 스탯증감 + 확인) 통일. 테마색은 --sys 변수로, --bad에서 교체.
+   블루는 스토리(웹소설) 팝업 #2e6fe0와 톤 일치. .modal 베이스를 덮어 카드형으로. */
+.modal.sys-notice {
+  --sys: #2e6fe0;
+  --sys-lite: #4aa8ff;
+  --sys-dark: #2456b8;
+  display: flex;
+  flex-direction: column;
+  align-items:center;
+  width: min(460px, 100%);
+  min-width: 460px;
+  min-height: 360px;
+  background: linear-gradient(150deg, #2f9ff5 0%, #7760ff 100%);
+  border-radius: 22px;
+  padding: 0 10px 12px;
+  text-align: center;
+  overflow: visible;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.3);
+}
+.modal.sys-notice--bad {
+  --sys: #ef3e3e;
+  --sys-lite: #ff6b6b;
+  --sys-dark: #c92a2a;
+  background: linear-gradient(150deg, #ff5a5d 0%, #ff4727 100%);
+}
+
+/* 상단 중앙 돔/아치 — 카드 최상단에 딱 붙는 어두운 테마색 밴드, 흰 굵은 제목 */
+.sys-notice__header {
+  display: inline-block;
+  padding: 9px 30px 11px;
+  background: var(--sys-dark);
+  color: #fff;
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  border-radius: 0 0 100px 100px;
+  position: relative;
+  z-index: 2;
+  min-width:200px;
+}
+
+/* 아이콘 자리 — 80x80 고정 슬롯(이미지 교체용). 현재는 반투명 흰 아이콘이 플레이스홀더. */
+.sys-notice__glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  margin: 30px auto 24px;
+  color: #fff;
+  opacity: 0.42;
+}
+.sys-notice__glyph > * {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* 흰 라운드 콘텐츠 박스 */
+.sys-notice__box {
+  width:100%;
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px 30px 30px;
+  margin-top: auto;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.16);
+}
+.sys-notice__msg {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.55;
+  color: #1b2333;
+}
+.sys-notice__delta {
+  margin: 13px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--sys);
+}
+.sys-notice__extra {
+  margin: 6px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--sys);
+}
+.sys-notice__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 30px;
+}
+.sys-notice__confirm {
+  padding: 12px 34px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  background: var(--sys);
+  color: #fff;
+  font-weight: 800;
+  font-size: 15px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  transition: filter 0.1s ease;
+}
+.sys-notice__confirm:hover {
+  filter: brightness(1.06);
+}
+.sys-notice__confirm--ghost {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--sys);
+}
+.sys-notice__confirm--ghost:hover {
+  background: #fff;
 }
 
 /* ===== 고양이 전원 버튼 이스터에그 ===== */
