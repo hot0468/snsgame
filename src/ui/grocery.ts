@@ -6,7 +6,7 @@ import {
   ingredientById,
   matchRecipe,
 } from "@/data/grocery";
-import { postTweet } from "@/systems/tweetSystem";
+import { enqueueEventTweet } from "@/systems/eventTweets";
 import type { LemonZResult } from "@/systems/eggs";
 import { tryLemonZ } from "@/systems/eggs";
 import { pick } from "@/utils/random";
@@ -142,14 +142,9 @@ function openOrderResult(ctx: GameContext, recipe: Recipe | null): void {
               class: "btn",
               onclick: () => {
                 const text = pick(lines);
-                let delta = 0;
-                c.update((s) => {
-                  delta = postTweet(s, "cooking", text, false).followerDelta;
-                });
+                c.update((s) => enqueueEventTweet(s, { source: "요리", attr: "cooking", text }));
                 c.closeModal();
-                c.toast(
-                  delta >= 0 ? `트윗 등록! +${delta} 팔로워` : `트윗 등록... ${delta} 팔로워`,
-                );
+                c.toast("📝 트윗 소재를 작성 목록에 저장했어요 · 작성 팝업에서 게시");
               },
             },
             success ? "요리 트윗하기" : "망한 요리 트윗하기",

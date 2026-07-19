@@ -2,7 +2,7 @@ import type { GameContext } from "@/ui/context";
 import type { AttributeId } from "@/core/types";
 import { getActiveAccount } from "@/core/state";
 import { resolveTicket, ticketPrice } from "@/systems/meeting";
-import { postTweet } from "@/systems/tweetSystem";
+import { enqueueEventTweet } from "@/systems/eventTweets";
 import { el, formatNumber } from "@/utils/dom";
 import { icon } from "@/ui/icons";
 
@@ -94,14 +94,11 @@ export function renderTicketModal(ctx: GameContext, threadId: string): HTMLEleme
             {
               class: "btn",
               onclick: () => {
-                let delta = 0;
-                ctx.update((s) => {
-                  delta = postTweet(s, tweetAttr, tweetText, false).followerDelta;
-                });
-                ctx.closeModal();
-                ctx.toast(
-                  delta >= 0 ? `트윗 등록! +${delta} 팔로워` : `트윗 등록... ${delta} 팔로워`,
+                ctx.update((s) =>
+                  enqueueEventTweet(s, { source: "티켓", attr: tweetAttr, text: tweetText }),
                 );
+                ctx.closeModal();
+                ctx.toast("📝 트윗 소재를 작성 목록에 저장했어요 · 작성 팝업에서 게시");
               },
             },
             "트윗한다",

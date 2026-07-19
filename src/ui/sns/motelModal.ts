@@ -2,7 +2,7 @@ import type { GameContext } from "@/ui/context";
 import type { AdultKind } from "@/core/types";
 import { getActiveAccount } from "@/core/state";
 import { resolveMotel } from "@/systems/meeting";
-import { postTweet } from "@/systems/tweetSystem";
+import { enqueueEventTweet } from "@/systems/eventTweets";
 import { MOTEL_RESULT_TWEETS } from "@/data/tweets";
 import { pick } from "@/utils/random";
 import { el } from "@/utils/dom";
@@ -91,14 +91,17 @@ export function renderMotelModal(ctx: GameContext, threadId: string): HTMLElemen
         {
           class: "btn",
           onclick: () => {
-            let delta = 0;
-            ctx.update((s) => {
-              delta = postTweet(s, "adult", tweetText, true, tweetKind).followerDelta;
-            });
-            ctx.closeModal();
-            ctx.toast(
-              delta >= 0 ? `트윗 등록! +${delta} 팔로워` : `트윗 등록... ${delta} 팔로워`,
+            ctx.update((s) =>
+              enqueueEventTweet(s, {
+                source: "모텔",
+                attr: "adult",
+                text: tweetText,
+                isAdult: true,
+                adultKind: tweetKind,
+              }),
             );
+            ctx.closeModal();
+            ctx.toast("📝 트윗 소재를 작성 목록에 저장했어요 · 작성 팝업에서 게시");
           },
         },
         "트윗한다",
