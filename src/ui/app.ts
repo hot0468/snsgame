@@ -54,6 +54,12 @@ export function createApp(root: HTMLElement, store: Store): void {
   // 같은 모달이면 노드를 재사용하고 모달이 바뀔 때만 다시 만든다.
   let modalFn: ((ctx: GameContext) => HTMLElement) | null = null;
   let modalNode: HTMLElement | null = null;
+  // 모달 전용 레이어 — root.replaceChildren 대상 밖에 둔다. 매 재렌더에 모달/백드롭을 뗐다
+  // 붙이면 CSS 등장 애니메이션(modal-pop·backdrop-fade)이 재생돼 "두 번 뜨는 듯" 깜빡인다.
+  // 표시할 모달이 실제로 바뀔 때만 이 레이어를 갈아끼워 애니메이션이 한 번만 재생되게 한다.
+  const modalLayer = el("div", { class: "modal-layer" });
+  (root.parentElement ?? document.body).appendChild(modalLayer);
+  let layerNode: HTMLElement | null = null; // 현재 레이어에 붙어 있는 모달 노드
   // 로그인 화면 노드 캐시(같은 이유 — 입력 중 재렌더에 입력값이 초기화되지 않게).
   let loginNode: HTMLElement | null = null;
   // 스크롤 보존용: 직전 렌더의 '뷰 키'. 같은 뷰에서 재렌더될 때만(영상 모달 열고닫기 등)
@@ -112,6 +118,8 @@ export function createApp(root: HTMLElement, store: Store): void {
       ui.modal = null;
       modalFn = null;
       modalNode = null;
+      modalLayer.replaceChildren();
+      layerNode = null;
       ui.startMenuOpen = false;
       ui.calendarOpen = false;
       // 모달 노드와 같은 이유로 캐시한다: 재렌더에 입력값이 날아가지 않게.
@@ -222,8 +230,17 @@ export function createApp(root: HTMLElement, store: Store): void {
       modalFn = ui.modal;
       modalNode = ui.modal ? ui.modal(ctx) : null;
     }
-    const modalBackdrop =
-      ui.modal && modalNode ? el("div", { class: "modal-backdrop" }, modalNode) : null;
+    // 전용 레이어에 표시할 모달이 바뀔 때만 백드롭째 갈아끼운다(같은 모달의 재렌더엔 손대지
+    // 않아 등장 애니메이션이 재생되지 않는다). 게임오버 오버레이가 뜰 땐 모달을 내린다.
+    const shownModalNode = ui.modal && !gameOver ? modalNode : null;
+    if (shownModalNode !== layerNode) {
+      layerNode = shownModalNode;
+      if (layerNode) {
+        modalLayer.replaceChildren(el("div", { class: "modal-backdrop" }, layerNode));
+      } else {
+        modalLayer.replaceChildren();
+      }
+    }
 
     const children: (Node | null)[] = [
       renderBrowser(ctx),
@@ -231,7 +248,6 @@ export function createApp(root: HTMLElement, store: Store): void {
       // 스테이터스는 브라우저 오른쪽에 상시 도킹(browser.ts). 달력은 시계 클릭 시 표시.
       ui.calendarOpen ? renderCalendar(ctx) : null,
       ui.startMenuOpen ? renderStartMenu(ctx) : null,
-      modalBackdrop,
       ui.toast
         ? el(
             "div",
