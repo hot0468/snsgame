@@ -151,12 +151,16 @@ export function advanceRelStage(state: GameState, charId: string, choiceIndex: n
 }
 
 /**
- * 카톡 친구 목록 — 활성 계정에 해금된 계열의 관계 캐릭터만 노출한다.
+ * 카톡 친구 목록 — 해금된 계열이면서 **이미 연결된(호감도>0) 캐릭터만** 노출한다.
+ * 호감도는 매칭 트윗(+8)이나 만남(+20)으로만 쌓이므로, 아무 상호작용도 없는 낯선
+ * 로스터 전원이 목록을 채우던 문제를 막는다(빈 목록 안내 "트윗으로 호감도를 쌓아보세요"와 정합).
  * (기존 시스템 카톡(집주인·월급 토스트)과는 별개 목록.)
  */
 export function relCharsInKakao(state: GameState): RelationshipChar[] {
   const acc = getActiveAccount(state);
-  return RELATIONSHIP_CHARS.filter((c) => acc.unlockedAttributes.includes(c.attribute));
+  return RELATIONSHIP_CHARS.filter(
+    (c) => acc.unlockedAttributes.includes(c.attribute) && relStateOf(state, c.id).affinity > 0,
+  );
 }
 
 /** 카톡 목록에 표시할 안 읽은 관계 이벤트가 하나라도 있는지(작업표시줄 뱃지용) */
