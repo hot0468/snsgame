@@ -13,6 +13,7 @@ import { icon, type IconName } from "./icons";
 import { renderOfflineModal } from "./offlineModal";
 import { renderInventoryModal } from "./inventory";
 import { renderAchievementsModal } from "./achievementsModal";
+import { renderCreaturesModal } from "./creaturesModal";
 import { renderAvWorkModal } from "./avWorkModal";
 
 /** 세부 스탯 아이콘 */
@@ -336,6 +337,15 @@ export function renderStatusDock(ctx: GameContext): HTMLElement {
         },
         "🏆",
         "업적",
+      ),
+      el(
+        "button",
+        {
+          class: "life-btn life-btn--sub",
+          onclick: () => ctx.openModal(renderCreaturesModal),
+        },
+        "🔍",
+        "도감",
       ),
       // AV 촬영은 서랍장 아래·현생살기 위. 성인/AV 톤으로 분홍(life-btn--av).
       canWorkAvNow(ctx.store.getState())

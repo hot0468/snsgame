@@ -9,8 +9,10 @@ import {
   petLabel,
   canSpendDay,
   spendDayResting,
+  creatureById,
+  collectCreature,
 } from "@/systems/offline";
-import { enqueueEventTweet } from "@/systems/eventTweets";
+import { postTweet } from "@/systems/tweetSystem";
 import { outdoorShoot, blackVanOrgy } from "@/systems/events";
 import { getAdultOfflineEncounter } from "@/data/adultOffline";
 import { resolveAdultOfflineEncounter } from "@/systems/adultOffline";
@@ -325,7 +327,8 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
       outcome.blackVanEncounter ||
       outcome.nudeExposure ||
       outcome.adultEncounter ||
-      outcome.petEncounter
+      outcome.petEncounter ||
+      outcome.creatureEncounter
     );
 
     // 일반(특수 조우 아님) 현생 결과는 공용 시스템 알림 카드로 통일한다.
@@ -586,6 +589,48 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           ),
         ),
       );
+    } else if (outcome.creatureEncounter) {
+      // 산책 중 신비한 크리처를 만난 이벤트 — 데려가면 도감에 등록된다. (펫 다음, 일반 결과 앞)
+      const cr = creatureById(outcome.creatureEncounter);
+      if (cr) {
+        const id = cr.id;
+        bodyChildren.push(
+          el("p", { class: "life-result__unlock" }, `${cr.emoji} ${cr.encounterText}`),
+          el(
+            "p",
+            { class: "compose-hint", style: "margin-top:14px" },
+            "데려가면 크리처 도감에 등록돼요.",
+          ),
+          el(
+            "div",
+            { class: "compose-actions", style: "gap:10px" },
+            el(
+              "button",
+              {
+                class: "btn btn--ghost",
+                onclick: () => {
+                  ctx.closeModal();
+                  ctx.afterAction("offline");
+                },
+              },
+              "그냥 지나친다",
+            ),
+            el(
+              "button",
+              {
+                class: "btn",
+                onclick: () => {
+                  ctx.update((s) => collectCreature(s, id));
+                  ctx.closeModal();
+                  ctx.toast(`🔍 ${cr.name} · 도감에 등록!`);
+                  ctx.afterAction("offline");
+                },
+              },
+              "데려간다",
+            ),
+          ),
+        );
+      }
     }
 
     // 노골 성인 조우(검은 봉고·야외노출·성인 조우)만 분홍 테마.
@@ -647,11 +692,12 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         class: "sys-notice__confirm",
         onclick: () => {
           const text = pick(act.tweetLines);
-          ctx.update((s) =>
-            enqueueEventTweet(s, { source: "오프라인 활동", attr: act.tweetAttr, text }),
-          );
+          let delta = 0;
+          ctx.update((s) => {
+            delta = postTweet(s, act.tweetAttr, text, false).followerDelta;
+          });
           ctx.closeModal();
-          ctx.toast("📝 트윗 소재를 작성 목록에 저장했어요 · 작성 팝업에서 게시");
+          ctx.toast(delta >= 0 ? `트윗 게시! +${delta} 팔로워` : `트윗 게시... ${delta} 팔로워`);
         },
       },
       "트윗한다",

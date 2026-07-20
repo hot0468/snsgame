@@ -10,6 +10,8 @@ import { doAuthorWork } from "./author";
 import { unlockAttribute } from "./attributeUnlock";
 import { rollAdultOfflineEncounter } from "./adultOffline";
 import type { AdultOfflineEncounterId } from "@/data/adultOffline";
+import { CREATURES } from "@/data/creatures";
+import type { Creature } from "@/data/creatures";
 
 export interface OfflineActivity {
   id: string;
@@ -69,7 +71,15 @@ export interface OfflineOutcome {
    * 봉고/야외노출이 안 떴을 때만 후보. 없으면 null.
    */
   adultEncounter: AdultOfflineEncounterId | null;
+  /**
+   * 산책 중 조우한 미수집 크리처 id(데려갈지 선택). 없으면 null.
+   * 펫·성인 특수 조우가 안 떴을 때만 낮은 확률로 뜬다.
+   */
+  creatureEncounter: string | null;
 }
+
+/** 펫·성인 조우가 안 뜬 산책 턴에 미수집 크리처를 마주칠 확률 */
+export const CREATURE_ENCOUNTER_CHANCE = 0.1;
 
 /** 심야 산책 야외노출 이벤트가 뜨는 최소 음란도 */
 export const NUDE_EXPOSURE_LEWD_MIN = 400;
@@ -414,6 +424,21 @@ export function doOfflineActivity(
     }
   }
 
+  // 크리처: 펫·성인 조우가 하나도 안 뜬 산책 턴에만, 미수집 크리처를 낮은 확률로 마주친다.
+  let creatureEncounter: string | null = null;
+  if (
+    activity.petWalk &&
+    !petEncounter &&
+    !blackVanEncounter &&
+    !nudeExposure &&
+    !adultEncounter
+  ) {
+    const uncollected = CREATURES.filter((c) => !state.creatures.includes(c.id));
+    if (uncollected.length > 0 && Math.random() < CREATURE_ENCOUNTER_CHANCE) {
+      creatureEncounter = pick(uncollected).id;
+    }
+  }
+
   // 작가 원고 작업: 작업량 게이지를 채운다
   let message = partTimeMistake ? pick(PART_TIME_MISTAKE_RESULTS) : pick(activity.results);
   if (activity.authorWork) {
@@ -436,7 +461,26 @@ export function doOfflineActivity(
     nudeExposure,
     blackVanEncounter,
     adultEncounter,
+    creatureEncounter,
   };
+}
+
+/** id로 크리처 정의를 찾는다(도감 표시·수집 문구용) */
+export function creatureById(id: string): Creature | undefined {
+  return CREATURES.find((c) => c.id === id);
+}
+
+/**
+ * 산책에서 만난 크리처를 도감에 등록한다(펫 adoptPet 패턴).
+ * 이미 수집한 크리처면 아무 일도 하지 않는다(중복 방지).
+ * 소소한 일회 보상으로 정신력을 조금 회복한다.
+ */
+export function collectCreature(state: GameState, id: string): void {
+  if (state.creatures.includes(id)) return;
+  state.creatures.push(id);
+  const c = creatureById(id);
+  addSchedule(state, `${c?.name ?? "크리처"} 도감 등록!`, "system");
+  state.resources.mental = clampResource(state.resources.mental + 2);
 }
 
 /** 반려동물 이름(강아지/고양이) */
