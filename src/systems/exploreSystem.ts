@@ -15,6 +15,7 @@ import { DARTPIN_TWEET_CHANCE, makeDartpinTweet } from "./dartpin";
 import { DSTORY_TWEET_CHANCE, isDstoryDone, makeDstoryTweet } from "./dstory";
 import { maybeSpawnFanDM } from "./dm";
 import { onFollow, onLikeTweet, onRetweet } from "./eggs";
+import { makeGoodsGroupBuyTweet } from "./groupBuy";
 import { addSchedule, advanceTime } from "./time";
 import { unlockAttribute } from "./attributeUnlock";
 import { clampAction } from "./stats";
@@ -71,6 +72,8 @@ export function exploreTweets(state: GameState): Tweet[] {
   else if (chance(0.06)) tweets[randInt(0, 2)] = makeBoostTweet(state);
   else if (chance(0.05)) tweets[randInt(0, 2)] = makePsychoTweet(state);
   else if (chance(0.06)) tweets[randInt(0, 2)] = makeHauntTweet(state);
+  // 낮은 확률로 오타쿠 굿즈 공구 모집 트윗('공구 참여하기' 버튼)이 섞인다.
+  else if (chance(0.06)) tweets[randInt(0, 2)] = makeGoodsGroupBuyTweet(state.day);
   return tweets;
 }
 

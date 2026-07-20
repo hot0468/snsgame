@@ -21,6 +21,7 @@ import { sendLandlordOverdue, sendLandlordRentReminder } from "./kakao";
 import { updateMarket } from "./market";
 import { expireSuspensions } from "./ban";
 import { checkStatEggs, maybeCatPowerButton } from "./eggs";
+import { deliverPendingGoods } from "./groupBuy";
 import { maybeSpawnWorkMsg } from "./workMessenger";
 import { HOUSINGS } from "@/data/housing";
 import { clampAction } from "./stats";
@@ -30,6 +31,7 @@ import {
   dateOf,
   dayOfWeek,
   weekdayLabel,
+  WEDNESDAY,
   THURSDAY,
   SATURDAY,
   isWeekday,
@@ -44,6 +46,7 @@ export {
   dateOf,
   dayOfWeek,
   weekdayLabel,
+  WEDNESDAY,
   THURSDAY,
   SATURDAY,
   isWeekday,
@@ -189,6 +192,8 @@ function onNewDay(state: GameState): void {
   updateMarket(state);
   // 계정 정지 기간이 끝났으면 해제
   expireSuspensions(state);
+  // 도착일이 된 굿즈 공구 배송분을 인벤토리로 옮긴다
+  deliverPendingGoods(state);
 }
 
 /**

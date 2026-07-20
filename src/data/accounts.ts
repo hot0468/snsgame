@@ -152,8 +152,54 @@ export function makeEggTweet(kind: import("@/core/types").EggKind, day: number):
   };
 }
 
+/**
+ * 정체불명 도시 괴담·익명 조직 톤의 '소문' 트윗 저자(고정 패러디 핸들).
+ * 익명 채팅방/도시전설 분위기를 살린 오마주 — 특정 작품 인용이 아닌 오리지널.
+ */
+const RUMOR_AUTHORS: { name: string; handle: string }[] = [
+  { name: "이름없는 타로", handle: "taro_nanashi" },
+  { name: "칸라칸라", handle: "kanra_bot" },
+  { name: "밤의 셋톤", handle: "setton_night" },
+  { name: "무색의 무리", handle: "nocolor_crew" },
+  { name: "골목 목격담", handle: "alley_witness" },
+  { name: "도시괴담 수집가", handle: "urban_legend_kr" },
+];
+
+/** 소문 트윗 문구 풀(오리지널 창작 — 익명 채팅방/도시전설 톤). */
+const RUMOR_LINES: string[] = [
+  "어젯밤 골목에서 목 없는 라이더 봤다는 애들 왜 이렇게 많냐;; 나만 못 봄?",
+  "그 무리 있잖아. 색깔이 없는 게 색깔이래. 누가 멤버인지 아무도 모름",
+  "이 동네 요즘 진짜 이상해. 다들 아는데 아무도 정체를 몰라",
+  "검은 오토바이가 소리도 없이 지나갔는데 헤드라이트가 안 켜져 있었음. 실화냐",
+  "익명 채팅방에서 만난 사람이 알고 보니 옆자리 동료였다는 썰 ㅋㅋㅋ 소름",
+  "누가 우리 동네 소문을 다 알고 있는데, 정작 본인은 어디에도 없대",
+  "그 사람들 다 같은 편이라는데 서로가 누군지도 모른다니까 그게 더 무섭",
+  "밤마다 목 없는 그림자가 골목을 돈다는 얘기, 그냥 괴담인 줄 알았는데…",
+  "정체불명 계정이 사건 터지기 전에 항상 먼저 알고 있음. 대체 뭐 하는 애냐",
+  "이 도시엔 아는 사람만 아는 규칙이 있대. 나는 아직 초대 못 받음 ㅠ",
+];
+
+/** 소문 트윗을 만든다(고정 패러디 핸들 + 오리지널 문구). 피드에 낮은 확률로 섞인다. */
+export function makeRumorTweet(day: number): Tweet {
+  const author = pick(RUMOR_AUTHORS);
+  return {
+    id: uid("rumor"),
+    authorName: author.name,
+    authorHandle: author.handle,
+    attribute: "daily",
+    isAdult: false,
+    text: pick(RUMOR_LINES),
+    createdDay: day,
+    likes: randInt(0, 500),
+    retweets: randInt(0, 150),
+    gainedFollowers: 0,
+  };
+}
+
 /** 신규 게시글 탐색용: 저자 계정 없이 트윗만 랜덤 생성 */
 export function makeRandomTweet(adultMode: boolean, day: number): Tweet {
+  // 낮은 확률로 정체불명 소문 트윗이 피드에 섞인다.
+  if (chance(0.08)) return makeRumorTweet(day);
   const pool = adultMode
     ? ALL_ATTRIBUTE_IDS
     : ALL_ATTRIBUTE_IDS.filter((a) => !ATTRIBUTES[a].adultOnly);

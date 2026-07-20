@@ -5,6 +5,7 @@ import { COSMETICS } from "@/data/cosmetics";
 import { GOBLIN_ITEMS } from "@/data/goblin";
 import { PEEMANG_ITEMS } from "@/data/peemang";
 import { REL_GIFTS } from "@/data/relationships";
+import { GOODS_ITEMS } from "@/data/goods";
 import { getActiveAccount } from "@/core/state";
 import { randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
@@ -91,7 +92,7 @@ function normalize(item: ShopItem): OwnedItemInfo {
 
 /** id → 정규형. 4종 출처(상점·화장품·피망·도깨비)를 전부 덮는다. */
 const ITEM_INDEX = new Map<string, OwnedItemInfo>([
-  ...[...SHOP_ITEMS, ...COSMETICS, ...PEEMANG_ITEMS].map(
+  ...[...SHOP_ITEMS, ...COSMETICS, ...PEEMANG_ITEMS, ...GOODS_ITEMS].map(
     (i) => [i.id, normalize(i)] as const,
   ),
   ...GOBLIN_ITEMS.map(
