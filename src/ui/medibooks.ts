@@ -2,7 +2,7 @@ import type { GameContext } from "./context";
 import type { Book } from "@/data/books";
 import { BOOKS, BOOK_CATEGORY_LABEL } from "@/data/books";
 import { readBook, BOOK_ACTION_COST, bookTweetAttr, bookTweetLines } from "@/systems/books";
-import { enqueueEventTweet } from "@/systems/eventTweets";
+import { postTweet } from "@/systems/tweetSystem";
 import { pick } from "@/utils/random";
 import { el } from "@/utils/dom";
 import { icon } from "./icons";
@@ -206,11 +206,12 @@ function openReadResultModal(ctx: GameContext, book: Book, msg: string): void {
               class: "btn",
               onclick: () => {
                 const text = pick(bookTweetLines(book));
-                c.update((s) =>
-                  enqueueEventTweet(s, { source: "책", attr: bookTweetAttr(book.category), text }),
-                );
+                let delta = 0;
+                c.update((s) => {
+                  delta = postTweet(s, bookTweetAttr(book.category), text, false, "meetup", 1).followerDelta;
+                });
                 c.closeModal();
-                c.toast("📝 트윗 소재를 작성 목록에 저장했어요 · 작성 팝업에서 게시");
+                c.toast(delta >= 0 ? `트윗 게시! +${delta} 팔로워` : `트윗 게시... ${delta} 팔로워`);
               },
             },
             "트윗한다",

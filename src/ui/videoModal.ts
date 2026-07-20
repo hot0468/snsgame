@@ -2,7 +2,7 @@ import type { GameContext } from "./context";
 import type { Video } from "@/data/videos";
 import { ATTRIBUTES } from "@/data/attributes";
 import { watchVideo } from "@/systems/videoSystem";
-import { enqueueEventTweet } from "@/systems/eventTweets";
+import { postTweet } from "@/systems/tweetSystem";
 import { pick } from "@/utils/random";
 import { el } from "@/utils/dom";
 import { icon } from "./icons";
@@ -116,11 +116,12 @@ export function renderVideoModal(ctx: GameContext, video: Video): HTMLElement {
               class: "btn",
               onclick: () => {
                 const text = pick(video.tweetLines);
-                ctx.update((s) =>
-                  enqueueEventTweet(s, { source: "너튜브 영상", attr: video.attribute, text }),
-                );
+                let delta = 0;
+                ctx.update((s) => {
+                  delta = postTweet(s, video.attribute, text, false).followerDelta;
+                });
                 ctx.closeModal();
-                ctx.toast("📝 트윗 소재를 작성 목록에 저장했어요 · 작성 팝업에서 게시");
+                ctx.toast(delta >= 0 ? `트윗 게시! +${delta} 팔로워` : `트윗 게시... ${delta} 팔로워`);
               },
             },
             "트윗한다",

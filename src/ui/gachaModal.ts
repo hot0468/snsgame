@@ -1,7 +1,7 @@
 import type { GameContext } from "./context";
 import type { GachaResult } from "@/systems/gacha";
 import { GACHA_COST, canDrawGacha, drawGacha, gachaBragLines } from "@/systems/gacha";
-import { enqueueEventTweet } from "@/systems/eventTweets";
+import { postTweet } from "@/systems/tweetSystem";
 import { pick } from "@/utils/random";
 import { el, formatNumber } from "@/utils/dom";
 
@@ -95,8 +95,11 @@ export function renderGachaModal(ctx: GameContext): HTMLElement {
                   class: "btn btn--ghost",
                   onclick: () => {
                     const text = pick(gachaBragLines(res.name));
-                    ctx.update((s) => enqueueEventTweet(s, { source: "가챠", attr: "idol", text }));
-                    ctx.toast("📝 트윗 소재를 작성 목록에 저장했어요 · 작성 팝업에서 게시");
+                    let delta = 0;
+                    ctx.update((s) => {
+                      delta = postTweet(s, "idol", text, false).followerDelta;
+                    });
+                    ctx.toast(delta >= 0 ? `트윗 게시! +${delta} 팔로워` : `트윗 게시... ${delta} 팔로워`);
                     showIdle();
                   },
                 },
