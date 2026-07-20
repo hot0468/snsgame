@@ -66,7 +66,7 @@ export function renderSleepModal(ctx: GameContext): HTMLElement {
     const underContract = state.authorContract != null;
 
     container.replaceChildren(
-      head("저녁이 지났다"),
+      head("낮이 지났다"),
       el(
         "div",
         { class: "modal__body" },

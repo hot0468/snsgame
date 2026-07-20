@@ -965,4 +965,9 @@ export interface GameState {
 
   /** 게임 종료 사유(퇴거 등). null이면 진행 중 */
   gameOver: string | null;
+
+  /** 달성한 도전과제 id 목록(data/achievements.ts의 ACHIEVEMENTS 참조) */
+  achievements: string[];
+  /** 달성 알림 대기 중인 도전과제 id 목록 — app이 토스트 후 비운다 */
+  pendingAchievements: string[];
 }

@@ -40,7 +40,7 @@ export function renderLabModal(ctx: GameContext): HTMLElement {
         el(
           "p",
           { style: "font-size:15px;line-height:1.6;margin:0 0 6px" },
-          "저녁이다. 터커 박사의 연구실로 갈 시간이다.",
+          "낮이다. 터커 박사의 연구실로 갈 시간이다.",
         ),
         el("p", { class: "compose-hint", style: "margin:0 0 14px" }, `출근 ${nth}/${LAB_TOTAL_SHIFTS}회째`),
         el(

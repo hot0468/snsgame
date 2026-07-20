@@ -1,12 +1,12 @@
 import type { GameContext } from "./context";
 import { doWork, WORK_ACTION_COST } from "@/systems/employment";
 import { TIERS } from "@/data/jobs";
-import { EVENING_SLOT } from "@/core/state";
+import { MORNING_SLOT } from "@/core/state";
 import { el } from "@/utils/dom";
 import { icon } from "./icons";
 
 /**
- * 강제 근무 팝업(평일 오전, 야근 시 저녁).
+ * 강제 근무 팝업(평일 낮). 야근도 낮 슬롯에서 판정한다(2슬롯 개편).
  *  성실히 근무 / 트위터하기 중 선택 → 결과.
  * 시간대에 묶인 강제 선택이라 닫기 버튼은 없다.
  */
@@ -21,7 +21,7 @@ export function renderWorkModal(ctx: GameContext): HTMLElement {
       return container.replaceChildren();
     }
     const tier = TIERS[emp.tier];
-    const overtime = s.slot === EVENING_SLOT;
+    const overtime = s.slot === MORNING_SLOT;
 
     container.replaceChildren(
       el(

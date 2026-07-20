@@ -1,5 +1,5 @@
 import type { GameState } from "@/core/types";
-import { EVENING_SLOT, LATE_SLOT, SLOTS_PER_DAY } from "@/core/state";
+import { SLOTS_PER_DAY } from "@/core/state";
 import { WORK_MSG_POOL } from "@/data/workMessages";
 import { chance, pick, uid } from "@/utils/random";
 import { dayOfWeek } from "./calendar";
@@ -9,7 +9,7 @@ import { addSchedule, advanceTime } from "./time";
 
 /**
  * 업무 메신저 "너아무튼온".
- * 회사에 재직(state.employment) 중이면 평일 저녁·심야, 주말에 업무 요청 메시지가 온다.
+ * 회사에 재직(state.employment) 중이면 평일 낮·심야, 주말에 업무 요청 메시지가 온다.
  * 수락하면 타임블록 1개 소모 · 성과↑ · 정신력·행동력 크게↓.
  *
  * 순환 참조: time.ts가 maybeSpawnWorkMsg를, 여기가 time.ts의 advanceTime/addSchedule를 import한다.
@@ -44,7 +44,9 @@ export function canAcceptWork(state: GameState): boolean {
  * 슬롯 전환마다 1회 호출(advanceTime 루프 내). 자격 충족 + 확률 통과 시 업무 요청을 하나 띄운다.
  * - 회사 재직 중이 아니면(부업 avJob/savanna 무관) 아무 일도 없다.
  * - 이미 미해결 요청이 있으면 한 번에 하나만 — 스폰하지 않는다.
- * - 자격: 평일(월~금) 저녁·심야  ||  주말(토·일) 아무 슬롯.
+ * - 자격: 평일(월~금) 낮·심야  ||  주말(토·일) 아무 슬롯.
+ *   (3→2슬롯 축소로 구 '저녁'이 낮에 합쳐져, 평일은 두 슬롯 모두 자격이 됐다.
+ *    weekend/weekday 구분은 재직 요일 판정 훅으로 남겨두되, 슬롯 필터는 사라졌다.)
  */
 export function maybeSpawnWorkMsg(state: GameState): void {
   if (!state.employment) return;
@@ -52,9 +54,8 @@ export function maybeSpawnWorkMsg(state: GameState): void {
 
   const dow = dayOfWeek(state.day);
   const weekend = dow === 0 || dow === 6;
-  const weekdayEvening =
-    dow >= 1 && dow <= 5 && (state.slot === EVENING_SLOT || state.slot === LATE_SLOT);
-  if (!weekend && !weekdayEvening) return;
+  const weekday = dow >= 1 && dow <= 5;
+  if (!weekend && !weekday) return;
 
   if (!chance(WORK_MSG_CHANCE)) return;
 

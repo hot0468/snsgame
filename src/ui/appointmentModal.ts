@@ -127,7 +127,7 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
 
     const prompt =
       appt.kind === "crew"
-        ? "목요일 저녁, 러닝크루 정기런 시간이다. 체력 부담은 적지만 함께 뛰면 운동 효과가 쏠쏠하다. 오늘 나갈까?"
+        ? "목요일 낮, 러닝크루 정기런 시간이다. 체력 부담은 적지만 함께 뛰면 운동 효과가 쏠쏠하다. 오늘 나갈까?"
         : appt.kind === "groupRoom"
           ? "토요일 심야, 그룹방 정기 모임 시간이다. 단톡에 찍힌 장소로 가면 인원이 모여 교대 플레이가 이어진다. 오늘 나갈까?"
           : appt.kind === "lingerie"

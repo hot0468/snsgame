@@ -1,5 +1,5 @@
 import type { DMThread, Email, GameState } from "@/core/types";
-import { EVENING_SLOT, getActiveAccount } from "@/core/state";
+import { MORNING_SLOT, getActiveAccount } from "@/core/state";
 import {
   ARREST_MAIL_BODY,
   ARREST_MAIL_FROM,
@@ -125,11 +125,11 @@ export function resolveLabOffer(state: GameState, accept: boolean): boolean {
 }
 
 /**
- * 지금이 강제 연구실 출근 시간인지(평일 저녁 + 수락함 + 5회 미만 + 미종료).
+ * 지금이 강제 연구실 출근 시간인지(평일 낮 + 수락함 + 5회 미만 + 미종료).
  * isWorkNow 선례를 따른다.
  *
  * ⚠️ app.ts 강제 화면 체인에서 **isWorkNow보다 먼저** 판정해야 한다(연구실 우선).
- *    그래야 야근이 걸린 저녁에도 연구실이 이긴다.
+ *    그래야 같은 낮 슬롯에서 회사 근무보다 연구실이 이긴다.
  */
 export function isLabNow(state: GameState): boolean {
   const lab = state.lab;
@@ -138,7 +138,7 @@ export function isLabNow(state: GameState): boolean {
   if (lab.done) return false;
   if (lab.shifts >= LAB_TOTAL_SHIFTS) return false;
   if (!isWeekday(state.day)) return false;
-  return state.slot === EVENING_SLOT;
+  return state.slot === MORNING_SLOT;
 }
 
 export interface LabShiftResult {

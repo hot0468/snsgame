@@ -78,7 +78,7 @@ export function renderWorkMessengerView(ctx: GameContext): HTMLElement {
         ? el(
             "div",
             { class: "kklist__empty" },
-            "아직 온 업무 요청이 없어요.\n회사에 다니면 저녁·주말에 업무 요청이 옵니다.",
+            "아직 온 업무 요청이 없어요.\n회사에 다니면 평일·주말에 업무 요청이 옵니다.",
           )
         : el("div", { class: "kklist" }, el("div", { class: "kklist__group" }, ...msgs.map(msgRow)));
 

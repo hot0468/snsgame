@@ -1,5 +1,5 @@
 import type { GameState, ScheduleEvent } from "@/core/types";
-import { SLOTS_PER_DAY, SLOT_LABELS, EVENING_SLOT, LATE_SLOT } from "@/core/state";
+import { SLOTS_PER_DAY, SLOT_LABELS, LATE_SLOT } from "@/core/state";
 import { uid } from "@/utils/random";
 import { applyDailyCosts, daysUntilRent, settleMonthlyIncome } from "./economy";
 import { settleAuthorMonthly } from "./author";
@@ -23,6 +23,7 @@ import { expireSuspensions } from "./ban";
 import { checkStatEggs, maybeCatPowerButton } from "./eggs";
 import { deliverPendingGoods } from "./groupBuy";
 import { maybeSpawnWorkMsg } from "./workMessenger";
+import { checkAchievements } from "./achievements";
 import { HOUSINGS } from "@/data/housing";
 import { clampAction } from "./stats";
 // 달력/요일 헬퍼는 calendar.ts에 있다(순환 참조 방지). 내부에서 dateLabel을 쓰고, 나머지는 재노출한다.
@@ -55,7 +56,7 @@ export {
   weekIndex,
 };
 
-/** 현재 시간 라벨 (예: "3월 4일(수) 저녁") */
+/** 현재 시간 라벨 (예: "3월 4일(수) 낮") */
 export function timeLabel(state: GameState): string {
   return `${dateLabel(state.day)}(${weekdayLabel(state.day)}) ${SLOT_LABELS[state.slot] ?? ""}`;
 }
@@ -71,10 +72,10 @@ function applyInactivityDecay(state: GameState): void {
   }
 }
 
-/** 시:분 형태의 대략적 표시용 시계 문자열 (아침 8시 / 저녁 19시 / 심야 1시) */
+/** 시:분 형태의 대략적 표시용 시계 문자열 (낮 13시 / 심야 1시) */
 export function clockLabel(state: GameState): string {
-  const hours = [8, 19, 1];
-  const h = hours[state.slot] ?? 8;
+  const hours = [13, 1];
+  const h = hours[state.slot] ?? 13;
   return `${String(h).padStart(2, "0")}:00`;
 }
 
@@ -98,10 +99,9 @@ export function advanceTime(state: GameState, slots = 1): void {
       state.slot = 0;
       state.day += 1;
       onNewDay(state);
-    } else if (state.slot === EVENING_SLOT) {
-      // 매월 1일 저녁, 트위터 수익 정산(내부 가드로 1일에만 실제 동작)
-      settleMonthlyIncome(state);
     } else if (state.slot === LATE_SLOT) {
+      // 낮→심야 진입. 구 '저녁' 슬롯이 없어져 월 수익 정산도 심야로 옮겼다(내부 가드로 매월 1일에만 실제 동작).
+      settleMonthlyIncome(state);
       onLateNight(state);
     }
     // 재직 중이면 슬롯 전환마다 업무 메신저("너아무튼온") 요청을 판정한다(내부 가드로 자격/확률 필터).
@@ -117,12 +117,12 @@ export function advanceTime(state: GameState, slots = 1): void {
  * 심야 슬롯(LATE_SLOT)에 갓 진입했을 때 1회 호출된다.
  *
  * 기존 메일은 전부 onNewDay(날짜가 넘어갈 때) 발송이라 '심야 발송' 훅이 없었다 — 그래서 추가했다.
- * ⚠️ onNewDay와 **상호 배타**다: 하루가 넘어가는 분기는 `slot >= SLOTS_PER_DAY`(=3)에서만 타고,
- *    이 훅은 `slot === LATE_SLOT`(=2)에서만 탄다. 같은 if/else-if 사슬의 뒤에 붙은 가지라
- *    앞선 두 분기의 판정·동작에 전혀 영향을 주지 않는다(onNewDay 발동 조건 불변).
+ * ⚠️ onNewDay와 **상호 배타**다: 하루가 넘어가는 분기는 `slot >= SLOTS_PER_DAY`(=2)에서만 타고,
+ *    이 훅은 `slot === LATE_SLOT`(=1)에서만 탄다. 같은 if/else-if 사슬의 뒤에 붙은 가지라
+ *    앞선 분기의 판정·동작에 전혀 영향을 주지 않는다(onNewDay 발동 조건 불변).
  */
 function onLateNight(state: GameState): void {
-  // 저녁→심야 진입 시 취침 선택 팝업을 예약(ui/app.ts가 감지해 sleepModal을 띄우고,
+  // 낮→심야 진입 시 취침 선택 팝업을 예약(ui/app.ts가 감지해 sleepModal을 띄우고,
   // 모달의 모든 선택지가 클리어한다). 무엇이 시간을 진행시켰든(오프라인 활동·근무 등) 뜬다.
   // 심야→다음날 전환은 이 훅을 안 타므로(onNewDay만 탐) 모달이 부른 advanceTime이 재설정하지 않는다.
   state.sleepPending = true;
@@ -194,6 +194,8 @@ function onNewDay(state: GameState): void {
   expireSuspensions(state);
   // 도착일이 된 굿즈 공구 배송분을 인벤토리로 옮긴다
   deliverPendingGoods(state);
+  // 일 단위 상태 업적 판정(소지금·자격증·집·연속 밤샘 등)
+  checkAchievements(state);
 }
 
 /**

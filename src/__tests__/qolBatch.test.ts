@@ -13,7 +13,7 @@ import { spawnFanDM, DONATION_MIN_FOLLOWERS } from "@/systems/dm";
 afterEach(() => vi.restoreAllMocks());
 
 describe("#3 spendDayResting / canSpendDay", () => {
-  it("남은 블록을 전부 소비해 다음날 아침(slot 0)으로 넘어간다", () => {
+  it("남은 블록을 전부 소비해 다음날 낮(slot 0)으로 넘어간다", () => {
     const s = createInitialState();
     s.money = 10_000_000; // 생활비 정산으로 게임오버되지 않게
     expect(s.slot).toBe(0);
@@ -22,7 +22,7 @@ describe("#3 spendDayResting / canSpendDay", () => {
 
     spendDayResting(s);
 
-    // slot 0(남은 3블록) → 마지막 advance가 날짜를 넘겨 다음날 slot 0
+    // slot 0(남은 블록 전부) → 마지막 advance가 날짜를 넘겨 다음날 slot 0
     expect(s.day).toBe(day0 + 1);
     expect(s.slot).toBe(0);
     // onNewDay 발동 흔적
@@ -35,10 +35,10 @@ describe("#3 spendDayResting / canSpendDay", () => {
     s.resources.action = 0;
     s.resources.mental = 0;
 
-    const gain = spendDayResting(s); // slot 0 → 3블록
+    const gain = spendDayResting(s); // slot 0 → 2블록(낮+심야)
 
-    expect(gain.action).toBe(REST_ACTIVITY.action * 3); // 25*3
-    expect(gain.mental).toBe(REST_ACTIVITY.mental * 3); // 30*3
+    expect(gain.action).toBe(REST_ACTIVITY.action * 2); // 25*2
+    expect(gain.mental).toBe(REST_ACTIVITY.mental * 2); // 30*2
   });
 
   it("상한에 걸리면 실제 증가분만 집계한다", () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createInitialState } from "@/core/state";
-import { EVENING_SLOT, LATE_SLOT, MORNING_SLOT, getActiveAccount } from "@/core/state";
+import { LATE_SLOT, MORNING_SLOT, getActiveAccount } from "@/core/state";
 import { calcTweetOutcome, TWEET_CONV_RATE } from "@/systems/followers";
 import { postTweet, postScamTweet } from "@/systems/tweetSystem";
 import { advanceTime } from "@/systems/time";
@@ -14,7 +14,7 @@ import { SKILL_STAT_IDS } from "@/data/stats";
  *  1. convRate가 스킬과 무관하다(예전엔 스킬이 skillMul·convRate 두 군데에 곱해져 58배였다).
  *  2. 스킬 999 대 0의 팔로워 격차가 10배 이내(이번 수정의 핵심 — 8배로 측정됐다).
  *  3. 트윗(일반·사기)이 슬롯을 진행시키지 않는다(행동력만 쓴다).
- *  4. advanceTime 저녁→심야 진입 시 sleepPending이 서고, 아침→저녁엔 안 선다.
+ *  4. advanceTime 낮→심야 진입 시 sleepPending이 서고, 심야→다음날 낮엔 안 선다.
  */
 
 function withSkills(v: number) {
@@ -77,7 +77,7 @@ describe("스킬 격차 — 999 대 0 팔로워 10배 이내(58배였다)", () =
 
 describe("트윗은 슬롯을 진행시키지 않는다", () => {
   it("postTweet이 state.slot을 바꾸지 않는다", () => {
-    for (const slot of [MORNING_SLOT, EVENING_SLOT, LATE_SLOT]) {
+    for (const slot of [MORNING_SLOT, LATE_SLOT]) {
       const s = createInitialState();
       s.slot = slot;
       postTweet(s, "daily", "테스트 트윗", false);
@@ -86,7 +86,7 @@ describe("트윗은 슬롯을 진행시키지 않는다", () => {
   });
 
   it("postScamTweet도 state.slot을 바꾸지 않는다", () => {
-    for (const slot of [MORNING_SLOT, EVENING_SLOT, LATE_SLOT]) {
+    for (const slot of [MORNING_SLOT, LATE_SLOT]) {
       const s = createInitialState();
       s.slot = slot;
       postScamTweet(s, "사기 트윗");
@@ -95,22 +95,24 @@ describe("트윗은 슬롯을 진행시키지 않는다", () => {
   });
 });
 
-describe("sleepPending — 저녁→심야 전환에만 선다", () => {
-  it("저녁→심야 진입 시 sleepPending이 true", () => {
+describe("sleepPending — 낮→심야 전환에만 선다", () => {
+  it("낮→심야 진입 시 sleepPending이 true", () => {
     const s = createInitialState();
-    s.slot = EVENING_SLOT;
+    s.slot = MORNING_SLOT;
     s.sleepPending = false;
     advanceTime(s, 1);
     expect(s.slot).toBe(LATE_SLOT);
     expect(s.sleepPending).toBe(true);
   });
 
-  it("아침→저녁 전환엔 sleepPending이 서지 않는다", () => {
+  it("심야→다음날 낮 전환엔 sleepPending이 서지 않는다", () => {
     const s = createInitialState();
-    s.slot = MORNING_SLOT;
+    s.slot = LATE_SLOT;
+    const day = s.day;
     s.sleepPending = false;
     advanceTime(s, 1);
-    expect(s.slot).toBe(EVENING_SLOT);
+    expect(s.slot).toBe(MORNING_SLOT);
+    expect(s.day).toBe(day + 1);
     expect(s.sleepPending).toBe(false);
   });
 });

@@ -4,6 +4,9 @@ import {
   createInitialCheats,
   createInitialLab,
   createInitialState,
+  LATE_SLOT,
+  MORNING_SLOT,
+  SLOTS_PER_DAY,
 } from "@/core/state";
 import { grantAttributeUnlockFloor } from "./attributeUnlock";
 import { maxPostSlots } from "./followers";
@@ -63,6 +66,21 @@ export function loadGame(): GameState | null {
     //     false로 두면 기존 플레이어가 로그인 화면으로 쫓겨나 계정명을 덮어쓰게 된다.
     //   - NEW 세이브 명시 false → 보존. 로그인 화면에서 새로고침한 경우이므로 다시 로그인 화면.
     merged.loggedIn = typeof parsed.loggedIn === "boolean" ? parsed.loggedIn : true;
+    // ★슬롯 마이그레이션: 하루 3슬롯(아침0/저녁1/심야2) → 2슬롯(낮0/심야1).
+    //   구 세이브(version<3, 또는 slot이 구 범위)면 slot·appointment.slot을 새 인덱스로 remap한다.
+    //   구 0 아침·1 저녁 → 0 낮, 구 2 심야 → 1 심야. 게이트는 반드시 parsed 원본으로 판정한다
+    //   (merged.version은 키 부재 구세이브에서 createInitialState의 3으로 덮여 마이그레이션을 놓친다).
+    //   신규 게임은 createInitialState 경로라 이 함수를 안 타므로 영향 없다.
+    if ((parsed.version ?? 0) < 3 || (parsed.slot ?? 0) >= SLOTS_PER_DAY) {
+      merged.slot = (parsed.slot ?? 0) >= 2 ? LATE_SLOT : MORNING_SLOT;
+      for (const appt of merged.appointments ?? []) {
+        appt.slot = appt.slot >= 2 ? LATE_SLOT : MORNING_SLOT;
+        if (appt.ticketFor) {
+          appt.ticketFor.slot = appt.ticketFor.slot >= 2 ? LATE_SLOT : MORNING_SLOT;
+        }
+      }
+      merged.version = 3;
+    }
     return sanitize(merged);
   } catch (e) {
     console.error("불러오기 실패", e);
@@ -269,6 +287,9 @@ function sanitize(state: GameState): GameState {
     state.market.holdings = { ...base.holdings, ...state.market.holdings };
   }
   state.gameOver ??= null;
+  // 도전과제는 신규 필드 — 구세이브엔 키가 없다(미달성·알림없음이 정답).
+  if (!Array.isArray(state.achievements)) state.achievements = [];
+  if (!Array.isArray(state.pendingAchievements)) state.pendingAchievements = [];
   return state;
 }
 

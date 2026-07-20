@@ -1,5 +1,5 @@
 import type { Appointment, AttributeId, GameState } from "@/core/types";
-import { EVENING_SLOT, LATE_SLOT, SLOTS_PER_DAY, SLOT_LABELS, getActiveAccount } from "@/core/state";
+import { MORNING_SLOT, LATE_SLOT, SLOTS_PER_DAY, SLOT_LABELS, getActiveAccount } from "@/core/state";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { pushKakao } from "./kakao";
@@ -44,18 +44,20 @@ export function dueAppointments(state: GameState): Appointment[] {
 /** 정기런 참석 시 행동력 소모(일반 운동 -25보다 훨씬 적다) */
 export const CREW_RUN_ACTION_COST = 8;
 
-/** 지금 이후의 다음 목요일(정기런은 저녁 슬롯) */
+/** 지금 이후의 다음 목요일(정기런은 낮 슬롯) */
 function nextCrewDay(state: GameState): number {
   let d = state.day;
-  // 목요일이면서, 그 (day, 저녁)이 지금보다 미래여야 한다
-  while (!(dayOfWeek(d) === THURSDAY && (d > state.day || state.slot < EVENING_SLOT))) {
+  // 목요일이면서, 그 (day, 낮)이 지금보다 미래여야 한다.
+  // 낮은 하루의 첫 슬롯(0)이라 오늘 목요일이면 이미 도래/경과 — 다음 목요일로 넘어간다
+  // (slot < MORNING_SLOT(0)은 항상 거짓). 정기런 소화 시점(목요일 낮)에 오늘 재예약되는 걸 막는다.
+  while (!(dayOfWeek(d) === THURSDAY && (d > state.day || state.slot < MORNING_SLOT))) {
     d += 1;
   }
   return d;
 }
 
 /**
- * 다음 목요일 저녁 정기런을 예약한다(기존 크루 약속은 갈아끼운다).
+ * 다음 목요일 낮 정기런을 예약한다(기존 크루 약속은 갈아끼운다).
  * 가입 직후, 그리고 매주 정기런을 소화/취소한 뒤에 호출된다.
  */
 export function scheduleNextCrewRun(state: GameState): void {
@@ -63,7 +65,7 @@ export function scheduleNextCrewRun(state: GameState): void {
   state.appointments = state.appointments.filter((a) => a.kind !== "crew");
   addAppointment(state, {
     day: nextCrewDay(state),
-    slot: EVENING_SLOT,
+    slot: MORNING_SLOT,
     kind: "crew",
     title: "러닝크루 정기런",
   });

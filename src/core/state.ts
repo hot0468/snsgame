@@ -76,14 +76,13 @@ export const CELEBRATORY_ENDING_TITLES: Record<string, string> = {
   [LEGEND_BJ_ENDING_REASON]: "🎙️ 레전드 BJ 엔딩",
 };
 
-/** 하루의 행동 슬롯 수 (0..SLOTS_PER_DAY-1) — 아침/저녁/심야 */
-export const SLOTS_PER_DAY = 3;
-export const SLOT_LABELS = ["아침", "저녁", "심야"] as const;
+/** 하루의 행동 슬롯 수 (0..SLOTS_PER_DAY-1) — 낮/심야 */
+export const SLOTS_PER_DAY = 2;
+export const SLOT_LABELS = ["낮", "심야"] as const;
 
-/** 시간대 슬롯 인덱스 */
-export const MORNING_SLOT = 0;
-export const EVENING_SLOT = 1;
-export const LATE_SLOT = 2;
+/** 시간대 슬롯 인덱스 (구 아침·저녁을 '낮' 하나로 합침) */
+export const MORNING_SLOT = 0; // '낮' (구 아침+저녁 통합)
+export const LATE_SLOT = 1;
 
 /** 이 값 미만이면 '우울 모드' — 우울한 트윗만 쓸 수 있다. */
 export const MENTAL_LOW_THRESHOLD = 20;
@@ -143,7 +142,7 @@ export function isSuspended(account: PlayerAccount, day: number): boolean {
 export function createInitialState(): GameState {
   const first = createAccount("이름없는 유저", "newbie", "daily");
   return {
-    version: 2,
+    version: 3,
     accounts: [first],
     activeAccountId: first.id,
     adultMode: false,
@@ -261,6 +260,8 @@ export function createInitialState(): GameState {
     // 새 게임은 로그인 화면부터 시작한다. (구세이브 호환은 save.ts의 loadGame이 처리한다)
     loggedIn: false,
     gameOver: null,
+    achievements: [],
+    pendingAchievements: [],
   };
 }
 
@@ -272,6 +273,15 @@ export function getActiveAccount(state: GameState): PlayerAccount {
   return (
     state.accounts.find((a) => a.id === state.activeAccountId) ?? state.accounts[0]
   );
+}
+
+/**
+ * 화면에 보여줄 내 타임라인 — 성인물 보기 OFF면 내가 쓴 성인 트윗(isAdult)을 가린다.
+ * (표시용 필터일 뿐, 트윗 자체는 남아 있다 — 팔로워 등엔 영향 없음.)
+ */
+export function visibleTimeline(state: GameState) {
+  const tl = getActiveAccount(state).timeline;
+  return state.adultMode ? tl : tl.filter((t) => !t.isAdult);
 }
 
 /**

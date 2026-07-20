@@ -1,6 +1,6 @@
 import type { Email, GameState } from "@/core/types";
 import type { JobPosting } from "@/data/jobs";
-import { EVENING_SLOT, MORNING_SLOT } from "@/core/state";
+import { MORNING_SLOT } from "@/core/state";
 import { TIERS } from "@/data/jobs";
 import { chance, uid } from "@/utils/random";
 import { isWeekday } from "./calendar";
@@ -195,15 +195,15 @@ export function unreadEmailCount(state: GameState): number {
   return state.emails.filter((e) => !e.read).length;
 }
 
-/** 지금이 강제 근무 시간인지(평일 오전, 또는 야근 확정된 날의 저녁) */
+/** 지금이 강제 근무 시간인지(평일 낮) */
 export function isWorkNow(state: GameState): boolean {
   const emp = state.employment;
   if (!emp || state.gameOver) return false;
   if (state.day <= emp.hiredDay) return false; // 근무는 익일부터
   if (!isWeekday(state.day)) return false;
-  if (state.slot === MORNING_SLOT) return true;
-  if (state.slot === EVENING_SLOT && emp.overtimeDay === state.day) return true;
-  return false;
+  // 3→2슬롯 축소로 '저녁 야근'이 낮 근무와 같은 슬롯이 됐다. 낮 근무가 이미 이 슬롯을 강제하므로
+  // overtimeDay 기반 별도 야근 슬롯은 사라졌다(밸런스 후 재설계 여지 — 계약서 명시).
+  return state.slot === MORNING_SLOT;
 }
 
 /** 아침 근무를 마치며 오늘 야근 여부를 굴린다. */

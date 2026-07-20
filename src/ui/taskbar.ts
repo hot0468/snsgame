@@ -75,7 +75,7 @@ export function renderTaskbar(ctx: GameContext): HTMLElement {
       el("span", {}, clockLabel(s)),
       el(
         "span",
-        { class: `clock-btn__slot clock-btn__slot--${["morning", "evening", "late"][s.slot] ?? "morning"}` },
+        { class: `clock-btn__slot clock-btn__slot--${["morning", "late"][s.slot] ?? "morning"}` },
         timeLabel(s),
       ),
     ),
