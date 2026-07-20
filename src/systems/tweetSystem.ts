@@ -25,6 +25,7 @@ import { rollControversy, CONTROVERSY_REP_THRESHOLD } from "./controversy";
 import { gainAffinityFromTweet } from "./relationship";
 import { addSchedule } from "./time";
 import { MEETING_GATE_THRESHOLDS } from "./meeting";
+import { checkAchievements } from "./achievements";
 
 /** 트윗 1건 작성에 드는 행동력 */
 export const TWEET_ACTION_COST = 10;
@@ -180,6 +181,8 @@ export function postTweet(
   const unlockedMeeting =
     isAdult &&
     MEETING_GATE_THRESHOLDS.some((t) => beforeAdult < t && state.adultTweetsPosted >= t);
+  // 팔로워/트윗 업적 즉시 판정(첫 트윗·팔로워 마일스톤·도배왕 등).
+  checkAchievements(state);
   return { tweet, followerDelta: followers, unlockedMeeting };
 }
 

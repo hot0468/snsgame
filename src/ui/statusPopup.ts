@@ -12,6 +12,7 @@ import { statBar } from "./components";
 import { icon, type IconName } from "./icons";
 import { renderOfflineModal } from "./offlineModal";
 import { renderInventoryModal } from "./inventory";
+import { renderAchievementsModal } from "./achievementsModal";
 import { renderAvWorkModal } from "./avWorkModal";
 
 /** 세부 스탯 아이콘 */
@@ -259,9 +260,10 @@ function statusInner(ctx: GameContext): HTMLElement[] {
       )
     : null;
 
-  const slotClass = ["morning", "evening", "late"][s.slot] ?? "morning";
-  // "스테이터스" 텍스트 대신 시간대 아이콘(아침=해 / 저녁=별=땅거미 / 심야=달)을 얹는다.
-  const slotIcon = (["sun", "star", "moon"] as const)[s.slot] ?? "sun";
+  // 2슬롯: 낮=morning(따뜻한 금색 CSS 재사용) / 심야=late(밤 블루). evening 클래스는 미사용.
+  const slotClass = ["morning", "late"][s.slot] ?? "morning";
+  // "스테이터스" 텍스트 대신 시간대 아이콘(낮=해 / 심야=달)을 얹는다.
+  const slotIcon = (["sun", "moon"] as const)[s.slot] ?? "sun";
   const nodes: HTMLElement[] = [
     el(
       "div",
@@ -325,6 +327,15 @@ export function renderStatusDock(ctx: GameContext): HTMLElement {
         },
         icon("drawer", { size: 18 }),
         "서랍장",
+      ),
+      el(
+        "button",
+        {
+          class: "life-btn life-btn--sub",
+          onclick: () => ctx.openModal(renderAchievementsModal),
+        },
+        "🏆",
+        "업적",
       ),
       // AV 촬영은 서랍장 아래·현생살기 위. 성인/AV 톤으로 분홍(life-btn--av).
       canWorkAvNow(ctx.store.getState())

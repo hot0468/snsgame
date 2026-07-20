@@ -32,6 +32,7 @@ import { renderCatPowerModal } from "./catPowerModal";
 import { renderConsoleReviewModal } from "./auctionModals";
 import { renderLoginScreen } from "./loginScreen";
 import { renderPostSlotModal } from "./postLimitModal";
+import { ACHIEVEMENTS } from "@/data/achievements";
 
 /**
  * 앱 루트. 스토어를 구독해 전체 화면을 (단순하게) 통째로 다시 그린다.
@@ -40,6 +41,9 @@ import { renderPostSlotModal } from "./postLimitModal";
 export function createApp(root: HTMLElement, store: Store): void {
   const ui = createUIState();
   let toastTimer: number | undefined;
+  // 업적 달성 토스트 소비가 마이크로태스크로 이미 예약됐는지(한 프레임에 render가 여러 번
+  // 돌아도 중복 예약하지 않게 한다). computeDrops의 commitScheduled와 같은 가드.
+  let achToastScheduled = false;
   // 고양이 전원 버튼 블랙아웃 타이머. render()는 스토어 변경·토스트마다 통째로 다시 도므로
   // ui.catBlackout 플래그로 가드해 타이머가 중복 예약되지 않게 한다.
   let catBlackoutTimer: number | undefined;
@@ -178,6 +182,30 @@ export function createApp(root: HTMLElement, store: Store): void {
         if (!ui.modal) ui.modal = (c) => renderCatPowerModal(c);
         render();
       }, 2000);
+    }
+
+    // 업적 달성 토스트. systems가 pendingAchievements에 새로 달성한 id를 쌓아두면
+    // 여기서 이름을 찾아 토스트로 알리고 **배열을 비운다**(안 비우면 매 렌더 재토스트).
+    // 렌더 도중 update/toast를 재진입시키지 않도록 마이크로태스크로 미룬다(computeDrops 선례).
+    if (!gameOver && state.pendingAchievements?.length && !achToastScheduled) {
+      achToastScheduled = true;
+      queueMicrotask(() => {
+        achToastScheduled = false;
+        const ids = store.getState().pendingAchievements;
+        if (!ids?.length) return;
+        const names = ids
+          .map((id) => ACHIEVEMENTS.find((a) => a.id === id)?.name)
+          .filter((n): n is string => !!n);
+        ctx.update((d) => {
+          d.pendingAchievements = [];
+        });
+        if (names.length === 0) return;
+        const msg =
+          names.length === 1
+            ? `🏆 업적 달성: ${names[0]}`
+            : `🏆 업적 달성: ${names[0]} 외 ${names.length - 1}개`;
+        ctx.toast(msg, "good");
+      });
     }
 
     // 우측 하단 카카오톡 토스트: 아직 확인 안 한 최신 알림 하나.
