@@ -140,6 +140,8 @@ function sanitize(state: GameState): GameState {
   if (!Array.isArray(state.appointments)) state.appointments = [];
   state.lastRentReminderDay ??= -1;
   state.crewJoined ??= false;
+  state.rejectionTweets ??= 0;
+  state.studyJoined ??= false;
   state.privateCrewJoined ??= false;
   state.groupRoomJoined ??= false;
   state.savannaJoined ??= false;
@@ -209,7 +211,6 @@ function sanitize(state: GameState): GameState {
   if (!Array.isArray(state.ownedGames)) state.ownedGames = [];
   if (!Array.isArray(state.reviewedGames)) state.reviewedGames = [];
   if (!Array.isArray(state.adTweets)) state.adTweets = [];
-  if (!Array.isArray(state.eventTweetDrafts)) state.eventTweetDrafts = [];
   // '다트 핀'은 신규 기능이라 구세이브엔 키가 없다 — 미발견(false)이 정답이다.
   // youtube/medibooks의 `?? true` 호환과 반대인 이유는 steamUnlocked와 같다: 그 둘은
   // '이미 탭이 있던' 세이브의 탭을 뺏지 않으려는 보정이고, 다트 핀은 존재한 적이 없다.
@@ -271,6 +272,8 @@ function sanitize(state: GameState): GameState {
   state.pets ??= { dog: false, cat: false };
   state.pets.dog ??= false;
   state.pets.cat ??= false;
+  // 크리처 도감은 신규 필드 — 구세이브엔 키가 없다(빈 도감이 정답).
+  if (!Array.isArray(state.creatures)) state.creatures = [];
   // 이스터에그 추적 상태 보강(구버전 저장본 대비)
   const freshEggs = fresh.eggs;
   state.eggs = { ...freshEggs, ...(state.eggs ?? {}) };

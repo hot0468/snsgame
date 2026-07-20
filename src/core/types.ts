@@ -315,6 +315,8 @@ export interface DMThread {
   lingerie?: boolean;
   /** 코스프레 촬영 제의 스레드인지(애니덕 트윗 누적 시 유입, 전연령). ui가 촬영 버튼을 렌더한다 */
   cosplay?: boolean;
+  /** 취업스터디 모임 가입 권유 스레드인지(불합격 결과 트윗 누적 시 유입, 전연령). ui가 가입 버튼을 렌더한다 */
+  study?: boolean;
 }
 
 /** 카카오톡 메시지 한 줄 */
@@ -387,7 +389,14 @@ export interface KakaoLoanOffer {
 }
 
 /** 예정된 약속의 종류 */
-export type AppointmentKind = "crew" | "friend" | "event" | "ticketing" | "groupRoom" | "lingerie";
+export type AppointmentKind =
+  | "crew"
+  | "friend"
+  | "event"
+  | "ticketing"
+  | "groupRoom"
+  | "lingerie"
+  | "study";
 
 /**
  * 미래에 예정된 약속. 해당 (day, slot)이 되면 '할지/말지' 팝업이 뜬다.
@@ -599,6 +608,11 @@ export interface Email {
   read: boolean;
   /** 합격 메일이면 채용 오퍼(출근/거절 버튼). 응답하면 사라진다. */
   jobOffer?: { company: string; tier: CompanyTier; role: string };
+  /**
+   * 채용 결과 메일(합격/불합격 둘 다)이면 그 결과 표식. ui가 '결과 트윗하기' 버튼을 렌더한다.
+   * tweeted면 트윗 완료(메일당 1회 제한 — 불합격 farming 방지).
+   */
+  jobResult?: { company: string; hired: boolean; tweeted?: boolean };
   /** 스팸(피싱) 메일인지 — 클릭(열람) 시 낮은 확률로 계정 해킹 */
   spam?: boolean;
   /**
@@ -679,22 +693,6 @@ export interface CheatState {
   cheatExe: boolean;
 }
 
-/**
- * 이벤트가 즉시 게시하던 트윗을 저장하는 '작성 초안'. 플레이어가 작성 팝업 하단에서
- * 골라 게시한다(postEventTweetDraft). 게시 비용(슬롯/행동력/팔로워)은 게시 시점으로 이연된다.
- */
-export interface EventTweetDraft {
-  id: string;
-  source: string; // 표시 라벨(예: "오프라인 활동")
-  attr: AttributeId;
-  text: string;
-  isAdult: boolean;
-  adultKind: AdultKind; // 비성인이면 "meetup" 등 무의미값 허용
-  followerMult: number;
-  kind: TweetKind; // 성과 계산용(기존 이벤트 트윗은 전부 "plain")
-  createdDay: number;
-}
-
 export interface GameState {
   version: number;
 
@@ -748,6 +746,10 @@ export interface GameState {
 
   /** 러닝크루 가입 여부('사람' 단위 — 계정 무관) */
   crewJoined: boolean;
+  /** 불합격 결과 트윗 누적 수(취업스터디 권유 게이트용, '사람' 단위) */
+  rejectionTweets: number;
+  /** 취업스터디 모임 가입 여부('사람' 단위) — 가입 후 매주 월요일 낮 정기 모임이 유지된다 */
+  studyJoined: boolean;
   /** 비공개 엘리트 러닝크루(SM 규율) 가입 여부 — 가입 후 정기런에 규율 시나리오가 랜덤 표출된다 */
   privateCrewJoined: boolean;
   /**
@@ -891,8 +893,6 @@ export interface GameState {
   reviewedGames: string[];
   /** 추천탭에 노출되는 광고 트윗 풀(매일 스폰, 상한 유지) */
   adTweets: Tweet[];
-  /** 이벤트로 얻어 아직 게시하지 않은 트윗 초안(작성 팝업 하단에서 게시). 상한 15, 초과 시 최오래 shift */
-  eventTweetDrafts: EventTweetDraft[];
   /**
    * '다트 핀'(익명 게시판 사이트) **탭**이 해금됐는지 — 둘러보기 트윗의 링크를 눌러 해금.
    * 신규 기능이라 구세이브도 false(steamUnlocked와 같은 방향).
@@ -945,6 +945,8 @@ export interface GameState {
    * 해당 동물을 데려와야 그 동물 주접 트윗(강아지계/고양이계)을 올릴 수 있다.
    */
   pets: { dog: boolean; cat: boolean };
+  /** 산책 중 조우해 도감에 수집한 크리처 id 목록(data/creatures.ts의 CREATURES 참조) */
+  creatures: string[];
   /** 이스터에그·특수 이벤트 추적 */
   eggs: EggState;
 
