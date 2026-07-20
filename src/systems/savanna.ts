@@ -1,7 +1,10 @@
 import type { DMThread, GameState, PlayerAccount } from "@/core/types";
+import type { ShootScenario } from "@/data/lingerie";
+import { SAVANNA_SHOW_SCENARIOS } from "@/data/savannaShow";
 import { getActiveAccount } from "@/core/state";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
+import { applyEffect } from "./events";
 import { legendBJMultiplier } from "./eggs";
 import { ownedCount } from "./shop";
 import { gainSkill, SKILL_SCALE } from "./stats";
@@ -98,10 +101,15 @@ export interface SavannaResult {
   message: string;
   /** 시청자를 방송에 끌어들이는 장문 시나리오로 연결해야 하면 true(효과는 선택 후 적용) */
   scenario?: boolean;
+  /** 성인 방송 시나리오(SAVANNA_SHOW_SCENARIOS)로 연결해야 하면 true(효과는 선택 후 적용) */
+  showScenario?: boolean;
 }
 
 /** 방송 중 시청자 난입 특별 이벤트가 터질 확률 */
 export const SAVANNA_INTRUSION_CHANCE = 0.12;
+
+/** 난입이 아닐 때, 성인 방송 시나리오가 터질 확률 */
+export const SAVANNA_SHOW_CHANCE = 0.14;
 /** 난입 시 시청자와 관계로 이어지는 음란도 하한(미만이면 충격받고 종료) */
 export const SAVANNA_INTRUSION_LEWD_MIN = 500;
 
@@ -206,6 +214,11 @@ export function runSavannaStream(state: GameState): SavannaResult {
     return runSavannaShock(state);
   }
 
+  // 난입이 아니면 낮은 확률로 성인 방송 시나리오. 효과는 선택 후 resolveSavannaShow에서 적용(여기선 상태 변경 없음).
+  if (chance(SAVANNA_SHOW_CHANCE)) {
+    return { amount: 0, message: "", showScenario: true };
+  }
+
   const amount = savannaDonation(state);
   state.money += amount;
   gainSkill(state, "lewd", 3);
@@ -219,4 +232,31 @@ export function runSavannaStream(state: GameState): SavannaResult {
       `심야 방송을 켰다. 채팅창이 북적이고 별풍선이 연달아 터졌다. ` +
       `오늘 도네이션 ${amount.toLocaleString("ko-KR")}원을 벌었다! 다만 밤을 새워 몸은 무겁다.`,
   };
+}
+
+/** 이번 성인 방송에 표출할 시나리오를 랜덤으로 고른다(반복 허용). */
+export function pickSavannaShowScenario(): ShootScenario {
+  return pick(SAVANNA_SHOW_SCENARIOS);
+}
+
+/**
+ * 성인 방송 시나리오의 선택을 확정한다(공용 리더에서 호출).
+ * 효과 적용 → 별풍선(도네이션)을 별도 수입으로 가산 → 밤샘 처리 → 하루 진행 → 결과 문구.
+ * 별풍은 savannaDonation으로 따로 얹히므로 choice.effect.money와 중복되지 않는다.
+ * @returns 결과 문구(customKey 동적 문구가 있으면 그것, 없으면 choice.result) + 별풍 부기
+ */
+export function resolveSavannaShow(
+  state: GameState,
+  scenario: ShootScenario,
+  choiceIndex: number,
+): string {
+  const choice = scenario.choices[choiceIndex];
+  if (!choice) return "";
+  const dynamic = applyEffect(state, choice.effect);
+  const amount = savannaDonation(state);
+  state.money += amount;
+  state.lateTweetToday = true; // 밤샘 방송 → 다음날 회복 감소
+  addSchedule(state, `사바나 방송 시나리오 (+${amount.toLocaleString("ko-KR")}원)`, "sns");
+  advanceTime(state, 1);
+  return (dynamic || choice.result) + `\n\n(별풍선 +${amount.toLocaleString("ko-KR")}원)`;
 }

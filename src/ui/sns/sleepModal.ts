@@ -1,8 +1,9 @@
 import type { GameContext } from "@/ui/context";
 import { advanceTime } from "@/systems/time";
-import { runSavannaStream } from "@/systems/savanna";
+import { runSavannaStream, pickSavannaShowScenario, resolveSavannaShow } from "@/systems/savanna";
 import { doOfflineActivity, AUTHOR_WORK_ACTIVITY } from "@/systems/offline";
 import { renderSavannaIntrusionModal } from "./savannaModal";
+import { renderScenarioReaderModal } from "./scenarioReader";
 import { canWorkAvNow } from "@/systems/avJob";
 import { renderAvWorkModal } from "@/ui/avWorkModal";
 import { el } from "@/utils/dom";
@@ -60,7 +61,8 @@ export function renderSleepModal(ctx: GameContext): HTMLElement {
 
   function showIntro(): void {
     const state = ctx.store.getState();
-    const savannaJoined = state.savannaJoined;
+    // 성인물 보기 OFF면 사바나(여캠) 방송 행동을 노출하지 않는다.
+    const savannaJoined = state.savannaJoined && state.adultMode;
     const underContract = state.authorContract != null;
 
     container.replaceChildren(
@@ -108,14 +110,28 @@ export function renderSleepModal(ctx: GameContext): HTMLElement {
               "심야에 라이브 방송을 켜고 도네이션을 번다.",
               () => {
                 let scenario = false;
+                let showScenario = false;
                 let msg = "";
                 ctx.update((s) => {
                   s.sleepPending = false; // runSavannaStream이 다음날로 넘긴다
                   const r = runSavannaStream(s);
                   scenario = r.scenario ?? false;
+                  showScenario = r.showScenario ?? false;
                   msg = r.message;
                 });
-                if (scenario) {
+                if (showScenario) {
+                  // 성인 방송 시나리오로 전환(효과는 리더 선택 후 resolveSavannaShow에서 적용)
+                  ctx.closeModal();
+                  const sc = pickSavannaShowScenario();
+                  ctx.openModal((c) =>
+                    renderScenarioReaderModal(c, {
+                      headTitle: "🔴 사바나 라이브방송",
+                      scenario: sc,
+                      resolve: (s, idx) => resolveSavannaShow(s, sc, idx),
+                      resultHead: "방송 종료",
+                    }),
+                  );
+                } else if (scenario) {
                   // 시청자 난입 장문 시나리오로 전환
                   ctx.closeModal();
                   ctx.openModal(renderSavannaIntrusionModal);
