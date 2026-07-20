@@ -17,6 +17,7 @@ import { PRIVATE_CREW_INVITE } from "@/data/crewSecret";
 import { renderCrewSecretModal } from "./sns/crewSecretModal";
 import { renderScenarioReaderModal } from "./sns/scenarioReader";
 import { pickLingerieScenario, resolveLingerieShoot } from "@/systems/lingerie";
+import { resolveStudy } from "@/systems/studyGroup";
 import { el } from "@/utils/dom";
 import { icon } from "./icons";
 
@@ -132,7 +133,9 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
           ? "토요일 심야, 그룹방 정기 모임 시간이다. 단톡에 찍힌 장소로 가면 인원이 모여 교대 플레이가 이어진다. 오늘 나갈까?"
           : appt.kind === "lingerie"
             ? "심야, 이번 주 란제리 화보 촬영 스케줄이다. 스튜디오에 조명이 켜져 있다. 촬영하러 갈까?"
-            : appt.kind === "event"
+            : appt.kind === "study"
+              ? "월요일 낮, 취업스터디 정기 모임 날이다. 같은 처지 사람들과 자소서를 다듬고 모의면접을 본다. 오늘 나갈까?"
+              : appt.kind === "event"
               ? `오늘은 「${appt.title}」 날이다. 행사에 참여하러 갈까?`
               : `${appt.partnerName ?? "친구"}와 만나기로 한 날이다. 오늘 만나러 갈까?`;
 
@@ -155,6 +158,7 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
               if (!canGo) return;
               if (appt.kind === "crew") return handleCrewGo(appt);
               if (appt.kind === "lingerie") return handleLingerieGo();
+              if (appt.kind === "study") return handleStudyGo();
               resolve(appt, true);
             },
           },
@@ -397,6 +401,19 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
         resolve: (s, idx) => resolveLingerieShoot(s, scenario, idx),
       }),
     );
+  }
+
+  /**
+   * 취업스터디 정기 모임 "간다" 분기.
+   * resolveStudy가 스탯 상승·행동력 소모·시간진행·다음 주 재예약을 모두 처리한다 —
+   * UI는 결과 문구만 보여준다(크루의 resolveAppointment 역할을 study는 resolveStudy가 대신).
+   */
+  function handleStudyGo(): void {
+    let msg = "";
+    ctx.update((s) => {
+      msg = resolveStudy(s);
+    });
+    showResult(msg);
   }
 
   function handleCrewGo(appt: Appointment): void {

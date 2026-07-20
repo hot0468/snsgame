@@ -10,6 +10,7 @@ import { joinCrew } from "@/systems/crew";
 import { joinGroupRoom } from "@/systems/groupRoom";
 import { canJoinGroupBuy, joinGroupBuy } from "@/systems/groupBuy";
 import { joinSavanna } from "@/systems/savanna";
+import { joinStudy } from "@/systems/studyGroup";
 import { signLingerie } from "@/systems/lingerie";
 import { resolveCosplayGeneral, pickCosplayAdultScenario, resolveCosplayAdult } from "@/systems/cosplay";
 import { renderScenarioReaderModal } from "./scenarioReader";
@@ -902,6 +903,26 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
         },
       },
       "러닝크루 가입",
+    );
+  }
+  // 취업스터디 초대: 가입 시 매주 월요일 낮 정기 모임(전연령, 성인물 보기 무관)
+  if (thread.study) {
+    if (ctx.store.getState().studyJoined) {
+      return el("span", { class: "chip", style: "opacity:.6" }, "가입함");
+    }
+    return el(
+      "button",
+      {
+        class: "btn",
+        onclick: () => {
+          ctx.update((s) => {
+            const t = getActiveAccount(s).dms.find((x) => x.id === thread.id);
+            if (t) joinStudy(s, t);
+          });
+          ctx.toast("취업스터디 가입! 매주 월요일 낮 모임이 생겼어요 📚");
+        },
+      },
+      "가입하기",
     );
   }
   // 성인 그룹방 초대: 가입 시 매주 토 심야 정기 모임

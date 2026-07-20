@@ -13,6 +13,7 @@ const KIND_ICON: Record<Appointment["kind"], IconName> = {
   ticketing: "ticket",
   groupRoom: "heart",
   lingerie: "camera",
+  study: "book",
 };
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];

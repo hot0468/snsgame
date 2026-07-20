@@ -105,6 +105,7 @@ export function deliverJobResultEmail(state: GameState): void {
         day: state.day,
         read: false,
         jobOffer: { company: app.company, tier: app.tier, role: app.role },
+        jobResult: { company: app.company, hired: app.hired },
       }
     : {
         id: uid("mail"),
@@ -116,6 +117,7 @@ export function deliverJobResultEmail(state: GameState): void {
           `지원자님의 앞날에 좋은 일이 가득하길 바랍니다. 스탯을 더 키워 다시 도전해 보세요.`,
         day: state.day,
         read: false,
+        jobResult: { company: app.company, hired: app.hired },
       };
 
   state.emails.unshift(email);

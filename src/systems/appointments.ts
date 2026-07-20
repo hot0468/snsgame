@@ -5,7 +5,16 @@ import { changeFollowers } from "./followers";
 import { pushKakao } from "./kakao";
 import { ownedCount } from "./shop";
 import { clampAction, clampResource, clampSkill, gainSkill, skillTo100 } from "./stats";
-import { addSchedule, advanceTime, dateLabel, dayOfWeek, WEDNESDAY, THURSDAY, SATURDAY } from "./time";
+import {
+  addSchedule,
+  advanceTime,
+  dateLabel,
+  dayOfWeek,
+  MONDAY,
+  WEDNESDAY,
+  THURSDAY,
+  SATURDAY,
+} from "./time";
 
 /**
  * 약속(Appointment) 시스템 — 앞으로 할 일을 등록하고, 해당 (day, slot)이 되면
@@ -206,6 +215,49 @@ function resolveLingerieSkip(state: GameState): string {
   addSchedule(state, "란제리 화보 촬영 불참", "system");
   state.resources.mental = clampResource(state.resources.mental + 2);
   return "오늘 심야 촬영은 쉬기로 했다. 스튜디오에 양해를 구했다. 다음 주 촬영 일정은 그대로 잡혀 있다.";
+}
+
+/* ─────────────────── 취업스터디 정기 모임 ─────────────────── */
+
+/** 지금 이후의 다음 월요일(스터디는 낮 슬롯) */
+function nextStudyDay(state: GameState): number {
+  let d = state.day;
+  // 크루(nextCrewDay)와 동일 — 오늘 월요일 낮이면 이미 도래/경과라 다음 주 월요일로 넘어간다.
+  while (!(dayOfWeek(d) === MONDAY && (d > state.day || state.slot < MORNING_SLOT))) {
+    d += 1;
+  }
+  return d;
+}
+
+/**
+ * 다음 월요일 낮 취업스터디 모임을 예약한다(기존 study 약속은 갈아끼운다).
+ * 가입 직후(studyGroup.joinStudy), 그리고 매주 모임을 소화(resolveStudy)/불참한 뒤 호출된다.
+ * scheduleNextCrewRun 패턴 — 요일만 월요일.
+ * (여기 두는 이유: dropAppointment/resolveStudySkip이 재예약하려면 appointments.ts가 알아야 한다.
+ *  studyGroup.ts가 appointments를 import하는 방향만 허용되므로, 스케줄러는 크루처럼 여기 산다.)
+ */
+export function scheduleNextStudy(state: GameState): void {
+  if (!state.studyJoined) return;
+  state.appointments = state.appointments.filter((a) => a.kind !== "study");
+  addAppointment(state, {
+    day: nextStudyDay(state),
+    slot: MORNING_SLOT,
+    kind: "study",
+    title: "취업스터디 모임",
+  });
+}
+
+/**
+ * 스터디를 소화하지 않고 지나갈 때(불참·겹침 취소)의 처리.
+ * '간다'는 appointmentModal이 kind==="study"를 가로채 studyGroup.resolveStudy로 흐르므로
+ * 여기 오지 않는다(란제리 resolveLingerieSkip 선례). 여기 도달하는 건 오직 불참 경로다 —
+ * 정기 사이클이 끊기지 않게 다음 주를 다시 잡는다.
+ */
+function resolveStudySkip(state: GameState): string {
+  scheduleNextStudy(state);
+  addSchedule(state, "취업스터디 불참", "system");
+  state.resources.mental = clampResource(state.resources.mental + 2);
+  return "오늘 스터디는 쉬기로 했다. 스터디원들에게 양해를 구했다. 다음 주 월요일 일정은 그대로 잡혀 있다.";
 }
 
 /* ─────────────────── 친구 만남 ─────────────────── */
@@ -489,6 +541,7 @@ export function resolveAppointment(
   else if (appt.kind === "ticketing") message = resolveTicketing(state, appt, go);
   else if (appt.kind === "event") message = resolveEventVisit(state, appt, go);
   else if (appt.kind === "lingerie") message = resolveLingerieSkip(state);
+  else if (appt.kind === "study") message = resolveStudySkip(state);
   else message = resolveFriendMeet(state, appt, go);
   return { message };
 }
@@ -508,6 +561,9 @@ export function dropAppointment(state: GameState, appt: Appointment): void {
   } else if (appt.kind === "lingerie") {
     scheduleNextLingerieShoot(state);
     addSchedule(state, "란제리 화보 촬영 취소(일정 겹침)", "system");
+  } else if (appt.kind === "study") {
+    scheduleNextStudy(state);
+    addSchedule(state, "취업스터디 모임 취소(일정 겹침)", "system");
   } else {
     addSchedule(state, `${appt.title} 취소(일정 겹침)`, "system");
   }

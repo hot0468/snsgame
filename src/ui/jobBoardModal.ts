@@ -61,7 +61,7 @@ export function renderJobBoardModal(ctx: GameContext, postings: JobPosting[]): H
           class: "btn job-item__apply",
           onclick: () => {
             ctx.update((s) => submitJobApplication(s, job));
-            showSubmitted(job);
+            showSubmitted();
           },
         },
         "지원",
@@ -92,7 +92,7 @@ export function renderJobBoardModal(ctx: GameContext, postings: JobPosting[]): H
     );
   }
 
-  function showSubmitted(job: JobPosting): void {
+  function showSubmitted(): void {
     container.replaceChildren(
       el(
         "div",
@@ -105,7 +105,7 @@ export function renderJobBoardModal(ctx: GameContext, postings: JobPosting[]): H
         el(
           "p",
           { class: "life-result__flavor", style: "font-size:15px;line-height:1.6" },
-          `「${job.company}」에 지원서를 제출했습니다.\n결과는 내일 '피메일'로 통보돼요. 합격하면 메일에서 출근 여부를 결정할 수 있어요.`,
+          `성공적으로 지원되었다!\n이제 합격 메일이 오기를 기다리자.`,
         ),
         el(
           "div",

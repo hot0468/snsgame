@@ -11,6 +11,7 @@ import {
   switchToCompanyJob,
 } from "@/systems/employment";
 import { openSpamEmail } from "@/systems/spam";
+import { tweetJobResult } from "@/systems/studyGroup";
 import { dateLabel } from "@/systems/time";
 import { el, formatNumber, mount } from "@/utils/dom";
 import { confirmPurchase } from "./confirmModal";
@@ -365,6 +366,46 @@ function emailView(ctx: GameContext, mail: Email | null): HTMLElement {
             "출근한다",
           ),
         )
+      : null,
+    // 취업 지원 결과(합격/불합격) 메일: 결과를 트윗할 수 있다(메일당 1회). 합격 메일의
+    // 채용 오퍼 버튼과 겹치지 않게 별도 액션 행으로 둔다.
+    mail.jobResult
+      ? mail.jobResult.tweeted
+        ? el(
+            "div",
+            { class: "mail__actions mail__actions--link" },
+            el("span", { class: "chip", style: "opacity:.6" }, "트윗함"),
+          )
+        : el(
+            "div",
+            { class: "mail__actions mail__actions--link" },
+            el(
+              "button",
+              {
+                class: "btn",
+                onclick: () => {
+                  let posted = false;
+                  let delta = 0;
+                  ctx.update((s) => {
+                    const m = s.emails.find((e) => e.id === mail.id);
+                    if (!m) return;
+                    const r = tweetJobResult(s, m);
+                    if (r) {
+                      posted = true;
+                      delta = r.followerDelta;
+                    }
+                  });
+                  ctx.toast(
+                    posted
+                      ? `트윗 게시! +${formatNumber(delta)} 팔로워`
+                      : "이미 트윗한 결과예요",
+                  );
+                  ctx.refresh();
+                },
+              },
+              "결과 트윗하기",
+            ),
+          )
       : null,
   );
 }

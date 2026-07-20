@@ -31,6 +31,8 @@ export function weekdayLabel(day: number): string {
   return WEEKDAY_NAMES[dayOfWeek(day)] ?? "";
 }
 
+/** 월요일 요일 인덱스(취업스터디 정기 모임 등) */
+export const MONDAY = 1;
 /** 수요일 요일 인덱스(란제리 전속 화보 정기 촬영 등) */
 export const WEDNESDAY = 3;
 /** 목요일 요일 인덱스 */
