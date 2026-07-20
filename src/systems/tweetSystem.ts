@@ -14,6 +14,8 @@ import { maybeSpawnAvOfferDM } from "./avJob";
 import { maybeSpawnSavannaDM } from "./savanna";
 import { consumePostSlot, onTweetPosted, smartTweetMultiplier } from "./eggs";
 import { maybeSpawnCrewInviteDM } from "./crew";
+import { maybeSpawnLingerieDM } from "./lingerie";
+import { maybeSpawnCosplayDM } from "./cosplay";
 import { maybeSpawnPushDM } from "./pushtime";
 import { maybeSpawnYabamDM } from "./yabam";
 import { generateReactions } from "./reactions";
@@ -146,6 +148,12 @@ export function postTweet(
   else if (attr === "fitness") maybeSpawnCrewInviteDM(state);
   // 애니덕 트윗이면(성인+음란 높음) 확률적으로 푸시타임 링크 DM이 온다
   else if (attr === "anime") maybeSpawnPushDM(state);
+
+  // 애니덕 트윗은 성인 무관 누적 카운트(코스프레 제의 트리거).
+  if (attr === "anime") state.animeTweetsPosted++;
+  // 전속 계약/촬영 제의는 attr·성인 여부와 무관하게 조건 충족 시 확률 스폰(각 함수가 자체 게이트).
+  maybeSpawnLingerieDM(state);
+  maybeSpawnCosplayDM(state);
 
   // 성격별 부수효과: 정보=평판·지식↑, 자극=평판 리스크(감성/무난은 0). plain은 전부 0이라 특수 모드는 무영향.
   if (kindEff.reputationDelta !== 0) {

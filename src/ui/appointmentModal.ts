@@ -15,6 +15,8 @@ import { meetSuccessChance, resolveMeet } from "@/systems/relationship";
 import { canOfferPrivateCrew, joinPrivateCrew } from "@/systems/crew";
 import { PRIVATE_CREW_INVITE } from "@/data/crewSecret";
 import { renderCrewSecretModal } from "./sns/crewSecretModal";
+import { renderScenarioReaderModal } from "./sns/scenarioReader";
+import { pickLingerieScenario, resolveLingerieShoot } from "@/systems/lingerie";
 import { el } from "@/utils/dom";
 import { icon } from "./icons";
 
@@ -128,9 +130,11 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
         ? "목요일 저녁, 러닝크루 정기런 시간이다. 체력 부담은 적지만 함께 뛰면 운동 효과가 쏠쏠하다. 오늘 나갈까?"
         : appt.kind === "groupRoom"
           ? "토요일 심야, 그룹방 정기 모임 시간이다. 단톡에 찍힌 장소로 가면 인원이 모여 교대 플레이가 이어진다. 오늘 나갈까?"
-          : appt.kind === "event"
-            ? `오늘은 「${appt.title}」 날이다. 행사에 참여하러 갈까?`
-            : `${appt.partnerName ?? "친구"}와 만나기로 한 날이다. 오늘 만나러 갈까?`;
+          : appt.kind === "lingerie"
+            ? "심야, 이번 주 란제리 화보 촬영 스케줄이다. 스튜디오에 조명이 켜져 있다. 촬영하러 갈까?"
+            : appt.kind === "event"
+              ? `오늘은 「${appt.title}」 날이다. 행사에 참여하러 갈까?`
+              : `${appt.partnerName ?? "친구"}와 만나기로 한 날이다. 오늘 만나러 갈까?`;
 
     container.replaceChildren(
       el(
@@ -150,6 +154,7 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
             onclick: () => {
               if (!canGo) return;
               if (appt.kind === "crew") return handleCrewGo(appt);
+              if (appt.kind === "lingerie") return handleLingerieGo();
               resolve(appt, true);
             },
           },
@@ -378,6 +383,22 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
    * ② 가입 조건 충족(체벌 트윗 10회 등) → 가입 권유 프롬프트.
    * ③ 그 외 → 기존 일반 정기런.
    */
+  /**
+   * 란제리 정기 촬영 "간다" 분기 → 강제 이수 시나리오 리더.
+   * 시나리오를 여기서 한 번 확정하고, resolve에 같은 시나리오를 바인딩한다.
+   * 재예약/시간진행/촬영비는 resolveLingerieShoot가 처리한다.
+   */
+  function handleLingerieGo(): void {
+    const scenario = pickLingerieScenario();
+    ctx.openModal((c) =>
+      renderScenarioReaderModal(c, {
+        headTitle: "란제리 화보 촬영",
+        scenario,
+        resolve: (s, idx) => resolveLingerieShoot(s, scenario, idx),
+      }),
+    );
+  }
+
   function handleCrewGo(appt: Appointment): void {
     const s = ctx.store.getState();
     if (s.privateCrewJoined) {

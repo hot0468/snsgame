@@ -5,7 +5,7 @@ import { changeFollowers } from "./followers";
 import { pushKakao } from "./kakao";
 import { ownedCount } from "./shop";
 import { clampAction, clampResource, clampSkill, gainSkill, skillTo100 } from "./stats";
-import { addSchedule, advanceTime, dateLabel, dayOfWeek, THURSDAY, SATURDAY } from "./time";
+import { addSchedule, advanceTime, dateLabel, dayOfWeek, WEDNESDAY, THURSDAY, SATURDAY } from "./time";
 
 /**
  * 약속(Appointment) 시스템 — 앞으로 할 일을 등록하고, 해당 (day, slot)이 되면
@@ -162,6 +162,48 @@ function resolveGroupNight(state: GameState, go: boolean): string {
     "한 줄만 남았다. 몸은 무거웠지만 성인 피드 알림은 유난히 시끄러웠다. " +
     `(팔로워 +${delta})`
   );
+}
+
+/* ─────────────────── 란제리 전속 화보 정기 촬영 ─────────────────── */
+
+/** 지금 이후의 다음 수요일(란제리 촬영은 심야 슬롯) */
+function nextLingerieDay(state: GameState): number {
+  let d = state.day;
+  while (!(dayOfWeek(d) === WEDNESDAY && (d > state.day || state.slot < LATE_SLOT))) {
+    d += 1;
+  }
+  return d;
+}
+
+/**
+ * 다음 수요일 심야 란제리 화보 촬영을 예약한다(기존 lingerie 약속은 갈아끼운다).
+ * 계약 직후, 그리고 매주 촬영을 소화/취소한 뒤에 호출된다.
+ * scheduleNextCrewRun 패턴 — slot만 LATE_SLOT.
+ * (여기 두는 이유: dropAppointment가 재예약하려면 appointments.ts가 이 함수를 알아야 한다.
+ *  lingerie.ts가 appointments를 import하는 방향만 허용되므로, 스케줄러는 크루처럼 여기 산다.)
+ */
+export function scheduleNextLingerieShoot(state: GameState): void {
+  if (!state.lingerieContract) return;
+  state.appointments = state.appointments.filter((a) => a.kind !== "lingerie");
+  addAppointment(state, {
+    day: nextLingerieDay(state),
+    slot: LATE_SLOT,
+    kind: "lingerie",
+    title: "란제리 화보 촬영",
+  });
+}
+
+/**
+ * 란제리 촬영을 소화하지 않고 지나갈 때(불참·겹침 취소)의 처리.
+ * '간다'는 appointmentModal의 handleLingerieGo가 가로채 scenarioReader→resolveLingerieShoot로
+ * 흐르므로 여기 오지 않는다. 여기 도달하는 건 오직 불참 경로다 —
+ * 크루·그룹방처럼 정기 사이클이 끊기지 않게 다음 주를 다시 잡는다.
+ */
+function resolveLingerieSkip(state: GameState): string {
+  scheduleNextLingerieShoot(state);
+  addSchedule(state, "란제리 화보 촬영 불참", "system");
+  state.resources.mental = clampResource(state.resources.mental + 2);
+  return "오늘 심야 촬영은 쉬기로 했다. 스튜디오에 양해를 구했다. 다음 주 촬영 일정은 그대로 잡혀 있다.";
 }
 
 /* ─────────────────── 친구 만남 ─────────────────── */
@@ -444,6 +486,7 @@ export function resolveAppointment(
   else if (appt.kind === "groupRoom") message = resolveGroupNight(state, go);
   else if (appt.kind === "ticketing") message = resolveTicketing(state, appt, go);
   else if (appt.kind === "event") message = resolveEventVisit(state, appt, go);
+  else if (appt.kind === "lingerie") message = resolveLingerieSkip(state);
   else message = resolveFriendMeet(state, appt, go);
   return { message };
 }
@@ -460,6 +503,9 @@ export function dropAppointment(state: GameState, appt: Appointment): void {
   } else if (appt.kind === "groupRoom") {
     scheduleNextGroupNight(state);
     addSchedule(state, "그룹방 정기 모임 취소(일정 겹침)", "system");
+  } else if (appt.kind === "lingerie") {
+    scheduleNextLingerieShoot(state);
+    addSchedule(state, "란제리 화보 촬영 취소(일정 겹침)", "system");
   } else {
     addSchedule(state, `${appt.title} 취소(일정 겹침)`, "system");
   }
