@@ -54,17 +54,6 @@ export type EggKind = "coin" | "pyramid" | "animal";
 
 /** 이스터에그·특수 이벤트 추적 상태 */
 export interface EggState {
-  /** dailyTweetCount 기준 날짜(일차) */
-  dailyTweetDay: number;
-  /** 오늘 올린 트윗 수(도배 판정) */
-  dailyTweetCount: number;
-  /**
-   * 게시 슬롯 소비 기준 날짜(일차). dailyTweetDay와 **분리**한다 —
-   * free 게시(opts.free)는 도배 카운트엔 잡히되 슬롯은 미소모라 두 카운터의 의미가 다르다.
-   */
-  postSlotsDay: number;
-  /** 오늘 소비한 게시 슬롯 수(트윗 전용 일일 예산). */
-  postSlotsUsed: number;
   /** 연속 심야 트윗 일수 */
   lateStreak: number;
   /** 마지막으로 심야 트윗한 일차(연속 판정) */
@@ -201,6 +190,8 @@ export interface Tweet {
    * 자세한 근거는 `systems/dartpin.ts` 헤더 참조.
    */
   siteLink?: SiteLinkId;
+  /** 굿즈 공동구매 모집 트윗이면 그 정보('공구 참여하기' 버튼 노출). joined면 참여 완료 */
+  groupBuy?: { itemId: string; price: number; joined?: boolean };
 }
 
 /**
@@ -320,6 +311,10 @@ export interface DMThread {
   donation?: { amount: number; claimed?: boolean };
   /** AV배우 제의 스레드인지(성인 트윗 누적 시 유입). ui가 수락/거절 버튼을 렌더한다 */
   avOffer?: boolean;
+  /** 란제리 모델 전속 계약 제의 스레드인지(매력·음란 충분+성인 시 유입). ui가 계약 버튼을 렌더한다 */
+  lingerie?: boolean;
+  /** 코스프레 촬영 제의 스레드인지(애니덕 트윗 누적 시 유입, 전연령). ui가 촬영 버튼을 렌더한다 */
+  cosplay?: boolean;
 }
 
 /** 카카오톡 메시지 한 줄 */
@@ -392,7 +387,7 @@ export interface KakaoLoanOffer {
 }
 
 /** 예정된 약속의 종류 */
-export type AppointmentKind = "crew" | "friend" | "event" | "ticketing" | "groupRoom";
+export type AppointmentKind = "crew" | "friend" | "event" | "ticketing" | "groupRoom" | "lingerie";
 
 /**
  * 미래에 예정된 약속. 해당 (day, slot)이 되면 '할지/말지' 팝업이 뜬다.
@@ -513,6 +508,14 @@ export interface PlayerAccount {
    * 구세이브엔 없으므로 save.sanitize가 `{}`로 채운다.
    */
   relationships: Record<string, RelationshipProgress>;
+  /** 도배 판정 기준 날짜(일차) — 계정별 1일 트윗 카운트. */
+  dailyTweetDay: number;
+  /** 오늘 이 계정으로 올린 트윗 수(도배 판정). 계정마다 따로 센다. */
+  dailyTweetCount: number;
+  /** 게시 슬롯 소비 기준 날짜(일차) — 계정별. */
+  postSlotsDay: number;
+  /** 오늘 이 계정이 소비한 게시 슬롯 수(트윗 전용 일일 예산). 계정마다 따로 센다. */
+  postSlotsUsed: number;
 }
 
 /**
@@ -754,6 +757,12 @@ export interface GameState {
   groupRoomJoined: boolean;
   /** 사바나 여캠(라이브방송) 계약 여부 — 매 심야에 방송 행동이 열린다 */
   savannaJoined: boolean;
+  /** 란제리 모델 전속 계약 여부('사람' 단위) — 계약 후 매주 심야 정기 화보 촬영이 유지된다 */
+  lingerieContract: boolean;
+  /** 란제리 전속 계약 제의 DM을 이미 보냈는지(중복 제의 방지). 초기 false */
+  lingerieOffered: boolean;
+  /** 애니덕(anime) 트윗 누적 작성 수 — 코스프레 촬영 제의 트리거용(성인 무관) */
+  animeTweetsPosted: number;
   /** 유료 구독 채널 개설 여부 — 매월 구독 수익이 정산된다 */
   paidChannelJoined: boolean;
 
@@ -862,6 +871,8 @@ export interface GameState {
   market: MarketState;
   /** 구매한 쇼핑 아이템 id 목록 */
   ownedItems: string[];
+  /** 참여한 굿즈 공구 중 배송 대기분(arriveDay 도달 시 ownedItems로 이동) */
+  pendingGoods: { itemId: string; arriveDay: number }[];
   /** 도깨비 상점에 마지막으로 들어간 달(monthKey). 없으면 null. 월 1회 접속 제한용 */
   goblinShopMonth: number | null;
   /** '푸시타임' 탭이 해금됐는지(애니덕+성인+음란 DM 링크로 해금) */

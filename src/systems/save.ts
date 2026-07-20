@@ -90,6 +90,11 @@ function sanitize(state: GameState): GameState {
     acc.strikes ??= 0;
     acc.suspendedUntilDay ??= 0;
     acc.relationships ??= {};
+    // 1일 트윗 카운트·게시 슬롯 소비를 전역(eggs)→계정별로 옮김. 구세이브엔 계정에 없으니 초기화.
+    acc.dailyTweetDay ??= state.day;
+    acc.dailyTweetCount ??= 0;
+    acc.postSlotsDay ??= state.day;
+    acc.postSlotsUsed ??= 0;
     for (const thread of acc.dms) {
       thread.metOffline ??= false;
       thread.wantsToMeet ??= false;
@@ -120,6 +125,9 @@ function sanitize(state: GameState): GameState {
   state.privateCrewJoined ??= false;
   state.groupRoomJoined ??= false;
   state.savannaJoined ??= false;
+  state.lingerieContract ??= false;
+  state.lingerieOffered ??= false;
+  state.animeTweetsPosted ??= 0;
   state.employment ??= null;
   // AV배우 직업은 신규 기능 — 구세이브엔 키가 없다(미계약·미제의가 정답).
   state.avJob ??= null;
@@ -171,6 +179,7 @@ function sanitize(state: GameState): GameState {
   state.lastJobBoardDay ??= -1;
   state.pendingControversy ??= null;
   if (!Array.isArray(state.ownedItems)) state.ownedItems = [];
+  if (!Array.isArray(state.pendingGoods)) state.pendingGoods = [];
   state.goblinShopMonth ??= null;
   state.pushtimeUnlocked ??= false;
   state.yabamUnlocked ??= false;

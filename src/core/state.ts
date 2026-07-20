@@ -126,6 +126,11 @@ export function createAccount(
     strikes: 0,
     suspendedUntilDay: 0,
     relationships: {},
+    // 1일 트윗 카운트·게시 슬롯 소비는 계정별로 센다.
+    dailyTweetDay: 1,
+    dailyTweetCount: 0,
+    postSlotsDay: 1,
+    postSlotsUsed: 0,
   };
 }
 
@@ -177,6 +182,9 @@ export function createInitialState(): GameState {
     privateCrewJoined: false,
     groupRoomJoined: false,
     savannaJoined: false,
+    lingerieContract: false,
+    lingerieOffered: false,
+    animeTweetsPosted: 0,
     paidChannelJoined: false,
     appointments: [],
     employment: null,
@@ -199,6 +207,7 @@ export function createInitialState(): GameState {
     pendingControversy: null,
     market: initialMarket(),
     ownedItems: [],
+    pendingGoods: [],
     goblinShopMonth: null,
     pushtimeUnlocked: false,
     yabamUnlocked: false,
@@ -227,10 +236,6 @@ export function createInitialState(): GameState {
     postedAdultEver: false,
     pets: { dog: false, cat: false },
     eggs: {
-      dailyTweetDay: 1,
-      dailyTweetCount: 0,
-      postSlotsDay: 1,
-      postSlotsUsed: 0,
       lateStreak: 0,
       lastLateDay: -1,
       botFollows: 0,
