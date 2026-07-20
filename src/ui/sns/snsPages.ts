@@ -1,6 +1,6 @@
 import type { GameContext } from "@/ui/context";
 import type { Account, AttributeId, DMThread, GameState, Tweet } from "@/core/types";
-import { getActiveAccount } from "@/core/state";
+import { getActiveAccount, visibleTimeline } from "@/core/state";
 import { ALL_ATTRIBUTE_IDS, ATTRIBUTES } from "@/data/attributes";
 import type { DMTone } from "@/data/dmContent";
 import { DICK_SIZE_LABELS } from "@/data/dmContent";
@@ -631,7 +631,7 @@ export function mePage(ctx: GameContext): HTMLElement {
         { class: "profile__stats" },
         // 게시물 수는 timeline.length 그대로다 — 아래 '게시물' 탭이 timeline을 통째로
         // 나열하므로, 리트윗을 빼고 세면 숫자와 목록이 어긋난다.
-        el("span", {}, el("b", {}, formatNumber(account.timeline.length)), " 게시물"),
+        el("span", {}, el("b", {}, formatNumber(visibleTimeline(ctx.store.getState()).length)), " 게시물"),
         el("span", {}, el("b", {}, formatNumber(account.following)), " 팔로우 중"),
         el("span", {}, el("b", {}, formatNumber(account.followers)), " 팔로워"),
       ),
@@ -644,7 +644,7 @@ export function mePage(ctx: GameContext): HTMLElement {
       ),
       (() => {
         // 내 계정 상세의 '게시물' 탭에는 내가 직접 올린 트윗만 노출한다(리트윗 제외).
-        const myPosts = account.timeline.filter((t) => !t.isRetweet);
+        const myPosts = visibleTimeline(ctx.store.getState()).filter((t) => !t.isRetweet);
         return myPosts.length
           ? el(
               "div",
@@ -898,7 +898,7 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
             const t = getActiveAccount(s).dms.find((x) => x.id === thread.id);
             if (t) joinCrew(s, t);
           });
-          ctx.toast("러닝크루에 가입했어요! 매주 목요일 저녁 정기런이 생겼어요 🏃");
+          ctx.toast("러닝크루에 가입했어요! 매주 목요일 낮 정기런이 생겼어요 🏃");
         },
       },
       "러닝크루 가입",
@@ -1181,7 +1181,7 @@ function labOfferReplies(ctx: GameContext): HTMLElement {
   if (offer !== "offered") {
     const note =
       offer === "accepted"
-        ? "부탁을 수락했다. 평일 저녁은 연구실이다."
+        ? "부탁을 수락했다. 평일 낮은 연구실이다."
         : offer === "refused"
           ? "정중히 거절했다."
           : "";

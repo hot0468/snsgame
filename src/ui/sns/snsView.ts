@@ -1,6 +1,6 @@
 import type { GameContext } from "@/ui/context";
 import type { AttributeId, Tweet } from "@/core/types";
-import { FOLLOWER_GOAL, getActiveAccount, isMentalLow, isSuspended } from "@/core/state";
+import { FOLLOWER_GOAL, getActiveAccount, isMentalLow, isSuspended, visibleTimeline } from "@/core/state";
 import { canWatchAd } from "@/systems/ads";
 import { claimAdReward, ensureAdTweetsSeeded, unlockAppTab } from "@/systems/adTweets";
 import { unreadDMCount } from "@/systems/dm";
@@ -318,11 +318,13 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
         ctx.update((st) => ensureAdTweetsSeeded(st));
       }
       const adCards = s.adTweets.map((t) => adTweetCard(ctx, t));
-      if (account.timeline.length === 0) {
+      // 성인물 보기 OFF면 내가 쓴 성인 트윗은 타임라인에서 가린다.
+      const myTimeline = visibleTimeline(s);
+      if (myTimeline.length === 0) {
         // 타임라인이 비었으면(첫날) 안내 문구를 그대로 맨 위에 두고, 광고는 그 아래에.
         body = [el("div", { class: "empty" }, "아직 트윗이 없어요. 첫 트윗을 등록해보세요!"), ...adCards];
       } else {
-        const timelineCards = account.timeline.map((t) =>
+        const timelineCards = myTimeline.map((t) =>
           tweetCard(t, {
             showGain: true,
             ctx,
