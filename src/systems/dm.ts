@@ -451,9 +451,15 @@ function applyToneEffects(state: GameState, tone: DMTone): void {
   }
 }
 
-/** 활성 계정의 안 읽은 DM 개수 */
-export function unreadDMCount(account: PlayerAccount): number {
-  return account.dms.filter((t) => t.unread).length;
+/** 화면에 보여줄 DM 스레드 — 성인물 보기 OFF면 성인(isAdult) 스레드는 목록에서 숨긴다. */
+export function visibleDms(state: GameState): DMThread[] {
+  const dms = getActiveAccount(state).dms;
+  return state.adultMode ? dms : dms.filter((t) => !t.isAdult);
+}
+
+/** 활성 계정의 안 읽은 DM 개수(숨긴 성인 스레드는 제외) */
+export function unreadDMCount(state: GameState): number {
+  return visibleDms(state).filter((t) => t.unread).length;
 }
 
 /** 대담(성인) 톤 사용 가능 여부: 성인물 해제(유저 전역 설정)가 켜져 있어야 함 */

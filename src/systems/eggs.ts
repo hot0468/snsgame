@@ -63,9 +63,10 @@ function spawnDM(state: GameState, name: string, handle: string, lines: string[]
 
 /** 날짜가 바뀌었으면 일일 카운터를 초기화한다. */
 export function ensureEggDay(state: GameState): void {
-  if (state.eggs.dailyTweetDay !== state.day) {
-    state.eggs.dailyTweetDay = state.day;
-    state.eggs.dailyTweetCount = 0;
+  const acc = getActiveAccount(state);
+  if (acc.dailyTweetDay !== state.day) {
+    acc.dailyTweetDay = state.day;
+    acc.dailyTweetCount = 0;
   }
 }
 
@@ -73,16 +74,17 @@ export function ensureEggDay(state: GameState): void {
 
 /**
  * 게시 슬롯. **행동력(resources.action)과 무관한 트윗 전용 카운터다** — 초반 슬롯이 1이어도
- * 공부·운동·근무·휴식은 행동력으로 정상 작동한다(데드락 없음). 상한은 활성 계정 팔로워로 계산,
- * 소비는 하루 전역(다계정 단순화). 도배 카운트(dailyTweetCount)와 별도 필드라 free 게시가
- * 슬롯을 갉지 않는다.
+ * 공부·운동·근무·휴식은 행동력으로 정상 작동한다(데드락 없음). 상한·소비 모두 활성 계정 기준이라
+ * 계정마다 따로 센다(계정 전환 시 소비량이 섞이지 않는다). 도배 카운트(dailyTweetCount)와 별도
+ * 필드라 free 게시가 슬롯을 갉지 않는다.
  */
 
-/** 슬롯 날짜가 바뀌었으면 오늘 소비량을 초기화한다(ensureEggDay와 같은 패턴). */
+/** 슬롯 날짜가 바뀌었으면 오늘 소비량을 초기화한다(ensureEggDay와 같은 패턴, 계정별). */
 export function ensurePostSlotDay(state: GameState): void {
-  if (state.eggs.postSlotsDay !== state.day) {
-    state.eggs.postSlotsDay = state.day;
-    state.eggs.postSlotsUsed = 0;
+  const acc = getActiveAccount(state);
+  if (acc.postSlotsDay !== state.day) {
+    acc.postSlotsDay = state.day;
+    acc.postSlotsUsed = 0;
   }
 }
 
@@ -91,8 +93,9 @@ export function ensurePostSlotDay(state: GameState): void {
  * 날짜가 지난 소비량은 0으로 간주하므로 하루가 바뀌면 리셋 없이도 만충으로 읽힌다.
  */
 export function remainingPostSlots(state: GameState): number {
-  const max = maxPostSlots(getActiveAccount(state).followers);
-  const used = state.eggs.postSlotsDay === state.day ? state.eggs.postSlotsUsed : 0;
+  const acc = getActiveAccount(state);
+  const max = maxPostSlots(acc.followers);
+  const used = acc.postSlotsDay === state.day ? acc.postSlotsUsed : 0;
   return Math.max(0, max - (Number.isFinite(used) ? used : 0));
 }
 
@@ -104,7 +107,7 @@ export function canPostBySlot(state: GameState): boolean {
 /** 게시 슬롯 1개 소비(트윗 게시 시). free 게시는 호출하지 않는다. */
 export function consumePostSlot(state: GameState): void {
   ensurePostSlotDay(state);
-  state.eggs.postSlotsUsed += 1;
+  getActiveAccount(state).postSlotsUsed += 1;
 }
 
 /* ─────────────────── 좋아요/리트윗 ─────────────────── */
@@ -206,11 +209,12 @@ export function onFollow(state: GameState, account: Account): void {
 /** 트윗을 올린 직후 호출(시간 진행 전). postedSlot은 올린 시간대. */
 export function onTweetPosted(state: GameState, postedSlot: number): void {
   ensureEggDay(state);
-  state.eggs.dailyTweetCount += 1;
-  // 하루 트윗 10개 초과 → 도배로 인식돼 노출·유입 감소
-  if (state.eggs.dailyTweetCount > 10) {
+  const acc = getActiveAccount(state);
+  acc.dailyTweetCount += 1;
+  // 하루 트윗 10개 초과 → 도배로 인식돼 노출·유입 감소 (계정별 카운트)
+  if (acc.dailyTweetCount > 10) {
     changeFollowers(state, -randInt(5, 15));
-    if (state.eggs.dailyTweetCount === 11) {
+    if (acc.dailyTweetCount === 11) {
       pushKakao(
         state,
         "타임라인 친구",

@@ -92,7 +92,7 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
   // ===== 좌측 네비게이션 =====
   function renderNav(): HTMLElement {
     const adAvailable = canWatchAd(s);
-    const unread = unreadDMCount(account);
+    const unread = unreadDMCount(s);
     const page = ctx.ui.snsPage;
 
     return el(

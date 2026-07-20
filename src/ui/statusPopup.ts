@@ -253,8 +253,8 @@ function statusInner(ctx: GameContext): HTMLElement[] {
           { class: "detail-grid" },
           ...SKILL_STAT_IDS.filter((id) => id !== "lewd").map((id) => detailStatRow(s, id)),
         ),
-        // 음란은 그리드에서 빼 별도 행으로 분리하고 빨간색으로 강조한다.
-        detailStatRow(s, "lewd", "detail-row--lewd"),
+        // 음란은 그리드에서 빼 별도 행으로 분리하고 빨간색으로 강조한다. 성인물 보기 OFF면 숨긴다.
+        s.adultMode ? detailStatRow(s, "lewd", "detail-row--lewd") : null,
         renderCertSection(s),
       )
     : null;
