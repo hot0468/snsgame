@@ -4,11 +4,15 @@ import { getActiveAccount } from "@/core/state";
 import { ALL_ATTRIBUTE_IDS, ATTRIBUTES } from "@/data/attributes";
 import type { DMTone } from "@/data/dmContent";
 import { DICK_SIZE_LABELS } from "@/data/dmContent";
-import { canUseBoldTone, claimDonation, replyDM, sendCustomDM } from "@/systems/dm";
+import { canUseBoldTone, claimDonation, replyDM, sendCustomDM, visibleDms } from "@/systems/dm";
 import { canMeet, MEETING_ACTION_COST } from "@/systems/meeting";
 import { joinCrew } from "@/systems/crew";
 import { joinGroupRoom } from "@/systems/groupRoom";
+import { canJoinGroupBuy, joinGroupBuy } from "@/systems/groupBuy";
 import { joinSavanna } from "@/systems/savanna";
+import { signLingerie } from "@/systems/lingerie";
+import { resolveCosplayGeneral, pickCosplayAdultScenario, resolveCosplayAdult } from "@/systems/cosplay";
+import { renderScenarioReaderModal } from "./scenarioReader";
 import { acceptAuthorContract } from "@/systems/author";
 import { acceptAvJob, declineAvJob, switchToAvJob } from "@/systems/avJob";
 import { currentJobLabel, hasAnyJob } from "@/systems/employment";
@@ -113,9 +117,9 @@ export function enterSearch(ctx: GameContext): void {
 
 /** 쪽지 페이지 진입 */
 export function enterDM(ctx: GameContext): void {
-  const account = getActiveAccount(ctx.store.getState());
-  if (!ctx.ui.dmThreadId || !account.dms.some((t) => t.id === ctx.ui.dmThreadId)) {
-    ctx.ui.dmThreadId = account.dms[0]?.id ?? null;
+  const dms = visibleDms(ctx.store.getState());
+  if (!ctx.ui.dmThreadId || !dms.some((t) => t.id === ctx.ui.dmThreadId)) {
+    ctx.ui.dmThreadId = dms[0]?.id ?? null;
   }
   ctx.ui.snsPage = "dm";
   ctx.refresh();
@@ -275,6 +279,59 @@ function joinTweetEvent(ctx: GameContext, tweet: Tweet): void {
   );
 }
 
+/** 굿즈 공구 트윗의 '공구 참여하기' → 지출+덕질, 7일 뒤 배송(pendingGoods) */
+function joinTweetGroupBuy(ctx: GameContext, tweet: Tweet): void {
+  const gb = tweet.groupBuy;
+  if (!gb || gb.joined) return;
+  // 규칙은 systems가 판정한다(돈 가드). UI는 결과만 알린다.
+  if (!canJoinGroupBuy(ctx.store.getState(), tweet)) {
+    ctx.toast("소지금이 부족해요", "bad");
+    return;
+  }
+  // joinGroupBuy가 canJoinGroupBuy(!joined) 가드를 다시 타므로, 여기서 미리 joined=true를
+  // 세팅하면 안 된다(가드 걸려 지출·덕질·pending이 통째로 스킵됨). joinGroupBuy가 같은 tweet
+  // 객체의 gb.joined를 세팅하고 ctx.update 재렌더가 '참여함'을 반영한다.
+  ctx.update((s) => {
+    joinGroupBuy(s, tweet);
+  });
+  ctx.toast("공구 참여! 7일 뒤 배송돼요");
+}
+
+/** 굿즈 공동구매 트윗에 붙는 참여 박스(행사 박스와 같은 그릇 재사용) */
+function groupBuyBox(ctx: GameContext, tweet: Tweet): HTMLElement | null {
+  const gb = tweet.groupBuy;
+  if (!gb) return null;
+  const btn = gb.joined
+    ? el("span", { class: "tweet-event__done" }, "참여함")
+    : el(
+        "button",
+        {
+          class: "tweet-event__btn",
+          onclick: (e: Event) => {
+            e.stopPropagation();
+            joinTweetGroupBuy(ctx, tweet);
+          },
+        },
+        `공구 참여하기 (₩${formatNumber(gb.price)})`,
+      );
+  return el(
+    "div",
+    { class: "tweet-event" },
+    el(
+      "div",
+      { class: "tweet-event__info" },
+      icon("sparkle", { size: 14 }),
+      el(
+        "div",
+        {},
+        el("div", { class: "tweet-event__title" }, "굿즈 공동구매"),
+        el("div", { class: "tweet-event__when" }, "참여하면 7일 뒤 배송돼요"),
+      ),
+    ),
+    btn,
+  );
+}
+
 /**
  * 다트 핀 발견 트윗에 붙는 링크 미리보기 카드.
  *
@@ -362,6 +419,15 @@ export function reactableCard(ctx: GameContext, tweet: Tweet): HTMLElement {
     const actions = body?.querySelector(".tweet__actions");
     if (actions) body?.insertBefore(linkCard, actions);
     else body?.appendChild(linkCard);
+  }
+
+  // 굿즈 공구 트윗이면 본문 아래(액션 바 위)에 공구 참여 박스를 끼운다.
+  const gbBox = groupBuyBox(ctx, tweet);
+  if (gbBox) {
+    const body = card.querySelector<HTMLElement>(".tweet__body");
+    const actions = body?.querySelector(".tweet__actions");
+    if (actions) body?.insertBefore(gbBox, actions);
+    else body?.appendChild(gbBox);
   }
 
   return el(
@@ -734,6 +800,89 @@ function dmThreadList(ctx: GameContext, threads: DMThread[], selected: DMThread 
   );
 }
 
+/** 코스프레 촬영 결과 화면 조각(head + body). 확인 시 다음날로 진행. */
+function cosplayResultChildren(ctx: GameContext, result: string): HTMLElement[] {
+  return [
+    el("div", { class: "modal__head" }, "코스프레 촬영"),
+    el(
+      "div",
+      { class: "modal__body" },
+      el("p", { style: "font-size:15px;line-height:1.6;margin:0 0 18px;white-space:pre-wrap" }, result),
+      el(
+        "div",
+        { style: "text-align:right" },
+        el(
+          "button",
+          {
+            class: "btn",
+            onclick: () => {
+              ctx.closeModal();
+              ctx.afterAction("day");
+            },
+          },
+          "확인",
+        ),
+      ),
+    ),
+  ];
+}
+
+/** 코스프레 전연령 촬영 결과(간단 알림 모달). */
+function renderCosplayResultModal(ctx: GameContext, result: string): HTMLElement {
+  return el("div", { class: "modal" }, ...cosplayResultChildren(ctx, result));
+}
+
+/**
+ * 성인모드 코스프레 촬영: 의상 선택(일반/노출).
+ * 일반 → 전연령 결과, 노출 → 성인 시나리오 리더. (ctx.update는 onclick에서만 호출)
+ */
+function renderCosplayCostumeModal(ctx: GameContext): HTMLElement {
+  const container = el("div", { class: "modal" });
+
+  const runGeneral = (): void => {
+    let result = "";
+    ctx.update((s) => {
+      result = resolveCosplayGeneral(s);
+    });
+    container.replaceChildren(...cosplayResultChildren(ctx, result));
+  };
+
+  const runAdult = (): void => {
+    const scenario = pickCosplayAdultScenario();
+    ctx.openModal((c) =>
+      renderScenarioReaderModal(c, {
+        headTitle: "코스프레 촬영",
+        scenario,
+        resolve: (s, idx) => resolveCosplayAdult(s, scenario, idx),
+      }),
+    );
+  };
+
+  const costumeChoice = (label: string, sub: string, onPick: () => void) =>
+    el(
+      "button",
+      { class: "event-choice", onclick: onPick },
+      el("div", { style: "font-weight:700" }, label),
+      el("div", { class: "compose-hint", style: "margin:2px 0 0" }, sub),
+    );
+
+  container.replaceChildren(
+    el("div", { class: "modal__head" }, "코스프레 촬영"),
+    el(
+      "div",
+      { class: "modal__body" },
+      el(
+        "p",
+        { style: "font-size:15px;line-height:1.6;margin:0 0 16px" },
+        "촬영 스튜디오에 도착했다. 오늘은 어떤 의상으로 찍을까?",
+      ),
+      costumeChoice("일반 의상으로 찍는다", "무난하게 캐릭터 코스프레 화보를 남긴다", runGeneral),
+      costumeChoice("노출 의상으로 찍는다", "과감한 노출 컨셉으로 촬영한다", runAdult),
+    ),
+  );
+  return container;
+}
+
 function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
   // 러닝크루 초대 스레드: 가입 버튼(가입 후엔 표시만)
   if (thread.crew) {
@@ -802,8 +951,8 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
     }
     return el("button", { class: "btn", onclick: () => sign(false) }, "작가 계약하기");
   }
-  // 사바나 여캠 제의 스레드: 계약 버튼(계약 후엔 표시만)
-  if (thread.savanna) {
+  // 사바나 여캠 제의 스레드: 계약 버튼(계약 후엔 표시만). 성인물 보기 OFF면 노출 안 함.
+  if (thread.savanna && ctx.store.getState().adultMode) {
     if (ctx.store.getState().savannaJoined) {
       return el("span", { class: "chip", style: "opacity:.6" }, "계약함");
     }
@@ -820,6 +969,50 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
         },
       },
       "여캠 계약하기",
+    );
+  }
+  // 란제리 모델 전속 제의 스레드: 계약 버튼(계약 후엔 표시만). 성인물 보기 OFF면 노출 안 함.
+  if (thread.lingerie && ctx.store.getState().adultMode) {
+    if (ctx.store.getState().lingerieContract) {
+      return el("span", { class: "chip", style: "opacity:.6" }, "계약함");
+    }
+    return el(
+      "button",
+      {
+        class: "btn",
+        onclick: () => {
+          ctx.update((s) => {
+            const t = getActiveAccount(s).dms.find((x) => x.id === thread.id);
+            if (t) signLingerie(s, t);
+          });
+          ctx.toast("란제리 모델 전속 계약 완료! 매주 심야 정기 촬영이 잡혔어요 🔞");
+        },
+      },
+      "전속 계약하기",
+    );
+  }
+  // 코스프레 촬영 제의 스레드: 전연령이라 성인물 보기와 무관하게 노출. 반복 촬영(계약 아님).
+  if (thread.cosplay) {
+    return el(
+      "button",
+      {
+        class: "btn",
+        onclick: () => {
+          const adult = ctx.store.getState().adultMode;
+          if (!adult) {
+            // 전연령: 바로 촬영 결과.
+            let result = "";
+            ctx.update((s) => {
+              result = resolveCosplayGeneral(s);
+            });
+            ctx.openModal((c) => renderCosplayResultModal(c, result));
+            return;
+          }
+          // 성인모드: 의상 선택 후 진행.
+          ctx.openModal(renderCosplayCostumeModal);
+        },
+      },
+      "촬영하러 간다",
     );
   }
   // AV배우 제의 스레드: 계약/거절 버튼(처리 후엔 표시만)
@@ -1306,13 +1499,14 @@ function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement 
 }
 
 export function dmPage(ctx: GameContext): HTMLElement {
-  const acc = getActiveAccount(ctx.store.getState());
-  const selected = acc.dms.find((t) => t.id === ctx.ui.dmThreadId) ?? null;
+  // 성인물 보기 OFF면 성인 DM 스레드는 목록·대화에서 제외한다.
+  const dms = visibleDms(ctx.store.getState());
+  const selected = dms.find((t) => t.id === ctx.ui.dmThreadId) ?? null;
   return el(
     "section",
     { class: "sns__feed sns__feed--dm" },
     pageHeader("쪽지", () => goHome(ctx)),
-    el("div", { class: "dm dm--page" }, dmThreadList(ctx, acc.dms, selected), dmConversation(ctx, selected)),
+    el("div", { class: "dm dm--page" }, dmThreadList(ctx, dms, selected), dmConversation(ctx, selected)),
   );
 }
 
