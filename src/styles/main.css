@@ -206,6 +206,16 @@ body {
   gap: 8px;
 }
 
+/* 업적·도감을 한 줄에 가로로 나란히. 각 버튼이 절반씩 차지한다. */
+.life-btn-row {
+  display: flex;
+  gap: 8px;
+}
+.life-btn-row .life-btn {
+  width: auto;
+  flex: 1;
+}
+
 .life-btn {
   display: flex;
   align-items: center;
@@ -439,11 +449,159 @@ body {
   padding: 5px 12px;
 }
 
+/* 주소창은 편집 가능한 input이지만 겉보기는 예전 텍스트 표시부 그대로 — 보더/아웃라인 제거 */
+.browser__urlbar input.url {
+  border: none;
+  outline: none;
+  min-width: 0;
+  font: inherit;
+  color: var(--text-muted);
+}
+
+.browser__urlbar input.url:focus {
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
 .browser__content {
   flex: 1;
   min-height: 0;
   overflow: auto;
   background: var(--bg-window);
+}
+
+/* ===== 니글니글 취업 지원(주소창 이스터에그) ===== */
+/* 자체 다크 테마 고정 — 브라우저/포털이 라이트여도 이 랜딩만 시네마틱 다크 */
+.nigl-site {
+  position: relative;
+  min-height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 56px 24px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 80% at 50% -10%, #1b2a4a 0%, rgba(27, 42, 74, 0) 55%),
+    linear-gradient(180deg, #0b1020 0%, #070a15 60%, #05060c 100%);
+  color: #f5f7ff;
+}
+
+/* 상단 한쪽 은은한 컬러 글로우 + 미세 격자 오버레이 */
+.nigl-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(45% 40% at 72% 8%, rgba(56, 189, 248, 0.22) 0%, rgba(56, 189, 248, 0) 70%),
+    radial-gradient(50% 45% at 20% 30%, rgba(99, 102, 241, 0.16) 0%, rgba(99, 102, 241, 0) 70%),
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: auto, auto, 44px 44px, 44px 44px;
+  -webkit-mask-image: radial-gradient(90% 80% at 50% 20%, #000 40%, transparent 100%);
+  mask-image: radial-gradient(90% 80% at 50% 20%, #000 40%, transparent 100%);
+}
+
+/* 하단 비네트로 깊이감 */
+.nigl-site::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 90% at 50% 120%, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0) 55%);
+}
+
+.nigl-hero {
+  position: relative;
+  z-index: 1;
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.nigl-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(226, 232, 255, 0.9);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.nigl-eyebrow__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.9);
+}
+
+.nigl-title {
+  margin: 22px 0 0;
+  font-size: clamp(30px, 6vw, 54px);
+  line-height: 1.08;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.nigl-intro {
+  max-width: 30em;
+  margin: 20px auto 0;
+  font-size: clamp(14px, 1.6vw, 16px);
+  line-height: 1.75;
+  color: rgba(203, 213, 235, 0.78);
+}
+
+.nigl-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 34px;
+  padding: 14px 30px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #0b1020;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(56, 189, 248, 0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.nigl-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 38px rgba(56, 189, 248, 0.3);
+}
+
+.nigl-cta__arrow {
+  font-size: 18px;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+
+.nigl-cta:hover .nigl-cta__arrow {
+  transform: translateX(3px);
+}
+
+.nigl-done {
+  margin-top: 30px;
+  padding: 14px 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(226, 232, 255, 0.9);
+  font-weight: 600;
 }
 
 /* ===== 네이놈 포털 ===== */
@@ -776,6 +934,206 @@ body {
 /* 추첨일이 지났을 때만 눈에 띄게 — 결과 확인을 놓치면 복권이 그대로 묶여 있다. */
 .lotto-card__action--ready {
   color: #e8283c;
+}
+
+/* --- 로또(축소) + 대회 배너 가로 행 --- */
+.portal-lotto-row {
+  max-width: 860px;
+  margin: 20px auto 0;
+  display: flex;
+  align-items: stretch;
+  gap: 18px;
+}
+
+/* 로또 카드가 좌측에서 넓게 차지하고, 대회 배너가 우측에서 폭을 양보한다. */
+.portal-lotto-row .lotto-card {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+}
+
+/* 광고 배너: 포털이 라이트여도 자체 다크 테마로 고정(레퍼런스처럼) */
+.contest-banner {
+  position: relative;
+  flex: 0 0 340px;
+  max-width: 340px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  padding: 20px 22px 18px;
+  border: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  /* 네이비→블루 그라데이션 + 은은한 컬러 글로우 */
+  background:
+    radial-gradient(120% 90% at 82% 8%, rgba(94, 158, 255, 0.45) 0%, rgba(94, 158, 255, 0) 55%),
+    radial-gradient(110% 80% at 12% 100%, rgba(120, 88, 255, 0.32) 0%, rgba(120, 88, 255, 0) 60%),
+    linear-gradient(150deg, #1b2a5e 0%, #101a3c 55%, #0a1230 100%);
+  box-shadow: 0 8px 24px rgba(16, 26, 60, 0.28);
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.contest-banner:hover {
+  box-shadow: 0 12px 30px rgba(49, 90, 200, 0.36);
+  transform: translateY(-1px);
+}
+
+.contest-banner:active {
+  transform: scale(0.995);
+}
+
+/* 우상단 브랜드 워드마크(레퍼런스의 "NAVER" 자리) */
+.contest-banner__brand {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.contest-banner__badge {
+  position: absolute;
+  top: 14px;
+  left: 18px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: #f2a03d;
+  border-radius: 999px;
+  padding: 3px 9px;
+  box-shadow: 0 2px 6px rgba(242, 160, 61, 0.4);
+}
+
+/* 히어로: 이모지 뒤 방사형 glow */
+.contest-banner__hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 84px;
+  margin: 6px 0 4px;
+}
+
+.contest-banner__glow {
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(120, 178, 255, 0.7) 0%, rgba(120, 178, 255, 0.18) 42%, rgba(120, 178, 255, 0) 70%);
+  filter: blur(2px);
+}
+
+.contest-banner__emoji {
+  position: relative;
+  font-size: 54px;
+  line-height: 1;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
+}
+
+.contest-banner__name {
+  margin-top: 10px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.contest-banner__desc {
+  margin-top: 7px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(219, 228, 255, 0.72);
+  /* 배너 안에서만 짧게 — 두 줄 넘으면 자른다 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 알약형 반투명 화이트 CTA (레퍼런스의 "AI랩 사용하기 ›") */
+.contest-banner__cta {
+  align-self: flex-start;
+  margin-top: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  backdrop-filter: blur(2px);
+  transition: background 0.12s;
+}
+
+.contest-banner:hover .contest-banner__cta {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.contest-banner__cta-chev {
+  font-size: 15px;
+  line-height: 1;
+}
+
+@media (max-width: 720px) {
+  .portal-lotto-row {
+    flex-direction: column;
+  }
+  .portal-lotto-row .lotto-card {
+    flex: 1 1 auto;
+    max-width: 100%;
+  }
+}
+
+/* 대회 신청 모달 */
+.contest-apply__info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: #f7f8fa;
+  border-radius: 10px;
+  margin: 0 0 14px;
+}
+
+.contest-apply__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  color: #4e5968;
+}
+
+.contest-apply__row b {
+  font-weight: 800;
+  color: #1d1d1f;
+}
+
+.contest-apply__hint {
+  font-size: 14px;
+  font-weight: 700;
+  color: #3182f6;
+  text-align: center;
+  margin: 0 0 14px;
+}
+
+.contest-apply__pending {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #8b6d1f;
+  background: #fff6e0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 0 0 14px;
 }
 
 /* --- 증시 / 쇼핑 블록 --- */
@@ -3744,36 +4102,239 @@ body {
   bottom: calc(var(--taskbar-h) + 16px + 72px);
 }
 
-/* 업무 메신저(너아무튼온) 목록 — kklist 룩앤필 재사용, 헤더/수락 버튼만 파랑 */
-.wmsg__topbar {
-  background: #5b6cff;
+/* 업무 메신저(너아무튼온) — 카톡 PC 클라이언트 룩(아이콘 레일 + 광고 배너 + 검색 헤더 + 채팅 목록) */
+.wmsg-modal {
+  width: min(480px, 96vw);
+  max-height: 82vh;
+  flex-direction: row;
+  background: #fff;
+  color: #1a1a1a;
 }
-.wmsg__topbar .kklist__title,
-.wmsg__topbar .kklist__close {
-  color: #fff;
-}
-.wmsg-modal .kklist__pill--accent {
-  border-color: #5b6cff;
-  background: #5b6cff;
-  color: #fff;
-}
-.wmsg-modal .kklist__pill--accent:hover {
-  background: #4a5bef;
-}
-.kklist__pill--done {
+/* 좌측 슬림 아이콘 레일(장식) */
+.wmsg-rail {
   flex: none;
-  padding: 6px 14px;
+  width: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 0 12px;
+  background: #4a5bef;
+  color: rgba(255, 255, 255, 0.6);
+}
+.wmsg-rail__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+.wmsg-rail__icon--active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+}
+.wmsg-rail__close {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+}
+.wmsg-rail__close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+}
+/* 본문 컬럼 */
+.wmsg-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+/* 상단 광고 배너(장식) */
+.wmsg-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: linear-gradient(90deg, #ff5a5f, #ff8a3d);
+  color: #fff;
   font-size: 12.5px;
+  font-weight: 600;
+}
+.wmsg-banner__tag {
+  flex: none;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.25);
+}
+.wmsg-banner__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 검색 헤더 행 */
+.wmsg-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.wmsg-search__title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #1a1a1a;
+}
+.wmsg-search__box {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #f2f3f5;
+  color: #9a9a9a;
+}
+.wmsg-search__ph {
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wmsg-search__ico {
+  flex: none;
+  color: #666;
+}
+/* 채팅 목록 */
+.wmsg-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.wmsg-chat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+}
+.wmsg-chat:hover {
+  background: #f7f7f7;
+}
+.wmsg-chat--done {
+  opacity: 0.55;
+}
+.wmsg-chat__ava {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+}
+.wmsg-chat__ava .avatar {
+  border-radius: 15px; /* 카톡 라운드 스퀘어 아바타 */
+}
+.wmsg-chat__unread {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ff3b30;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+  box-shadow: 0 0 0 2px #fff;
+}
+.wmsg-chat__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.wmsg-chat__title {
+  font-weight: 700;
+  font-size: 14.5px;
+  color: #1a1a1a;
+}
+.wmsg-chat__preview {
+  font-size: 12.5px;
+  color: #9a9a9a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wmsg-chat__meta {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.wmsg-chat__date {
+  font-size: 11.5px;
+  color: #b0b0b0;
+  white-space: nowrap;
+}
+.wmsg-chat__accept {
+  padding: 5px 13px;
+  border-radius: 999px;
+  border: 1px solid #dcdcdc;
+  background: #fff;
+  color: #444;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.wmsg-chat__accept:hover:not([disabled]) {
+  background: #f4f4f4;
+}
+.wmsg-chat__accept[disabled] {
+  color: #bbb;
+  border-color: #eee;
+  cursor: default;
+}
+.wmsg-chat__accept--go {
+  border-color: #4a5bef;
+  background: #4a5bef;
+  color: #fff;
+}
+.wmsg-chat__accept--go:hover {
+  background: #3b4cdf;
+}
+.wmsg-chat__done {
+  font-size: 12px;
   font-weight: 600;
   color: #aaa;
   white-space: nowrap;
 }
-.kklist__row--done {
-  opacity: 0.6;
-}
-.wmsg__text {
-  white-space: normal;
-  margin-top: 3px;
+.wmsg-empty {
+  flex: 1;
+  padding: 44px 24px;
+  text-align: center;
+  color: #9a9a9a;
+  font-size: 13px;
+  white-space: pre-line;
+  line-height: 1.6;
 }
 
 /* 카카오톡 메시지창(데스크톱 스타일) */
@@ -6199,6 +6760,41 @@ body {
   margin-top: 2px;
 }
 
+/* ── GitHub 커밋 잔디(개발자 성과) ───────────────── */
+.commit-grass {
+  display: inline-grid;
+  grid-template-columns: repeat(10, 1fr);
+  grid-auto-rows: 11px;
+  gap: 3px;
+  margin-top: 4px;
+}
+.commit-grass__cell {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: rgba(128, 128, 128, 0.16);
+}
+.commit-grass__cell--l0 {
+  background: rgba(128, 128, 128, 0.16);
+}
+.commit-grass__cell--l1 {
+  background: #9be9a8;
+}
+.commit-grass__cell--l2 {
+  background: #40c463;
+}
+.commit-grass__cell--l3 {
+  background: #30a14e;
+}
+.commit-grass__cell--l4 {
+  background: #216e39;
+}
+@media (prefers-color-scheme: dark) {
+  .commit-grass__cell--l0 {
+    background: rgba(180, 180, 180, 0.22);
+  }
+}
+
 /* ── 트윗 행사 안내(참여하기) ───────────────────── */
 .tweet-event {
   display: flex;
@@ -6259,6 +6855,11 @@ body {
 /* ── 평판 바 / 사기 트윗 칩 ───────────────────── */
 .bar__fill--reputation {
   background: linear-gradient(90deg, #f59e0b, #f97316);
+}
+
+/* ── 체력 바(하트 계열 레드-로즈) ───────────────────── */
+.bar__fill--stamina {
+  background: linear-gradient(90deg, #ef4444, #f43f5e);
 }
 
 .chip--scam {

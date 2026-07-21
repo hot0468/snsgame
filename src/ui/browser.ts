@@ -27,6 +27,9 @@ import { renderDstory } from "./dstory";
 import { DSTORY_URL } from "@/data/dstory";
 import { renderDevtools } from "./devtools";
 import { icon } from "./icons";
+import { NIGL_URL, NIGL_COMPANY, NIGL_APPLY, NIGL_HIRED_LINES } from "@/data/niglnigl";
+import { hireNigl } from "@/systems/employment";
+import { pick } from "@/utils/random";
 
 interface TabDef {
   id: BrowserTabId;
@@ -197,6 +200,51 @@ function urlbarMenu(ctx: GameContext): HTMLElement {
 }
 
 /**
+ * 니글니글 취업 지원 화면(오버레이) — 주소창에 NIGL_URL 입력으로만 진입.
+ * 텍스트는 전부 data/niglnigl(NIGL_APPLY), 취업 처리는 systems/employment(hireNigl)가 한다.
+ * 이 화면은 "언제·어떻게 보여줄지"만 담당한다.
+ */
+function renderNiglApply(ctx: GameContext): HTMLElement {
+  const employed = ctx.store.getState().employment?.company === NIGL_COMPANY;
+
+  const submit = (): void => {
+    ctx.update((s) => hireNigl(s));
+    ctx.ui.niglSiteOpen = false;
+    ctx.toast(pick(NIGL_HIRED_LINES));
+  };
+
+  return el(
+    "div",
+    { class: "nigl-site" },
+    el("div", { class: "nigl-glow" }),
+    el(
+      "div",
+      { class: "nigl-hero" },
+      el(
+        "span",
+        { class: "nigl-eyebrow" },
+        el("span", { class: "nigl-eyebrow__dot" }),
+        "니글니글 · PANGYO HQ",
+      ),
+      el("h1", { class: "nigl-title" }, NIGL_APPLY.title),
+      el("p", { class: "nigl-intro" }, NIGL_APPLY.intro),
+      employed
+        ? el(
+            "div",
+            { class: "nigl-done" },
+            "이미 니글러로 재직 중입니다. 다음 출근에서 만나요!",
+          )
+        : el(
+            "button",
+            { class: "nigl-cta", onclick: submit },
+            NIGL_APPLY.submitLabel,
+            el("span", { class: "nigl-cta__arrow" }, "→"),
+          ),
+    ),
+  );
+}
+
+/**
  * 상단 탭이 있는 인터넷 브라우저.
  * 지금은 SNS 탭이 핵심. 새 탭은 확장 여지로 비워둔다.
  */
@@ -241,6 +289,7 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
             ctx.ui.onetSiteOpen = false;
             ctx.ui.auctionSiteOpen = false;
             ctx.ui.dstorySiteOpen = false;
+            ctx.ui.niglSiteOpen = false;
             ctx.ui.activeTab = t.id;
             ctx.refresh();
           },
@@ -277,26 +326,50 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
     ),
   );
 
+  // 표시 url은 활성 오버레이/탭 기준(기존 삼항). input value로만 노출하고,
+  // 편집·엔터는 이스터에그 진입(NIGL_URL)만 처리한다 — 탭 전환 로직은 그대로.
+  const currentUrl = ctx.ui.wishSiteOpen
+    ? "wish-shop.moon"
+    : ctx.ui.goblinSiteOpen
+      ? "dokkaebi.shop"
+      : ctx.ui.onetSiteOpen
+        ? "o-net.go.kr"
+        : ctx.ui.auctionSiteOpen
+          ? "southernpeace.auction/private"
+          : ctx.ui.dstorySiteOpen
+            ? DSTORY_URL
+            : ctx.ui.niglSiteOpen
+              ? NIGL_URL
+              : activeDef.url;
+
   const urlbar = el(
     "div",
     { class: "browser__urlbar" },
     icon("lock", { size: 14 }),
     favicon(active, "urlbar__fav"),
-    el(
-      "div",
-      { class: "url" },
-      ctx.ui.wishSiteOpen
-        ? "wish-shop.moon"
-        : ctx.ui.goblinSiteOpen
-          ? "dokkaebi.shop"
-          : ctx.ui.onetSiteOpen
-            ? "o-net.go.kr"
-            : ctx.ui.auctionSiteOpen
-              ? "southernpeace.auction/private"
-              : ctx.ui.dstorySiteOpen
-                ? DSTORY_URL
-                : activeDef.url,
-    ),
+    el("input", {
+      class: "url",
+      value: currentUrl,
+      spellcheck: "false",
+      autocomplete: "off",
+      autocapitalize: "off",
+      onkeydown: (e: Event) => {
+        if ((e as KeyboardEvent).key !== "Enter") return;
+        const v = (e.target as HTMLInputElement).value.trim();
+        if (v === NIGL_URL) {
+          // 다른 단발 오버레이는 다 닫고 니글니글 지원 화면을 연다.
+          ctx.ui.wishSiteOpen = false;
+          ctx.ui.goblinSiteOpen = false;
+          ctx.ui.onetSiteOpen = false;
+          ctx.ui.auctionSiteOpen = false;
+          ctx.ui.dstorySiteOpen = false;
+          ctx.ui.niglSiteOpen = true;
+          ctx.refresh();
+        } else {
+          ctx.toast("페이지를 찾을 수 없습니다");
+        }
+      },
+    }),
     icon("refresh", { size: 14 }),
     urlbarMenu(ctx),
   );
@@ -317,6 +390,9 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
   } else if (ctx.ui.dstorySiteOpen) {
     // d스토리도 현재 탭 콘텐츠를 덮어쓴다(IT계 검색의 링크 트윗으로만 진입).
     content.append(renderDstory(ctx));
+  } else if (ctx.ui.niglSiteOpen) {
+    // 니글니글 취업 지원 화면(주소창에 NIGL_URL 입력으로만 진입).
+    content.append(renderNiglApply(ctx));
   } else if (active === "sns") {
     content.append(renderSnsView(ctx));
   } else if (active === "youtube") {

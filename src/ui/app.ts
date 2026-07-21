@@ -26,6 +26,7 @@ import { renderFireOfferModal } from "./fireModal";
 import { pendingEndingOffer } from "@/systems/endings";
 import { renderEndingOfferModal } from "./endingModal";
 import { renderDawnModal } from "./dawnModal";
+import { renderSickModal } from "./sickModal";
 import { renderSleepModal } from "./sns/sleepModal";
 import { renderHauntModal } from "./sns/hauntModal";
 import { renderCatPowerModal } from "./catPowerModal";
@@ -142,6 +143,9 @@ export function createApp(root: HTMLElement, store: Store): void {
         ui.homeTab = "recommend";
         // 해돋이 딤팝업을 가장 먼저 보여준다.
         ui.modal = (c) => renderDawnModal(c);
+      } else if (state.sickPending) {
+        // 체력이 바닥나 앓아누운 날 — 아무것도 못 한다(haunt/취침/근무/약속보다 먼저).
+        ui.modal = (c) => renderSickModal(c);
       } else if (state.hauntVisitNow) {
         // 괴담 계정 심야 방문. dawn 다음, 취침보다 먼저 — 문을 열어야(resolveHauntVisit) flag가 풀린다.
         ui.modal = (c) => renderHauntModal(c);

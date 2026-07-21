@@ -7,6 +7,7 @@ import { dateOfMonth, isLastDayOfMonth, isWeekday, monthKey } from "./calendar";
 import { sendSalaryKakao, sendTwitterSettlementKakao } from "./kakao";
 import { offerLoan } from "./loan";
 import { AV_PAYDAY_DATE, avSalaryOf, firstAvWorkDay } from "./avJob";
+import { NIGL_COMPANY, NIGL_SHIFT_GOAL } from "@/data/niglnigl";
 
 /** 하루 생활비 */
 export const DAILY_LIVING_COST = 10_000;
@@ -113,10 +114,19 @@ function maybePayday(state: GameState): void {
   if (mk <= monthKey(emp.hiredDay)) return; // 익월부터
   if (emp.lastSalaryMonth === mk) return;
   emp.lastSalaryMonth = mk;
-  const salary = currentSalary(emp);
+  // 니글니글은 자유 출근이지만 이번 '달' 출근이 20일 미만이면 월급 반감(avJob 만근 규칙과 동일).
+  // 단 첫 월급달(입사 말일~다음달 10일)은 20일을 채울 물리적 시간이 없어 유예한다 — 둘째 달부터 적용.
+  const short =
+    emp.company === NIGL_COMPANY &&
+    state.niglShifts < NIGL_SHIFT_GOAL &&
+    mk > monthKey(emp.hiredDay) + 1;
+  const salary = short ? Math.round(currentSalary(emp) / 2) : currentSalary(emp);
   state.money += salary;
-  pushSchedule(state, `월급 +${fmt(salary)}원 (${emp.company})`, "system");
+  const note = short ? ` (출근 ${state.niglShifts}/${NIGL_SHIFT_GOAL}일 미달 반감)` : "";
+  pushSchedule(state, `월급 +${fmt(salary)}원 (${emp.company})${note}`, "system");
   sendSalaryKakao(state, emp.company, salary);
+  // 월급날 기준으로 다음 '달' 출근 카운트를 리셋한다(avJob 26일 앵커와 같은 방식).
+  if (emp.company === NIGL_COMPANY) state.niglShifts = 0;
 }
 
 /**

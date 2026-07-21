@@ -228,6 +228,10 @@ function statusInner(ctx: GameContext): HTMLElement[] {
     return statBar(def.label, s.resources[id], max, `bar__fill--${id}`, drops.res[id]);
   });
 
+  // 체력은 GameState top-level(stamina/staminaMax)이라 RESOURCE_STAT_IDS 루프에 안 들어온다.
+  // 상한이 가변(운동으로 staminaMax↑)이므로 action(actionMax)처럼 def.max가 아닌 s.staminaMax를 쓴다.
+  const staminaRow = statBar("체력", s.stamina, s.staminaMax, "bar__fill--stamina");
+
   // 세부 스탯은 스크롤 대신 왼쪽에 뜨는 팝오버로 표시한다.
   const detailPop = detailOpen
     ? el(
@@ -286,6 +290,7 @@ function statusInner(ctx: GameContext): HTMLElement[] {
       "div",
       { class: "popup__body" },
       ...resourceRows,
+      staminaRow,
       renderMoneyInfo(s),
       renderJobInfo(s),
       el(
@@ -330,22 +335,26 @@ export function renderStatusDock(ctx: GameContext): HTMLElement {
         "서랍장",
       ),
       el(
-        "button",
-        {
-          class: "life-btn life-btn--sub",
-          onclick: () => ctx.openModal(renderAchievementsModal),
-        },
-        "🏆",
-        "업적",
-      ),
-      el(
-        "button",
-        {
-          class: "life-btn life-btn--sub",
-          onclick: () => ctx.openModal(renderCreaturesModal),
-        },
-        "🔍",
-        "도감",
+        "div",
+        { class: "life-btn-row" },
+        el(
+          "button",
+          {
+            class: "life-btn life-btn--sub",
+            onclick: () => ctx.openModal(renderAchievementsModal),
+          },
+          "🏆",
+          "업적",
+        ),
+        el(
+          "button",
+          {
+            class: "life-btn life-btn--sub",
+            onclick: () => ctx.openModal(renderCreaturesModal),
+          },
+          "🔍",
+          "도감",
+        ),
       ),
       // AV 촬영은 서랍장 아래·현생살기 위. 성인/AV 톤으로 분홍(life-btn--av).
       canWorkAvNow(ctx.store.getState())

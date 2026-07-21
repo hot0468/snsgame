@@ -1,6 +1,7 @@
 import type { GameContext } from "./context";
 import { isMoneyCheatCode, tryMoneyCheat, MONEY_CHEAT_AMOUNT } from "@/systems/cheat";
 import { IPCONFIG_LINES } from "@/data/dstory";
+import { NIGL_CMD_FILE, NIGL_CMD_TYPE_LINES } from "@/data/niglnigl";
 import { el, formatNumber } from "@/utils/dom";
 import { winTitlebar } from "./components";
 
@@ -118,6 +119,32 @@ export function renderCmdModal(ctx: GameContext): HTMLElement {
       case "echo": {
         const rest = line.slice(4).trim();
         print(rest === "" ? "ECHO is on." : rest);
+        break;
+      }
+      // 이 아래 dir/type도 help엔 없다(ipconfig 선례) — 니글니글 채용.url을 아는 사람만 캔다.
+      case "dir": {
+        // `/a`(모든 파일 표시)를 붙였을 때만 히든 파일 채용.url이 드러난다.
+        const showHidden = line.toLowerCase().includes("/a");
+        print(" C 드라이브의 볼륨: Windows");
+        print(" 볼륨 일련 번호: 9C4E-1A2B");
+        print();
+        print(` ${PROMPT.slice(0, -1)} 디렉터리`);
+        print();
+        print("2026-07-18  오후 02:15    <DIR>          .");
+        print("2026-07-18  오후 02:15    <DIR>          ..");
+        print("2026-07-15  오전 11:03             2,048 이력서_최종_진짜최종.hwp");
+        print("2026-07-11  오후 09:41               512 자소서_초안.txt");
+        if (showHidden) print(`2026-07-01  오전 09:00               128 ${NIGL_CMD_FILE}`);
+        print();
+        break;
+      }
+      case "type": {
+        const arg = line.slice(4).trim();
+        if (arg === NIGL_CMD_FILE) {
+          for (const l of NIGL_CMD_TYPE_LINES) print(l);
+        } else {
+          print("지정된 파일을 찾을 수 없습니다.");
+        }
         break;
       }
       case "exit":

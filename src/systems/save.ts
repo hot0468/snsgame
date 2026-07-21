@@ -134,6 +134,16 @@ function sanitize(state: GameState): GameState {
     state.actionMaxBonus = 0;
   }
   state.cheats = { ...createInitialCheats(), ...(state.cheats ?? {}) };
+  // 체력(가변 상한)은 신규 필드. staminaMax가 0/NaN이면 clampStamina가 체력을 영구히 0으로
+  // 눌러 세이브까지 오염된다(actionMaxBonus NaN 선례와 동급 함정) — 반드시 유효한 양수로 보정.
+  // NaN은 JSON에서 null로 직렬화돼 최상위 merge로 넘어오므로 ??보다 isFinite 검사가 안전하다.
+  if (typeof state.staminaMax !== "number" || !Number.isFinite(state.staminaMax) || state.staminaMax <= 0) {
+    state.staminaMax = 200;
+  }
+  if (typeof state.stamina !== "number" || !Number.isFinite(state.stamina)) {
+    state.stamina = 200;
+  }
+  state.sickPending ??= false;
   // 신규 필드 보강(구버전 저장본 대비)
   if (!Array.isArray(state.kakao)) state.kakao = [];
   if (!Array.isArray(state.workMsgs)) state.workMsgs = [];
@@ -142,6 +152,8 @@ function sanitize(state: GameState): GameState {
   state.crewJoined ??= false;
   state.rejectionTweets ??= 0;
   state.studyJoined ??= false;
+  state.estheticMember ??= false;
+  state.estheticScamDay ??= 0;
   state.privateCrewJoined ??= false;
   state.groupRoomJoined ??= false;
   state.savannaJoined ??= false;
@@ -156,7 +168,10 @@ function sanitize(state: GameState): GameState {
   if (state.avJob) state.avJob.condomlessThisMonth ??= 0;
   if (state.avJob) state.avJob.stdUntilDay ??= -1; // 성병 상태 신규 필드(구세이브는 건강)
   state.avOffered ??= false;
+  state.niglShifts ??= 0;
   state.pendingJobApp ??= null;
+  // 네이놈 대회는 신규 기능 — 구세이브엔 키가 없다(대기 없음이 정답).
+  state.pendingContest ??= null;
   // 자격증은 신규 기능이라 구세이브엔 키 자체가 없다 — 미취득/대기 없음으로 시작.
   if (!Array.isArray(state.certifications)) state.certifications = [];
   state.pendingExam ??= null;
@@ -241,6 +256,7 @@ function sanitize(state: GameState): GameState {
   if (!Array.isArray(state.seenMeetings)) state.seenMeetings = [];
   state.postedAdultEver ??= false;
   state.dawnPending ??= false;
+  state.bossJokeDay ??= -1;
   // 회복 표시 필드는 신규 — 최상위 merge가 구세이브(키 부재)엔 기본 객체를 넣지만,
   // 손상된 non-object가 저장돼 있으면 dawnModal이 .action/.mental에서 터진다(pets와 같은 방어).
   // onNewDay가 매일 덮으므로 값 정확도보단 shape만 보장하면 된다.

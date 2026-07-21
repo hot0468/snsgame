@@ -47,6 +47,24 @@ export function statBar(
 }
 
 /**
+ * 개발자 직업 성과를 GitHub 컨트리뷰션 그래프(잔디) 룩으로 그린다.
+ * 7행 × 10열 = 70칸. 초록 칸 수 = round(performance/100 × 70), **앞에서부터 순차 채움**(결정론적 — 재렌더에 안 튄다).
+ * 초록 농도는 perfLevel로 단계화(--l1~--l4, 레벨 높을수록 진함). 빈 칸은 --l0(연회색).
+ */
+export function renderCommitGrass(performance: number, perfLevel: number): HTMLElement {
+  const TOTAL = 70;
+  const filled = Math.round((Math.max(0, Math.min(100, performance)) / 100) * TOTAL);
+  const level = Math.min(4, perfLevel + 1); // perfLevel 0 → l1 … 3+ → l4
+  const grid = el("div", { class: "commit-grass" });
+  for (let i = 0; i < TOTAL; i++) {
+    grid.appendChild(
+      el("span", { class: `commit-grass__cell commit-grass__cell--l${i < filled ? level : 0}` }),
+    );
+  }
+  return grid;
+}
+
+/**
  * 윈도우 앱 창(.modal--win)의 제목표시줄.
  * 최소화·최대화 버튼은 장식이고 ✕만 실제로 닫는다.
  * 명령 프롬프트·작업 관리자가 공유한다.

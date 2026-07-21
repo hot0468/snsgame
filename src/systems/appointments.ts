@@ -11,6 +11,7 @@ import {
   dateLabel,
   dayOfWeek,
   MONDAY,
+  TUESDAY,
   WEDNESDAY,
   THURSDAY,
   SATURDAY,
@@ -258,6 +259,49 @@ function resolveStudySkip(state: GameState): string {
   addSchedule(state, "취업스터디 불참", "system");
   state.resources.mental = clampResource(state.resources.mental + 2);
   return "오늘 스터디는 쉬기로 했다. 스터디원들에게 양해를 구했다. 다음 주 월요일 일정은 그대로 잡혀 있다.";
+}
+
+/* ─────────────────── 에스테틱 정기권 방문 ─────────────────── */
+
+/** 지금 이후의 다음 화요일(에스테틱 방문은 낮 슬롯) */
+function nextEstheticDay(state: GameState): number {
+  let d = state.day;
+  // 크루(nextCrewDay)와 동일 — 오늘 화요일 낮이면 이미 도래/경과라 다음 주 화요일로 넘어간다.
+  while (!(dayOfWeek(d) === TUESDAY && (d > state.day || state.slot < MORNING_SLOT))) {
+    d += 1;
+  }
+  return d;
+}
+
+/**
+ * 다음 화요일 낮 에스테틱 방문 약속을 예약한다(기존 esthetic 약속은 갈아끼운다).
+ * 정품 가입 직후(applyEsthetic), 그리고 매주 방문(resolveEsthetic)/불참 뒤 호출된다.
+ * scheduleNextCrewRun 패턴 — 요일만 화요일.
+ * (여기 두는 이유: dropAppointment/resolveEstheticSkip이 재예약하려면 appointments.ts가 알아야 한다.
+ *  esthetic.ts가 appointments를 import하는 방향만 허용되므로, 스케줄러는 크루처럼 여기 산다.)
+ */
+export function scheduleNextEsthetic(state: GameState): void {
+  if (!state.estheticMember) return;
+  state.appointments = state.appointments.filter((a) => a.kind !== "esthetic");
+  addAppointment(state, {
+    day: nextEstheticDay(state),
+    slot: MORNING_SLOT,
+    kind: "esthetic",
+    title: "에스테틱 정기권 방문",
+  });
+}
+
+/**
+ * 에스테틱 방문을 소화하지 않고 지나갈 때(불참·겹침 취소)의 처리.
+ * '간다'는 appointmentModal이 kind==="esthetic"을 가로채 esthetic.resolveEsthetic로 흐르므로
+ * 여기 오지 않는다(스터디 resolveStudySkip 선례). 여기 도달하는 건 오직 불참 경로다 —
+ * 정기 사이클이 끊기지 않게 다음 주를 다시 잡는다.
+ */
+function resolveEstheticSkip(state: GameState): string {
+  scheduleNextEsthetic(state);
+  addSchedule(state, "에스테틱 방문 불참", "system");
+  state.resources.mental = clampResource(state.resources.mental + 2);
+  return "이번 주 에스테틱은 건너뛰기로 했다. 관리비 1만원은 굳었다. 다음 주 화요일 예약은 그대로 잡혀 있다.";
 }
 
 /* ─────────────────── 친구 만남 ─────────────────── */
@@ -542,6 +586,7 @@ export function resolveAppointment(
   else if (appt.kind === "event") message = resolveEventVisit(state, appt, go);
   else if (appt.kind === "lingerie") message = resolveLingerieSkip(state);
   else if (appt.kind === "study") message = resolveStudySkip(state);
+  else if (appt.kind === "esthetic") message = resolveEstheticSkip(state);
   else message = resolveFriendMeet(state, appt, go);
   return { message };
 }
@@ -564,6 +609,9 @@ export function dropAppointment(state: GameState, appt: Appointment): void {
   } else if (appt.kind === "study") {
     scheduleNextStudy(state);
     addSchedule(state, "취업스터디 모임 취소(일정 겹침)", "system");
+  } else if (appt.kind === "esthetic") {
+    scheduleNextEsthetic(state);
+    addSchedule(state, "에스테틱 방문 취소(일정 겹침)", "system");
   } else {
     addSchedule(state, `${appt.title} 취소(일정 겹침)`, "system");
   }

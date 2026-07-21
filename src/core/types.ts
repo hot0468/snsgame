@@ -396,7 +396,8 @@ export type AppointmentKind =
   | "ticketing"
   | "groupRoom"
   | "lingerie"
-  | "study";
+  | "study"
+  | "esthetic";
 
 /**
  * 미래에 예정된 약속. 해당 (day, slot)이 되면 '할지/말지' 팝업이 뜬다.
@@ -613,6 +614,10 @@ export interface Email {
    * tweeted면 트윗 완료(메일당 1회 제한 — 불합격 farming 방지).
    */
   jobResult?: { company: string; hired: boolean; tweeted?: boolean };
+  /**
+   * 대회 결과 메일(입상/탈락)이면 그 표식. ui가 '결과 트윗하기' 버튼을 렌더한다(메일당 1회).
+   */
+  contestResult?: { name: string; won: boolean; tweeted?: boolean };
   /** 스팸(피싱) 메일인지 — 클릭(열람) 시 낮은 확률로 계정 해킹 */
   spam?: boolean;
   /**
@@ -626,6 +631,12 @@ export interface Email {
    * 열람 기간(auctionOpen)이 지난 뒤 링크를 누르면 '종료됨' 안내가 뜬다.
    */
   auctionLink?: true;
+  /**
+   * 에스테틱 정기권 광고 메일인지(꾸미기 활동 직후 확률로 도착).
+   * ui가 '정기권 신청' 버튼을 렌더하고 applyEsthetic으로 평판 분기 처리한다.
+   * jobOffer/adOffer/spam/auctionLink와 동시에 세팅하지 않는다(각각 다른 버튼과 충돌).
+   */
+  esthetic?: boolean;
 }
 
 /** 진홍안(crimson_eye) DM 분기 처리 상태 */
@@ -718,6 +729,15 @@ export interface GameState {
   skills: Record<SkillStatId, number>;
 
   /**
+   * 체력('사람' 단위). 리소스 4종과 달리 **상한이 가변**이라(운동으로 staminaMax↑)
+   * resources 유니온이 아닌 top-level에 둔다(StatId exhaustive 스위치 파급 회피).
+   * 낮으면 질병 위험. 폭염/한파로도 깎인다. 클램프는 stats.ts의 clampStamina(state, v).
+   */
+  stamina: number;
+  /** 체력 한계치(현재 상한). 운동으로 오르며 STAMINA_MAX_CAP(999)이 하드 실링. ⚠️구세이브 폴백 반드시 200(0이면 clampStamina가 체력을 영구히 0으로 누름). */
+  staminaMax: number;
+
+  /**
    * 행동력 상한에 더해지는 보너스(기본 0). 행동력 상한 = MAX_RESOURCE + actionMaxBonus.
    *
    * ⚠️ 행동력은 리소스 4종 중 **유일하게 상한이 게임 중 변하는** 스탯이다(작업관리자 Cheat.exe).
@@ -750,6 +770,13 @@ export interface GameState {
   rejectionTweets: number;
   /** 취업스터디 모임 가입 여부('사람' 단위) — 가입 후 매주 월요일 낮 정기 모임이 유지된다 */
   studyJoined: boolean;
+  /** 에스테틱 정기권 정품 회원 여부('사람' 단위, 평판≥50 가입 시) — 매주 방문·꾸미기 매력 1.5배 */
+  estheticMember: boolean;
+  /**
+   * 에스테틱 사기 폐업 이벤트 발생 예정일(day). 평판<50으로 정기권을 결제하면 day+7로 설정되고,
+   * 그 날 onNewDay가 폐업(돈 날림)을 폭로한 뒤 0으로 되돌린다. 0이면 진행 중 사기 없음.
+   */
+  estheticScamDay: number;
   /** 비공개 엘리트 러닝크루(SM 규율) 가입 여부 — 가입 후 정기런에 규율 시나리오가 랜덤 표출된다 */
   privateCrewJoined: boolean;
   /**
@@ -774,8 +801,18 @@ export interface GameState {
   /** 오늘 심야 트윗을 썼는지(다음날 수면 회복이 줄어듦) */
   lateTweetToday: boolean;
 
+  /** 마지막으로 부장님 아재개그로 개그(comedy)를 얻은 날(일차). -1이면 없음. 하루 1회 캡. */
+  bossJokeDay: number;
+
   /** 새 날 아침 딤팝업 대기 플래그. onNewDay에서 true, 팝업 닫을 때 false */
   dawnPending: boolean;
+
+  /**
+   * 질병 강제 팝업 대기 플래그(dawnPending 패턴). 체력이 바닥일 때 onNewDay의 rollDisease가
+   * 확률적으로 true로 세팅한다. app.ts가 감지해 renderSickModal을 강제로 띄우고(닫기 없음),
+   * resolveSickDay가 하루를 앓아 넘기며 false로 되돌린다. 아픈 날은 아무 활동도 못 한다.
+   */
+  sickPending: boolean;
 
   /**
    * 자고 일어날 때 실제 회복된 행동력/정신력(클램프 후 델타, 상한이면 0).
@@ -823,8 +860,12 @@ export interface GameState {
   avJob: AvJob | null;
   /** AV배우 제의 DM을 이미 한 번 보냈는지(중복 제의 방지). 초기 false */
   avOffered: boolean;
+  /** 니글니글 이번 '달' 출근 일수(월급날 NIGL_SHIFT_GOAL 미달이면 월급 반감 후 0으로 리셋). 초기 0 */
+  niglShifts: number;
   /** 결과 대기 중인 취업 지원(익일 메일 통보). 없으면 null */
   pendingJobApp: JobApplication | null;
+  /** 결과 대기 중인 네이놈 대회 신청(1주 뒤 메일 통보, 동시 1건). 없으면 null */
+  pendingContest: { id: string; appliedDay: number } | null;
   /** 취득한 자격증 id 목록 */
   certifications: string[];
   /** 결과 대기 중인 **일반** 자격증 시험(동시 1건만). 없으면 null */

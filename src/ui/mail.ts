@@ -10,8 +10,10 @@ import {
   hasAnyJob,
   switchToCompanyJob,
 } from "@/systems/employment";
+import { applyEsthetic } from "@/systems/esthetic";
 import { openSpamEmail } from "@/systems/spam";
 import { tweetJobResult } from "@/systems/studyGroup";
+import { tweetContestResult } from "@/systems/contest";
 import { dateLabel } from "@/systems/time";
 import { el, formatNumber, mount } from "@/utils/dom";
 import { confirmPurchase } from "./confirmModal";
@@ -40,6 +42,7 @@ const checkedIds = new Set<string>();
 function categoryOf(mail: Email): MailTab {
   if (mail.spam) return "promotions";
   if (mail.adOffer) return "promotions";
+  if (mail.esthetic) return "promotions";
   if (mail.jobOffer) return "updates";
   return "primary";
 }
@@ -404,6 +407,76 @@ function emailView(ctx: GameContext, mail: Email | null): HTMLElement {
                 },
               },
               "결과 트윗하기",
+            ),
+          )
+      : null,
+    // 대회 결과(입상/탈락) 메일: 결과를 트윗할 수 있다(메일당 1회 — contestResult.tweeted).
+    mail.contestResult
+      ? mail.contestResult.tweeted
+        ? el(
+            "div",
+            { class: "mail__actions mail__actions--link" },
+            el("span", { class: "chip", style: "opacity:.6" }, "트윗함"),
+          )
+        : el(
+            "div",
+            { class: "mail__actions mail__actions--link" },
+            el(
+              "button",
+              {
+                class: "btn",
+                onclick: () => {
+                  let posted = false;
+                  let delta = 0;
+                  ctx.update((s) => {
+                    const m = s.emails.find((e) => e.id === mail.id);
+                    if (!m) return;
+                    const r = tweetContestResult(s, m);
+                    if (r) {
+                      posted = true;
+                      delta = r.followerDelta;
+                    }
+                  });
+                  ctx.toast(
+                    posted ? `트윗 게시! +${formatNumber(delta)} 팔로워` : "이미 트윗한 결과예요",
+                  );
+                  ctx.refresh();
+                },
+              },
+              "결과 트윗하기",
+            ),
+          )
+      : null,
+    // 에스테틱 정기권 광고: '정기권 신청' 버튼. 신청 여부는 별도 메일 필드 없이
+    // GameState로 판정한다(회원=estheticMember, 사기 결제=estheticScamDay>0).
+    mail.esthetic
+      ? ctx.store.getState().estheticMember || ctx.store.getState().estheticScamDay > 0
+        ? el(
+            "div",
+            { class: "mail__actions mail__actions--link" },
+            el("span", { class: "chip", style: "opacity:.6" }, "신청함"),
+          )
+        : el(
+            "div",
+            { class: "mail__actions mail__actions--link" },
+            el(
+              "button",
+              {
+                class: "btn",
+                onclick: () => {
+                  let result: "member" | "scam" = "member";
+                  ctx.update((s) => {
+                    result = applyEsthetic(s);
+                  });
+                  ctx.toast(
+                    result === "member"
+                      ? "에스테틱 정기권 등록! 매주 방문하면 꾸미기 매력이 1.5배 🧖"
+                      : "정기권 일시불 30만원 결제 완료. 다음 주부터 관리 시작이래요!",
+                  );
+                  ctx.refresh();
+                },
+              },
+              "정기권 신청",
             ),
           )
       : null,

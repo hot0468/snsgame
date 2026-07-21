@@ -1,6 +1,7 @@
 import type { AttributeId, GameState, TweetKind } from "@/core/types";
 import { getActiveAccount } from "@/core/state";
 import { ATTRIBUTES, getAffinity } from "@/data/attributes";
+import { NIGL_COMPANY } from "@/data/niglnigl";
 import { MAX_SKILL } from "@/data/stats";
 import { isTrending, TRENDING_MULTIPLIER } from "@/data/trends";
 
@@ -104,6 +105,9 @@ export function calcTweetOutcome(
   }
   // 평판이 낮으면 신규 유입이 줄어든다(증가분에만 적용)
   if (followers > 0) followers = Math.round(followers * reputationFactor(state));
+
+  // 니글니글 재직 중이면 IT계 트윗의 신규 팔로워만 2배(혜택이므로 이득만 — 상충 손실은 안 키운다).
+  if (followers > 0 && attr === "it" && state.employment?.company === NIGL_COMPANY) followers *= 2;
 
   return { likes, retweets, followers };
 }

@@ -5,6 +5,7 @@ import { applyDailyCosts, daysUntilRent, settleMonthlyIncome } from "./economy";
 import { settleAuthorMonthly } from "./author";
 import { deliverJobResultEmail } from "./employment";
 import { deliverExamResultEmail } from "./certification";
+import { resolveContest } from "./contest";
 import { maybeSpawnTuckerDM, maybeStartTuckerLine } from "./lab";
 import {
   maybeOpenConsoleReview,
@@ -15,8 +16,10 @@ import {
 import { maybeSpawnSpamEmail } from "./spam";
 import { maybeHauntVisit } from "./haunt";
 import { maybeSpawnAdEmail } from "./adMail";
+import { checkEstheticScam } from "./esthetic";
 import { spawnDailyAdTweets } from "./adTweets";
 import { applySeasonalEvents } from "./seasonal";
+import { rollDisease } from "./health";
 import { sendLandlordOverdue, sendLandlordRentReminder } from "./kakao";
 import { updateMarket } from "./market";
 import { expireSuspensions } from "./ban";
@@ -33,6 +36,7 @@ import {
   dayOfWeek,
   weekdayLabel,
   MONDAY,
+  TUESDAY,
   WEDNESDAY,
   THURSDAY,
   SATURDAY,
@@ -49,6 +53,7 @@ export {
   dayOfWeek,
   weekdayLabel,
   MONDAY,
+  TUESDAY,
   WEDNESDAY,
   THURSDAY,
   SATURDAY,
@@ -166,6 +171,8 @@ function onNewDay(state: GameState): void {
   settleAuthorMonthly(state);
   // 취업 지원 결과 메일(지원 익일) 도착
   deliverJobResultEmail(state);
+  // 네이놈 대회 결과 메일(신청 1주 뒤) 도착
+  resolveContest(state);
   // 자격증 시험 결과 메일(응시 3일 뒤) 도착
   deliverExamResultEmail(state);
   // ⚠️ 순서 의존: 국가연금술사 합격은 바로 위 deliverExamResultEmail에서 확정된다.
@@ -182,10 +189,14 @@ function onNewDay(state: GameState): void {
   maybeSpawnSpamEmail(state);
   // 쇼핑몰 광고 메일(50% 특가, 당일 한정)이 드물게 온다
   maybeSpawnAdEmail(state);
+  // 에스테틱 사기 결제 후 7일이 지났으면 폐업(30만원 날림) 폭로
+  checkEstheticScam(state);
   // 추천탭 광고 트윗 2개 스폰(미해금 앱 홍보 우선)
   spawnDailyAdTweets(state);
-  // 계절/연말 이벤트(크리스마스·새해·연말정산)
+  // 계절/연말 이벤트(크리스마스·새해·연말정산 + 폭염/한파 체력 피해)
   applySeasonalEvents(state);
+  // 체력이 바닥이면 확률적으로 병에 걸린다(폭염/한파 피해 뒤에 판정 — 그날 깎인 체력을 반영).
+  rollDisease(state);
   // 월세 납부 하루 전이면 집주인이 카톡으로 리마인드
   maybeSendRentReminder(state);
   // 익월 2일, 밀린 월세가 있으면 집주인 독촉 카톡

@@ -2,8 +2,9 @@ import type { Email, GameState } from "@/core/types";
 import type { JobPosting } from "@/data/jobs";
 import { MORNING_SLOT } from "@/core/state";
 import { TIERS } from "@/data/jobs";
+import { NIGL_COMPANY } from "@/data/niglnigl";
 import { chance, uid } from "@/utils/random";
-import { isWeekday } from "./calendar";
+import { isLastDayOfMonth, isWeekday } from "./calendar";
 import { certJobBonus } from "./certification";
 import { currentSalary } from "./economy";
 import { clampAction, clampResource, skillTo100 } from "./stats";
@@ -182,6 +183,28 @@ export function switchToCompanyJob(state: GameState, emailId: string): void {
   acceptJobOffer(state, emailId);
 }
 
+/**
+ * 니글니글(꿈의 IT 기업)에 즉시 입사한다 — 주소창 지원서 제출로 호출된다.
+ * hiredDay를 '이번 달 마지막 날'로 두면 기존 "근무는 익일부터" 규칙이 곧 다음달 1일 출근이 된다.
+ * tier "large"라 생활비 무료·월세 반값·월급이 economy에서 자동 처리된다.
+ */
+export function hireNigl(state: GameState): void {
+  quitCurrentJob(state);
+  let hiredDay = state.day;
+  while (!isLastDayOfMonth(hiredDay)) hiredDay++; // 이번 달 말일
+  state.employment = {
+    company: NIGL_COMPANY,
+    tier: "large",
+    hiredDay,
+    performance: 0,
+    perfLevel: 0,
+    overtimeDay: -1,
+    lastSalaryMonth: -1,
+  };
+  state.niglShifts = 0;
+  addSchedule(state, "니글니글 합격 — 다음달 1일 출근", "system");
+}
+
 /** 합격 메일에서 '안 한다'를 선택 — 입사를 거절한다. */
 export function declineJobOffer(state: GameState, emailId: string): void {
   const email = state.emails.find((e) => e.id === emailId);
@@ -201,11 +224,23 @@ export function unreadEmailCount(state: GameState): number {
 export function isWorkNow(state: GameState): boolean {
   const emp = state.employment;
   if (!emp || state.gameOver) return false;
+  // 니글니글은 강제 출근이 없다 — 현생 살기에서 원할 때 자발적으로 출근한다(canNiglWork).
+  if (emp.company === NIGL_COMPANY) return false;
   if (state.day <= emp.hiredDay) return false; // 근무는 익일부터
   if (!isWeekday(state.day)) return false;
   // 3→2슬롯 축소로 '저녁 야근'이 낮 근무와 같은 슬롯이 됐다. 낮 근무가 이미 이 슬롯을 강제하므로
   // overtimeDay 기반 별도 야근 슬롯은 사라졌다(밸런스 후 재설계 여지 — 계약서 명시).
   return state.slot === MORNING_SLOT;
+}
+
+/**
+ * 니글니글 자발적 출근이 가능한지(주말·심야 포함 아무 슬롯이나, 다음달 1일=hiredDay 익일부터).
+ * 강제가 아니라 현생 살기의 '출근하기' 버튼으로 원할 때 나간다 — 월 20일만 채우면 만근.
+ */
+export function canNiglWork(state: GameState): boolean {
+  const emp = state.employment;
+  if (!emp || state.gameOver) return false;
+  return emp.company === NIGL_COMPANY && state.day > emp.hiredDay;
 }
 
 /** 아침 근무를 마치며 오늘 야근 여부를 굴린다. */
@@ -283,6 +318,8 @@ export function doWork(state: GameState, mode: "work" | "slack"): WorkResult {
   if (leveledUp) {
     addSchedule(state, `성과 레벨 ${emp.perfLevel} 달성! (월급 인상)`, "system");
   }
+  // 니글니글은 처음부터 정규직 — 이번 '달' 출근 일수를 센다(월급날 20일 미달이면 반감 후 리셋).
+  if (emp.company === NIGL_COMPANY) state.niglShifts += 1;
   // 아침 근무를 마치며 오늘 야근 여부 결정
   if (isMorning) rollOvertime(state);
   addSchedule(state, mode === "work" ? "성실 근무" : "근무 중 딴짓", "system");

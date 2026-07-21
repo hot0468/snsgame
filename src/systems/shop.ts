@@ -6,6 +6,7 @@ import { GOBLIN_ITEMS } from "@/data/goblin";
 import { PEEMANG_ITEMS } from "@/data/peemang";
 import { REL_GIFTS } from "@/data/relationships";
 import { GOODS_ITEMS } from "@/data/goods";
+import { GACHA_ALL_ITEMS } from "@/data/gacha";
 import { getActiveAccount } from "@/core/state";
 import { randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
@@ -106,6 +107,11 @@ const ITEM_INDEX = new Map<string, OwnedItemInfo>([
   ...REL_GIFTS.map(
     (g) =>
       [g.id, { id: g.id, name: g.name, desc: g.desc, price: g.price, boosts: {}, repeatable: false }] as const,
+  ),
+  // 가챠 포토카드/굿즈 — 스탯 부스트 없는 실물. 뽑기로 중복 획득 가능(repeatable).
+  ...GACHA_ALL_ITEMS.map(
+    (g) =>
+      [g.id, { id: g.id, name: g.name, desc: g.desc, price: g.price, boosts: {}, repeatable: true }] as const,
   ),
 ]);
 

@@ -96,6 +96,8 @@ export interface UIState {
   dstorySiteOpen: boolean;
   /** d스토리에서 열어본 게시글 id(null이면 목록) */
   dstoryPostId: string | null;
+  /** '니글니글' 취업 지원 사이트가 열려 있는지(주소창에 NIGL_URL 입력으로만 진입, 탭 이동 시 닫힘) */
+  niglSiteOpen?: boolean;
 }
 
 export function createUIState(): UIState {

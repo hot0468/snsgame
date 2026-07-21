@@ -4,9 +4,11 @@ import { ATTRIBUTES } from "@/data/attributes";
 import { ALL_ATTRIBUTE_IDS } from "@/data/attributes";
 import { SKILL_STATS } from "@/data/stats";
 import { pick } from "@/utils/random";
-import { clampAction, clampResource, gainSkill } from "./stats";
+import { clampAction, clampResource, gainSkill, gainStamina, STAMINA_MAX_CAP } from "./stats";
+import { REST_STAMINA, WORKOUT_STAMINA, WORKOUT_STAMINA_MAX_GAIN } from "./health";
 import { addSchedule, advanceTime } from "./time";
 import { doAuthorWork } from "./author";
+import { estheticBeautyMult, maybeSpawnEstheticAd } from "./esthetic";
 import { unlockAttribute } from "./attributeUnlock";
 import { rollAdultOfflineEncounter } from "./adultOffline";
 import type { AdultOfflineEncounterId } from "@/data/adultOffline";
@@ -314,6 +316,7 @@ export function spendDayResting(state: GameState): { action: number; mental: num
     const mentalBefore = state.resources.mental;
     state.resources.action = clampAction(state, state.resources.action + REST_ACTIVITY.action);
     state.resources.mental = clampResource(state.resources.mental + REST_ACTIVITY.mental);
+    gainStamina(state, REST_STAMINA); // 쉬며 넘긴 슬롯마다 체력도 회복(rest 활동과 동일)
     action += state.resources.action - actionBefore;
     mental += state.resources.mental - mentalBefore;
     advanceTime(state, 1);
@@ -343,6 +346,14 @@ export function doOfflineActivity(
   }
   if (activity.money) state.money += activity.money;
 
+  // 체력: 운동은 한계치를 올리고(현재 체력도 소량 회복), 쉬기는 체력을 회복한다.
+  if (activity.id === "workout") {
+    state.staminaMax = Math.min(STAMINA_MAX_CAP, state.staminaMax + WORKOUT_STAMINA_MAX_GAIN);
+    gainStamina(state, WORKOUT_STAMINA);
+  } else if (activity.id === "rest") {
+    gainStamina(state, REST_STAMINA);
+  }
+
   // 아르바이트: 누적 횟수에 따라 급여가 오른다
   let earnedMoney: number | null = null;
   let partTimeMistake = false;
@@ -363,8 +374,13 @@ export function doOfflineActivity(
     state.partTimeCount += 1;
   }
 
+  // 꾸미기(grooming)의 매력(beauty) 상승분은 에스테틱 정품 회원이면 1.5배(estheticBeautyMult).
+  // grooming만이 '꾸미기' 활동이다(운동의 부수 beauty +2는 대상 아님).
+  const isGrooming = activity.id === "grooming";
   for (const [skill, amount] of Object.entries(activity.skillGains ?? {})) {
-    gainSkill(state, skill as SkillStatId, amount ?? 0);
+    let amt = amount ?? 0;
+    if (isGrooming && skill === "beauty") amt = Math.round(amt * estheticBeautyMult(state));
+    gainSkill(state, skill as SkillStatId, amt);
   }
 
   // 랜덤 스탯 상승(예: 유튜브 → 미용/개그 중 하나)
@@ -448,6 +464,9 @@ export function doOfflineActivity(
         (r.done ? " — 이번 달 목표 달성!" : "");
     }
   }
+
+  // 꾸미기 활동 직후 에스테틱 정기권 광고 메일 스폰 시도(내부 가드로 중복/재가입/사기중 방지)
+  if (isGrooming) maybeSpawnEstheticAd(state);
 
   addSchedule(state, `${activity.label}`, "offline");
   advanceTime(state, 1);

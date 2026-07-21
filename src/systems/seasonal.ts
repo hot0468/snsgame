@@ -1,8 +1,21 @@
 import type { GameState, ScheduleEvent } from "@/core/types";
+import { AIRCON_ID, HEATPAD_ID } from "@/data/shop";
+import {
+  COLDWAVE_MENTAL,
+  COLDWAVE_STAMINA,
+  HEATWAVE_MENTAL,
+  HEATWAVE_STAMINA,
+} from "./health";
+import {
+  COLDWAVE_NOTICE_HIT,
+  COLDWAVE_NOTICE_SAFE,
+  HEATWAVE_NOTICE_HIT,
+  HEATWAVE_NOTICE_SAFE,
+} from "@/data/health";
 import { randInt, uid } from "@/utils/random";
 import { dateOf } from "./calendar";
 import { pushKakao } from "./kakao";
-import { clampAction, clampResource } from "./stats";
+import { clampAction, clampResource, gainStamina } from "./stats";
 
 /**
  * 계절/연말 시스템.
@@ -97,6 +110,32 @@ export function applySeasonalEvents(state: GameState): void {
       [`${y}년 새해 복 많이 받아! 🎊`, "올해는 팔로워 목표 꼭 이루자! 새해 다짐 트윗 각이지?"],
       { hue: 45 },
     );
+  }
+
+  // ☀️ 폭염주의보(8/1) — 에어컨 없으면 체력·정신력 급감. 연 1회(fire 키에 연도).
+  if (m === 7 && date === 1 && fire(`heatwave:${y}`)) {
+    if (state.ownedItems.includes(AIRCON_ID)) {
+      pushSchedule(state, HEATWAVE_NOTICE_SAFE, "system");
+      pushKakao(state, "안전안내문자", [HEATWAVE_NOTICE_SAFE], { hue: 200 });
+    } else {
+      gainStamina(state, -HEATWAVE_STAMINA);
+      state.resources.mental = clampResource(state.resources.mental - HEATWAVE_MENTAL);
+      pushSchedule(state, HEATWAVE_NOTICE_HIT, "system");
+      pushKakao(state, "안전안내문자", [HEATWAVE_NOTICE_HIT], { hue: 15 });
+    }
+  }
+
+  // ❄️ 한파주의보(1/15) — 전기장판 없으면 체력·정신력 급감. 연 1회(fire 키에 연도).
+  if (m === 0 && date === 15 && fire(`coldwave:${y}`)) {
+    if (state.ownedItems.includes(HEATPAD_ID)) {
+      pushSchedule(state, COLDWAVE_NOTICE_SAFE, "system");
+      pushKakao(state, "안전안내문자", [COLDWAVE_NOTICE_SAFE], { hue: 200 });
+    } else {
+      gainStamina(state, -COLDWAVE_STAMINA);
+      state.resources.mental = clampResource(state.resources.mental - COLDWAVE_MENTAL);
+      pushSchedule(state, COLDWAVE_NOTICE_HIT, "system");
+      pushKakao(state, "안전안내문자", [COLDWAVE_NOTICE_HIT], { hue: 210 });
+    }
   }
 
   // 🧾 연말정산 — 환급(대개) 또는 추징(가끔)

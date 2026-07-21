@@ -22,7 +22,6 @@ export function renderTaskbar(ctx: GameContext): HTMLElement {
       onclick: () => ctx.openModal(renderKakaoListView),
     },
     el("span", { class: "taskbar-kakao__icon" }, icon("comment", { size: 16 })),
-    el("span", { class: "taskbar-kakao__label" }, "카톡"),
     hasPendingRelEvent(s) ? el("span", { class: "taskbar-kakao__badge" }) : null,
   );
 
@@ -39,7 +38,6 @@ export function renderTaskbar(ctx: GameContext): HTMLElement {
       },
     },
     el("span", { class: "taskbar-kakao__icon taskbar-work__icon" }, icon("mail", { size: 16 })),
-    el("span", { class: "taskbar-kakao__label" }, "너아무튼온"),
     hasPendingWorkMsg(s) ? el("span", { class: "taskbar-kakao__badge" }) : null,
   );
 

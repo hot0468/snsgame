@@ -72,6 +72,9 @@ describe("구세이브 하위호환", () => {
       delete o.dartpinBoard;
       delete o.ownedItems;
       delete o.workMsgs;
+      delete o.stamina;
+      delete o.staminaMax;
+      delete o.sickPending;
     });
     expect(Array.isArray(s.certifications)).toBe(true);
     expect(Array.isArray(s.ownedItems)).toBe(true);
@@ -82,6 +85,19 @@ describe("구세이브 하위호환", () => {
     expect(Number.isFinite(s.actionMaxBonus)).toBe(true);
     expect(s.cheats).toBeTruthy();
     expect(s.dartpinUnlocked).toBe(false);
+    // 체력: staminaMax가 0/부재면 clampStamina가 체력을 영구 0으로 눌러 세이브를 오염시킨다.
+    expect(s.staminaMax).toBeGreaterThan(0);
+    expect(Number.isFinite(s.stamina)).toBe(true);
+    expect(s.sickPending).toBe(false);
+  });
+
+  it("staminaMax가 0/NaN으로 오염돼 있어도 유효한 상한으로 복구된다", () => {
+    // staminaMax=0이면 clampStamina(0..0)가 체력을 영구히 0으로 눌러버린다(치명).
+    for (const bad of [0, null, undefined, NaN, -5]) {
+      const s = loadLegacy((o) => (o.staminaMax = bad));
+      expect(s.staminaMax, `staminaMax=${String(bad)}`).toBeGreaterThan(0);
+      expect(Number.isFinite(s.staminaMax)).toBe(true);
+    }
   });
 
   it("actionMaxBonus가 오염돼 있어도 유한수로 복구된다", () => {

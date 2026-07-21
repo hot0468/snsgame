@@ -12,6 +12,8 @@ import { el } from "@/utils/dom";
 import { avatar, icon } from "./icons";
 import { renderRelEventModal } from "./relEventModal";
 import { renderMeetChatModal } from "./meetChatModal";
+import { renderBossChatModal } from "./bossChatModal";
+import { BOSS_NAME } from "@/data/bossJokes";
 
 /** 관계 캐릭터가 좋아하는 트윗 유형 라벨(composeModal의 KIND_META와 동일). */
 const KIND_LABEL: Record<TweetKind, string> = {
@@ -138,6 +140,34 @@ export function renderKakaoListView(ctx: GameContext): HTMLElement {
     );
   }
 
+  /** 부장님 — 로스터와 무관한 고정 특수 친구. 항상 노출, 클릭 시 아재개그 챗. */
+  function bossRow(): HTMLElement {
+    return el(
+      "div",
+      { class: "kklist__row" },
+      el("span", { class: "kklist__ava" }, avatar(BOSS_NAME, 44)),
+      el(
+        "div",
+        { class: "kklist__main" },
+        el(
+          "span",
+          { class: "kklist__nameline" },
+          el("span", { class: "kklist__name" }, BOSS_NAME),
+          el("span", { class: "kklist__sex" }, "♂"),
+        ),
+        el("span", { class: "kklist__sub" }, "회사 · 아재개그 장인"),
+      ),
+      el(
+        "button",
+        {
+          class: "kklist__pill",
+          onclick: () => ctx.openModal((c) => renderBossChatModal(c)),
+        },
+        "카톡하기",
+      ),
+    );
+  }
+
   function render(): void {
     const state = ctx.store.getState();
     const chars = relCharsInKakao(state);
@@ -227,7 +257,13 @@ export function renderKakaoListView(ctx: GameContext): HTMLElement {
           el("button", { class: "kklist__close", onclick: () => ctx.closeModal() }, "✕"),
         ),
       ),
-      el("div", { class: "kklist__panel" }, meRow, body),
+      el(
+        "div",
+        { class: "kklist__panel" },
+        meRow,
+        el("div", { class: "kklist__group" }, bossRow()),
+        body,
+      ),
     );
   }
 

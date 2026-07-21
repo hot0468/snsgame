@@ -35,5 +35,11 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: "concert_goods", name: "인싸 굿즈 풀장착", desc: "모임마다 대화가 끊이지 않는다.", price: 60_000, skill: "sociability", boost: 30 },
   { id: "mic", name: "방송용 마이크 세트", desc: "드립 타이밍이 살아난다.", price: 110_000, skill: "comedy", boost: 30 },
   { id: "stream_mic", name: "웹방송용 마이크", desc: "숨소리까지 잡아내는 콘덴서. 하나 늘 때마다 어휘력이 조금, 사바나 방송 도네이션이 소폭 오른다.", price: 100_000, skill: "vocabulary", boost: 15, repeatable: true },
+  { id: "aircon", name: "에어컨", desc: "한여름 폭염을 버티게 해주는 필수 가전.", price: 500_000 },
+  { id: "heatpad", name: "전기장판", desc: "한겨울 한파에도 등을 지질 수 있다.", price: 60_000 },
   { id: "lingerie", name: "고급 란제리", desc: "은밀한 자신감을 더한다.", price: 130_000, skill: "lewd", boost: 40, adultOnly: true },
 ];
+
+/** 계절 이벤트(seasonal)가 소유 판정에 import. */
+export const AIRCON_ID = "aircon";
+export const HEATPAD_ID = "heatpad";

@@ -1,9 +1,11 @@
 import type { GameContext } from "./context";
 import { doWork, WORK_ACTION_COST } from "@/systems/employment";
-import { TIERS } from "@/data/jobs";
+import { TIERS, DEV_JOB_COMPANY } from "@/data/jobs";
+import { NIGL_COMPANY, NIGL_SHIFT_GOAL } from "@/data/niglnigl";
 import { MORNING_SLOT } from "@/core/state";
 import { el } from "@/utils/dom";
 import { icon } from "./icons";
+import { renderCommitGrass } from "./components";
 
 /**
  * 강제 근무 팝업(평일 낮). 야근도 낮 슬롯에서 판정한다(2슬롯 개편).
@@ -21,7 +23,8 @@ export function renderWorkModal(ctx: GameContext): HTMLElement {
       return container.replaceChildren();
     }
     const tier = TIERS[emp.tier];
-    const overtime = s.slot === MORNING_SLOT;
+    const isNigl = emp.company === NIGL_COMPANY;
+    const overtime = !isNigl && s.slot === MORNING_SLOT;
 
     container.replaceChildren(
       el(
@@ -31,7 +34,7 @@ export function renderWorkModal(ctx: GameContext): HTMLElement {
           "span",
           { class: "modal__head-title" },
           icon("article", { size: 18 }),
-          overtime ? "야근 중" : "근무 시간",
+          isNigl ? "니글니글 출근" : overtime ? "야근 중" : "근무 시간",
         ),
       ),
       el(
@@ -40,13 +43,34 @@ export function renderWorkModal(ctx: GameContext): HTMLElement {
         el(
           "p",
           { style: "font-size:15px;line-height:1.6;margin:0 0 6px" },
-          `「${emp.company}」 (${tier.label})${overtime ? " 야근이다. 오늘 정시 퇴근은 글렀다." : " 근무 시간이다."} 어떻게 보낼까?`,
+          isNigl
+            ? `「${emp.company}」 자유 출근. 오늘 나온 김에 어떻게 보낼까?`
+            : `「${emp.company}」 (${tier.label})${overtime ? " 야근이다. 오늘 정시 퇴근은 글렀다." : " 근무 시간이다."} 어떻게 보낼까?`,
         ),
-        el(
-          "p",
-          { class: "compose-hint", style: "margin:0 0 14px" },
-          `성과 ${Math.round(emp.performance)}/100 · 레벨 ${emp.perfLevel}`,
-        ),
+        emp.company === DEV_JOB_COMPANY
+          ? el(
+              "div",
+              { style: "margin:0 0 14px" },
+              el(
+                "p",
+                { class: "compose-hint", style: "margin:0 0 6px" },
+                `커밋 성과 Lv.${emp.perfLevel}`,
+              ),
+              renderCommitGrass(emp.performance, emp.perfLevel),
+            )
+          : el(
+              "p",
+              { class: "compose-hint", style: "margin:0 0 14px" },
+              `성과 ${Math.round(emp.performance)}/100 · 레벨 ${emp.perfLevel}`,
+            ),
+        // 니글니글: 자유 출근이라 이번 달 출근 진척을 보여준다(20일 미달이면 월급 반감).
+        emp.company === NIGL_COMPANY
+          ? el(
+              "p",
+              { class: "compose-hint", style: "margin:-8px 0 14px" },
+              `이번 달 출근 ${s.niglShifts}/${NIGL_SHIFT_GOAL}일 · 자유출근(주말·심야 포함, 미달 시 월급 반감)`,
+            )
+          : null,
         el(
           "button",
           {
@@ -63,6 +87,14 @@ export function renderWorkModal(ctx: GameContext): HTMLElement {
           },
           "몰래 트위터하며 논다 (정신력↑, 걸리면 성과 폭락)",
         ),
+        // 니글니글은 자발적 출근이라 취소할 수 있다(고정 근무는 강제 — 닫기 없음).
+        isNigl
+          ? el(
+              "button",
+              { class: "event-choice", style: "opacity:.8", onclick: () => ctx.closeModal() },
+              "다음에 하기",
+            )
+          : null,
       ),
     );
   }

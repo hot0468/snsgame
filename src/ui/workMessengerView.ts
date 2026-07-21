@@ -3,36 +3,42 @@ import type { WorkMsg } from "@/core/types";
 import { acceptWorkMsg, canAcceptWork } from "@/systems/workMessenger";
 import { dateLabel } from "@/systems/time";
 import { el } from "@/utils/dom";
-import { avatar } from "./icons";
+import { avatar, icon } from "./icons";
+import type { IconName } from "./icons";
 
 const SENDER = "너아무튼온";
 
+// 좌측 레일 아이콘(순수 장식). 첫 번째(채팅)만 활성 강조.
+const RAIL_ICONS: IconName[] = ["comment", "coin", "clock", "grid"];
+
 /**
  * 업무 메신저 "너아무튼온" — 회사가 보낸 업무 요청 목록(작업표시줄 업무 버튼으로 연다).
- * 카톡 친구목록(kklist) 룩앤필을 재사용하되 색조만 업무(파랑)로 구분한다.
+ * 카톡 PC 클라이언트(아이콘 레일 + 광고 배너 + 검색 헤더 + 채팅 목록 행) 룩앤필.
+ * 오른쪽 친구 패널은 게임 데이터가 없어 만들지 않는다. 레일·배너는 장식 프레임(하드코딩).
  * 규칙 계산은 하지 않고 systems(canAcceptWork/acceptWorkMsg)만 호출한다.
  */
 export function renderWorkMessengerView(ctx: GameContext): HTMLElement {
-  const container = el("div", { class: "modal kklist-modal wmsg-modal" });
+  const container = el("div", { class: "modal wmsg-modal" });
 
-  function msgRow(m: WorkMsg): HTMLElement {
+  // 채팅 목록의 한 행(업무 요청 1건 = 채팅방 1개)
+  function chatRow(m: WorkMsg): HTMLElement {
     const state = ctx.store.getState();
     const canAccept = !m.resolved && canAcceptWork(state);
 
     let action: HTMLElement;
     if (m.resolved) {
-      action = el("span", { class: "kklist__pill kklist__pill--done" }, "처리됨");
+      action = el("span", { class: "wmsg-chat__done" }, "처리됨");
     } else if (!canAccept) {
       action = el(
         "button",
-        { class: "kklist__pill", disabled: true, title: "남은 시간이 없어" },
+        { class: "wmsg-chat__accept", disabled: true, title: "남은 시간이 없어" },
         "시간 없어",
       );
     } else {
       action = el(
         "button",
         {
-          class: "kklist__pill kklist__pill--accent",
+          class: "wmsg-chat__accept wmsg-chat__accept--go",
           onclick: () => {
             let ok = false;
             ctx.update((s) => {
@@ -52,20 +58,45 @@ export function renderWorkMessengerView(ctx: GameContext): HTMLElement {
 
     return el(
       "div",
-      { class: "kklist__row" + (m.resolved ? " kklist__row--done" : "") },
-      el("span", { class: "kklist__ava" }, avatar(SENDER, 44)),
+      { class: "wmsg-chat" + (m.resolved ? " wmsg-chat--done" : "") },
+      el(
+        "span",
+        { class: "wmsg-chat__ava" },
+        avatar(SENDER, 42),
+        !m.resolved && el("span", { class: "wmsg-chat__unread" }, "1"),
+      ),
       el(
         "div",
-        { class: "kklist__main" },
+        { class: "wmsg-chat__main" },
+        el("span", { class: "wmsg-chat__title" }, SENDER),
+        el("span", { class: "wmsg-chat__preview" }, m.text),
+      ),
+      el(
+        "div",
+        { class: "wmsg-chat__meta" },
+        el("span", { class: "wmsg-chat__date" }, dateLabel(m.day)),
+        action,
+      ),
+    );
+  }
+
+  // 좌측 아이콘 레일(장식). 마지막에 닫기.
+  function rail(): HTMLElement {
+    return el(
+      "div",
+      { class: "wmsg-rail" },
+      ...RAIL_ICONS.map((name, i) =>
         el(
           "span",
-          { class: "kklist__nameline" },
-          el("span", { class: "kklist__name" }, SENDER),
-          el("span", { class: "kklist__sub" }, dateLabel(m.day)),
+          { class: "wmsg-rail__icon" + (i === 0 ? " wmsg-rail__icon--active" : "") },
+          icon(name, { size: 22 }),
         ),
-        el("span", { class: "kklist__sub wmsg__text" }, m.text),
       ),
-      action,
+      el(
+        "button",
+        { class: "wmsg-rail__close", title: "닫기", onclick: () => ctx.closeModal() },
+        icon("x", { size: 20 }),
+      ),
     );
   }
 
@@ -73,24 +104,42 @@ export function renderWorkMessengerView(ctx: GameContext): HTMLElement {
     // 최신 요청이 위로
     const msgs = [...ctx.store.getState().workMsgs].reverse();
 
-    const body =
+    const list =
       msgs.length === 0
         ? el(
             "div",
-            { class: "kklist__empty" },
+            { class: "wmsg-empty" },
             "아직 온 업무 요청이 없어요.\n회사에 다니면 평일·주말에 업무 요청이 옵니다.",
           )
-        : el("div", { class: "kklist" }, el("div", { class: "kklist__group" }, ...msgs.map(msgRow)));
+        : el("div", { class: "wmsg-list" }, ...msgs.map(chatRow));
 
-    container.replaceChildren(
+    const body = el(
+      "div",
+      { class: "wmsg-body" },
+      // 상단 광고 배너(장식·가상 패러디, 실존 브랜드 없음)
       el(
         "div",
-        { class: "kklist__topbar wmsg__topbar" },
-        el("span", { class: "kklist__title" }, "너아무튼온"),
-        el("button", { class: "kklist__close", onclick: () => ctx.closeModal() }, "✕"),
+        { class: "wmsg-banner" },
+        el("span", { class: "wmsg-banner__tag" }, "AD"),
+        el("span", { class: "wmsg-banner__text" }, "너만의 바이브를 켜라 — 아무튼페이 야식결제 3천원 캐시백"),
       ),
-      el("div", { class: "kklist__panel" }, body),
+      // 검색 헤더 행
+      el(
+        "div",
+        { class: "wmsg-search" },
+        el("span", { class: "wmsg-search__title" }, "너아무튼온"),
+        el(
+          "div",
+          { class: "wmsg-search__box" },
+          icon("search", { size: 16, className: "wmsg-search__glass" }),
+          el("span", { class: "wmsg-search__ph" }, "대화 검색"),
+        ),
+        el("span", { class: "wmsg-search__ico" }, icon("pen", { size: 17 })),
+      ),
+      list,
     );
+
+    container.replaceChildren(rail(), body);
   }
 
   render();

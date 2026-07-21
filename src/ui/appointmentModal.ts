@@ -18,6 +18,7 @@ import { renderCrewSecretModal } from "./sns/crewSecretModal";
 import { renderScenarioReaderModal } from "./sns/scenarioReader";
 import { pickLingerieScenario, resolveLingerieShoot } from "@/systems/lingerie";
 import { resolveStudy } from "@/systems/studyGroup";
+import { resolveEsthetic } from "@/systems/esthetic";
 import { el } from "@/utils/dom";
 import { icon } from "./icons";
 
@@ -135,6 +136,8 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
             ? "심야, 이번 주 란제리 화보 촬영 스케줄이다. 스튜디오에 조명이 켜져 있다. 촬영하러 갈까?"
             : appt.kind === "study"
               ? "월요일 낮, 취업스터디 정기 모임 날이다. 같은 처지 사람들과 자소서를 다듬고 모의면접을 본다. 오늘 나갈까?"
+              : appt.kind === "esthetic"
+              ? "이번 주 에스테틱 방문일이다. 1만원 내고 관리받으면 꾸미기 매력이 더 잘 오른다. 오늘 다녀올까?"
               : appt.kind === "event"
               ? `오늘은 「${appt.title}」 날이다. 행사에 참여하러 갈까?`
               : `${appt.partnerName ?? "친구"}와 만나기로 한 날이다. 오늘 만나러 갈까?`;
@@ -159,6 +162,7 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
               if (appt.kind === "crew") return handleCrewGo(appt);
               if (appt.kind === "lingerie") return handleLingerieGo();
               if (appt.kind === "study") return handleStudyGo();
+              if (appt.kind === "esthetic") return handleEstheticGo();
               resolve(appt, true);
             },
           },
@@ -412,6 +416,18 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
     let msg = "";
     ctx.update((s) => {
       msg = resolveStudy(s);
+    });
+    showResult(msg);
+  }
+
+  /**
+   * 에스테틱 정기 방문 "간다" 분기.
+   * resolveEsthetic이 방문비·매력·시간진행·다음 주 재예약을 모두 처리한다(study 패턴).
+   */
+  function handleEstheticGo(): void {
+    let msg = "";
+    ctx.update((s) => {
+      msg = resolveEsthetic(s);
     });
     showResult(msg);
   }

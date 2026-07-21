@@ -18,6 +18,7 @@ import {
   lottoStatus,
 } from "@/systems/lotto";
 import { canEnterGoblinShop, enterGoblinShop } from "@/systems/goblin";
+import { currentContest, contestWinChance, applyContest } from "@/systems/contest";
 
 interface Article {
   id: string;
@@ -771,6 +772,122 @@ function lottoBlock(ctx: GameContext): HTMLElement {
   );
 }
 
+/**
+ * 로또 카드 오른쪽에 붙는 대회 안내 배너. 현재 대회 1종을 결정론적으로 뽑아
+ * (currentContest — 재렌더에 안 바뀜) 카드로 노출한다. 클릭 → 신청 모달.
+ */
+function contestBanner(ctx: GameContext): HTMLElement {
+  const s = ctx.store.getState();
+  const contest = currentContest(s.day);
+  const pending = s.pendingContest != null;
+
+  return el(
+    "button",
+    {
+      class: "contest-banner",
+      onclick: () => ctx.openModal((c) => renderContestApplyModal(c)),
+    },
+    el("span", { class: "contest-banner__brand" }, "네이놈"),
+    pending && el("span", { class: "contest-banner__badge" }, "결과 대기 중"),
+    el(
+      "div",
+      { class: "contest-banner__hero" },
+      el("span", { class: "contest-banner__glow" }),
+      el("span", { class: "contest-banner__emoji" }, contest.emoji),
+    ),
+    el("div", { class: "contest-banner__name" }, contest.name),
+    el("div", { class: "contest-banner__desc" }, contest.desc),
+    el(
+      "div",
+      { class: "contest-banner__cta" },
+      "신청하기",
+      el("span", { class: "contest-banner__cta-chev" }, "›"),
+    ),
+  );
+}
+
+/** 현재 대회 신청 후 결과 상태를 돌려준다(update 안에서 systems 호출만). */
+function submitContest(ctx: GameContext): "ok" | "busy" | "poor" {
+  let result: "ok" | "busy" | "poor" = "busy";
+  ctx.update((g) => {
+    result = applyContest(g);
+  });
+  return result;
+}
+
+/** 정성 승률 힌트 — 승률 %를 날것으로 노출하지 않고 구간 라벨로 위장한다. */
+function contestChanceHint(chance: number): string {
+  if (chance >= 0.6) return "당신의 실력이면 해볼 만하다";
+  if (chance >= 0.3) return "쉽지 않아 보인다";
+  return "무모해 보인다";
+}
+
+/** 현재 대회 신청 페이지 모달. */
+function renderContestApplyModal(ctx: GameContext): HTMLElement {
+  const s = ctx.store.getState();
+  const contest = currentContest(s.day);
+  const pending = s.pendingContest != null;
+  const hint = contestChanceHint(contestWinChance(s, contest));
+
+  return el(
+    "div",
+    { class: "modal" },
+    el(
+      "div",
+      { class: "modal__head" },
+      el("span", { class: "modal__head-title" }, `${contest.emoji} ${contest.name}`),
+      el("button", { class: "popup__close", onclick: () => ctx.closeModal() }, "✕"),
+    ),
+    el(
+      "div",
+      { class: "modal__body" },
+      el("p", { style: "font-size:15px;line-height:1.7;margin:0 0 14px" }, contest.desc),
+      el(
+        "div",
+        { class: "contest-apply__info" },
+        el(
+          "div",
+          { class: "contest-apply__row" },
+          el("span", {}, "참가비"),
+          el("b", {}, contest.fee > 0 ? `${formatNumber(contest.fee)}원` : "무료"),
+        ),
+        el(
+          "div",
+          { class: "contest-apply__row" },
+          el("span", {}, "입상 상금"),
+          el("b", {}, `${formatNumber(contest.prize)}원`),
+        ),
+      ),
+      el("div", { class: "contest-apply__hint" }, `“${hint}”`),
+      pending && el("div", { class: "contest-apply__pending" }, "이미 신청한 대회 결과를 기다리는 중이에요. 결과는 메일로 도착해요 📩"),
+      el(
+        "div",
+        { class: "compose-actions", style: "gap:10px" },
+        el("button", { class: "btn btn--ghost", onclick: () => ctx.closeModal() }, "닫기"),
+        el(
+          "button",
+          {
+            class: "btn" + (pending ? " btn--ghost" : ""),
+            disabled: pending,
+            onclick: () => {
+              const result = submitContest(ctx);
+              if (result === "ok") {
+                ctx.toast("신청 완료! 1주 뒤 결과가 메일로 와요 📩");
+                ctx.closeModal();
+              } else if (result === "busy") {
+                ctx.toast("이미 신청한 대회 결과를 기다리는 중이에요");
+              } else {
+                ctx.toast("참가비가 부족해요");
+              }
+            },
+          },
+          "신청하기",
+        ),
+      ),
+    ),
+  );
+}
+
 function openLottoModal(ctx: GameContext): void {
   ctx.openModal((c) => {
     const container = el("div", { class: "modal" });
@@ -1077,7 +1194,7 @@ function renderNewsHome(ctx: GameContext): HTMLElement {
     { class: "portal" },
     el("div", { class: "portal__hero" }, searchBar(ctx)),
     adBanner(ctx),
-    lottoBlock(ctx),
+    el("div", { class: "portal-lotto-row" }, lottoBlock(ctx), contestBanner(ctx)),
     el("div", { class: "portal-blocks" }, stocksBlock(ctx), shopBlock(ctx)),
     el(
       "div",

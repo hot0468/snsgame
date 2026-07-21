@@ -17,15 +17,18 @@ import { outdoorShoot, blackVanOrgy } from "@/systems/events";
 import { getAdultOfflineEncounter } from "@/data/adultOffline";
 import { resolveAdultOfflineEncounter } from "@/systems/adultOffline";
 import { AUTHOR_WORKLOAD_TARGET, AUTHOR_MAX_MISS, isAuthorPrepMonth } from "@/systems/author";
-import { salaryOf } from "@/systems/employment";
+import { salaryOf, canNiglWork } from "@/systems/employment";
+import { NIGL_COMPANY, NIGL_SHIFT_GOAL } from "@/data/niglnigl";
+import { renderWorkModal } from "./workModal";
 import { hasCertification } from "@/systems/certification";
 import { isWeekday } from "@/systems/time";
-import { makeJobPostings, TIERS } from "@/data/jobs";
+import { makeJobPostings, TIERS, DEV_JOB_COMPANY, DEV_JOB_IT_REQ } from "@/data/jobs";
 import { SKILL_STATS } from "@/data/stats";
 import { ATTRIBUTES } from "@/data/attributes";
 import { pick } from "@/utils/random";
 import { el, formatNumber } from "@/utils/dom";
 import { icon, ACTIVITY_ICON } from "./icons";
+import { renderCommitGrass } from "./components";
 import { renderJobBoardModal } from "./jobBoardModal";
 import { renderSystemNotice } from "./systemNotice";
 
@@ -228,6 +231,30 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
 
     if (emp) {
       const tier = TIERS[emp.tier];
+      const isNigl = emp.company === NIGL_COMPANY;
+      const meta =
+        emp.company === DEV_JOB_COMPANY
+          ? el(
+              "div",
+              { class: "job-status__meta" },
+              el(
+                "div",
+                { style: "margin-bottom:5px" },
+                `커밋 성과 Lv.${emp.perfLevel} · 월급 ${formatNumber(salaryOf(s))}원`,
+              ),
+              renderCommitGrass(emp.performance, emp.perfLevel),
+            )
+          : isNigl
+            ? el(
+                "div",
+                { class: "job-status__meta" },
+                `이번 달 출근 ${s.niglShifts}/${NIGL_SHIFT_GOAL}일 · 월급 ${formatNumber(salaryOf(s))}원 (20일 미달 시 반감)`,
+              )
+            : el(
+                "div",
+                { class: "job-status__meta" },
+                `성과 Lv.${emp.perfLevel} (${Math.round(emp.performance)}/100) · 월급 ${formatNumber(salaryOf(s))}원`,
+              );
       return el(
         "div",
         { class: "job-section" },
@@ -235,17 +262,20 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           "div",
           { class: "job-status" },
           el("span", { class: "job-status__icon" }, icon("article", { size: 18 })),
-          el(
-            "div",
-            {},
-            el("div", { class: "job-status__title" }, `재직 중 · ${emp.company} (${tier.label})`),
-            el(
-              "div",
-              { class: "job-status__meta" },
-              `성과 Lv.${emp.perfLevel} (${Math.round(emp.performance)}/100) · 월급 ${formatNumber(salaryOf(s))}원`,
-            ),
-          ),
+          el("div", {}, el("div", { class: "job-status__title" }, `재직 중 · ${emp.company} (${tier.label})`), meta),
         ),
+        // 니글니글은 자유 출근 — 원할 때 자발적으로 나간다(주말·심야 포함, 강제 팝업 없음).
+        isNigl && canNiglWork(s)
+          ? el(
+              "button",
+              {
+                class: "btn",
+                style: "margin-top:10px;width:100%",
+                onclick: () => ctx.openModal((c) => renderWorkModal(c)),
+              },
+              `출근하기 (자유출근 · 이번 달 ${s.niglShifts}/${NIGL_SHIFT_GOAL}일)`,
+            )
+          : null,
       );
     }
 
@@ -309,7 +339,12 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
             const st = ctx.store.getState();
             // 변호사 자격증이 있으면 5칸 중 한 칸이 나루호도 법률사무소로 바뀐다.
             // data는 systems를 import할 수 없으므로 조회는 여기서 해서 넘긴다.
-            const postings = makeJobPostings(5, st.day, hasCertification(st, "lawyer"));
+            const postings = makeJobPostings(
+              5,
+              st.day,
+              hasCertification(st, "lawyer"),
+              st.skills.it >= DEV_JOB_IT_REQ,
+            );
             ctx.update((st) => {
               st.lastJobBoardDay = st.day; // 하루 1회 소진
             });

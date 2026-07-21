@@ -153,6 +153,32 @@ function makeLawyerPosting(currentDay: number): JobPosting {
   };
 }
 
+/** 개발자 공고를 목록에 띄우는 IT 스킬 문턱(스킬 0~999 스케일). 이 값 이상이면 노출된다. */
+export const DEV_JOB_IT_REQ = 100;
+
+/** IT 스킬 문턱을 넘긴 플레이어에게만 뜨는 개발자 공고의 회사명(테스트·UI가 참조한다). */
+export const DEV_JOB_COMPANY = "우주최강소프트";
+
+/**
+ * IT 스킬이 `DEV_JOB_IT_REQ` 이상일 때만 뜨는 개발자 전용 공고.
+ *
+ * 오리지널 판교 IT 스타트업 패러디("우주최강"은 유니콘 되기 전부터 우주정복을 외치는
+ * 스타트업 특유의 허장성세 개그). 등급이 `large`인 건 의도다 — IT 스킬 문턱을 넘긴
+ * 보상으로 대기업 급여(월 60만)·낮은 야근률을 준다. 성과는 UI에서 커밋 잔디로 표시된다.
+ */
+function makeDevPosting(currentDay: number): JobPosting {
+  return {
+    id: uid("job"),
+    company: DEV_JOB_COMPANY,
+    tier: "large",
+    role: "주니어 백엔드 개발자 채용 (커밋으로 말하는 분)",
+    workDays: "월~금",
+    workHours: "09:00~18:00",
+    ...makeSalary(),
+    postedDay: Math.max(1, currentDay - randInt(0, 8)),
+  };
+}
+
 /**
  * 채용공고 n종을 랜덤으로 생성한다.
  * 등급이 골고루 섞이도록 각 등급을 최소 1개 이상 노출하려 시도한다.
@@ -160,18 +186,29 @@ function makeLawyerPosting(currentDay: number): JobPosting {
  * @param currentDay 현재 게임 day (공고 게시일 산정용)
  * @param hasLawyer 변호사 자격증 보유 여부. true면 5칸 중 **한 칸이** 나루호도 법률사무소로
  *   바뀐다(칸을 늘리지 않는다 — 사용자 확정).
+ * @param hasDev IT 스킬 문턱 통과 여부. true면 5칸 중 **한 칸이** 우주최강소프트로 바뀐다.
+ *   lawyer와 dev가 둘 다 true면 서로 다른 칸을 차지해 각각 한 칸씩 노출된다(칸을 늘리지 않는다).
  *
- * ⚠️ 자격증 보유 여부를 여기서 직접 조회하지 않고 **인자로 받는** 건 계층 규칙 때문이다.
+ * ⚠️ 자격증·스킬 보유 여부를 여기서 직접 조회하지 않고 **인자로 받는** 건 계층 규칙 때문이다.
  *    `hasCertification`은 systems에 있고 data는 systems를 import할 수 없다(data → systems → ui).
  *    호출부(ui)가 조회해서 넘긴다.
  */
-export function makeJobPostings(n = 5, currentDay = 0, hasLawyer = false): JobPosting[] {
+export function makeJobPostings(n = 5, currentDay = 0, hasLawyer = false, hasDev = false): JobPosting[] {
   const tiers: CompanyTier[] = [...TIER_ORDER];
   // 5칸: 각 등급 1개씩(4) + 랜덤 1개
   const chosen: CompanyTier[] = [...tiers, pick(tiers)];
   const list = sample(chosen, Math.min(n, chosen.length)).map((t) => makePosting(t, currentDay));
   while (list.length < n) list.push(makePosting(pick(tiers), currentDay));
-  // 자리를 무작위로 고른다 — 항상 맨 위면 특별 공고인 게 티나고, 목록을 읽을 이유가 없어진다.
-  if (hasLawyer && list.length > 0) list[randInt(0, list.length - 1)] = makeLawyerPosting(currentDay);
+  // 특별 공고는 무작위 칸을 차지한다 — 항상 맨 위면 티가 나서 목록을 읽을 이유가 없어진다.
+  // lawyer·dev가 둘 다면 서로 다른 칸에 넣어 공존시킨다(taken으로 중복 방지).
+  const taken: number[] = [];
+  const freeSlot = (): number => {
+    const open = list.map((_, i) => i).filter((i) => !taken.includes(i));
+    const idx = open.length ? pick(open) : randInt(0, list.length - 1);
+    taken.push(idx);
+    return idx;
+  };
+  if (hasLawyer && list.length > 0) list[freeSlot()] = makeLawyerPosting(currentDay);
+  if (hasDev && list.length > 0) list[freeSlot()] = makeDevPosting(currentDay);
   return list;
 }

@@ -47,6 +47,22 @@ export function clampAction(state: GameState, v: number): number {
   return Math.max(0, Math.min(actionMax(state), v));
 }
 
+/** 체력 한계치(staminaMax)의 하드 실링 — 운동으로도 이 값을 넘지 못한다. */
+export const STAMINA_MAX_CAP = 999;
+
+/**
+ * 체력 클램프(0 ~ state.staminaMax). 상한이 가변이라 상태를 인자로 받는다(clampAction과 같은 이유).
+ * ⚠️ staminaMax가 0이면 항상 0으로 눌린다 — save.sanitize가 200 폴백을 보장한다.
+ */
+export function clampStamina(state: GameState, v: number): number {
+  return Math.max(0, Math.min(state.staminaMax, Math.round(v)));
+}
+
+/** 체력을 n만큼 가감한다(음수도 clamp). */
+export function gainStamina(state: GameState, n: number): void {
+  state.stamina = clampStamina(state, state.stamina + n);
+}
+
 /**
  * 스킬 0~999 값을 구 0~100 스케일로 환산하는 제수(9.99).
  * 스킬 상한이 100이던 시절의 계수·공식을 그대로 쓰되 밸런스를 보존할 때 나눈다.
