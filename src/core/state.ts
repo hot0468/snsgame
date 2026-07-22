@@ -5,6 +5,7 @@ import type {
   GameState,
   LabState,
   PlayerAccount,
+  Tweet,
 } from "./types";
 import { uid } from "@/utils/random";
 import { initialMarket } from "@/data/market";
@@ -114,6 +115,7 @@ export function createAccount(
     followers: 0,
     following: 0,
     timeline: [],
+    postCount: 0,
     // 기본 일상계 + 개설 시 고른 콘셉트 속성을 함께 해금(콘셉트 계정 지원)
     unlockedAttributes: attribute === "daily" ? ["daily"] : ["daily", attribute],
     groupUnlocked: false,
@@ -130,6 +132,9 @@ export function createAccount(
     dailyTweetCount: 0,
     postSlotsDay: 1,
     postSlotsUsed: 0,
+    // 트친(단짝): 상호작용 누적으로 성사. 도달 배율은 systems/tchin이 계산.
+    tchins: [],
+    tchinProgress: {},
   };
 }
 
@@ -227,6 +232,9 @@ export function createInitialState(): GameState {
     dartpinUnlocked: false,
     dartpinBoard: null,
     dstoryUnlockedPosts: [],
+    drunkPending: false,
+    pendingRegretTweetId: null,
+    hostsFile: null,
     adultTweetsPosted: 0,
     punishTweetsPosted: 0,
     yabamProductsOwned: [],
@@ -260,6 +268,8 @@ export function createInitialState(): GameState {
     catPowerPending: false,
     lastMaxPostSlots: 1, // = maxPostSlots(0). 리터럴로 둔다(core→systems 순환 import 방지)
     postSlotIncreasedTo: null,
+    pendingNews: null,
+    pendingTchinToasts: [],
     lotteryLuck: 0,
     hauntPending: false,
     hauntVisitNow: false,
@@ -283,6 +293,25 @@ export function getActiveAccount(state: GameState): PlayerAccount {
   return (
     state.accounts.find((a) => a.id === state.activeAccountId) ?? state.accounts[0]
   );
+}
+
+/**
+ * 타임라인 보관 상한. 게임이 길어지면 게시 트윗이 무한히 쌓이는데,
+ * (1) 전체 재렌더가 타임라인을 통째로 DOM 카드로 그리고 (2) 저장이 상태를 통째로 직렬화하므로,
+ * 상한이 없으면 상호작용마다 렉이 끼고 localStorage 쿼터(~5MB)를 넘겨 저장이 조용히 실패한다.
+ * 오래된 트윗은 잘라내되, 총 게시물 수는 account.postCount로 보존한다.
+ */
+export const TIMELINE_MAX = 300;
+
+/**
+ * 게시 트윗을 타임라인 맨 앞에 넣고 총 게시물 수를 센 뒤, 상한을 넘으면 가장 오래된 것부터 잘라낸다.
+ * **새 게시 경로는 반드시 이 헬퍼를 거쳐라.** account.timeline.unshift를 직접 부르면
+ * postCount·TIMELINE_MAX 불변식이 깨져 게시물 수가 안 맞거나 누적 절벽이 되살아난다.
+ */
+export function pushTimeline(account: PlayerAccount, tweet: Tweet): void {
+  account.timeline.unshift(tweet);
+  account.postCount++;
+  if (account.timeline.length > TIMELINE_MAX) account.timeline.length = TIMELINE_MAX;
 }
 
 /**

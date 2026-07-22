@@ -96,6 +96,8 @@ function sanitize(state: GameState): GameState {
   // 각 계정의 신규 필드 보강(구버전 저장본 대비)
   for (const acc of state.accounts) {
     acc.timeline ??= [];
+    // 구세이브엔 postCount가 없다 — 현재 남은 타임라인 길이로 최소 보정(과거 잘린 분은 알 수 없으니 하한).
+    acc.postCount ??= acc.timeline.length;
     acc.unlockedAttributes ??= ["daily"];
     acc.dms ??= [];
     // 전역화 후 계정에 남은 잔재 필드 제거(있어도 무해하지만 타입과 어긋난다).
@@ -113,6 +115,9 @@ function sanitize(state: GameState): GameState {
     acc.dailyTweetCount ??= 0;
     acc.postSlotsDay ??= state.day;
     acc.postSlotsUsed ??= 0;
+    // 트친(단짝): 구세이브엔 없으므로 초기화.
+    if (!Array.isArray(acc.tchins)) acc.tchins = [];
+    acc.tchinProgress ??= {};
     for (const thread of acc.dms) {
       thread.metOffline ??= false;
       thread.wantsToMeet ??= false;
@@ -241,6 +246,12 @@ function sanitize(state: GameState): GameState {
   // 최상위 merge가 기본 []를 넣지만, 배열이 아닌 값이 들어올 여지를 여기서 막는다
   // (kakao/appointments와 같은 패턴). 배열이 아니면 includes/push가 즉시 터진다.
   if (!Array.isArray(state.dstoryUnlockedPosts)) state.dstoryUnlockedPosts = [];
+  // hosts 편집 내용은 신규 필드 — 구세이브엔 키가 없다(미편집=null이 정답).
+  // 문자열도 null도 아닌 손상값이면 null로 되돌린다(미편집 취급).
+  if (state.hostsFile !== null && typeof state.hostsFile !== "string") state.hostsFile = null;
+  // 취중 트윗/이불킥 상태는 신규 필드 — 구세이브엔 없다(미취중이 정답).
+  state.drunkPending ??= false;
+  state.pendingRegretTweetId ??= null;
   state.adultTweetsPosted ??= 0;
   state.punishTweetsPosted ??= 0;
   if (!Array.isArray(state.yabamProductsOwned)) state.yabamProductsOwned = [];
@@ -277,6 +288,8 @@ function sanitize(state: GameState): GameState {
     state.lastMaxPostSlots = maxPostSlots(getActiveAccount(state).followers);
   }
   state.postSlotIncreasedTo ??= null;
+  state.pendingNews ??= null;
+  if (!Array.isArray(state.pendingTchinToasts)) state.pendingTchinToasts = [];
   // 특수 트윗(오하아사·괴담) 신규 필드. NaN은 ??를 통과하므로 숫자는 isFinite로 검사한다.
   if (typeof state.lotteryLuck !== "number" || !Number.isFinite(state.lotteryLuck)) {
     state.lotteryLuck = 0;

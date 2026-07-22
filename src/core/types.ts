@@ -147,6 +147,11 @@ export interface Tweet {
   isRetweet?: boolean;
   /** 리트윗 항목일 때 원본 트윗 id(중복 리트윗 방지용) */
   retweetSourceId?: string;
+  /**
+   * 인용 트윗(QRT)일 때 원문 스냅샷(원문 id 참조가 아니라 값 복사 — 세이브 안정).
+   * ui가 이 값을 인용 카드로 렌더한다(systems/quote가 채운다).
+   */
+  quoted?: { authorName: string; authorHandle: string; text: string; attribute: AttributeId };
   /** 이 트윗에 달린 멘션(답글) — 내 트윗일 때 생성 */
   replies?: TweetReply[];
   /** 행사 안내 트윗이면 그 정보(참여하기 버튼 노출) */
@@ -317,6 +322,11 @@ export interface DMThread {
   cosplay?: boolean;
   /** 취업스터디 모임 가입 권유 스레드인지(불합격 결과 트윗 누적 시 유입, 전연령). ui가 가입 버튼을 렌더한다 */
   study?: boolean;
+  /**
+   * 다트 핀 글 작성자에게 쪽지를 보내 받은 도움 스레드인지, 그 원본 글 id.
+   * 같은 글에 중복 쪽지를 막는 마커다(systems/dartpin.hasDartpinAuthorDM). 렌더는 일반 대화와 동일.
+   */
+  dartpinHelp?: string;
 }
 
 /** 카카오톡 메시지 한 줄 */
@@ -491,8 +501,10 @@ export interface PlayerAccount {
   attribute: AttributeId;
   followers: number;
   following: number;
-  /** 이 계정의 타임라인 (최신이 앞) */
+  /** 이 계정의 타임라인 (최신이 앞). 성능·저장 보호를 위해 TIMELINE_MAX개로 잘린다 — 총 게시물 수는 postCount로 센다. */
   timeline: Tweet[];
+  /** 지금까지 올린 게시물 총수(누적). 타임라인은 잘리므로 '게시물 수' 표시는 이 값을 쓴다. */
+  postCount: number;
   /** 이 계정에서 트윗 작성이 해금된 속성 목록 */
   unlockedAttributes: AttributeId[];
   /** 그룹섹스 추구 트윗 종류가 해금됐는지(그룹 이벤트 후) */
@@ -526,6 +538,14 @@ export interface PlayerAccount {
   postSlotsDay: number;
   /** 오늘 이 계정이 소비한 게시 슬롯 수(트윗 전용 일일 예산). 계정마다 따로 센다. */
   postSlotsUsed: number;
+  /**
+   * 트친(단짝) 핸들 목록. 같은 계정과 상호작용(좋아요/RT/인용/DM)을 임계치만큼 쌓으면 성사된다.
+   * 트친 수만큼 모든 트윗 팔로워 증가분에 도달 배율이 붙는다. 계정별로 따로 관리.
+   * 구세이브엔 없으므로 save.sanitize가 `[]`로 채운다.
+   */
+  tchins: string[];
+  /** 트친 성사용 상호작용 카운터(핸들 → 누적 횟수). 구세이브엔 없어 sanitize가 `{}`로 채운다. */
+  tchinProgress: Record<string, number>;
 }
 
 /**
@@ -704,6 +724,16 @@ export interface CheatState {
   cheatExe: boolean;
 }
 
+export interface PendingNews {
+  tweetId: string;
+  /** 원 트윗 본문 스냅샷(원 트윗이 타임라인 컷으로 사라져도 헤드라인 생성 가능) */
+  tweetText: string;
+  /** 떡상 증가분(2차 유입·손실 계산 기준) */
+  gain: number;
+  /** 왜곡 보도 여부(예약 시점 확정) */
+  distorted: boolean;
+}
+
 export interface GameState {
   version: number;
 
@@ -842,6 +872,12 @@ export interface GameState {
   postSlotIncreasedTo: number | null;
 
   /**
+   * 방금 트친이 된 핸들들(성사 토스트 대기열). systems/tchin이 성사 시 쌓고,
+   * ui(app.ts)가 토스트로 알린 뒤 비운다(pendingAchievements와 동일 패턴).
+   */
+  pendingTchinToasts: string[];
+
+  /**
    * 오하아사(아침 운세) 좋아요/RT로 누적된 로또 당첨 운(0~LOTTERY_LUCK_CAP).
    * lottery()가 꽝 경계를 낮추는 데 쓰고, 추첨 직후 0으로 리셋한다. 다른 데서 건드리지 말 것.
    */
@@ -955,6 +991,21 @@ export interface GameState {
    * (별도 '보상 받음' 플래그를 두지 마라 — 두 출처가 어긋날 여지만 생긴다).
    */
   dstoryUnlockedPosts: string[];
+  /** 심야에 취해 취중 트윗 팝업이 대기 중인지(ui/app이 감지해 블러+취중팝업). */
+  drunkPending: boolean;
+  /** 어젯밤 취중 트윗의 id — 다음날 아침 '이불킥' 팝업 대상. null이면 없음. */
+  pendingRegretTweetId: string | null;
+  /**
+   * 떡상 트윗이 기사화 예약됐으면 그 스냅샷(다음날 아침 강제팝업). 없으면 null.
+   * ui(newsModal)가 처리 후 null로 클리어한다.
+   */
+  pendingNews: PendingNews | null;
+  /**
+   * 메모장으로 편집·저장한 hosts 파일 내용. null이면 미편집(기본 HOSTS_LINES를 표시).
+   * `127.0.0.1  goedam.kr` 매핑을 넣어 저장하면 주소창에서 goedam.kr로 괴담 사이트에 갈 수 있다
+   * (판정은 systems/hosts.hostsHasGoedam). 세이브 대상(편집이 유지돼야 함).
+   */
+  hostsFile: string | null;
   /** 성인 트윗 누적 작성 수(야밤 DM 트리거용) */
   adultTweetsPosted: number;
   /** 체벌(punish) 트윗 누적 작성 수(비공개 크루 권유 게이트용) */
