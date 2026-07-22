@@ -1,5 +1,5 @@
 import type { GameState, SkillStatId, Tweet } from "@/core/types";
-import { dominantAttribute, getActiveAccount, MORNING_SLOT } from "@/core/state";
+import { dominantAttribute, getActiveAccount, MORNING_SLOT, pushTimeline } from "@/core/state";
 import {
   GAME_EVENTS,
   type EventEffect,
@@ -82,7 +82,7 @@ function jumpOnTrend(state: GameState): string {
     retweets: outcome.retweets,
     gainedFollowers: delta,
   };
-  account.timeline.unshift(tweet);
+  pushTimeline(account, tweet);
   changeFollowers(state, delta);
   account.attribute = dominantAttribute(account); // 편승 트윗도 성향에 반영
 

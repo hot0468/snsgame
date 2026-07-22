@@ -3,67 +3,29 @@ import type { YabamVideo, YabamProduct } from "@/data/yabam";
 import {
   YABAM_VIDEO_COST,
   YABAM_TOTO_WIN_CHANCE,
-  YABAM_DM_OPENERS,
   TOTO_WIN_LINES,
   TOTO_LOSE_LINES,
-  YABAM_TWEET_THRESHOLD,
 } from "@/data/yabam";
 import { ADULT_KINDS, ADULT_REVIEW_TWEETS } from "@/data/categories/adult";
 import { getActiveAccount } from "@/core/state";
-import { chance, pick, uid } from "@/utils/random";
+import { chance, pick } from "@/utils/random";
 import { clampResource, clampSkill } from "./stats";
 import { advanceTime } from "./time";
 import { postTweet } from "./tweetSystem";
 
 /**
- * 야밤(성인 사이트) 해금 DM / 콘텐츠 소비 로직.
- * - 성인 트윗을 누적으로 일정 수 이상 올리면(계정 성인모드 ON) "뜨거운 밤 도와줄게요" DM이 1회 도착한다.
- * - 링크를 클릭하면 '야밤' 탭이 브라우저에 추가된다.
+ * 야밤(성인 사이트) 해금 / 콘텐츠 소비 로직.
+ * - 브라우저 ⋮ 메뉴의 '방문기록' 페이지에서 야밤 항목을 클릭하면 해금된다(unlockYabam).
+ * - 해금되면 '야밤' 탭이 브라우저에 추가된다(성인물 해제 ON + 표출 기준 충족 시).
  * - 야밤 사이트는 ① 성인영상 감상(결제) ② 토토(베팅) ③ 성인용품 구매의 3섹션.
- * (푸시타임 pushtime.ts와 동일한 패턴을 미러링한다.)
  */
 
-/** 야밤 DM이 뜨는 성인 트윗 누적 최소 작성 수 */
-export { YABAM_TWEET_THRESHOLD };
-
-/** 이 음란도 이상이면 (adultMode ON 시) 야밤 탭이 노출된다 — DM 해금과 무관한 주 표출 기준 */
+/** 이 음란도 이상이면 (adultMode ON 시) 야밤 탭이 노출된다 — 해금과 무관한 주 표출 기준 */
 export const YABAM_LEWD_SHOW = 40;
 
-/** 이 계정에 이미 야밤 링크 DM이 있는지 */
-function hasYabamDM(state: GameState): boolean {
-  return getActiveAccount(state).dms.some((t) => t.yabamLink);
-}
-
-/**
- * 성인 트윗 직후 호출 — 미해금 + 계정 성인모드 + 성인 트윗 누적 threshold 이상 + 기존 DM 없음이면
- * 야밤 링크 DM을 1회 생성한다. (푸시타임과 달리 확률 없이 조건 충족 즉시 도착)
- */
-export function maybeSpawnYabamDM(state: GameState): void {
-  if (state.yabamUnlocked) return;
-  if (!state.adultMode) return;
-  const account = getActiveAccount(state);
-  if (state.adultTweetsPosted < YABAM_TWEET_THRESHOLD) return;
-  if (hasYabamDM(state)) return;
-
-  account.dms.unshift({
-    id: uid("dm"),
-    partnerName: "야밤 도우미",
-    partnerHandle: "yabam_night",
-    attribute: "adult",
-    isAdult: true,
-    messages: [{ id: uid("dmm"), from: "partner", text: pick(YABAM_DM_OPENERS), day: state.day }],
-    unread: true,
-    metOffline: false,
-    wantsToMeet: false,
-    yabamLink: true,
-  });
-}
-
-/** 링크를 클릭하면 야밤이 해금되고 그 DM 스레드는 사라진다. */
-export function consumeYabamLink(state: GameState): void {
+/** 방문기록에서 야밤 항목을 클릭하면 야밤이 해금된다(탭 추가). */
+export function unlockYabam(state: GameState): void {
   state.yabamUnlocked = true;
-  const account = getActiveAccount(state);
-  account.dms = account.dms.filter((t) => !t.yabamLink);
 }
 
 export interface YabamVideoResult {

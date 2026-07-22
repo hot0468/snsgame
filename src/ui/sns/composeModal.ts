@@ -36,6 +36,7 @@ import {
 import { pick } from "@/utils/random";
 import { el } from "@/utils/dom";
 import { icon, ATTR_ICON } from "@/ui/icons";
+import { showDdeoksang } from "@/ui/ddeoksang";
 
 /** 창작 모드 — 꺼짐 / 1차창작 / 2차창작 */
 type CreationMode = "off" | "original" | "fan";
@@ -605,6 +606,8 @@ export function renderComposeModal(
         disabled: !canPostTweet(s) || needsFanWork || needsKind || !slotOk,
         onclick: () => {
           const general = isGeneralTweet();
+          // 떡상 연출은 모달을 닫은 뒤 띄운다(닫기가 오버레이를 지우지 않게). 게시 시 여기에 담는다.
+          let ddPayload: { likes: number; retweets: number; gain: number } | null = null;
           // 일반 트윗은 선택된 성격 카드의 문구를, 특수 모드는 기존 풀에서 뽑는다.
           const finalText =
             general && selectedKind
@@ -639,6 +642,13 @@ export function renderComposeModal(
               const res = postTweet(st, finalAttr, finalText, finalAdult, adultKind, mult, opts);
               delta = res.followerDelta;
               unlockedMeeting = res.unlockedMeeting;
+              if (res.ddeoksang) {
+                ddPayload = {
+                  likes: res.tweet.likes,
+                  retweets: res.tweet.retweets,
+                  gain: res.followerDelta + res.ddeoksangGain,
+                };
+              }
               // 창작 트윗 누적 → 20개 이상이면 작가 계약 제안 DM이 올 수 있다
               if (creating) {
                 st.creationTweetCount += 1;
@@ -652,6 +662,8 @@ export function renderComposeModal(
           }
           // 트윗은 슬롯을 넘기지 않는다 — 닫고 이벤트 판정만.
           ctx.closeModal();
+          // 떡상이면 닫은 직후 연출 오버레이를 띄운다(afterAction 이벤트보다 우선 — 이벤트는 다음 행동으로).
+          if (ddPayload) showDdeoksang(ctx, ddPayload);
           ctx.afterAction("tweet");
         },
       },

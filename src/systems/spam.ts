@@ -1,5 +1,5 @@
 import type { Email, GameState, ScheduleEvent, Tweet } from "@/core/types";
-import { getActiveAccount } from "@/core/state";
+import { getActiveAccount, pushTimeline } from "@/core/state";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { clampResource } from "./stats";
@@ -127,7 +127,7 @@ function getHacked(state: GameState): number {
     gainedFollowers: 0,
     isAd: true,
   };
-  acc.timeline.unshift(tweet);
+  pushTimeline(acc, tweet);
 
   pushSchedule(state, `계정 해킹 피해 (-${loss} 팔로워)`, "system");
   return loss;

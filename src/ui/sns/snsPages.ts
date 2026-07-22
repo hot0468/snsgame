@@ -1,4 +1,5 @@
 import type { GameContext } from "@/ui/context";
+import { FEED_PAGE } from "@/ui/context";
 import type { Account, AttributeId, DMThread, GameState, Tweet } from "@/core/types";
 import { getActiveAccount, visibleTimeline } from "@/core/state";
 import { ALL_ATTRIBUTE_IDS, ATTRIBUTES } from "@/data/attributes";
@@ -29,7 +30,6 @@ import { DARTPIN_URL, isDartpinTweet, unlockDartpin } from "@/systems/dartpin";
 import { isDstoryTweet } from "@/systems/dstory";
 import { DSTORY_URL } from "@/data/dstory";
 import { consumePushLink } from "@/systems/pushtime";
-import { consumeYabamLink } from "@/systems/yabam";
 import type { EyeDealResult } from "@/systems/auction";
 import { resolveEyeDeal } from "@/systems/auction";
 import { resolveLabOffer } from "@/systems/lab";
@@ -48,6 +48,7 @@ import {
 import { canWatchAd, watchAd } from "@/systems/ads";
 import { el, enableDragScroll, formatNumber } from "@/utils/dom";
 import { tweetCard } from "@/ui/components";
+import { renderQuoteModal } from "@/ui/quoteModal";
 import { icon, avatar, ATTR_ICON } from "@/ui/icons";
 import { renderMeetingModal } from "./meetingModal";
 import { renderMotelModal } from "./motelModal";
@@ -457,6 +458,16 @@ export function reactableCard(ctx: GameContext, tweet: Tweet): HTMLElement {
         },
         "악플",
       ),
+      // 인용(QRT)은 반응과 독립 — 좋아요/악플을 눌렀어도 인용은 가능하다.
+      el(
+        "button",
+        {
+          class: "react-btn react-btn--quote",
+          onclick: () => ctx.openModal((c) => renderQuoteModal(c, tweet)),
+        },
+        icon("retweet", { size: 14 }),
+        "인용",
+      ),
       reacted ? el("span", { class: "react-hint" }, "반응 완료") : null,
     ),
   );
@@ -630,9 +641,9 @@ export function mePage(ctx: GameContext): HTMLElement {
       el(
         "div",
         { class: "profile__stats" },
-        // 게시물 수는 timeline.length 그대로다 — 아래 '게시물' 탭이 timeline을 통째로
-        // 나열하므로, 리트윗을 빼고 세면 숫자와 목록이 어긋난다.
-        el("span", {}, el("b", {}, formatNumber(visibleTimeline(ctx.store.getState()).length)), " 게시물"),
+        // 게시물 수는 account.postCount(누적)로 센다 — 타임라인은 TIMELINE_MAX로 잘리므로
+        // timeline.length를 쓰면 상한에서 숫자가 멈춘다. postCount는 잘려도 계속 는다.
+        el("span", {}, el("b", {}, formatNumber(account.postCount)), " 게시물"),
         el("span", {}, el("b", {}, formatNumber(account.following)), " 팔로우 중"),
         el("span", {}, el("b", {}, formatNumber(account.followers)), " 팔로워"),
       ),
@@ -646,20 +657,34 @@ export function mePage(ctx: GameContext): HTMLElement {
       (() => {
         // 내 계정 상세의 '게시물' 탭에는 내가 직접 올린 트윗만 노출한다(리트윗 제외).
         const myPosts = visibleTimeline(ctx.store.getState()).filter((t) => !t.isRetweet);
-        return myPosts.length
-          ? el(
-              "div",
-              {},
-              ...myPosts.map((t) =>
-                tweetCard(t, {
-                  showGain: true,
-                  ctx,
-                  onMedia: openMedia(ctx),
-                  onOpen: () => enterTweetDetail(ctx, t.id),
-                }),
-              ),
-            )
-          : el("div", { class: "empty" }, "아직 게시물이 없어요. 첫 트윗을 등록해보세요!");
+        if (!myPosts.length) {
+          return el("div", { class: "empty" }, "아직 게시물이 없어요. 첫 트윗을 등록해보세요!");
+        }
+        // 윈도잉: 최신 feedShown개만 그리고 남으면 '더 보기'(홈 피드와 같은 카운터를 공유).
+        const cards: HTMLElement[] = myPosts.slice(0, ctx.ui.feedShown).map((t) =>
+          tweetCard(t, {
+            showGain: true,
+            ctx,
+            onMedia: openMedia(ctx),
+            onOpen: () => enterTweetDetail(ctx, t.id),
+          }),
+        );
+        if (myPosts.length > ctx.ui.feedShown) {
+          cards.push(
+            el(
+              "button",
+              {
+                class: "btn btn--ghost feed__more",
+                onclick: () => {
+                  ctx.ui.feedShown += FEED_PAGE;
+                  ctx.refresh();
+                },
+              },
+              `더 보기 (${formatNumber(myPosts.length - ctx.ui.feedShown)}개 더)`,
+            ),
+          );
+        }
+        return el("div", {}, ...cards);
       })(),
     ),
   );
@@ -1424,25 +1449,6 @@ function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement 
               },
             },
             "🔗 pushtime.xyz 열기",
-          ),
-        )
-      : thread.yabamLink
-      ? el(
-          "div",
-          { class: "dm__replies" },
-          el(
-            "button",
-            {
-              class: "btn",
-              style: "width:100%",
-              onclick: () => {
-                ctx.update((s) => consumeYabamLink(s));
-                ctx.ui.activeTab = "yabam";
-                ctx.toast("야밤이 브라우저에 추가됐어요 🔞");
-                ctx.refresh();
-              },
-            },
-            "🔗 yabam.click 들어가기",
           ),
         )
       : thread.boostLink

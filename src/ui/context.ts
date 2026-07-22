@@ -23,6 +23,10 @@ export type BrowserTabId =
 /** SNS 중앙 영역에서 보여줄 페이지(팝업 대신 인라인으로 전환) */
 export type SnsPage = "home" | "explore" | "posts" | "search" | "tweet" | "dm" | "ad" | "me";
 
+/** 내 트윗 피드를 한 번에 몇 개까지 그릴지(윈도잉 단위). "더 보기"가 이만큼씩 늘린다.
+ *  전체 재렌더가 리스트를 통째로 DOM에 그리므로, 긴 타임라인을 전량 렌더하면 상호작용마다 렉이 낀다. */
+export const FEED_PAGE = 30;
+
 /** 렌더링에만 쓰이는 휘발성 UI 상태(게임 저장 대상 아님) */
 export interface UIState {
   activeTab: BrowserTabId;
@@ -39,6 +43,8 @@ export interface UIState {
   catBlackout: boolean;
   /** 멘션이 펼쳐진 트윗 id 집합(전체 재렌더에도 유지) */
   expandedTweets: Set<string>;
+  /** 내 트윗 피드(홈 추천·내 프로필 게시물)를 현재 몇 개까지 그리는지. "더 보기"로 FEED_PAGE씩 증가. */
+  feedShown: number;
 
   /** 현재 SNS 중앙 페이지 */
   snsPage: SnsPage;
@@ -98,6 +104,12 @@ export interface UIState {
   dstoryPostId: string | null;
   /** '니글니글' 취업 지원 사이트가 열려 있는지(주소창에 NIGL_URL 입력으로만 진입, 탭 이동 시 닫힘) */
   niglSiteOpen?: boolean;
+  /** 방문기록 페이지가 열려 있는지(⋮ 메뉴로 진입, 탭 이동 시 닫힘) */
+  historySiteOpen: boolean;
+  /** 괴담 사이트(goedam.kr)가 열려 있는지(hosts 매핑 후 주소창 입력으로 진입, 탭 이동 시 닫힘) */
+  goedamSiteOpen: boolean;
+  /** 괴담 사이트에서 열어본 글 id(null이면 목록) */
+  goedamStoryId: string | null;
 }
 
 export function createUIState(): UIState {
@@ -111,6 +123,7 @@ export function createUIState(): UIState {
     toastKind: null,
     catBlackout: false,
     expandedTweets: new Set(),
+    feedShown: FEED_PAGE,
     snsPage: "home",
     exploreAccounts: [],
     exploreSelectedId: null,
@@ -138,6 +151,9 @@ export function createUIState(): UIState {
     settingsMenuOpen: false,
     dstorySiteOpen: false,
     dstoryPostId: null,
+    historySiteOpen: false,
+    goedamSiteOpen: false,
+    goedamStoryId: null,
   };
 }
 

@@ -559,6 +559,43 @@ export function renderMail(ctx: GameContext): HTMLElement {
     },
   });
 
+  // ----- 선택(체크) 액션바 — 체크된 메일이 있으면 리스트 위에 표출 -----
+  // '읽음으로 표시'는 열람(openSpamEmail)을 거치지 않으므로 스팸 해킹 위험 없이
+  // 안 읽은 표시(메일 탭 빨간 점)를 없앨 수 있다.
+  const actionBar = checkedIds.size
+    ? el(
+        "div",
+        { class: "mail__actionbar" },
+        el("span", { class: "mail__actionbar-count" }, `${checkedIds.size}개 선택됨`),
+        el(
+          "button",
+          {
+            class: "mail__actionbar-btn",
+            onclick: () => {
+              ctx.update((s) => {
+                for (const m of s.emails) if (checkedIds.has(m.id)) m.read = true;
+              });
+              checkedIds.clear();
+              ctx.toast("선택한 메일을 읽음으로 표시했어요");
+              ctx.refresh();
+            },
+          },
+          "읽음으로 표시",
+        ),
+        el(
+          "button",
+          {
+            class: "mail__actionbar-btn mail__actionbar-btn--ghost",
+            onclick: () => {
+              checkedIds.clear();
+              ctx.refresh();
+            },
+          },
+          "선택 해제",
+        ),
+      )
+    : null;
+
   // ----- 카테고리 탭(받은편지함에서만 노출) -----
   const tabs =
     activeView === "inbox"
@@ -629,7 +666,7 @@ export function renderMail(ctx: GameContext): HTMLElement {
       el(
         "div",
         { class: "mail__panes" },
-        el("div", { class: "mail__listwrap" }, tabs, listBox),
+        el("div", { class: "mail__listwrap" }, actionBar, tabs, listBox),
         emailView(ctx, selected),
       ),
     ),

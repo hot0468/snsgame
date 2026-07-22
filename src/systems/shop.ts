@@ -7,7 +7,7 @@ import { PEEMANG_ITEMS } from "@/data/peemang";
 import { REL_GIFTS } from "@/data/relationships";
 import { GOODS_ITEMS } from "@/data/goods";
 import { GACHA_ALL_ITEMS } from "@/data/gacha";
-import { getActiveAccount } from "@/core/state";
+import { getActiveAccount, pushTimeline } from "@/core/state";
 import { randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { salePrice } from "./seasonal";
@@ -218,7 +218,7 @@ export function advertiseItem(state: GameState, item: ShopItem): AdResult {
     gainedFollowers: 0,
     isAd: true,
   };
-  account.timeline.unshift(tweet);
+  pushTimeline(account, tweet);
   account.lastTweetDay = state.day;
 
   // 즉석 협찬 수익 ∝ 팔로워

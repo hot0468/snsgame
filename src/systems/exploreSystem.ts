@@ -1,5 +1,5 @@
 import type { Account, AttributeId, EggKind, GameState, Tweet } from "@/core/types";
-import { dominantAttribute, getActiveAccount } from "@/core/state";
+import { dominantAttribute, getActiveAccount, pushTimeline } from "@/core/state";
 import { makeEggTweet, makeRandomAccount, makeRandomTweet, makeTweetOfAttribute } from "@/data/accounts";
 import { ATTRIBUTES, getAffinity } from "@/data/attributes";
 import { allTemplatesFor } from "@/data/tweets";
@@ -198,7 +198,7 @@ export function retweetTweet(state: GameState, tweet: Tweet): number | null {
     createdDay: state.day,
     gainedFollowers: 0,
   };
-  account.timeline.unshift(rt);
+  pushTimeline(account, rt);
   // 리트윗도 내 계정 성향(다수 카테고리) 집계에 반영
   account.attribute = dominantAttribute(account);
 

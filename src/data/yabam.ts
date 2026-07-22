@@ -64,17 +64,6 @@ export const YABAM_TOTO_BETS: number[] = [10000, 50000, 100000];
 /** 토토 적중 확률(~45%) */
 export const YABAM_TOTO_WIN_CHANCE = 0.45;
 
-/** 성인 트윗 누적 작성 수 이 이상이면 야밤 DM 스폰(systems가 import) */
-export const YABAM_TWEET_THRESHOLD = 10;
-
-/** 야밤 DM 오프너(낯선 계정이 은밀히 링크를 건네는 톤) */
-export const YABAM_DM_OPENERS: string[] = [
-  "혼자 밤 보내기 아깝잖아요, 뜨거운 밤 도와줄게요 🔞 여기로 와요",
-  "밤마다 외로워 보이시길래… 뜨거운 밤 도와줄게요. 조용히 아래 링크 눌러봐요 😏",
-  "그쪽 취향 딱 알 것 같아요. 뜨거운 밤 도와줄게요, 아무한테도 말 안 할게요 🔞",
-  "잠 안 오는 밤엔 여기가 답이에요. 뜨거운 밤 도와줄게요, 링크는 여기 👇",
-];
-
 /** 토토 적중 플레이버(승리감 + 살짝 위험한 뉘앙스) */
 export const TOTO_WIN_LINES: string[] = [
   "적중! 통장에 불이 들어온다. 이 맛에 끊질 못하지…",

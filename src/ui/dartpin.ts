@@ -1,8 +1,47 @@
 import type { GameContext } from "./context";
 import type { DartpinPost } from "@/data/dartpin";
-import { ensureDartpinBoard, findDartpinPost, getDartpinBoard } from "@/systems/dartpin";
+import {
+  ensureDartpinBoard,
+  findDartpinPost,
+  getDartpinBoard,
+  hasDartpinAuthorDM,
+  sendDartpinAuthorDM,
+} from "@/systems/dartpin";
 import { dateLabel } from "@/systems/time";
 import { el, formatNumber } from "@/utils/dom";
+
+/**
+ * dm 없는 글 작성자의 반려 멘트(쪽지 버튼은 모든 글에 뜨므로, dm 없는 글은 이 토스트만).
+ * 글 id 해시로 결정적으로 하나 고른다(같은 글엔 늘 같은 반응).
+ */
+const AUTHOR_BRUSHOFF = [
+  "ㅇㅇ임. 갑자기 웬 쪽지 ㅋㅋ 딱히 할 말 없는데요.",
+  "익명으로 쓴 글이라 쪽지는 잘 안 봐요. 죄송.",
+  "그냥 지나가다 쓴 글이라 더 아는 거 없어요 ㅋㅋ",
+  "낯선 사람 쪽지는 잘 안 받아서요…",
+];
+
+function brushOffLine(id: string): string {
+  let h = 0;
+  for (const c of id) h = (h * 31 + c.charCodeAt(0)) & 0x7fffffff;
+  return AUTHOR_BRUSHOFF[h % AUTHOR_BRUSHOFF.length];
+}
+
+/** 상세 페이지 '작성자에게 쪽지' — dm 있으면 도움 DM 스폰, 없으면 반려 토스트(버튼은 모든 글 공통). */
+function messageAuthor(ctx: GameContext, post: DartpinPost): void {
+  const state = ctx.store.getState();
+  if (!post.dm) {
+    ctx.toast(brushOffLine(post.id));
+    return;
+  }
+  if (hasDartpinAuthorDM(state, post.id)) {
+    ctx.toast("이미 쪽지를 보냈어요. 쪽지함을 확인하세요.");
+    return;
+  }
+  ctx.update((s) => sendDartpinAuthorDM(s, post));
+  ctx.toast("작성자에게 쪽지를 보냈어요. 답장이 쪽지함에 도착했어요!");
+  ctx.refresh();
+}
 
 /* ============================================================
  * 다트 핀(dartpin.com) — 익명 게시판(네이트 판 패러디).
@@ -215,6 +254,12 @@ function postPage(ctx: GameContext, post: DartpinPost): HTMLElement {
     el(
       "div",
       { class: "dp__foot" },
+      // 쪽지 버튼은 모든 글에 뜬다(힌트 글만 붙이면 그 자체가 표지판 — data/dartpin 주석).
+      el(
+        "button",
+        { class: "dp__msg-btn", onclick: () => messageAuthor(ctx, post) },
+        "작성자에게 쪽지",
+      ),
       el("button", { class: "dp__list-btn", onclick: () => goList(ctx) }, "목록"),
     ),
   );

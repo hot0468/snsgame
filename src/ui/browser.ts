@@ -27,8 +27,17 @@ import { renderDstory } from "./dstory";
 import { DSTORY_URL } from "@/data/dstory";
 import { renderDevtools } from "./devtools";
 import { icon } from "./icons";
-import { NIGL_URL, NIGL_COMPANY, NIGL_APPLY, NIGL_HIRED_LINES } from "@/data/niglnigl";
-import { hireNigl } from "@/systems/employment";
+import {
+  NIGL_URL,
+  NIGL_COMPANY,
+  NIGL_APPLY,
+  NIGL_HIRED_LINES,
+  NIGL_REJECT_LINES,
+} from "@/data/niglnigl";
+import { canBeHiredByNigl, hireNigl } from "@/systems/employment";
+import { renderHistory } from "./history";
+import { renderGoedam } from "./goedam";
+import { GOEDAM_URL, hostsHasGoedam } from "@/systems/hosts";
 import { pick } from "@/utils/random";
 
 interface TabDef {
@@ -188,6 +197,25 @@ function urlbarMenu(ctx: GameContext): HTMLElement {
               class: "settings-popover__item",
               onclick: () => {
                 ctx.ui.settingsMenuOpen = false;
+                // 방문기록 페이지(오버레이)를 연다 — 다른 단발 오버레이는 닫는다.
+                ctx.ui.wishSiteOpen = false;
+                ctx.ui.goblinSiteOpen = false;
+                ctx.ui.onetSiteOpen = false;
+                ctx.ui.auctionSiteOpen = false;
+                ctx.ui.dstorySiteOpen = false;
+                ctx.ui.niglSiteOpen = false;
+                ctx.ui.historySiteOpen = true;
+                ctx.refresh();
+              },
+            },
+            el("span", {}, "방문기록"),
+          ),
+          el(
+            "button",
+            {
+              class: "settings-popover__item",
+              onclick: () => {
+                ctx.ui.settingsMenuOpen = false;
                 ctx.openModal(renderDevtools);
               },
             },
@@ -204,12 +232,26 @@ function urlbarMenu(ctx: GameContext): HTMLElement {
  * 텍스트는 전부 data/niglnigl(NIGL_APPLY), 취업 처리는 systems/employment(hireNigl)가 한다.
  * 이 화면은 "언제·어떻게 보여줄지"만 담당한다.
  */
+/**
+ * 스탯 미달 서류 탈락 여부(세션 휘발). 지원 화면에 진입할 때 리셋하고, 탈락 제출 시 켠다.
+ * 모듈 스코프인 이유: 재렌더가 지원 화면을 다시 그려도 불합격 문구가 유지돼야 한다(dstory pendingPw와 동일 패턴).
+ */
+let niglRejectLine = "";
+
 function renderNiglApply(ctx: GameContext): HTMLElement {
   const employed = ctx.store.getState().employment?.company === NIGL_COMPANY;
 
   const submit = (): void => {
+    // 제출은 누구나 가능하지만, IT·지식 문턱을 넘어야 실제로 합격한다.
+    if (!canBeHiredByNigl(ctx.store.getState())) {
+      niglRejectLine = pick(NIGL_REJECT_LINES);
+      ctx.toast(niglRejectLine, "bad");
+      ctx.refresh();
+      return;
+    }
     ctx.update((s) => hireNigl(s));
     ctx.ui.niglSiteOpen = false;
+    niglRejectLine = "";
     ctx.toast(pick(NIGL_HIRED_LINES));
   };
 
@@ -235,10 +277,23 @@ function renderNiglApply(ctx: GameContext): HTMLElement {
             "이미 니글러로 재직 중입니다. 다음 출근에서 만나요!",
           )
         : el(
-            "button",
-            { class: "nigl-cta", onclick: submit },
-            NIGL_APPLY.submitLabel,
-            el("span", { class: "nigl-cta__arrow" }, "→"),
+            "div",
+            { class: "nigl-apply-box" },
+            // 탈락해도 다시 제출할 수 있게 버튼은 항상 둔다(제출 자체는 누구나 가능).
+            el(
+              "button",
+              { class: "nigl-cta", onclick: submit },
+              NIGL_APPLY.submitLabel,
+              el("span", { class: "nigl-cta__arrow" }, "→"),
+            ),
+            niglRejectLine
+              ? el(
+                  "div",
+                  { class: "nigl-reject" },
+                  el("span", { class: "nigl-reject__tag" }, "서류 탈락"),
+                  el("span", { class: "nigl-reject__text" }, niglRejectLine),
+                )
+              : null,
           ),
     ),
   );
@@ -290,6 +345,8 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
             ctx.ui.auctionSiteOpen = false;
             ctx.ui.dstorySiteOpen = false;
             ctx.ui.niglSiteOpen = false;
+            ctx.ui.historySiteOpen = false;
+            ctx.ui.goedamSiteOpen = false;
             ctx.ui.activeTab = t.id;
             ctx.refresh();
           },
@@ -340,7 +397,11 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
             ? DSTORY_URL
             : ctx.ui.niglSiteOpen
               ? NIGL_URL
-              : activeDef.url;
+              : ctx.ui.historySiteOpen
+                ? "browser://history"
+                : ctx.ui.goedamSiteOpen
+                  ? GOEDAM_URL
+                  : activeDef.url;
 
   const urlbar = el(
     "div",
@@ -356,15 +417,32 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
       onkeydown: (e: Event) => {
         if ((e as KeyboardEvent).key !== "Enter") return;
         const v = (e.target as HTMLInputElement).value.trim();
-        if (v === NIGL_URL) {
-          // 다른 단발 오버레이는 다 닫고 니글니글 지원 화면을 연다.
+        // 단발 오버레이를 전부 닫는 헬퍼(주소창 진입 시 공통).
+        const closeOverlays = (): void => {
           ctx.ui.wishSiteOpen = false;
           ctx.ui.goblinSiteOpen = false;
           ctx.ui.onetSiteOpen = false;
           ctx.ui.auctionSiteOpen = false;
           ctx.ui.dstorySiteOpen = false;
+          ctx.ui.historySiteOpen = false;
+          ctx.ui.niglSiteOpen = false;
+          ctx.ui.goedamSiteOpen = false;
+        };
+        if (v === NIGL_URL) {
+          closeOverlays();
           ctx.ui.niglSiteOpen = true;
+          niglRejectLine = "";
           ctx.refresh();
+        } else if (v === GOEDAM_URL) {
+          // hosts에 goedam.kr 매핑을 넣어 저장했을 때만 실제로 해석된다(그전엔 '찾을 수 없음').
+          if (hostsHasGoedam(ctx.store.getState())) {
+            closeOverlays();
+            ctx.ui.goedamSiteOpen = true;
+            ctx.ui.goedamStoryId = null;
+            ctx.refresh();
+          } else {
+            ctx.toast("페이지를 찾을 수 없습니다");
+          }
         } else {
           ctx.toast("페이지를 찾을 수 없습니다");
         }
@@ -393,6 +471,12 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
   } else if (ctx.ui.niglSiteOpen) {
     // 니글니글 취업 지원 화면(주소창에 NIGL_URL 입력으로만 진입).
     content.append(renderNiglApply(ctx));
+  } else if (ctx.ui.historySiteOpen) {
+    // 방문기록 페이지(⋮ 메뉴로 진입, 탭 이동 시 닫힘).
+    content.append(renderHistory(ctx));
+  } else if (ctx.ui.goedamSiteOpen) {
+    // 괴담 사이트(hosts에 goedam.kr 매핑 후 주소창 입력으로 진입, 탭 이동 시 닫힘).
+    content.append(renderGoedam(ctx));
   } else if (active === "sns") {
     content.append(renderSnsView(ctx));
   } else if (active === "youtube") {

@@ -18,6 +18,23 @@ export const NIGL_URL = "niglnigl.com/apply";
 /** cmd `dir /a`가 드러내는 히든 파일명(`type`으로 열면 NIGL_URL이 나온다) */
 export const NIGL_CMD_FILE = "채용.url";
 
+/**
+ * 채용 합격에 필요한 스탯 문턱(999 스케일).
+ * 지원서 '제출'은 누구나 할 수 있지만, 실제 합격은 IT·지식이 둘 다 이 값을 넘어야 한다.
+ * 근거: d스토리 히든 퍼즐이 IT +160, 도서관/스터디가 지식을 꾸준히 올린다. 꿈의 IT 기업이므로
+ * 그 위의 상위 문턱(300)에 둔다 — 초반 즉시 합격은 막고, 스탯을 키우면 도달 가능한 수준.
+ * ⚠️ systems/employment.canBeHiredByNigl 이 두 값을 읽는다. 판정을 다른 곳에 하드코딩하지 마라.
+ */
+export const NIGL_REQ_IT = 300;
+export const NIGL_REQ_KNOWLEDGE = 300;
+
+/** 스탯 미달로 서류 탈락했을 때의 문구 — ui가 하나 뽑아 인라인/토스트로 쓴다. */
+export const NIGL_REJECT_LINES: string[] = [
+  "아쉽지만 이번엔 함께하지 못하게 됐어요. IT·지식 역량을 좀 더 다져서 다시 지원해 주세요.",
+  "지원서는 잘 받았어요. 다만 니글러가 되기엔 기술·지식 내공이 조금 모자라네요. 성장해서 또 만나요!",
+  "서류 검토 결과 이번엔 인연이 닿지 않았어요. IT와 지식을 더 키운 뒤 문을 두드려 주세요.",
+];
+
 /** 지원서 제출 화면 텍스트 */
 export const NIGL_APPLY: { title: string; intro: string; submitLabel: string } = {
   title: "니글니글 — 인재 지원",

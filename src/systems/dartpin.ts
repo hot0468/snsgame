@@ -1,5 +1,6 @@
 import type { GameState, Tweet } from "@/core/types";
 import { DARTPIN_POSTS, DARTPIN_TWEET_TEMPLATES, type DartpinPost } from "@/data/dartpin";
+import { getActiveAccount } from "@/core/state";
 import { chance, pick, randInt, sample, uid } from "@/utils/random";
 
 /**
@@ -128,4 +129,47 @@ export function getDartpinBoard(state: GameState): DartpinPost[] {
 /** id로 게시물 하나를 찾는다(상세 화면용). 없으면 undefined. */
 export function findDartpinPost(id: string): DartpinPost | undefined {
   return DARTPIN_POSTS.find((p) => p.id === id);
+}
+
+/** 이 글 작성자에게 이미 쪽지를 보냈는지(활성 계정 기준, 중복 방지·버튼 상태용). */
+export function hasDartpinAuthorDM(state: GameState, postId: string): boolean {
+  return getActiveAccount(state).dms.some((t) => t.dartpinHelp === postId);
+}
+
+export type DartpinDMResult = "sent" | "already" | "none";
+
+/**
+ * 다트 핀 글 작성자에게 쪽지를 보낸다 → 작성자의 상세 도움 DM이 활성 계정 쪽지함에 도착한다.
+ * - 글에 `dm` 정의가 없으면 "none"(ui가 일반 반려 토스트를 띄운다).
+ * - 이미 보낸 글이면 "already"(중복 스레드를 만들지 않는다).
+ * - 처음이면 스레드를 만들어 unshift하고 "sent".
+ *
+ * 스레드는 일반 대화로 렌더된다(플래그 없음). 첫 줄은 플레이어 질문(me), 그 뒤가 작성자 답장(partner).
+ */
+export function sendDartpinAuthorDM(state: GameState, post: DartpinPost): DartpinDMResult {
+  if (!post.dm) return "none";
+  if (hasDartpinAuthorDM(state, post.id)) return "already";
+
+  const day = state.day;
+  const messages = [
+    { id: uid("dmm"), from: "me" as const, text: post.dm.question, day },
+    // 빈 줄(간격용)은 버블에선 버린다 — 각 줄이 하나의 말풍선이 된다.
+    ...post.dm.reply
+      .filter((line) => line.trim().length > 0)
+      .map((line) => ({ id: uid("dmm"), from: "partner" as const, text: line, day })),
+  ];
+
+  getActiveAccount(state).dms.unshift({
+    id: uid("dm"),
+    partnerName: post.dm.name,
+    partnerHandle: post.dm.handle,
+    attribute: "daily",
+    isAdult: false,
+    messages,
+    unread: true,
+    metOffline: false,
+    wantsToMeet: false,
+    dartpinHelp: post.id,
+  });
+  return "sent";
 }

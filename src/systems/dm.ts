@@ -11,6 +11,7 @@ import {
 import { MAX_SKILL } from "@/data/stats";
 import { pick, randInt, uid, chance } from "@/utils/random";
 import { changeFollowers } from "./followers";
+import { bumpTchinProgress } from "./tchin";
 import { clampResource, clampSkill } from "./stats";
 
 /**
@@ -383,6 +384,8 @@ export function replyDM(state: GameState, thread: DMThread, tone: DMTone): DMRep
   thread.messages.push({ id: uid("dmm"), from: "me", text: myText, day: state.day });
   thread.messages.push({ id: uid("dmm"), from: "partner", text: partnerText, day: state.day });
   thread.unread = false;
+  // DM 답장도 상대와의 상호작용 — 트친 누적에 센다.
+  bumpTchinProgress(state, thread.partnerHandle);
 
   let followerDelta = 0;
   applyToneEffects(state, tone);
@@ -426,6 +429,7 @@ export function replyDM(state: GameState, thread: DMThread, tone: DMTone): DMRep
 /** 자유 입력 메시지 전송(간단 응답, 특별 효과 없음) */
 export function sendCustomDM(state: GameState, thread: DMThread, text: string): void {
   thread.messages.push({ id: uid("dmm"), from: "me", text, day: state.day });
+  bumpTchinProgress(state, thread.partnerHandle);
   thread.messages.push({
     id: uid("dmm"),
     from: "partner",

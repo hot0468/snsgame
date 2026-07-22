@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createInitialState } from "@/core/state";
-import { DSTORY_POSTS, IPCONFIG_LINES, LOCAL_IPV4 } from "@/data/dstory";
+import { DSTORY_POSTS, HOSTS_LINES, HOSTS_PW, IPCONFIG_LINES, LOCAL_IPV4 } from "@/data/dstory";
 import { DSTORY_IT_GAIN, isDstoryDone, tryUnlockDstoryPost } from "@/systems/dstory";
 
 /**
@@ -12,8 +12,8 @@ import { DSTORY_IT_GAIN, isDstoryDone, tryUnlockDstoryPost } from "@/systems/dst
  * 2. **보상 중복 수령 방지** — 같은 글을 두 번 풀어도 IT는 한 번만 오른다.
  */
 
-/** 글1 = F12(개발자 도구 Console), 글2 = IPv4(cmd ipconfig) */
-const [post1, post2] = DSTORY_POSTS;
+/** 글1 = F12(개발자 도구 Console), 글2 = IPv4(cmd ipconfig), 글3 = hosts(메모장) */
+const [post1, post2, post3] = DSTORY_POSTS;
 
 describe("tryUnlockDstoryPost", () => {
   it("정답이면 true — 목록에 id가 추가되고 IT가 +80 된다", () => {
@@ -69,6 +69,14 @@ describe("정답 소스 일치 — 게시글과 그 정답을 출력하는 화�
     expect(IPCONFIG_LINES.join("\n")).toContain(post2.password);
   });
 
+  it("글3의 정답(HOSTS_PW)이 메모장 hosts 파일 내용에 실제로 포함된다", () => {
+    expect(HOSTS_LINES.join("\n")).toContain(HOSTS_PW);
+  });
+
+  it("글3의 정답은 hosts 파일에서 읽어낼 수 있다", () => {
+    expect(HOSTS_LINES.join("\n")).toContain(post3.password);
+  });
+
   it("게시글 정답에 빈 문자열이 없다 (빈 비번은 아무 입력이나 통과시킨다)", () => {
     for (const p of DSTORY_POSTS) expect(p.password.trim().length).toBeGreaterThan(0);
   });
@@ -85,7 +93,7 @@ describe("isDstoryDone", () => {
     expect(isDstoryDone(s)).toBe(false);
   });
 
-  it("두 글을 다 풀었을 때만 true", () => {
+  it("세 글을 다 풀었을 때만 true", () => {
     const s = createInitialState();
     for (const p of DSTORY_POSTS) tryUnlockDstoryPost(s, p.id, p.password);
     expect(isDstoryDone(s)).toBe(true);

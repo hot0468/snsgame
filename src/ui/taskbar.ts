@@ -6,6 +6,7 @@ import { el } from "@/utils/dom";
 import { icon } from "./icons";
 import { renderKakaoListView } from "./kakaoListView";
 import { renderWorkMessengerView } from "./workMessengerView";
+import { renderNotepad } from "./notepad";
 
 /**
  * 하단 작업표시줄.
@@ -39,6 +40,17 @@ export function renderTaskbar(ctx: GameContext): HTMLElement {
     },
     el("span", { class: "taskbar-kakao__icon taskbar-work__icon" }, icon("mail", { size: 16 })),
     hasPendingWorkMsg(s) ? el("span", { class: "taskbar-kakao__badge" }) : null,
+  );
+
+  // 메모장 — 윈도우 메모장 소품(파일>열기로 hosts를 열면 글3 비밀번호가 드러난다).
+  const memoBtn = el(
+    "button",
+    {
+      class: "taskbar-kakao taskbar-memo",
+      title: "메모장",
+      onclick: () => ctx.openModal(renderNotepad),
+    },
+    el("span", { class: "taskbar-kakao__icon taskbar-memo__icon" }, icon("article", { size: 16 })),
   );
 
   const startBtn = el(
@@ -83,7 +95,7 @@ export function renderTaskbar(ctx: GameContext): HTMLElement {
     "footer",
     { class: "taskbar" },
     el("div", { class: "taskbar__left" }, startBtn),
-    el("div", { class: "taskbar__center" }, kakaoBtn, workBtn),
+    el("div", { class: "taskbar__center" }, kakaoBtn, workBtn, memoBtn),
     el("div", { class: "taskbar__right" }, clockBtn),
   );
 }

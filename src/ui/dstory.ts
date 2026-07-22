@@ -86,6 +86,44 @@ function listPage(ctx: GameContext): HTMLElement {
   );
 }
 
+/**
+ * 비밀번호를 푼 순간 IT 스탯이 올랐음을 알리는 알림창(공통 .modal 스킨 재사용).
+ * 보상 지급은 이미 systems/dstory.tryUnlockDstoryPost가 끝냈다 — 여기선 알림만 띄운다.
+ */
+function showItGainAlert(ctx: GameContext): void {
+  ctx.openModal((c) =>
+    el(
+      "div",
+      { class: "modal" },
+      el(
+        "div",
+        { class: "modal__head" },
+        el("span", { class: "modal__head-title" }, "🔓 IT 스탯 상승!"),
+        el("button", { class: "popup__close", onclick: () => c.closeModal() }, "✕"),
+      ),
+      el(
+        "div",
+        { class: "modal__body" },
+        el(
+          "p",
+          { style: "font-size:14px;line-height:1.6;margin:0 0 10px" },
+          "d스토리의 잠긴 글을 풀었다! 개발 지식이 한 뼘 자랐다.",
+        ),
+        el(
+          "p",
+          { style: "font-size:15px;font-weight:800;color:var(--accent);margin:0 0 16px" },
+          `IT +${DSTORY_IT_GAIN}`,
+        ),
+        el(
+          "div",
+          { class: "compose-actions" },
+          el("button", { class: "btn", onclick: () => c.closeModal() }, "확인"),
+        ),
+      ),
+    ),
+  );
+}
+
 /* ===================== 잠김 화면 ===================== */
 
 function lockedPage(ctx: GameContext, post: DstoryPost): HTMLElement {
@@ -109,7 +147,9 @@ function lockedPage(ctx: GameContext, post: DstoryPost): HTMLElement {
     if (ok) {
       // 상태가 바뀌었으므로 store 구독이 알아서 본문으로 다시 그린다.
       pendingPw = "";
-      ctx.toast(`IT +${DSTORY_IT_GAIN}`);
+      // IT 스탯 상승을 알림창(모달)으로 알린다. 오버레이 위 모달은 activeTab을
+      // 건드리지 않으므로 닫아도 d스토리가 그대로 남는다(퍼즐 전제 유지).
+      showItGainAlert(ctx);
     } else {
       ctx.toast("비밀번호가 맞지 않습니다");
     }

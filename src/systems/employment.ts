@@ -2,7 +2,7 @@ import type { Email, GameState } from "@/core/types";
 import type { JobPosting } from "@/data/jobs";
 import { MORNING_SLOT } from "@/core/state";
 import { TIERS } from "@/data/jobs";
-import { NIGL_COMPANY } from "@/data/niglnigl";
+import { NIGL_COMPANY, NIGL_REQ_IT, NIGL_REQ_KNOWLEDGE } from "@/data/niglnigl";
 import { chance, uid } from "@/utils/random";
 import { isLastDayOfMonth, isWeekday } from "./calendar";
 import { certJobBonus } from "./certification";
@@ -181,6 +181,14 @@ export function acceptJobOffer(state: GameState, emailId: string): void {
 export function switchToCompanyJob(state: GameState, emailId: string): void {
   quitCurrentJob(state);
   acceptJobOffer(state, emailId);
+}
+
+/**
+ * 니글니글 채용 합격 조건 — IT·지식이 둘 다 문턱(data/niglnigl)을 넘어야 한다.
+ * 지원서 '제출'은 누구나 가능하지만, 합격(hireNigl 호출) 여부는 이 판정에 달렸다.
+ */
+export function canBeHiredByNigl(state: GameState): boolean {
+  return state.skills.it >= NIGL_REQ_IT && state.skills.knowledge >= NIGL_REQ_KNOWLEDGE;
 }
 
 /**

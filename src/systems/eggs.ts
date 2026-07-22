@@ -6,6 +6,7 @@ import { changeFollowers, maxPostSlots } from "./followers";
 import { pushKakao } from "./kakao";
 import { clampSkill } from "./stats";
 import { maybeSpawnGroupRoomInviteDM } from "./groupRoom";
+import { bumpTchinProgress } from "./tchin";
 
 /**
  * 이스터에그·특수 이벤트 로직.
@@ -115,6 +116,8 @@ export function consumePostSlot(state: GameState): void {
 /** 남 계정과의 상호작용(좋아요+리트윗)을 누적해 '찐친'을 판정한다. */
 function bumpEngage(state: GameState, tweet: Tweet): void {
   const h = tweet.authorHandle;
+  // 트친(단짝) 누적도 좋아요/RT를 상호작용으로 센다(성사 시 pendingTchinToasts에 쌓임).
+  bumpTchinProgress(state, h);
   const n = (state.eggs.authorEngage[h] ?? 0) + 1;
   state.eggs.authorEngage[h] = n;
   if (n === 5 && fire(state, `bff:${h}`)) {

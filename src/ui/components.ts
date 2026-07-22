@@ -284,6 +284,8 @@ export function tweetCard(tweet: Tweet, opts: TweetCardOpts = {}): HTMLElement {
           ? garbleText(tweet.text, tweet.difficulty, opts.readerVocab)
           : tweet.text,
       ),
+      // 인용 트윗(QRT)이면 원문을 인용 카드로 박아 보여준다.
+      tweet.quoted ? quotedCard(tweet.quoted) : null,
       tweet.media ? mediaBlock(tweet, opts.onMedia) : null,
       eventBox(tweet, opts.onJoinEvent),
       el(
@@ -296,6 +298,21 @@ export function tweetCard(tweet: Tweet, opts: TweetCardOpts = {}): HTMLElement {
       ),
       renderReactions(tweet, ctx, opts.forceMentions),
     ),
+  );
+}
+
+/** 인용 트윗(QRT)의 원문 카드 — 내 코멘트 아래 원문을 축약해 박는다. */
+function quotedCard(q: NonNullable<Tweet["quoted"]>): HTMLElement {
+  return el(
+    "div",
+    { class: "quote-card" },
+    el(
+      "div",
+      { class: "quote-card__head" },
+      el("span", { class: "quote-card__name" }, q.authorName),
+      el("span", { class: "quote-card__handle" }, `@${q.authorHandle}`),
+    ),
+    el("p", { class: "quote-card__text" }, q.text),
   );
 }
 
