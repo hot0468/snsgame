@@ -75,6 +75,15 @@ snsgame의 규칙은 `src/systems/`(순수 로직)과 `src/core/`(엔진)에 산
 - ⚠️ **새 출처를 만들면 `resolveItem`의 인덱스에 추가하는 것을 잊지 마라.** 빠뜨리면 typecheck는 통과하고, 그 아이템만 인벤토리에서 안 보이고 팔리지도 않는다.
 - `systems/adMail.ts:85`에 `SHOP_ITEMS.find(...) ?? cosmeticById(...)`라는 **부분** 리졸버가 따로 있다(도깨비를 놓친다). 광고메일이 그 둘만 오퍼하고 `ShopItem` 자체를 반환해야 해서 의도적으로 통합하지 않았다 — **정규형으로 바꾸려 하지 마라.**
 
+## ⚠️ 무한 누적 배열 금지 — 상한 + 누적 카운터
+
+게임은 수백 일 이어지고 상태 전체가 `JSON.stringify` 한 방으로 localStorage(~5MB)에 저장된다. **플레이 시간에 비례해 자라는 배열**(게시 트윗·메일·카톡·DM 등)을 상한 없이 두면 ① 전체 재렌더가 전량을 DOM으로 그려 렉이 끼고 ② 쿼터 초과로 `saveGame`이 조용히 `false`를 리턴해 **유저 모르게 저장이 죽는다**. 규칙:
+
+- **게시 트윗은 반드시 `pushTimeline(account, tweet)`(core/state.ts)을 거쳐라.** `timeline.unshift` 직접 호출 금지 — 헬퍼가 `postCount`(총 게시물 수) 증가와 `TIMELINE_MAX`(300) 컷을 함께 보장한다. 실제로 8곳(tweetSystem×2·drunk·events·quote·shop·spam·리트윗)이 각자 unshift를 불러 전부 캡을 우회한 전적이 있다. `__tests__/timelineCap.test.ts`가 불변식을 고정한다.
+- **"총 몇 개" 표시가 배열 길이에 묶여 있으면 분리하라.** 배열을 자르는 순간 그 숫자가 멈춘다 — 누적 카운터(int)를 따로 두라(`postCount` 선례).
+- **새 누적형 배열을 설계할 때**(알림 이력·거래 로그 등): 추가 지점을 헬퍼 하나로 묶고, 그 안에서 상한을 걸어라. "나중에 자르지"는 8곳으로 흩어진 뒤에는 못 자른다.
+- 구세이브 호환: 잘린 배열에서 파생 못 하는 값(누적 카운터)은 `sanitize()`에서 `??= 현재 배열 길이`로 하한 백필.
+
 ## 선언형 효과 처리 (data와의 계약)
 
 `data/`의 이벤트·만남은 `EventEffect`를 선언만 한다. **적용 로직은 `systems/events.ts`가 단일 지점에서 해석**한다:
@@ -114,17 +123,13 @@ snsgame의 규칙은 `src/systems/`(순수 로직)과 `src/core/`(엔진)에 산
 - ⚠️ **typecheck 통과는 최소 기준이지 증명이 아니다.** 클램프 오분류·결정론 위반·스케일 환산 누락은 전부 typecheck를 통과한다. 밸런스·확률·상한을 건드렸다면 **반드시 런타임으로 구동해 수치를 확인**하라(`game-integration-qa` 스킬의 헤드리스 구동 참조).
 - 상수를 시뮬레이션할 땐 **소스에서 import해서 읽어라.** 스크립트에 값을 하드코딩하면 실제와 다른 걸 재고도 통과한다(실제로 그 실수가 있었다).
 
-## 파일 지도
+## 파일 지도 (비자명한 진입점)
 
-| 영역 | 파일 |
+파일 위치의 **공통 규약(`systems/{기능}.ts`, 엔진은 `core/`)은 `CLAUDE.md`의 파일 지도**를 따른다. 여기엔 규약만으론 못 찾는 **여러 파일에 걸친 로직·특수 심볼**만 둔다:
+
+| 영역 | 진입점 |
 |------|------|
-| 팔로워/성과 계산 | `systems/followers.ts`, `systems/tweetSystem.ts` |
-| 이벤트 효과 적용 | `systems/events.ts` (EventEffect·customKey 해석) |
-| 오프라인/활동 | `systems/offline.ts`, `systems/appointments.ts`, `systems/employment.ts` |
-| 시간/스케줄 | `systems/time.ts`, `systems/calendar.ts` |
-| 경제/상점/가챠 | `systems/economy.ts`, `systems/shop.ts`, `systems/gacha.ts`, `systems/loan.ts` |
-| 보유 아이템·인벤토리·판매 | `systems/shop.ts` (`resolveItem`·`ownedInventory`·`sellOwnedItem` — 4종 출처 정규화) |
-| 엔딩 | `systems/endings.ts` (`ENDING_OFFERS`) + `core/state.ts` (`*_ENDING_REASON`·`CELEBRATORY_ENDING_TITLES`) |
-| DM/만남/크루 | `systems/dm.ts`, `systems/meeting.ts`, `systems/crew.ts` |
-| 저장/불러오기 | `systems/save.ts` |
-| 엔진(타입·상태·스토어) | `core/types.ts`, `core/state.ts`, `core/store.ts` |
+| 팔로워/성과 계산 | `systems/followers.ts` + `systems/tweetSystem.ts` (두 곳 분산) |
+| 이벤트 효과 적용 | `systems/events.ts`의 `CUSTOM_EFFECTS` (customKey 해석 단일 지점) |
+| 보유 아이템·인벤토리·판매 | `systems/shop.ts`의 `resolveItem`·`ownedInventory`·`sellOwnedItem` (4종 출처 정규화 — 새 출처는 반드시 `resolveItem`에 등록) |
+| 엔딩 | `systems/endings.ts`(`ENDING_OFFERS`) + `core/state.ts`(`*_ENDING_REASON`·`CELEBRATORY_ENDING_TITLES`) |

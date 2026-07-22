@@ -43,21 +43,20 @@ snsgame의 콘텐츠는 `src/data/`에 **선언형 데이터**로 산다. 규칙
 - **컬럼마다 흩어라.** 조회수만 고치면 이번엔 추천수로 뚫린다(실제로 그랬다).
 - 숫자는 **소재의 개연성**으로 정하라. 맞추려고 억지로 올리면 소재와 숫자가 따로 놀아 그게 또 표시가 된다.
 
-## 파일 지도 (무엇이 어디에)
+## 파일 지도 (핵심 인터페이스)
+
+파일 위치의 **공통 규약(`data/{기능}.ts`)과 예외(categories·relChars·events customKey·resolveItem)는 `CLAUDE.md`의 파일 지도**를 따른다. 여기엔 콘텐츠 작업 시 **어느 인터페이스를 채워야 하는지**만 둔다:
 
 | 콘텐츠 | 파일 | 핵심 인터페이스 |
 |--------|------|----------------|
 | 트윗 문구 템플릿 | `data/tweets.ts`, `data/longTweets.ts`, `data/tweetSets.ts` | 속성별 문구 |
 | 이벤트(선택지) | `data/events.ts` | `GameEvent` / `EventChoice` / `EventEffect` |
-| 만남 시나리오(웹소설) | `data/meetings.ts` | `MeetingScenario` (pages + choices) |
+| 만남 시나리오(웹소설) | `data/meetings.ts` (**4천 줄+ — 통째 Read 금지.** Grep으로 유사 시나리오 위치를 찾아 그 구간만 offset/limit로 읽어라) | `MeetingScenario` (pages + choices) |
 | 랜덤 계정·트윗 생성 | `data/accounts.ts` | 계정 페르소나 |
 | 속성·궁합표 | `data/attributes.ts` | `AttributeId` 매핑 |
 | 스탯 정의 | `data/stats.ts` | `StatId` 라벨 |
-| 도서/미디어/영상 | `data/books.ts`, `data/media.ts`, `data/videos.ts`, `data/mediaTweets.ts` | 각 파일 상단 |
-| 반응·컨트로버시·트렌드 | `data/reactions.ts`, `data/controversies.ts`, `data/trends.ts` | 각 파일 상단 |
-| 쇼핑·집·직업·식료품 등 | `data/shop.ts`, `data/housing.ts`, `data/jobs.ts`, `data/grocery.ts` 등 | 각 파일 상단 |
 
-새 카테고리 콘텐츠는 `data/categories/` 하위에 있을 수 있으니 유사 파일을 먼저 grep한다.
+그 외 콘텐츠(도서·미디어·반응·쇼핑 등)는 규약대로 `data/{기능}.ts`이며 스키마는 각 파일 상단을 따른다. 새 카테고리 콘텐츠는 `data/categories/` 하위일 수 있으니 유사 파일을 먼저 확인한다.
 
 ## 공유 효과 스키마 — `EventEffect`
 

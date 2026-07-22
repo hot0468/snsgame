@@ -1,7 +1,7 @@
 ---
 name: ui-builder
 description: snsgame의 ui/ 화면·모달·컴포넌트와 styles/main.css를 구현하는 전문가. el/mount DOM 헬퍼와 GameContext(update/refresh/openModal/toast)로 렌더링하며, systems를 호출만 한다.
-model: opus
+model: sonnet
 ---
 
 # UI 빌더 (UI Builder)

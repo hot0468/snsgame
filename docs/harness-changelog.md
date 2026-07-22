@@ -1,0 +1,21 @@
+# 하네스 변경 이력 (전체)
+
+CLAUDE.md에서 이전한 하네스(에이전트·스킬·오케스트레이터) 변경 이력 전문이다.
+CLAUDE.md는 모든 세션·서브에이전트 컨텍스트에 로드되므로, 이력 전문은 여기에 쌓고
+CLAUDE.md에는 포인터만 둔다. **새 항목은 이 표의 맨 위에 추가하라.**
+
+| 날짜 | 변경 내용 | 대상 | 사유 |
+|------|----------|------|------|
+| 2026-07-22 | 계획서 작업 수칙 신설 — ① 태스크 완료 시 계획서 체크박스 `- [x]` 즉시 갱신, ② 계획서 기반 '이어하기'는 규모 무관 솔로 계속(팀 경로 조건에 해당해도 팀 재부팅 금지) | CLAUDE.md | 트윗 재미 팩 A/B/C 완료 후 체크박스 0개 갱신 상태로 세션이 끊겨, 재개 세션이 파일 존재·심볼 참조·테스트를 역추적(툴 호출 ~6회)해 중단 지점을 재구성했다. 또 비용 게이트 문구상 모듈 D(2계층+타입 확장)는 팀 경로였으나, 조사를 이미 마친 재개 상황에선 솔로가 명백히 쌌다 — 게이트에 이어하기 예외가 없어 다음 재개 세션이 팀을 부팅할 함정이 있었음 |
+| 2026-07-22 | 토큰 수칙 추가 + 변경 이력을 이 파일로 이전 + 점진적 QA를 조건부로 완화(snsgame-dev와 game-integration-qa 양쪽 정합 — 한쪽만 고치면 반대 지시가 남는다) | CLAUDE.md, snsgame-dev, game-integration-qa, game-ui-dev, game-content-authoring | CLAUDE.md(7.8KB)가 모든 서브에이전트 컨텍스트에 로드되는데 절반이 이력 테이블이었음. main.css 11,778줄·meetings.ts 4,280줄을 통째 Read하면 한 번에 수만 토큰. 모듈마다 QA 소집으로 팀 작업당 QA 다회 부팅 |
+| 2026-07-22 | 누적 데이터 절벽 수정 + 규칙 고정 — ① `pushTimeline` 헬퍼(core/state)로 게시 트윗 8곳 unshift를 통일(`TIMELINE_MAX`=300 컷 + `postCount` 누적 카운터), ② 홈 피드·프로필 게시물 렌더 윈도잉(`FEED_PAGE`=30 + "더 보기"), ③ 게시물 수 표시를 `postCount`로, ④ 구세이브 백필, ⑤ 회귀 테스트(`timelineCap.test.ts`) | core/state·types, systems(tweetSystem·drunk·events·quote·shop·spam·exploreSystem·save), ui(context·snsView·snsPages·main.css), game-systems-dev, game-ui-dev | 무한 누적 배열 + 전량 렌더 + 상태 통째 직렬화 → 장시간 플레이에서 상호작용마다 렉 + localStorage 쿼터 초과로 저장 조용히 실패. 8곳이 각자 `timeline.unshift`를 불러 캡을 우회하던 걸 헬퍼로 원천 차단 |
+| 2026-07-22 | `game-ui-dev`에 "전체 재렌더 모델" 규칙 신설 — DOM 휘발성 상태 소실 전제 + 우회 5규칙(UIState에 상태 보관·모달 노드 캐시·입력 폼·스크롤 보존) | game-ui-dev | 프레임워크 없는 `root.replaceChildren` 전체 재렌더에서 깜빡임·스크롤 리셋·입력 소실·재진입이 각각 따로 버그로 터진 뒤 패치됐고, 새 에이전트가 이 전제를 몰라 같은 버그를 재도입할 위험 |
+| 2026-07-22 | 티어링 실효화 + 파일 지도 중복 제거 — ① `content-author.md`·`ui-builder.md` 프론트매터 `model: opus`→`sonnet`(스킬 문구만 바꿔선 안 먹혔음), ② 서브스킬 3곳 파일 지도를 공통 규약은 CLAUDE.md 위임·계층별 비자명 정보만 유지로 축소 | agents/*, game-content-authoring, game-systems-dev, game-ui-dev | 에이전트 정의가 opus를 강제해 티어링이 무효였고, 파일 지도가 4곳에 흩어져 파일 증가 시 서로 어긋날 위험(drift) |
+| 2026-07-22 | 비용 게이트 3종 도입 — ① 작업 크기 게이트(솔로 기본, 2계층+만 팀), ② 통합 파일 지도(명명 규약+예외) 상단 신설, ③ 모델 티어링(content-author·ui-builder=sonnet, systems·QA=opus) | CLAUDE.md, snsgame-dev | 기능 추가마다 트윗 1개에도 4인 Opus 팀을 부팅하고, 새 에이전트가 269개 파일을 grep으로 재발견하고, 창작·DOM 조립까지 전부 opus로 돌려 시간·토큰이 과다 소모됨 |
+| 2026-07-17 | `_workspace/` 회전 지시 삭제 — 기능별 계약서 아카이브로 정정 | snsgame-dev | Phase 0이 "새 입력이면 `_workspace/`→`_workspace_prev/`로 이동"을 시켰으나, 실제로는 `{기능}_contract.md`가 쌓이는 아카이브다. 회전은 이득 없이 `_workspace_prev/`의 과거 계약서를 파괴한다. 실무는 이미 이 지시를 버렸고(회전 1회 후 계약서 12개 누적) 문서만 남아 다음 실행을 오도하고 있었음. 산출물 파일명 규칙도 실제(`{기능}_contract.md`)와 달라(`{phase}_{agent}_{artifact}.md`) 함께 정정 |
+| 2026-07-17 | `ownedItems` 평면 배열·shape 2종·`resolveItem` 리졸버를 스킬에 고정 (+ 파일 지도에 인벤토리·엔딩 행) | game-systems-dev | 서랍장·피망마켓 판매·광고메일이 전부 같은 함정에 걸렸다. id만 담긴 `string[]` 하나에 `ShopItem`(단수 `boost`)과 `GoblinItem`(복수 `boosts`) 두 shape이 섞여 있어, 새 출처를 리졸버에 등록하지 않으면 typecheck는 통과하고 그 아이템만 조용히 인벤토리에서 사라진다 |
+| 2026-07-17 | vitest 도입 + 회귀 테스트 35개 (`npm test`) | package.json, tsconfig, src/__tests__ | 검증 하네스가 매번 일회용 esbuild 스크립트였음. 오늘 잡힌 버그(야근률 역전·클램프 오분류·월급 등급 무관·세이브 NaN)를 고정 |
+| 2026-07-17 | 반복 재발견되던 도메인 지식을 스킬에 고정 (스탯 스케일 999/×5/×10, clamp 3분리, 결정론, 세이브 폴백, 달력 전제, 패러디 작명, 콘텐츠-코드 대조, 힌트 수치 위장, 화면 그릇 3종, 광고 라벨) | game-systems-dev, game-integration-qa, game-content-authoring, game-ui-dev | 매 기능마다 새 에이전트가 같은 사실을 grep으로 재발견하고 오케스트레이터가 계약서에 손으로 다시 적고 있었음 |
+| 2026-07-17 | `game-run` 스킬 추가 (브라우저 실행·구동·스크린샷) | 스킬 | typecheck·build로는 여백·정렬 등 화면을 검증할 수 없어, 실제로 띄워 클릭하는 경로를 고정 |
+| 2026-07-16 | 게임명을 "팔로워 100만명 모으기"로 갱신 | CLAUDE.md, snsgame-dev, game-content-authoring | FOLLOWER_GOAL이 1,000,000인데 문서·스킬 설명만 10만으로 남아 있었음 |
+| 2026-07-15 | 초기 구성 (에이전트 4 + 스킬 4 + 오케스트레이터 1) | 전체 | - |

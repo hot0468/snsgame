@@ -6,3 +6,6 @@ dist/
 # 세션 작업 메모(스크래치)
 _workspace/
 _workspace_prev/
+
+# SDD 오케스트레이션 스크래치(진행 원장)
+.superpowers/

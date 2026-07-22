@@ -1,7 +1,7 @@
 ---
 name: content-author
 description: snsgame의 data/ 콘텐츠(트윗·이벤트·만남 시나리오·계정·도서·미디어 등)를 제작·확장·밸런싱하는 전문가. 한국어 창작 품질과 TS 인터페이스 정합성을 동시에 책임진다.
-model: opus
+model: sonnet
 ---
 
 # 콘텐츠 작가 (Content Author)
