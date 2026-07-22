@@ -2672,6 +2672,15 @@ body {
   color: var(--text);
 }
 
+.nav-account__tchin {
+  font-size: 11px;
+  color: var(--accent, #1d9bf0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
 .nav-account--active {
   background: rgba(15, 20, 25, 0.06);
 }
@@ -2780,6 +2789,14 @@ body {
 
 .feed__tab:hover {
   background: rgba(15, 20, 25, 0.04);
+}
+
+/* 피드 '더 보기' — 긴 타임라인을 잘라 그린 뒤 남은 분을 마저 펼치는 전폭 버튼 */
+.feed__more {
+  display: block;
+  width: 100%;
+  margin: 8px 0;
+  padding: 12px;
 }
 
 .feed__tab-label {
@@ -9118,6 +9135,289 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
   color: #fff;
 }
 
+/* ── 메모장(윈도우 노트패드 소품) ───────────────────────────
+   .modal--win(창 크롬)을 베이스로, 메뉴바 + 흰 편집 영역을 얹는다.
+   내부 상태(문서·타이틀·메뉴/대화상자)는 ui/notepad.ts가 직접 DOM으로 관리한다. */
+.modal--notepad {
+  width: min(720px, 100%);
+  display: flex;
+  flex-direction: column;
+}
+
+.np-menubar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 26px;
+  padding: 0 4px;
+  background: #f3f3f3;
+  border-bottom: 1px solid #e2e2e2;
+}
+
+.np-menubar__item {
+  padding: 3px 9px;
+  border: none;
+  background: transparent;
+  color: #1c1c1c;
+  font-size: 12.5px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.np-menubar__item:hover {
+  background: #e5e5e5;
+}
+
+.np-menubar__item--dim {
+  color: #9a9a9a;
+  cursor: default;
+}
+
+.np-menubar__item--dim:hover {
+  background: transparent;
+}
+
+/* 편집 영역 + 오버레이(메뉴/대화상자)를 담는 상대배치 컨테이너 */
+.np-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.np-text {
+  display: block;
+  width: 100%;
+  height: min(58vh, 420px);
+  padding: 8px 10px;
+  border: none;
+  outline: none;
+  resize: none;
+  background: #ffffff;
+  color: #1c1c1c;
+  font-family: Consolas, "D2Coding", "Courier New", monospace;
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow: auto;
+}
+
+/* 오버레이: 비어 있을 땐 입력을 막지 않도록 pointer-events를 끈다.
+   메뉴/대화상자 백드롭만 auto로 되살려 클릭을 받는다. */
+.np-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.np-menu-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+}
+
+.np-menu {
+  position: absolute;
+  top: 0;
+  left: 2px;
+  z-index: 2;
+  min-width: 200px;
+  padding: 4px 0;
+  background: #ffffff;
+  border: 1px solid #c8c8c8;
+  border-radius: 6px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+  pointer-events: auto;
+}
+
+.np-menu__item {
+  display: block;
+  width: 100%;
+  padding: 6px 16px;
+  border: none;
+  background: transparent;
+  color: #1c1c1c;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.np-menu__item:hover {
+  background: #e8f0fe;
+}
+
+.np-menu__item--dim {
+  color: #a2a2a2;
+  cursor: default;
+}
+
+.np-menu__sep {
+  height: 1px;
+  margin: 4px 0;
+  background: #e2e2e2;
+}
+
+/* ── 열기 대화상자(윈도우 파일 선택창) ── */
+.np-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.28);
+  pointer-events: auto;
+}
+
+.np-dlg {
+  width: min(460px, 92%);
+  background: #f0f0f0;
+  border: 1px solid #7a7a7a;
+  border-radius: 6px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.np-dlg__titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 28px;
+  padding: 0 6px 0 10px;
+  background: #0a5bd3;
+}
+
+.np-dlg__titlebar-text {
+  color: #fff;
+  font-size: 12.5px;
+}
+
+.np-dlg__titlebar-x {
+  width: 30px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.np-dlg__titlebar-x:hover {
+  background: #c42b1c;
+}
+
+.np-dlg__loc {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 6px;
+  font-size: 12px;
+  color: #333;
+}
+
+.np-dlg__loc-path {
+  padding: 3px 10px;
+  background: #fff;
+  border: 1px solid #c8c8c8;
+  border-radius: 4px;
+}
+
+.np-dlg__files {
+  height: 150px;
+  margin: 0 12px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #c8c8c8;
+  overflow-y: auto;
+}
+
+.np-dlg__empty {
+  height: 100%;
+}
+
+.np-dlg__file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+  color: #1c1c1c;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.np-dlg__file:hover {
+  background: #f0f5ff;
+}
+
+.np-dlg__file--on {
+  background: #cce4ff;
+}
+
+.np-dlg__field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 0;
+}
+
+.np-dlg__field:last-of-type {
+  padding-bottom: 12px;
+}
+
+.np-dlg__field-label {
+  flex-shrink: 0;
+  width: 78px;
+  font-size: 12px;
+  color: #333;
+}
+
+.np-dlg__name {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid #7a7a7a;
+  border-radius: 4px;
+  font-size: 12.5px;
+}
+
+.np-dlg__type {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid #7a7a7a;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 12.5px;
+}
+
+.np-dlg__btn {
+  flex-shrink: 0;
+  width: 72px;
+  padding: 5px 0;
+  border: 1px solid #adadad;
+  border-radius: 4px;
+  background: #e1e1e1;
+  color: #1c1c1c;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.np-dlg__btn:hover {
+  background: #d5d5d5;
+}
+
+.np-dlg__btn--primary {
+  border-color: #0a5bd3;
+  background: #0a5bd3;
+  color: #fff;
+}
+
+.np-dlg__btn--primary:hover {
+  background: #0a4fb8;
+}
+
 /* ── 명령 프롬프트 ─────────────────────────── */
 .modal--cmd {
   width: min(680px, 100%);
@@ -9659,6 +9959,21 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
   border-radius: 3px;
 }
 
+.dp__msg-btn {
+  padding: 6px 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #fff;
+  background: #e8283c;
+  border: 1px solid #e8283c;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.dp__msg-btn:hover {
+  background: #cf1f30;
+}
+
 .dp__list-btn {
   margin-left: auto;
   padding: 6px 18px;
@@ -9947,6 +10262,334 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
 .settings-popover__key {
   color: var(--text-muted);
   font-size: 12px;
+}
+
+/* ===================== 니글니글 지원 결과(서류 탈락) =====================
+   지원 화면은 다크 히어로라 밝은 톤 대신 반투명 붉은 톤으로 얹는다. */
+.nigl-apply-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.nigl-reject {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  max-width: 460px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 120, 150, 0.35);
+  background: rgba(224, 36, 94, 0.12);
+}
+
+.nigl-reject__tag {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(224, 36, 94, 0.9);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.nigl-reject__text {
+  color: rgba(255, 224, 232, 0.92);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+/* ===================== 피메일 선택 액션바(읽음 표시) ===================== */
+.mail__actionbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.mail__actionbar-count {
+  margin-right: auto;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.mail__actionbar-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mail__actionbar-btn:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.mail__actionbar-btn--ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+.mail__actionbar-btn--ghost:hover {
+  background: var(--bg-window);
+  border-color: var(--text-muted);
+}
+
+/* ===================== 방문 기록(크롬 history 풍) ===================== */
+.hist {
+  min-height: 100%;
+  background: var(--bg-window);
+  color: var(--text);
+}
+
+.hist__head {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 26px;
+  border-bottom: 1px solid var(--border);
+}
+
+.hist__title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.hist__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  max-width: 520px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.hist__search-icon {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.hist__body {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 18px 26px 40px;
+}
+
+.hist__daygroup {
+  padding: 12px 4px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.hist__list {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.hist-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.hist-row:last-child {
+  border-bottom: none;
+}
+
+.hist-row:hover {
+  background: var(--bg-panel);
+}
+
+.hist-row__time {
+  flex-shrink: 0;
+  width: 64px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+.hist-row__fav {
+  flex-shrink: 0;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+}
+
+.hist-row__text {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.hist-row__title {
+  font-size: 13.5px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hist-row__url {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* ===================== 괴담 사이트(goedam.kr) ─ 다크·으스스 톤 ===================== */
+.gd {
+  min-height: 100%;
+  background: #0d0b12;
+  color: #d9d2e0;
+  font-family: inherit;
+}
+
+.gd__head {
+  padding: 30px 26px 22px;
+  border-bottom: 1px solid #2a2233;
+  background: radial-gradient(120% 80% at 50% 0%, #1b1526 0%, #0d0b12 70%);
+  text-align: center;
+}
+
+.gd__brand {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #c0304a;
+  text-shadow: 0 0 12px rgba(192, 48, 74, 0.45);
+}
+
+.gd__tagline {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: #7a7085;
+  letter-spacing: 1px;
+}
+
+.gd__body {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 20px 22px 44px;
+}
+
+.gd__cat {
+  padding: 6px 2px 14px;
+  color: #8a7f96;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.gd__cat-num {
+  margin-left: 6px;
+  color: #5f5570;
+}
+
+.gd-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.gd-item {
+  padding: 14px 12px;
+  border: 1px solid #241d30;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  background: #14101c;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.gd-item:hover {
+  border-color: #c0304a;
+  background: #1a1424;
+}
+
+.gd-item__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #e6dfee;
+}
+
+.gd-item__ghost {
+  opacity: 0.7;
+}
+
+.gd-item__teaser {
+  margin: 7px 0 0 26px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #9a90a6;
+}
+
+.gd-item__meta {
+  margin: 8px 0 0 26px;
+  font-size: 11.5px;
+  color: #6a5f78;
+}
+
+.gd-post__title {
+  font-size: 21px;
+  font-weight: 800;
+  color: #e6dfee;
+  margin: 4px 0 6px;
+}
+
+.gd-post__meta {
+  font-size: 12px;
+  color: #6a5f78;
+  margin-bottom: 18px;
+}
+
+.gd-post__p {
+  font-size: 14px;
+  line-height: 1.85;
+  color: #cbc3d4;
+  margin: 0 0 15px;
+}
+
+.gd__foot {
+  margin-top: 10px;
+  padding-top: 16px;
+  border-top: 1px solid #241d30;
+}
+
+.gd__list-btn {
+  padding: 8px 20px;
+  border: 1px solid #3a3048;
+  border-radius: 999px;
+  background: #171120;
+  color: #cbc3d4;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.gd__list-btn:hover {
+  border-color: #c0304a;
+  color: #fff;
 }
 
 /* ===================== 개발자 도구(크롬 풍 다크 패널) =====================
@@ -10938,4 +11581,243 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
     width: 120px;
     height: 90px;
   }
+}
+
+/* ===================== 떡상 연출 오버레이 ===================== */
+.ddeoksang-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 10, 20, 0.55);
+  cursor: pointer;
+  animation: ddeoksang-fade 0.2s ease;
+}
+
+@keyframes ddeoksang-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ddeoksang {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 34px 44px;
+  border-radius: 22px;
+  background: linear-gradient(150deg, #1d9bf0 0%, #7c5cff 100%);
+  color: #fff;
+  box-shadow: 0 24px 70px rgba(29, 155, 240, 0.45);
+  animation: ddeoksang-pop 0.42s cubic-bezier(0.18, 1.3, 0.5, 1);
+}
+
+@keyframes ddeoksang-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.ddeoksang__banner {
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+}
+
+.ddeoksang__stats {
+  display: flex;
+  gap: 26px;
+}
+
+.ddeoksang__stat {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.ddeoksang__ico {
+  font-size: 18px;
+}
+
+.ddeoksang__gain {
+  padding: 6px 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.ddeoksang__hint {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* 폭죽 — 중앙에서 사방으로 튀는 조각 */
+.ddeoksang__fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.ddeoksang__spark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: #ffd76a;
+  transform: rotate(var(--a)) translateY(0);
+  opacity: 0;
+  animation: ddeoksang-spark 0.9s ease-out 0.1s forwards;
+}
+
+.ddeoksang__spark:nth-child(3n) { background: #ff6f9d; }
+.ddeoksang__spark:nth-child(3n+1) { background: #6ce5ff; }
+
+@keyframes ddeoksang-spark {
+  0% { opacity: 1; transform: rotate(var(--a)) translateY(0) scale(1); }
+  100% { opacity: 0; transform: rotate(var(--a)) translateY(calc(-1 * var(--d))) scale(0.4); }
+}
+
+/* ===================== 인용 트윗(QRT) ===================== */
+.quote-card {
+  margin: 8px 0 4px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-panel);
+}
+
+.quote-card__head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
+.quote-card__name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.quote-card__handle {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.quote-card__text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.react-btn--quote {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.quote-compose__comment {
+  padding: 8px 4px 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ===================== 심야 취중 트윗 + 이불킥 ===================== */
+/* 취중 동안 앱 배경 블러(모달 레이어는 root 밖이라 영향 없음). */
+.drunk-blur {
+  filter: blur(5px) saturate(1.1);
+  transition: filter 0.4s ease;
+  pointer-events: none;
+}
+
+.drunk-modal__lead {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+}
+
+.drunk-modal__tweet {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  margin-bottom: 16px;
+}
+
+.drunk-modal__tweet p {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+/* 취중팝업의 문구는 안 읽히게 블러(등록해야 다음날 또렷이 보인다). */
+.drunk-blur-text {
+  filter: blur(4px);
+  user-select: none;
+}
+
+.drunk-modal__tweet--clear p {
+  filter: none;
+}
+
+.drunk-modal__outcome {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--good);
+  margin-bottom: 16px;
+}
+
+.drunk-modal__outcome--bad {
+  color: var(--danger);
+}
+
+/* ===================== 내 트윗이 기사화(newsModal) ===================== */
+/* 신문 마스트헤드 톤 — drunk-modal__tweet(카드 틀) 변수를 재사용하고 상단에 언론사 라벨을 얹는다. */
+.news-card {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  margin-bottom: 16px;
+}
+
+.news-card__outlet {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.news-card__headline {
+  font-size: 15.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
+.news-card__quote {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--border);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  white-space: pre-wrap;
 }

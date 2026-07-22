@@ -29,6 +29,8 @@ import { renderDawnModal } from "./dawnModal";
 import { renderSickModal } from "./sickModal";
 import { renderSleepModal } from "./sns/sleepModal";
 import { renderHauntModal } from "./sns/hauntModal";
+import { renderDrunkTweetModal, renderMorningRegretModal } from "./drunkModal";
+import { renderNewsModal } from "./newsModal";
 import { renderCatPowerModal } from "./catPowerModal";
 import { renderConsoleReviewModal } from "./auctionModals";
 import { renderLoginScreen } from "./loginScreen";
@@ -45,6 +47,8 @@ export function createApp(root: HTMLElement, store: Store): void {
   // 업적 달성 토스트 소비가 마이크로태스크로 이미 예약됐는지(한 프레임에 render가 여러 번
   // 돌아도 중복 예약하지 않게 한다). computeDrops의 commitScheduled와 같은 가드.
   let achToastScheduled = false;
+  // 트친 성사 토스트도 같은 마이크로태스크 가드로 중복 예약을 막는다.
+  let tchinToastScheduled = false;
   // 고양이 전원 버튼 블랙아웃 타이머. render()는 스토어 변경·토스트마다 통째로 다시 도므로
   // ui.catBlackout 플래그로 가드해 타이머가 중복 예약되지 않게 한다.
   let catBlackoutTimer: number | undefined;
@@ -143,12 +147,22 @@ export function createApp(root: HTMLElement, store: Store): void {
         ui.homeTab = "recommend";
         // 해돋이 딤팝업을 가장 먼저 보여준다.
         ui.modal = (c) => renderDawnModal(c);
+      } else if (state.pendingRegretTweetId) {
+        // 이불킥 — 어젯밤 취중 트윗. 새 날 아침(dawn) 다음으로 뜬다(삭제/방치가 flag를 클리어).
+        ui.modal = (c) => renderMorningRegretModal(c);
+      } else if (state.pendingNews) {
+        // 내 트윗이 기사화 — 다음날 아침 강제 팝업. dawn 다음, 이불킥/취침류와 같은 층.
+        // 팝업의 모든 선택(resolveNews)이 pendingNews를 클리어해야 재팝업되지 않는다.
+        ui.modal = (c) => renderNewsModal(c);
       } else if (state.sickPending) {
         // 체력이 바닥나 앓아누운 날 — 아무것도 못 한다(haunt/취침/근무/약속보다 먼저).
         ui.modal = (c) => renderSickModal(c);
       } else if (state.hauntVisitNow) {
         // 괴담 계정 심야 방문. dawn 다음, 취침보다 먼저 — 문을 열어야(resolveHauntVisit) flag가 풀린다.
         ui.modal = (c) => renderHauntModal(c);
+      } else if (state.drunkPending) {
+        // 심야 취중 트윗 — 취침보다 먼저(등록이 밤을 마감하고 다음날로 넘긴다).
+        ui.modal = (c) => renderDrunkTweetModal(c);
       } else if (state.sleepPending) {
         // 저녁→심야 진입(무엇이 진행시켰든). dawn 다음 우선순위. 모달의 모든 선택지가 클리어한다.
         ui.modal = (c) => renderSleepModal(c);
@@ -216,6 +230,25 @@ export function createApp(root: HTMLElement, store: Store): void {
           names.length === 1
             ? `🏆 업적 달성: ${names[0]}`
             : `🏆 업적 달성: ${names[0]} 외 ${names.length - 1}개`;
+        ctx.toast(msg, "good");
+      });
+    }
+
+    // 트친 성사 토스트. systems/tchin이 pendingTchinToasts에 새 트친 핸들을 쌓아두면
+    // 여기서 알린 뒤 **배열을 비운다**(안 비우면 매 렌더 재토스트). 업적 토스트와 동일 패턴.
+    if (!gameOver && state.pendingTchinToasts?.length && !tchinToastScheduled) {
+      tchinToastScheduled = true;
+      queueMicrotask(() => {
+        tchinToastScheduled = false;
+        const handles = store.getState().pendingTchinToasts;
+        if (!handles?.length) return;
+        ctx.update((d) => {
+          d.pendingTchinToasts = [];
+        });
+        const msg =
+          handles.length === 1
+            ? `🤝 @${handles[0]}님과 트친이 됐어요!`
+            : `🤝 @${handles[0]} 외 ${handles.length - 1}명과 트친이 됐어요!`;
         ctx.toast(msg, "good");
       });
     }
@@ -294,6 +327,8 @@ export function createApp(root: HTMLElement, store: Store): void {
     lastViewKey = viewKey;
 
     root.replaceChildren(...children.filter((c): c is Node => c !== null));
+    // 취중(drunkPending) 동안 앱 배경을 블러 처리한다(모달 레이어는 root 밖이라 선명하게 유지).
+    root.classList.toggle("drunk-blur", !!state.drunkPending && !gameOver);
 
     for (const sel in savedScroll) {
       const e = root.querySelector<HTMLElement>(sel);
