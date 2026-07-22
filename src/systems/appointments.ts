@@ -44,9 +44,14 @@ function removeAppointment(state: GameState, id: string): void {
  */
 export function dueAppointments(state: GameState): Appointment[] {
   const now = timeValue(state.day, state.slot);
-  return state.appointments
-    .filter((a) => timeValue(a.day, a.slot) <= now)
-    .sort((a, b) => timeValue(a.day, a.slot) - timeValue(b.day, b.slot));
+  return (
+    state.appointments
+      .filter((a) => timeValue(a.day, a.slot) <= now)
+      // 생일은 비차단 약속: appointmentModal 강제팝업에 뜨면 안 된다(축하는 배너/버튼으로만,
+      // 놓쳐도 무해가 원칙). 도래 처리는 onNewDay가 pendingBirthday로 따로 한다.
+      .filter((a) => a.kind !== "birthday")
+      .sort((a, b) => timeValue(a.day, a.slot) - timeValue(b.day, b.slot))
+  );
 }
 
 /* ─────────────────── 러닝크루 정기런 ─────────────────── */

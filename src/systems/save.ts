@@ -290,6 +290,7 @@ function sanitize(state: GameState): GameState {
   }
   state.postSlotIncreasedTo ??= null;
   state.pendingNews ??= null;
+  state.pendingBirthday ??= null;
   if (!Array.isArray(state.pendingTchinToasts)) state.pendingTchinToasts = [];
   // 특수 트윗(오하아사·괴담) 신규 필드. NaN은 ??를 통과하므로 숫자는 isFinite로 검사한다.
   if (typeof state.lotteryLuck !== "number" || !Number.isFinite(state.lotteryLuck)) {

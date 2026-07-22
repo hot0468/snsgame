@@ -407,7 +407,8 @@ export type AppointmentKind =
   | "groupRoom"
   | "lingerie"
   | "study"
-  | "esthetic";
+  | "esthetic"
+  | "birthday";
 
 /**
  * 미래에 예정된 약속. 해당 (day, slot)이 되면 '할지/말지' 팝업이 뜬다.
@@ -1002,6 +1003,8 @@ export interface GameState {
    * ui(newsModal)가 처리 후 null로 클리어한다.
    */
   pendingNews: PendingNews | null;
+  /** 오늘 생일인 트친 핸들(미축하). onNewDay가 세팅, 축하 or 다음날에 클리어. null이면 없음. */
+  pendingBirthday: string | null;
   /**
    * 메모장으로 편집·저장한 hosts 파일 내용. null이면 미편집(기본 HOSTS_LINES를 표시).
    * `127.0.0.1  goedam.kr` 매핑을 넣어 저장하면 주소창에서 goedam.kr로 괴담 사이트에 갈 수 있다

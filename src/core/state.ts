@@ -270,6 +270,7 @@ export function createInitialState(): GameState {
     lastMaxPostSlots: 1, // = maxPostSlots(0). 리터럴로 둔다(core→systems 순환 import 방지)
     postSlotIncreasedTo: null,
     pendingNews: null,
+    pendingBirthday: null,
     pendingTchinToasts: [],
     lotteryLuck: 0,
     hauntPending: false,
