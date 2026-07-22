@@ -17,14 +17,22 @@ import {
   TCHINSO_RESP_MAX,
   TCHINSO_TWEET_TEXT,
 } from "@/data/tchinso";
+import {
+  BIRTHDAY_MIN_DAYS,
+  BIRTHDAY_MAX_DAYS,
+  BIRTHDAY_BONUS_MIN,
+  BIRTHDAY_BONUS_MAX,
+  BIRTHDAY_TWEET_LINES,
+} from "@/data/birthday";
 import { makeRandomAccount } from "@/data/accounts";
 import { changeFollowers } from "./followers";
 import { consumePostSlot } from "./eggs";
 import { clampAction } from "./stats";
 import { pushKakao } from "./kakao";
 import { addSchedule } from "./time";
+import { addAppointment } from "./appointments";
 import { TWEET_ACTION_COST } from "./tweetSystem";
-import { chance, pick, randInt, uid } from "@/utils/random";
+import { chance, hashInt, pick, randInt, uid } from "@/utils/random";
 
 /**
  * 트친(단짝) — 사회적 온기 + 성장 축.
@@ -50,6 +58,8 @@ export function bumpTchinProgress(state: GameState, handle: string): TchinBump {
   if (next >= TCHIN_THRESHOLD) {
     account.tchins.push(handle);
     state.pendingTchinToasts.push(handle);
+    // 성사 즉시 이 트친의 생일을 결정론적으로 달력에 예약(도래 처리는 onNewDay).
+    scheduleBirthday(state, handle);
     return "became";
   }
   return "progress";
@@ -81,6 +91,59 @@ export function maybeSpawnTchinBoost(state: GameState): void {
   changeFollowers(state, bonus);
   pushKakao(state, `@${handle}`, [pick(TCHIN_CHEER_LINES)], { hue: 200 });
   addSchedule(state, `트친 @${handle}의 리트윗 (+${bonus} 팔로워)`, "sns");
+}
+
+/* ─────────────────── 트친 생일 ─────────────────── */
+
+/**
+ * 트친 성사 시점에 그 트친의 생일을 달력에 예약한다.
+ * 생일 날짜는 hashInt(handle)로 결정론 산출(같은 핸들은 항상 같은 오프셋) —
+ * 성사일 + BIRTHDAY_MIN_DAYS ~ 성사일 + BIRTHDAY_MAX_DAYS 사이 하루.
+ * 이미 같은 handle의 birthday 약속이 있으면 스킵(중복 방지).
+ * birthday는 비차단 약속(dueAppointments에서 제외) — 도래 처리는 onNewDay가 한다.
+ */
+export function scheduleBirthday(state: GameState, handle: string): void {
+  const already = state.appointments.some(
+    (a) => a.kind === "birthday" && a.partnerName === handle,
+  );
+  if (already) return;
+  const span = BIRTHDAY_MAX_DAYS - BIRTHDAY_MIN_DAYS;
+  const day = state.day + BIRTHDAY_MIN_DAYS + (hashInt(handle) % span);
+  addAppointment(state, {
+    day,
+    slot: 0,
+    kind: "birthday",
+    title: `@${handle} 생일`,
+    partnerName: handle,
+  });
+}
+
+/**
+ * 오늘 생일인 트친(state.pendingBirthday)에게 축하 트윗을 무료로 게시한다.
+ * 일반 트윗과 달리 행동력·게시 슬롯을 소모하지 않는다(pushTimeline만) — 순수 사교 보너스.
+ * 보너스 팔로워를 얻고 pendingBirthday를 클리어한다. pendingBirthday가 없으면 무동작.
+ */
+export function sendBirthdayTweet(state: GameState): void {
+  const handle = state.pendingBirthday;
+  if (!handle) return;
+  const account = getActiveAccount(state);
+  const tweet: Tweet = {
+    id: uid("bday"),
+    authorName: account.name,
+    authorHandle: account.handle,
+    attribute: "daily",
+    isAdult: false,
+    text: pick(BIRTHDAY_TWEET_LINES).replace("{handle}", handle),
+    createdDay: state.day,
+    likes: 0,
+    retweets: 0,
+    gainedFollowers: 0,
+  };
+  pushTimeline(account, tweet);
+  const bonus = randInt(BIRTHDAY_BONUS_MIN, BIRTHDAY_BONUS_MAX);
+  changeFollowers(state, bonus);
+  tweet.gainedFollowers = bonus;
+  state.pendingBirthday = null;
 }
 
 /** 트친소 결과 — 응답 계정별 이름·핸들·트친까지 남은 상호작용 횟수. ui가 결과 목록으로 쓴다. */

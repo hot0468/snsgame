@@ -1,6 +1,6 @@
 import type { GameState, ScheduleEvent } from "@/core/types";
 import { SLOTS_PER_DAY, SLOT_LABELS, LATE_SLOT } from "@/core/state";
-import { uid } from "@/utils/random";
+import { pick, uid } from "@/utils/random";
 import { applyDailyCosts, daysUntilRent, settleMonthlyIncome } from "./economy";
 import { settleAuthorMonthly } from "./author";
 import { deliverJobResultEmail } from "./employment";
@@ -15,12 +15,14 @@ import {
 } from "./auction";
 import { maybeSpawnSpamEmail } from "./spam";
 import { maybeHauntVisit } from "./haunt";
+import { maybeGetDrunk } from "./drunk";
 import { maybeSpawnAdEmail } from "./adMail";
 import { checkEstheticScam } from "./esthetic";
 import { spawnDailyAdTweets } from "./adTweets";
 import { applySeasonalEvents } from "./seasonal";
 import { rollDisease } from "./health";
-import { sendLandlordOverdue, sendLandlordRentReminder } from "./kakao";
+import { pushKakao, sendLandlordOverdue, sendLandlordRentReminder } from "./kakao";
+import { BIRTHDAY_KAKAO_LINES } from "@/data/birthday";
 import { updateMarket } from "./market";
 import { expireSuspensions } from "./ban";
 import { checkStatEggs, maybeCatPowerButton } from "./eggs";
@@ -138,6 +140,8 @@ function onLateNight(state: GameState): void {
   // 괴담 계정 좋아요 예약(hauntPending)이 있으면 오늘 심야 방문을 발동(hauntVisitNow).
   // ui는 취침(sleepPending)보다 먼저 괴담 모달을 띄운다.
   maybeHauntVisit(state);
+  // 확률로 취한다(취중 트윗 팝업 예약). ui는 취침보다 먼저 취중팝업을 띄운다.
+  maybeGetDrunk(state);
 }
 
 function onNewDay(state: GameState): void {
@@ -209,6 +213,23 @@ function onNewDay(state: GameState): void {
   deliverPendingGoods(state);
   // 일 단위 상태 업적 판정(소지금·자격증·집·연속 밤샘 등)
   checkAchievements(state);
+  // 오늘 도래한 트친 생일이 있으면 축하 배너/카톡을 세팅(전날 미축하는 무해하게 흘려보낸다)
+  processBirthdayDue(state);
+}
+
+/**
+ * 오늘 도래한 트친 생일을 처리한다.
+ * 도래 감지 전에 전날 미축하 pendingBirthday를 null로 밀어(놓침=무해),
+ * 오늘 도래분이 있으면 첫 건의 상대를 pendingBirthday로 세팅 + 달력 카톡 + 그 약속 제거.
+ * 배너/축하 트윗은 ui가 pendingBirthday를 보고 처리한다.
+ */
+function processBirthdayDue(state: GameState): void {
+  state.pendingBirthday = null;
+  const due = state.appointments.find((a) => a.kind === "birthday" && a.day === state.day);
+  if (!due) return;
+  state.pendingBirthday = due.partnerName ?? null;
+  pushKakao(state, "달력", [pick(BIRTHDAY_KAKAO_LINES)], { hue: 330 });
+  state.appointments = state.appointments.filter((a) => a.id !== due.id);
 }
 
 /**

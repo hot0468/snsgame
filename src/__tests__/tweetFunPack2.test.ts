@@ -2,9 +2,10 @@ import { describe, it, expect } from "vitest";
 import { createInitialState, getActiveAccount } from "@/core/state";
 import { maybeQueueNews, resolveNews } from "@/systems/news";
 import { NEWS_BOOST_RATE, NEWS_IGNORE_LOSS_RATE } from "@/data/news";
-import { canPostTchinso, postTchinso } from "@/systems/tchin";
+import { canPostTchinso, postTchinso, scheduleBirthday, sendBirthdayTweet } from "@/systems/tchin";
 import { TCHINSO_COOLDOWN_DAYS, TCHINSO_PREFILL_MIN } from "@/data/tchinso";
 import { TCHIN_THRESHOLD } from "@/data/tchin";
+import { BIRTHDAY_MIN_DAYS, BIRTHDAY_BONUS_MIN } from "@/data/birthday";
 
 describe("기사화 (모듈 A)", () => {
   it("maybeQueueNews: 예약되면 스냅샷이 담기고, 중복 예약은 스킵", () => {
@@ -80,5 +81,49 @@ describe("트친소 (모듈 B)", () => {
       expect(acc.tchinProgress[resp.handle]).toBeGreaterThanOrEqual(TCHINSO_PREFILL_MIN);
       expect(resp.remaining).toBe(Math.max(0, TCHIN_THRESHOLD - acc.tchinProgress[resp.handle]));
     }
+  });
+});
+
+describe("트친 생일 (모듈 C)", () => {
+  it("scheduleBirthday: 결정론적 생일 약속 1건 등록(같은 핸들 같은 날)", () => {
+    const s1 = createInitialState();
+    scheduleBirthday(s1, "friend");
+    const bday = s1.appointments.filter((a) => a.kind === "birthday");
+    expect(bday.length).toBe(1);
+    expect(bday[0].day).toBeGreaterThanOrEqual(s1.day + BIRTHDAY_MIN_DAYS);
+    const s2 = createInitialState();
+    scheduleBirthday(s2, "friend");
+    expect(s2.appointments[0].day).toBe(bday[0].day); // 결정론
+  });
+
+  it("scheduleBirthday: 같은 핸들 중복 등록은 스킵", () => {
+    const s = createInitialState();
+    scheduleBirthday(s, "friend");
+    scheduleBirthday(s, "friend");
+    expect(s.appointments.filter((a) => a.kind === "birthday").length).toBe(1);
+  });
+
+  it("sendBirthdayTweet: 무료 게시(슬롯 미소모) + 보너스 팔로워 + 클리어", () => {
+    const s = createInitialState();
+    const acc = getActiveAccount(s);
+    s.pendingBirthday = "friend";
+    const slots0 = acc.postSlotsUsed;
+    const f0 = acc.followers;
+    const n0 = acc.timeline.length;
+    sendBirthdayTweet(s);
+    expect(acc.timeline.length).toBe(n0 + 1);
+    expect(acc.postSlotsUsed).toBe(slots0); // 무료(슬롯 미소모)
+    expect(acc.followers).toBeGreaterThanOrEqual(f0 + BIRTHDAY_BONUS_MIN);
+    expect(s.pendingBirthday).toBeNull();
+  });
+
+  it("sendBirthdayTweet: pendingBirthday가 null이면 무동작", () => {
+    const s = createInitialState();
+    const acc = getActiveAccount(s);
+    s.pendingBirthday = null;
+    const n0 = acc.timeline.length;
+    sendBirthdayTweet(s);
+    expect(acc.timeline.length).toBe(n0);
+    expect(s.pendingBirthday).toBeNull();
   });
 });
