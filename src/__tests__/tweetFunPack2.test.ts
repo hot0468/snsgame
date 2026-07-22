@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import { createInitialState, getActiveAccount } from "@/core/state";
 import { maybeQueueNews, resolveNews } from "@/systems/news";
 import { NEWS_BOOST_RATE, NEWS_IGNORE_LOSS_RATE } from "@/data/news";
+import { canPostTchinso, postTchinso } from "@/systems/tchin";
+import { TCHINSO_COOLDOWN_DAYS, TCHINSO_PREFILL_MIN } from "@/data/tchinso";
+import { TCHIN_THRESHOLD } from "@/data/tchin";
 
 describe("기사화 (모듈 A)", () => {
   it("maybeQueueNews: 예약되면 스냅샷이 담기고, 중복 예약은 스킵", () => {
@@ -53,5 +56,29 @@ describe("기사화 (모듈 A)", () => {
     s.pendingNews = null;
     expect(resolveNews(s, "ack")).toBe(0);
     expect(s.pendingNews).toBeNull();
+  });
+});
+
+describe("트친소 (모듈 B)", () => {
+  it("쿨다운: 게시 직후엔 재게시 불가, 쿨다운 경과 후 가능", () => {
+    const s = createInitialState();
+    expect(canPostTchinso(s)).toBe(true);
+    postTchinso(s);
+    expect(canPostTchinso(s)).toBe(false);
+    s.day += TCHINSO_COOLDOWN_DAYS;
+    expect(canPostTchinso(s)).toBe(true);
+  });
+
+  it("응답 계정의 트친 진행도를 선채움하고, 트친소 트윗이 타임라인에 남는다", () => {
+    const s = createInitialState();
+    const acc = getActiveAccount(s);
+    const n0 = acc.timeline.length;
+    const r = postTchinso(s);
+    expect(r.responders.length).toBeGreaterThanOrEqual(2);
+    expect(acc.timeline.length).toBe(n0 + 1);
+    for (const resp of r.responders) {
+      expect(acc.tchinProgress[resp.handle]).toBeGreaterThanOrEqual(TCHINSO_PREFILL_MIN);
+      expect(resp.remaining).toBe(Math.max(0, TCHIN_THRESHOLD - acc.tchinProgress[resp.handle]));
+    }
   });
 });
