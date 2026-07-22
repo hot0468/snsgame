@@ -8,7 +8,7 @@ import { unreadDMCount } from "@/systems/dm";
 import { followingFeedTweets } from "@/systems/exploreSystem";
 import { totalFollowers } from "@/systems/economy";
 import { maxPostSlots } from "@/systems/followers";
-import { remainingPostSlots } from "@/systems/eggs";
+import { remainingPostSlots, canPostBySlot } from "@/systems/eggs";
 import { ATTRIBUTES } from "@/data/attributes";
 import { getTrendingCategories } from "@/data/trends";
 import { el, formatNumber } from "@/utils/dom";
@@ -21,6 +21,7 @@ import { renderMediaModal } from "@/ui/mediaModal";
 import { renderAdultWarnModal } from "@/ui/adultWarnModal";
 import { renderTchinsoModal } from "@/ui/tchinsoModal";
 import { canPostTchinso, sendBirthdayTweet } from "@/systems/tchin";
+import { canPostTweet } from "@/systems/tweetSystem";
 import { TCHINSO_COOLDOWN_DAYS } from "@/data/tchinso";
 import {
   adPage,
@@ -310,9 +311,18 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
       ),
     );
 
-    // 트친소(트친 소개) 진입 — 주 1회 쿨다운. 판정은 systems/tchin(canPostTchinso)이 한다.
-    const tchinsoReady = canPostTchinso(s);
+    // 트친소(트친 소개) 진입 — 주 1회 쿨다운 + 일반 트윗과 동일한 일일 게시 슬롯/행동력 게이트.
+    // 트친소도 트윗 한 건이므로 quoteModal 선례(canPostTweet && canPostBySlot)를 그대로 적용한다.
+    const tchinsoCooldownReady = canPostTchinso(s);
+    const tchinsoReady = tchinsoCooldownReady && canPostTweet(s) && canPostBySlot(s);
     const tchinsoDaysLeft = Math.max(0, TCHINSO_COOLDOWN_DAYS - (s.day - account.lastTchinsoDay));
+    const tchinsoHint = !tchinsoCooldownReady
+      ? `${tchinsoDaysLeft}일 후 가능`
+      : !canPostTweet(s)
+        ? "행동력이 부족해요"
+        : !canPostBySlot(s)
+          ? "오늘 게시 슬롯을 다 썼어요"
+          : null;
     const tchinsoBar = el(
       "div",
       { class: "tchinso-entry" },
@@ -325,9 +335,7 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
         },
         "🤝 트친소 올리기",
       ),
-      !tchinsoReady
-        ? el("span", { class: "tchinso-entry__hint" }, `${tchinsoDaysLeft}일 후 가능`)
-        : null,
+      tchinsoHint ? el("span", { class: "tchinso-entry__hint" }, tchinsoHint) : null,
     );
 
     // 오늘 생일인 트친 배너 — 판정·처리는 systems/tchin(sendBirthdayTweet)이 한다. pendingBirthday가

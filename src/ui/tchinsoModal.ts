@@ -1,6 +1,8 @@
 import type { GameContext } from "./context";
 import type { TchinsoResult } from "@/systems/tchin";
 import { canPostTchinso, postTchinso } from "@/systems/tchin";
+import { canPostTweet } from "@/systems/tweetSystem";
+import { canPostBySlot } from "@/systems/eggs";
 import { el } from "@/utils/dom";
 
 /**
@@ -21,7 +23,18 @@ export function renderTchinsoModal(ctx: GameContext): HTMLElement {
   }
 
   function showIdle(): void {
-    const can = canPostTchinso(ctx.store.getState());
+    const s = ctx.store.getState();
+    // 트친소도 트윗 한 건이므로 quoteModal 선례(canPostTweet && canPostBySlot)와 동일하게
+    // 쿨다운 외에 일일 게시 슬롯/행동력 게이트도 함께 검사한다.
+    const cooldownReady = canPostTchinso(s);
+    const can = cooldownReady && canPostTweet(s) && canPostBySlot(s);
+    const gateHint = !cooldownReady
+      ? "이번 주엔 이미 올렸어요."
+      : !canPostTweet(s)
+        ? "행동력이 부족해요."
+        : !canPostBySlot(s)
+          ? "오늘 게시 슬롯을 다 썼어요."
+          : null;
     container.replaceChildren(
       head(),
       el(
@@ -32,7 +45,7 @@ export function renderTchinsoModal(ctx: GameContext): HTMLElement {
           { class: "compose-hint", style: "margin-top:0" },
           "트친소 트윗을 올려 새 트친을 모집할까요? 반응한 계정과는 트친 진행도가 미리 채워져요.",
         ),
-        !can ? el("div", { class: "compose-hint" }, "이번 주엔 이미 올렸어요.") : null,
+        gateHint ? el("div", { class: "compose-hint" }, gateHint) : null,
         el(
           "div",
           { class: "compose-actions" },
