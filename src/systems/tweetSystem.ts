@@ -3,21 +3,23 @@ import {
   dominantAttribute,
   getActiveAccount,
   LATE_SLOT,
+  pushTimeline,
 } from "@/core/state";
 import { chance, randInt, uid } from "@/utils/random";
 import { makeMedia } from "@/data/media";
 import { mediaSetFor } from "@/data/mediaTweets";
+import { DDEOKSANG_MIN, DDEOKSANG_RATE, DDEOKSANG_BONUS_RATE } from "@/data/tweetFun";
 import { imageForTweet } from "./mediaImages";
 import { calcTweetOutcome, changeFollowers, TWEET_KIND_EFFECTS } from "./followers";
 import { maybeSpawnDickPicDM, maybeSpawnFanDM, maybeSpawnMotelDM, maybeSpawnTicketDM } from "./dm";
 import { maybeSpawnAvOfferDM } from "./avJob";
 import { maybeSpawnSavannaDM } from "./savanna";
 import { consumePostSlot, onTweetPosted, smartTweetMultiplier } from "./eggs";
+import { applyTchinReach, maybeSpawnTchinBoost } from "./tchin";
 import { maybeSpawnCrewInviteDM } from "./crew";
 import { maybeSpawnLingerieDM } from "./lingerie";
 import { maybeSpawnCosplayDM } from "./cosplay";
 import { maybeSpawnPushDM } from "./pushtime";
-import { maybeSpawnYabamDM } from "./yabam";
 import { generateReactions } from "./reactions";
 import { clampAction, clampResource, clampSkill } from "./stats";
 import { addStrike } from "./ban";
@@ -26,6 +28,7 @@ import { gainAffinityFromTweet } from "./relationship";
 import { addSchedule } from "./time";
 import { MEETING_GATE_THRESHOLDS } from "./meeting";
 import { checkAchievements } from "./achievements";
+import { maybeQueueNews } from "./news";
 
 /** 트윗 1건 작성에 드는 행동력 */
 export const TWEET_ACTION_COST = 10;
@@ -38,6 +41,23 @@ export interface PostTweetResult {
   followerDelta: number;
   /** 이번 성인 트윗으로 만남 시나리오 해금 문턱을 막 넘었으면 true */
   unlockedMeeting: boolean;
+  /** 이번 트윗이 떡상(대박)했는지 — ui가 떡상 연출을 띄운다. */
+  ddeoksang: boolean;
+  /** 떡상 시 눈덩이 보너스로 추가된 팔로워(연출 표시용). */
+  ddeoksangGain: number;
+}
+
+/**
+ * 떡상 판정 — 이번 트윗의 팔로워 증가분이 예외적으로 클 때.
+ * 계정이 작아도 절대 최소치(DDEOKSANG_MIN)를 넘거나, 계정 규모의 DDEOKSANG_RATE 이상이면 떡상.
+ */
+export function isDdeoksang(delta: number, followers: number): boolean {
+  return delta >= Math.max(DDEOKSANG_MIN, followers * DDEOKSANG_RATE);
+}
+
+/** 떡상 눈덩이 보너스(증가분의 DDEOKSANG_BONUS_RATE, 반올림). */
+export function ddeoksangBonus(delta: number): number {
+  return Math.round(delta * DDEOKSANG_BONUS_RATE);
 }
 
 /** postTweet 부가 옵션 */
@@ -80,11 +100,14 @@ export function postTweet(
   const outcome = calcTweetOutcome(state, attr, kind);
   // 성인 트윗은 신규 팔로워 1.5배, 박학다식 달성 시 정보성 트윗 성과 상승,
   // 창작(1차/2차)·이달의 인기작 적중 시 followerMultiplier로 추가 가중.
-  const followers = Math.round(
-    outcome.followers *
-      (isAdult ? ADULT_FOLLOWER_MULTIPLIER : 1) *
-      smartTweetMultiplier(state, attr) *
-      followerMultiplier,
+  const followers = applyTchinReach(
+    state,
+    Math.round(
+      outcome.followers *
+        (isAdult ? ADULT_FOLLOWER_MULTIPLIER : 1) *
+        smartTweetMultiplier(state, attr) *
+        followerMultiplier,
+    ),
   );
 
   const postedSlot = state.slot;
@@ -123,14 +146,25 @@ export function postTweet(
     }
   }
   changeFollowers(state, followers);
-  account.timeline.unshift(tweet);
+  // 떡상 판정 — 증가분이 예외적으로 크면 눈덩이 보너스 1회(보너스로 재판정하지 않는다).
+  const ddeoksang = followers > 0 && isDdeoksang(followers, account.followers);
+  let ddeoksangGain = 0;
+  if (ddeoksang) {
+    ddeoksangGain = ddeoksangBonus(followers);
+    changeFollowers(state, ddeoksangGain);
+  }
+  pushTimeline(account, tweet);
   account.lastTweetDay = state.day;
+  // 떡상 트윗이면 확률적으로 기사화 예약(다음날 아침 팝업). 떡상 아니면 gain 0 → 내부 스킵.
+  maybeQueueNews(state, tweet.id, tweet.text, ddeoksang ? followers : 0);
   // 올린 트윗들의 다수 카테고리로 계정 성향을 갱신(유저에게는 표출되지 않음)
   account.attribute = dominantAttribute(account);
   addSchedule(state, `트윗 등록 (+${followers} 팔로워)`, "sns");
   // 게시 트윗의 attr+kind가 관계 캐릭터의 좋아하는 계열+유형과 맞으면 호감도가 오른다.
   // (활성 계정 해금 계열만 순회 — 로스터가 비면 빈 루프라 무영향.)
   gainAffinityFromTweet(state, attr, kind);
+  // 게시 후 낮은 확률로 트친이 리트윗해 띄워준다(보너스 팔로워 + 응원 카톡).
+  maybeSpawnTchinBoost(state);
   if (followers > 0) maybeSpawnFanDM(state);
   // 성인 트윗이면 확률적으로 (종류에 맞는) 모텔 제안 DM 또는 성기 사진 DM이 온다
   if (isAdult) {
@@ -140,7 +174,6 @@ export function postTweet(
     maybeSpawnMotelDM(state, adultKind);
     maybeSpawnDickPicDM(state);
     maybeSpawnSavannaDM(state);
-    maybeSpawnYabamDM(state);
     maybeSpawnAvOfferDM(state);
   }
   // 아이돌덕/배우덕 트윗이면 확률적으로 티켓 양도 DM이 온다
@@ -183,7 +216,7 @@ export function postTweet(
     MEETING_GATE_THRESHOLDS.some((t) => beforeAdult < t && state.adultTweetsPosted >= t);
   // 팔로워/트윗 업적 즉시 판정(첫 트윗·팔로워 마일스톤·도배왕 등).
   checkAchievements(state);
-  return { tweet, followerDelta: followers, unlockedMeeting };
+  return { tweet, followerDelta: followers, unlockedMeeting, ddeoksang, ddeoksangGain };
 }
 
 /** 트윗 작성이 가능한지(행동력 체크) */
@@ -232,7 +265,7 @@ export function postScamTweet(state: GameState, text: string): ScamTweetResult {
 
   state.resources.action = clampAction(state, state.resources.action - TWEET_ACTION_COST);
   consumePostSlot(state);
-  account.timeline.unshift(tweet);
+  pushTimeline(account, tweet);
   account.lastTweetDay = state.day;
   addSchedule(state, `사기 트윗 (+${earned.toLocaleString("ko-KR")}원)`, "sns");
 
