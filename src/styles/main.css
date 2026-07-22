@@ -7081,6 +7081,14 @@ body {
   padding: 10px 14px; font-weight: 700; font-size: 13.5px; line-height: 1.4;
 }
 
+/* ── 오늘의 생일 배너 ───────────────────── */
+.birthday-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin: 10px 12px 0; padding: 10px 12px; border-radius: 10px;
+  background: #fff0f5; border: 1px solid #f7b8d0;
+}
+.birthday-banner__text { font-size: 13px; font-weight: 700; color: #9d174d; }
+
 /* ── 트윗 사진/영상 자리 ─────────────────── */
 .tweet-media {
   position: relative;

@@ -20,7 +20,7 @@ import { renderAccountModal } from "./accountModal";
 import { renderMediaModal } from "@/ui/mediaModal";
 import { renderAdultWarnModal } from "@/ui/adultWarnModal";
 import { renderTchinsoModal } from "@/ui/tchinsoModal";
-import { canPostTchinso } from "@/systems/tchin";
+import { canPostTchinso, sendBirthdayTweet } from "@/systems/tchin";
 import { TCHINSO_COOLDOWN_DAYS } from "@/data/tchinso";
 import {
   adPage,
@@ -330,6 +330,27 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
         : null,
     );
 
+    // 오늘 생일인 트친 배너 — 판정·처리는 systems/tchin(sendBirthdayTweet)이 한다. pendingBirthday가
+    // null이 되면(축하 완료 or 다음 날 갱신) 다음 재렌더에 자연히 사라진다.
+    const birthdayBanner = s.pendingBirthday
+      ? el(
+          "div",
+          { class: "birthday-banner" },
+          el("span", { class: "birthday-banner__text" }, `🎂 오늘 @${s.pendingBirthday} 생일!`),
+          el(
+            "button",
+            {
+              class: "btn",
+              onclick: () => {
+                ctx.update((st) => sendBirthdayTweet(st));
+                ctx.toast("축하를 전했어요! 🎉");
+              },
+            },
+            "축하 트윗 보내기",
+          ),
+        )
+      : null;
+
     // 팔로잉 탭: 팔로우한 계정 트윗 5개. 추천 탭: 내 타임라인.
     let body: (HTMLElement | null)[];
     if (following) {
@@ -407,6 +428,7 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
         : null,
       banBanner,
       header,
+      birthdayBanner,
       composer,
       tchinsoBar,
       ...body,
