@@ -118,6 +118,7 @@ function sanitize(state: GameState): GameState {
     // 트친(단짝): 구세이브엔 없으므로 초기화.
     if (!Array.isArray(acc.tchins)) acc.tchins = [];
     acc.tchinProgress ??= {};
+    acc.lastTchinsoDay ??= 0;
     for (const thread of acc.dms) {
       thread.metOffline ??= false;
       thread.wantsToMeet ??= false;

@@ -546,6 +546,8 @@ export interface PlayerAccount {
   tchins: string[];
   /** 트친 성사용 상호작용 카운터(핸들 → 누적 횟수). 구세이브엔 없어 sanitize가 `{}`로 채운다. */
   tchinProgress: Record<string, number>;
+  /** 마지막으로 트친소(트친 소개) 트윗을 올린 날(day). 0이면 미사용. 주 1회 쿨다운 판정. */
+  lastTchinsoDay: number;
 }
 
 /**

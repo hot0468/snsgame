@@ -135,6 +135,7 @@ export function createAccount(
     // 트친(단짝): 상호작용 누적으로 성사. 도달 배율은 systems/tchin이 계산.
     tchins: [],
     tchinProgress: {},
+    lastTchinsoDay: 0,
   };
 }
 
