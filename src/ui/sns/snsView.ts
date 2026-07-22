@@ -1,4 +1,5 @@
 import type { GameContext } from "@/ui/context";
+import { FEED_PAGE } from "@/ui/context";
 import type { AttributeId, Tweet } from "@/core/types";
 import { FOLLOWER_GOAL, getActiveAccount, isMentalLow, isSuspended, visibleTimeline } from "@/core/state";
 import { canWatchAd } from "@/systems/ads";
@@ -18,6 +19,9 @@ import { openComposeModal } from "@/ui/postLimitModal";
 import { renderAccountModal } from "./accountModal";
 import { renderMediaModal } from "@/ui/mediaModal";
 import { renderAdultWarnModal } from "@/ui/adultWarnModal";
+import { renderTchinsoModal } from "@/ui/tchinsoModal";
+import { canPostTchinso } from "@/systems/tchin";
+import { TCHINSO_COOLDOWN_DAYS } from "@/data/tchinso";
 import {
   adPage,
   dmPage,
@@ -204,6 +208,16 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
             el("b", {}, formatNumber(totalFollowers(s))),
             " 팔로워",
           ),
+          account.tchins.length > 0
+            ? el(
+                "div",
+                {
+                  class: "nav-account__tchin",
+                  title: account.tchins.map((h) => `@${h}`).join(", "),
+                },
+                `🤝 트친 ${account.tchins.length}`,
+              )
+            : null,
         ),
         el(
           "span",
@@ -296,6 +310,26 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
       ),
     );
 
+    // 트친소(트친 소개) 진입 — 주 1회 쿨다운. 판정은 systems/tchin(canPostTchinso)이 한다.
+    const tchinsoReady = canPostTchinso(s);
+    const tchinsoDaysLeft = Math.max(0, TCHINSO_COOLDOWN_DAYS - (s.day - account.lastTchinsoDay));
+    const tchinsoBar = el(
+      "div",
+      { class: "tchinso-entry" },
+      el(
+        "button",
+        {
+          class: "btn btn--ghost",
+          disabled: !tchinsoReady,
+          onclick: () => tchinsoReady && ctx.openModal(renderTchinsoModal),
+        },
+        "🤝 트친소 올리기",
+      ),
+      !tchinsoReady
+        ? el("span", { class: "tchinso-entry__hint" }, `${tchinsoDaysLeft}일 후 가능`)
+        : null,
+    );
+
     // 팔로잉 탭: 팔로우한 계정 트윗 5개. 추천 탭: 내 타임라인.
     let body: (HTMLElement | null)[];
     if (following) {
@@ -324,7 +358,10 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
         // 타임라인이 비었으면(첫날) 안내 문구를 그대로 맨 위에 두고, 광고는 그 아래에.
         body = [el("div", { class: "empty" }, "아직 트윗이 없어요. 첫 트윗을 등록해보세요!"), ...adCards];
       } else {
-        const timelineCards = myTimeline.map((t) =>
+        // 윈도잉: 긴 타임라인을 전량 렌더하면 전체 재렌더마다 카드 수백 개를 다시 그려 렉이 낀다.
+        // 최신 feedShown개만 그리고, 남으면 '더 보기'로 늘린다(최신이 앞이라 새 트윗은 항상 보인다).
+        const shown = myTimeline.slice(0, ctx.ui.feedShown);
+        const timelineCards = shown.map((t) =>
           tweetCard(t, {
             showGain: true,
             ctx,
@@ -335,6 +372,21 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
         // 내 트윗 사이사이에 광고를 규칙적으로 끼운다(첫 카드는 항상 내 최신 트윗).
         // 남는 광고는 피드 끝에. 배치 규칙·간격 근거는 feedLayout.ts 참고.
         body = interleaveFeed<HTMLElement>(timelineCards, adCards);
+        if (myTimeline.length > ctx.ui.feedShown) {
+          body.push(
+            el(
+              "button",
+              {
+                class: "btn btn--ghost feed__more",
+                onclick: () => {
+                  ctx.ui.feedShown += FEED_PAGE;
+                  ctx.refresh();
+                },
+              },
+              `더 보기 (${formatNumber(myTimeline.length - ctx.ui.feedShown)}개 더)`,
+            ),
+          );
+        }
       }
     }
 
@@ -356,6 +408,7 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
       banBanner,
       header,
       composer,
+      tchinsoBar,
       ...body,
     );
   }

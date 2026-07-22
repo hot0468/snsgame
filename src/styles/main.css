@@ -11734,6 +11734,69 @@ button.np-menu__item:hover {
   color: var(--text);
 }
 
+/* ===================== 트친소(트친 소개) ===================== */
+/* 홈 피드 상단 진입 바 — 버튼 + (쿨다운 중이면) 남은 일수 힌트 */
+.tchinso-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 8px solid var(--bg-panel);
+}
+
+.tchinso-entry__hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* 트친소 결과 모달의 응답 계정 목록 */
+.tchinso-resp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tchinso-resp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tchinso-resp:last-child {
+  border-bottom: none;
+}
+
+.tchinso-resp__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.tchinso-resp__name {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.tchinso-resp__handle {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tchinso-resp__remaining {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(29, 155, 240, 0.12);
+}
+
 /* ===================== 심야 취중 트윗 + 이불킥 ===================== */
 /* 취중 동안 앱 배경 블러(모달 레이어는 root 밖이라 영향 없음). */
 .drunk-blur {
