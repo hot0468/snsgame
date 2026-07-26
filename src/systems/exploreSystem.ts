@@ -9,6 +9,7 @@ import {
 } from "@/data/accounts";
 import { ATTRIBUTES, getAffinity } from "@/data/attributes";
 import { makeOmenAccount } from "@/data/omenAccount";
+import { makeChilnamAccount } from "@/data/chilnamAccount";
 import { SPECIAL_ACCOUNT_MAKERS } from "@/data/specialAccounts";
 import { allTemplatesFor } from "@/data/tweets";
 import { chance, pick, randInt, uid } from "@/utils/random";
@@ -60,6 +61,10 @@ export function exploreAccounts(state: GameState): Account[] {
   if (chance(0.3)) {
     const makers = [makeOmenAccount, ...SPECIAL_ACCOUNT_MAKERS];
     accounts[randInt(0, 2)] = pick(makers)(state.day);
+  }
+  // 킬러가 된 뒤엔 낮은 확률로 '칠남'(대부분 '오늘 운이 없었다' 트윗)이 섞인다.
+  else if (state.killerJob?.active && chance(0.25)) {
+    accounts[randInt(0, 2)] = makeChilnamAccount(state.day);
   }
   return accounts;
 }

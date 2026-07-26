@@ -4,6 +4,7 @@ import { ATTRIBUTES, getAffinity } from "@/data/attributes";
 import { NIGL_COMPANY } from "@/data/niglnigl";
 import { MAX_SKILL } from "@/data/stats";
 import { isTrending, TRENDING_MULTIPLIER } from "@/data/trends";
+import { checkWin } from "./winEnding";
 
 /**
  * RT → 신규 팔로워 전환율. **의도적으로 상수다 — 스킬을 곱하지 마라.**
@@ -146,6 +147,8 @@ export function changeFollowers(state: GameState, delta: number): void {
   const nowMax = maxPostSlots(account.followers);
   if (nowMax > state.lastMaxPostSlots) state.postSlotIncreasedTo = nowMax;
   state.lastMaxPostSlots = nowMax;
+  // 팔로워 100만 달성 → 스탯에 따른 승리 엔딩(최종 목표). 도달 시 gameOver를 세운다.
+  checkWin(state);
 }
 
 /* ─────────────────── 게시 슬롯 곡선 ─────────────────── */

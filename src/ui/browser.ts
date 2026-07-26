@@ -319,16 +319,8 @@ function urlbarMenu(ctx: GameContext): HTMLElement {
               class: "settings-popover__item",
               onclick: () => {
                 ctx.ui.settingsMenuOpen = false;
-                // 방문기록 페이지(오버레이)를 연다 — 다른 단발 오버레이는 닫는다.
-                ctx.ui.wishSiteOpen = false;
-                ctx.ui.goblinSiteOpen = false;
-                ctx.ui.onetSiteOpen = false;
-                ctx.ui.ebsSiteOpen = false;
-                ctx.ui.gigSiteOpen = false;
-                ctx.ui.jobplanetSiteOpen = false;
-                ctx.ui.auctionSiteOpen = false;
-                ctx.ui.dstorySiteOpen = false;
-                ctx.ui.niglSiteOpen = false;
+                // 방문기록 페이지(오버레이)를 연다 — 다른 단발 오버레이는 전부 닫는다.
+                closeOverlays(ctx);
                 ctx.ui.historySiteOpen = true;
                 ctx.refresh();
               },
@@ -474,18 +466,8 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
           class: "tab" + (t.id === active ? " tab--active" : ""),
           title: t.label,
           onclick: () => {
-            // 탭을 이동하면 단발 사이트(소원 가게·도깨비 상점·O넷·서던피스·d스토리)는 닫힌다.
-            ctx.ui.wishSiteOpen = false;
-            ctx.ui.goblinSiteOpen = false;
-            ctx.ui.onetSiteOpen = false;
-            ctx.ui.ebsSiteOpen = false;
-            ctx.ui.gigSiteOpen = false;
-            ctx.ui.jobplanetSiteOpen = false;
-            ctx.ui.auctionSiteOpen = false;
-            ctx.ui.dstorySiteOpen = false;
-            ctx.ui.niglSiteOpen = false;
-            ctx.ui.historySiteOpen = false;
-            ctx.ui.goedamSiteOpen = false;
+            // 탭을 이동하면 단발 사이트(소원 가게·O넷·momo 등)는 전부 닫힌다.
+            closeOverlays(ctx);
             ctx.ui.activeTab = t.id;
             ctx.refresh();
           },

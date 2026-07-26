@@ -37,6 +37,8 @@ import { SHOP_ITEMS } from "@/data/shop";
 import { PEEMANG_ITEMS } from "@/data/peemang";
 import { INGREDIENTS } from "@/data/grocery";
 import { HOUSINGS } from "@/data/housing";
+import { GAME_EVENTS } from "@/data/events";
+import { EVENT_IMAGES } from "@/data/eventImages";
 import { el, mount } from "@/utils/dom";
 
 /**
@@ -96,7 +98,14 @@ const VIDEO_CATEGORIES: VideoAttribute[] = [
   "gaming",
 ];
 
-type Mode = "media" | "item" | "youtube" | "adult" | "tweetcat" | "yabam" | "creation";
+type Mode = "media" | "item" | "youtube" | "adult" | "tweetcat" | "yabam" | "creation" | "events";
+
+/**
+ * 이벤트 창 이미지 저장 규격 — 아이템처럼 **선명**(흐림 축 아님). 이벤트 모달에서
+ * width:100%·max-height:200px·object-fit:cover로 표시되므로 가로로 넓은 480x240(2:1)로 저장한다.
+ */
+const EVENT_IMG_W = 480;
+const EVENT_IMG_H = 240;
 
 /**
  * 야밤 영상 커버 저장 규격 — `.yabam-vid__cover`가 16:10이라 240x150으로 저장한다.
@@ -215,6 +224,8 @@ const WEBP_QUALITY: Record<Mode, number> = {
   creation: 0.5,
   // 야밤 커버는 아이템과 같은 결(선명해야 하는 상품/영상 이미지)이라 0.7.
   yabam: 0.7,
+  // 이벤트 이미지도 선명해야 하는 장면 이미지라 아이템과 같은 0.7.
+  events: 0.7,
 };
 
 /**
@@ -226,6 +237,7 @@ const WEBP_QUALITY: Record<Mode, number> = {
 function outSize(): { w: number; h: number } {
   if (mode === "item") return { w: target.w, h: target.h };
   if (mode === "yabam") return { w: YABAM_IMG_W, h: YABAM_IMG_H };
+  if (mode === "events") return { w: EVENT_IMG_W, h: EVENT_IMG_H };
   return mode === "youtube" ? { w: TUBE_W, h: TUBE_H } : { w: MEDIA_W, h: MEDIA_H };
 }
 /** 무대 세로 — 무대가 곧 크롭 영역이라 저장 비율과 같아야 한다. */
@@ -240,6 +252,7 @@ function stageH(): number {
 function outName(): string {
   if (mode === "item") return itemSelect.value;
   if (mode === "yabam") return yabamSelect.value;
+  if (mode === "events") return eventSelect.value;
   if (mode === "adult") return ADULT_NAME;
   if (mode === "creation") return CREATION_NAME;
   if (mode === "tweetcat") return tweetCatSelect.value;
@@ -254,6 +267,10 @@ const itemSelect = el("select", {});
 const catSelect = el("select", {});
 const tweetCatSelect = el("select", {});
 const yabamSelect = el("select", {});
+const eventSelect = el("select", {});
+eventSelect.replaceChildren(
+  ...GAME_EVENTS.map((e) => el("option", { value: e.id }, `${e.id} — ${e.title}`)),
+);
 const screenSelect = el("select", {});
 const saveBtn = el("button", { class: "btn" }, "저장");
 const msg = el("div", { class: "msg" });
@@ -662,6 +679,28 @@ function fillSaved(): void {
     );
     return;
   }
+  if (mode === "events") {
+    const doneE = GAME_EVENTS.filter((e) => EVENT_IMAGES[e.id]);
+    savedTitle.textContent = `이벤트 이미지 (${doneE.length}/${GAME_EVENTS.length})`;
+    savedBox.replaceChildren(
+      el(
+        "div",
+        { class: "saved" },
+        ...GAME_EVENTS.map((e) => {
+          const url = EVENT_IMAGES[e.id];
+          return el(
+            "div",
+            { class: "saved__item" + (url ? "" : " saved__item--empty") },
+            url
+              ? el("img", { src: url, alt: e.title })
+              : el("div", { class: "saved__none" }, "없음"),
+            el("div", { class: "saved__kw" }, `${e.title} (${e.id})`),
+          );
+        }),
+      ),
+    );
+    return;
+  }
   const done = target.items.filter((it) => ITEM_IMAGES[it.id]);
   savedTitle.textContent = `${target.label} 이미지 (${done.length}/${target.items.length})`;
   savedBox.replaceChildren(
@@ -691,16 +730,30 @@ function apply(): void {
   const isTweetCat = mode === "tweetcat";
   const isYabam = mode === "yabam";
   const isCreation = mode === "creation";
+  const isEvents = mode === "events";
   itemRow.style.display = isItem ? "" : "none";
   screenRow.style.display = isItem ? "" : "none";
   catRow.style.display = isTube ? "" : "none";
   tweetCatRow.style.display = isTweetCat ? "" : "none";
   yabamRow.style.display = isYabam ? "" : "none";
+  eventRow.style.display = isEvents ? "" : "none";
+  // 이벤트 모드: 고른 이벤트의 내용(제목·설명·선택지)을 옆에 띄운다.
+  eventInfo.style.display = isEvents ? "" : "none";
+  if (isEvents) {
+    const ev = GAME_EVENTS.find((e) => e.id === eventSelect.value);
+    eventInfo.replaceChildren(
+      el("div", { class: "event-info__title" }, ev ? ev.title : "—"),
+      el("div", { class: "event-info__desc" }, ev ? ev.description : ""),
+      ...(ev
+        ? ev.choices.map((c) => el("div", { class: "event-info__choice" }, `▸ ${c.label} — ${c.result}`))
+        : []),
+    );
+  }
   // 파일명 입력은 트윗(키워드) 전용이다 — 아이템은 id, 너튜브는 영상 카테고리, 트윗 카테고리는
   // 트윗 속성을 목록에서 고르고, 성인은 이름이 아무 역할도 안 해서 아예 묻지 않는다
   // (ADULT_NAME 주석). 여기에 트윗 카테고리용 이름 입력을 되살리지 마라 — 매칭이 속성
   // 정확일치라 목록에 없는 이름은 어떤 트윗에도 안 붙는다(사용자 확정).
-  const named = isItem || isTube || isAdult || isTweetCat || isYabam || isCreation;
+  const named = isItem || isTube || isAdult || isTweetCat || isYabam || isCreation || isEvents;
   nameRow.style.display = named ? "none" : "";
   mediaNotes.style.display = named ? "none" : "";
   itemNote.style.display = named ? "" : "none";
@@ -724,6 +777,11 @@ function apply(): void {
       ` 파일명은 '${CREATION_NAME}'으로 자동 저장됩니다(creation, creation__2 …) — 이름은 매칭에 쓰이지 않습니다.` +
       ` 1차/2차 창작 트윗이면 저장된 ${CREATION_IMAGES.length}장 전체가 후보이고, 트윗 id 해시로 하나가 뽑힙니다.` +
       ` 창작 트윗은 무조건 미디어 형태이고, 이 축이 계열(애니)·성인 축보다 먼저입니다.`;
+  } else if (isEvents) {
+    itemNote.textContent =
+      `이벤트 이미지 ${EVENT_IMG_W}x${EVENT_IMG_H} (아이템처럼 선명).` +
+      ` 파일명은 이벤트 id(${eventSelect.value || "—"})로 저장되고, id 1:1 매칭입니다(확률·해시 없음).` +
+      ` 같은 이벤트를 다시 저장하면 이미지가 교체됩니다. 이벤트 창(선택지·결과 화면) 상단에 붙습니다.`;
   } else if (isItem) {
     itemNote.textContent = `${target.label} 규격 ${target.w}x${target.h} · 파일명은 아이템 id(${itemSelect.value || "—"})로 저장됩니다.`;
   } else if (isYabam) {
@@ -759,8 +817,9 @@ const modeSelect = el(
   el("option", { value: "tweetcat" }, "트윗 카테고리 (속성 정확일치)"),
   el("option", { value: "yabam" }, "야밤 영상 (id 1:1)"),
   el("option", { value: "creation" }, "창작 (1차·2차 매칭 · 이름 없음)"),
+  el("option", { value: "events" }, "이벤트 (id 1:1 · 선명)"),
 );
-const MODES: Mode[] = ["media", "item", "youtube", "adult", "tweetcat", "yabam", "creation"];
+const MODES: Mode[] = ["media", "item", "youtube", "adult", "tweetcat", "yabam", "creation", "events"];
 modeSelect.addEventListener("change", () => {
   mode = MODES.find((m) => m === modeSelect.value) ?? "media";
   apply();
@@ -768,6 +827,7 @@ modeSelect.addEventListener("change", () => {
 catSelect.addEventListener("change", () => apply());
 tweetCatSelect.addEventListener("change", () => apply());
 yabamSelect.addEventListener("change", () => apply());
+eventSelect.addEventListener("change", () => apply());
 
 screenSelect.replaceChildren(
   ...TARGETS.map((t) => el("option", { value: t.key }, `${t.label} (${t.w}x${t.h})`)),
@@ -894,6 +954,9 @@ const itemRow = el("div", { class: "row" }, el("label", {}, "아이템"), itemSe
 const catRow = el("div", { class: "row" }, el("label", {}, "카테고리"), catSelect);
 const tweetCatRow = el("div", { class: "row" }, el("label", {}, "트윗 속성"), tweetCatSelect);
 const yabamRow = el("div", { class: "row" }, el("label", {}, "야밤 영상"), yabamSelect);
+const eventRow = el("div", { class: "row" }, el("label", {}, "이벤트"), eventSelect);
+/** 이벤트 모드에서 선택한 이벤트의 내용(제목·설명·선택지)을 보여주는 패널 — '내용 보면서 등록'. */
+const eventInfo = el("div", { class: "event-info" });
 const nameRow = el("div", { class: "row" }, el("label", {}, "파일명"), nameInput);
 const itemNote = el("p", { class: "note" });
 const mediaNotes = el(
@@ -946,6 +1009,8 @@ if (root) {
           catRow,
           tweetCatRow,
           yabamRow,
+          eventRow,
+          eventInfo,
           el(
             "p",
             { class: "note" },

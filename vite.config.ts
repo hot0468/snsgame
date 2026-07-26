@@ -41,6 +41,8 @@ const DIRS: Record<string, string> = {
   yabam: "src/assets/yabam",
   // creation=창작(1차/2차) 트윗 이미지(파일명은 매칭에 안 쓰인다 — 어드민이 `creation` 고정으로 보낸다).
   creation: "src/assets/creation",
+  // events=이벤트 창 이미지(파일명=이벤트 id 1:1, 선명). data/eventImages.ts 글롭이 붙인다.
+  events: "src/assets/events",
 };
 
 /**

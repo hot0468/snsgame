@@ -225,8 +225,8 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
       { class: "killer-section" },
       el("div", { class: "killer-section__title" }, `🗡️ 청부 (실패 ${kj.fails}/3 · 완료 ${kj.completed})`),
       asg
-        ? el("div", { class: "killer-section__mission" }, "이번 주 타겟이 배정됐다. 쪽지의 힌트를 보고 위치를 알아내라.")
-        : el("div", { class: "killer-section__mission" }, "배정된 임무 없음. 일요일에 momo가 연락한다."),
+        ? el("div", { class: "killer-section__mission" }, "이번 달 타겟이 배정됐다. 쪽지의 힌트를 보고 위치를 알아내라.")
+        : el("div", { class: "killer-section__mission" }, "배정된 임무 없음. 매달 1일에 momo가 연락한다."),
       el(
         "button",
         {

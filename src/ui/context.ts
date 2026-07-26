@@ -74,6 +74,8 @@ export interface UIState {
   homeTab: "recommend" | "following";
   /** 미디북스 탭: 홈(일반 도서) / 성인(성인물 보기 ON일 때만) */
   medibooksTab: "home" | "adult";
+  /** 미디북스 홈 도서 필터(상단 메뉴 도서/만화): 일반도서(만화 제외) / 만화 */
+  medibooksFilter: "book" | "comic";
   /** 팔로잉 탭에 표시 중인 랜덤 트윗들 */
   followingFeed: Tweet[];
   /** 네이놈 포털에서 열어본 기사 id(null이면 목록) */
@@ -158,6 +160,7 @@ export function createUIState(): UIState {
     likedTweetIds: new Set(),
     homeTab: "recommend",
     medibooksTab: "home",
+    medibooksFilter: "book",
     followingFeed: [],
     portalArticleId: null,
     youtubeVideos: [],

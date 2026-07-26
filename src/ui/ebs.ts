@@ -10,11 +10,13 @@ import {
 import { SKILL_STATS } from "@/data/stats";
 import { el, formatNumber } from "@/utils/dom";
 import { icon } from "./icons";
+import { confirmPurchase } from "./confirmModal";
+import { advanceTime } from "@/systems/time";
 
 /* ============================================================
  * 이비에듀 — 네이놈에 '듄'을 검색하면 열리는 인강 사이트(단발 오버레이).
  * 룩앤필: 클래스101+ 스타일 구독형 강의 플랫폼(썸네일 그리드·Top·크리에이터).
- * 강의를 편당 3,000원 + 행동력 8에 수강하면 스탯이 오른다(시간은 소모 안 함).
+ * 강의를 편당 3,000원 + 행동력 8에 수강하면 스탯이 오른다(수강 확인 팝업 → 시간 1칸 소모).
  *
  * ⚠️ 수강 가능 여부·비용 차감·스탯 적용은 전부 systems/ebs가 계산한다.
  * 여기서는 canWatchLecture 결과로 버튼 상태만 그리고 watchLecture를 호출만 한다.
@@ -95,12 +97,24 @@ function lectureCard(ctx: GameContext, lec: EbsLecture, i: number, rank?: number
             onclick: () => {
               // 클릭 시점에 다시 검증한다(재렌더 사이에 상태가 바뀌었을 수 있다).
               if (canWatchLecture(ctx.store.getState(), lec) !== "ok") return;
-              let label = "";
-              ctx.update((st) => {
-                const res = watchLecture(st, lec);
-                if (res.ok) label = res.label;
+              confirmPurchase(ctx, {
+                title: "강의 수강",
+                message: `'${lec.title}' 강의를 수강하시겠습니까? (시간 1칸 소모)`,
+                confirmLabel: "수강",
+                onConfirm: () => {
+                  // 확인 사이에 상태가 바뀌었을 수 있어 한 번 더 검증한다.
+                  if (canWatchLecture(ctx.store.getState(), lec) !== "ok") return;
+                  let label = "";
+                  ctx.update((st) => {
+                    const res = watchLecture(st, lec);
+                    if (res.ok) {
+                      label = res.label;
+                      advanceTime(st, 1); // 수강은 시간 1칸을 소모한다.
+                    }
+                  });
+                  if (label) ctx.toast(`수강 완료! ${label}`);
+                },
               });
-              if (label) ctx.toast(`수강 완료! ${label}`);
             },
           },
           "수강",
@@ -162,7 +176,7 @@ export function renderEbs(ctx: GameContext): HTMLElement {
         el(
           "p",
           { class: "eb-hero__sub" },
-          `${EBS_LECTURES.length}개 강좌 중 골라 수강하세요. 편당 ${formatNumber(LECTURE_COST)}원 + 행동력 8, 관련 스탯이 오릅니다. 매일 강의 한 편은 무료! (업무 성과 강의는 재직 중에만)`,
+          `${EBS_LECTURES.length}개 강좌 중 골라 수강하세요. 편당 ${formatNumber(LECTURE_COST)}원 + 행동력 8 + 시간 1칸, 관련 스탯이 오릅니다. 매일 강의 한 편은 무료! (업무 성과 강의는 재직 중에만)`,
         ),
         el(
           "button",

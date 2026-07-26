@@ -21,7 +21,7 @@ export function renderKillerWorkModal(ctx: GameContext): HTMLElement {
       el(
         "div",
         { class: "modal__body" },
-        el("p", {}, "지금은 배정된 임무가 없다. 일요일에 momo가 다음 타겟을 보낸다."),
+        el("p", {}, "지금은 배정된 임무가 없다. 매달 1일에 momo가 다음 타겟을 보낸다."),
         el("button", { class: "btn btn--ghost", onclick: () => ctx.closeModal() }, "닫기"),
       ),
     );
@@ -70,7 +70,7 @@ export function renderKillerWorkModal(ctx: GameContext): HTMLElement {
         el(
           "div",
           { class: "killer-dossier__deadline" },
-          `마감: 토요일까지 · 남은 시간 ${remain}일 (${weekdayLabel(s.day)}요일)`,
+          `마감: 일주일 · 남은 시간 ${remain}일 (${weekdayLabel(s.day)}요일)`,
         ),
       ),
       el("div", { class: "killer-hint" }, "이자의 최근 트윗이다. 위치를 흘린 트윗이 있다 — 잘 읽어라."),

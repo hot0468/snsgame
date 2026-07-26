@@ -1,5 +1,6 @@
 import type { GameContext } from "./context";
 import { createInitialState, CELEBRATORY_ENDING_TITLES } from "@/core/state";
+import { winEndingTitle } from "@/systems/winEnding";
 import { deleteSave } from "@/systems/save";
 import { dateLabel } from "@/systems/time";
 import { el, formatNumber } from "@/utils/dom";
@@ -13,7 +14,7 @@ export function renderGameOver(ctx: GameContext): HTMLElement {
   const s = ctx.store.getState();
   const reason = s.gameOver ?? "게임 오버";
   const account = getActiveAccount(s);
-  const endingTitle = CELEBRATORY_ENDING_TITLES[reason];
+  const endingTitle = CELEBRATORY_ENDING_TITLES[reason] ?? winEndingTitle(reason);
 
   return el(
     "div",

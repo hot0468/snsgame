@@ -30,9 +30,17 @@ function coverStyle(hue: number): string {
 
 /* ===================== 마스트헤드(장식) ===================== */
 
-const TOP_MENU = ["만화", "웹툰", "웹소설", "도서", "셀렉트"];
+// 상단 메뉴 중 만화·도서는 실제 필터로 동작한다(도서=만화 제외 일반도서). 나머지는 장식.
+const TOP_MENU: { label: string; filter?: BookFilter }[] = [
+  { label: "만화", filter: "comic" },
+  { label: "웹툰" },
+  { label: "웹소설" },
+  { label: "도서", filter: "book" },
+  { label: "셀렉트" },
+];
 
-function masthead(): HTMLElement {
+function masthead(ctx: GameContext): HTMLElement {
+  const cur = ctx.ui.medibooksFilter;
   return el(
     "header",
     { class: "mb__mast" },
@@ -40,8 +48,22 @@ function masthead(): HTMLElement {
     el(
       "nav",
       { class: "mb__menu" },
-      ...TOP_MENU.map((m, i) =>
-        el("span", { class: "mb__menu-item" + (i === 3 ? " mb__menu-item--on" : "") }, m),
+      ...TOP_MENU.map((m) =>
+        el(
+          "span",
+          {
+            class: "mb__menu-item" + (m.filter && cur === m.filter ? " mb__menu-item--on" : ""),
+            style: m.filter ? "cursor:pointer" : undefined,
+            onclick: m.filter
+              ? () => {
+                  ctx.ui.medibooksFilter = m.filter!;
+                  ctx.ui.medibooksTab = "home"; // 성인 탭에 있었어도 홈(필터된 도서)으로 돌아온다
+                  ctx.refresh();
+                }
+              : undefined,
+          },
+          m.label,
+        ),
       ),
     ),
     el(
@@ -270,6 +292,21 @@ function bookRow(ctx: GameContext, book: Book, rank: number): HTMLElement {
   );
 }
 
+/* ===================== 도서 필터(일반도서/만화) ===================== */
+
+type BookFilter = "book" | "comic";
+
+/** 필터에 맞는 도서 목록(도서=만화 제외 일반도서, 만화=comic만). 상단 메뉴가 필터를 바꾼다. */
+function filteredBooks(filter: BookFilter): typeof BOOKS {
+  return filter === "comic"
+    ? BOOKS.filter((b) => b.category === "comic")
+    : BOOKS.filter((b) => b.category !== "comic");
+}
+
+function filterSecTitle(filter: BookFilter): string {
+  return filter === "comic" ? "지금 많이 보는 만화" : "지금 많이 읽고 있는 도서";
+}
+
 /* ===================== 홈 화면 ===================== */
 
 export function renderMediBooks(ctx: GameContext): HTMLElement {
@@ -303,9 +340,13 @@ export function renderMediBooks(ctx: GameContext): HTMLElement {
           chips(),
           banners(),
           quick(),
-          el("div", { class: "mb__sec-title" }, "지금 많이 읽고 있는 작품"),
-          el("div", { class: "mb__books" }, ...BOOKS.map((b, i) => bookRow(ctx, b, i + 1))),
+          el("div", { class: "mb__sec-title" }, filterSecTitle(ctx.ui.medibooksFilter)),
+          el(
+            "div",
+            { class: "mb__books" },
+            ...filteredBooks(ctx.ui.medibooksFilter).map((b, i) => bookRow(ctx, b, i + 1)),
+          ),
         ];
 
-  return el("div", { class: "mb" }, masthead(), el("div", { class: "mb__body" }, tabs, ...body));
+  return el("div", { class: "mb" }, masthead(ctx), el("div", { class: "mb__body" }, tabs, ...body));
 }

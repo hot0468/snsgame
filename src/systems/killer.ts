@@ -1,7 +1,7 @@
 import type { GameState, DMThread } from "@/core/types";
 import { getActiveAccount } from "@/core/state";
 import { uid } from "@/utils/random";
-import { dayOfWeek } from "./calendar";
+import { dateOf } from "./calendar";
 import { MAX_SKILL } from "@/data/stats";
 import { KILLER_TARGETS, targetById } from "@/data/killerTargets";
 
@@ -106,7 +106,7 @@ export function acceptKillerJob(state: GameState, threadId: string): void {
   t.messages.push({
     id: uid("dmm"),
     from: "partner",
-    text: "현명해. 첫 타겟은 이번 일요일에 보낸다. 명심해 — 한번 시작하면 스스로 그만두는 건 없어.",
+    text: "현명해. 첫 타겟은 다음 달 1일에 보낸다. 명심해 — 한번 시작하면 스스로 그만두는 건 없어.",
     day: state.day,
   });
   t.unread = true;
@@ -127,31 +127,38 @@ export function declineKillerJob(state: GameState, threadId: string): void {
   });
 }
 
-/** 다음 타겟을 배정하고 momo가 힌트 DM을 보낸다. */
+/** 임무 마감까지의 기간(일). 배정 후 이 안에 처리해야 한다. */
+export const KILLER_DEADLINE_DAYS = 7;
+
+/** 다음 타겟을 배정하고 momo가 힌트 DM을 보낸다(마감은 배정일로부터 일주일). */
 function assignNextTarget(state: GameState): void {
   const kj = state.killerJob;
   if (!kj) return;
   const idx = (kj.completed + kj.fails) % KILLER_TARGETS.length;
   const target = KILLER_TARGETS[idx];
-  kj.assignment = { targetId: target.id, assignedDay: state.day, deadlineDay: state.day + 7 };
+  kj.assignment = {
+    targetId: target.id,
+    assignedDay: state.day,
+    deadlineDay: state.day + KILLER_DEADLINE_DAYS,
+  };
   pushMomo(
     state,
-    `이번 타겟이다.\n\n@${target.handle}\n${target.hint}\n\n토요일까지 처리해라. 그자가 어디 있을지는 자기 입으로 흘렸다 — 트윗을 읽어.`,
+    `이번 달 타겟이다.\n\n@${target.handle}\n${target.hint}\n\n일주일 안에 처리해라. 그자가 어디 있을지는 자기 입으로 흘렸다 — 트윗을 읽어.`,
   );
 }
 
 /**
- * 주간 훅(onNewDay 말미) — 일요일마다:
- *  1) 지난 임무가 미완이면 실패 누적(3회면 게임오버).
- *  2) 살아 있으면 새 타겟 배정.
+ * 킬러 훅(onNewDay 말미) — 매일:
+ *  1) 배정된 임무가 마감(일주일)을 넘겼으면 실패 누적(3회면 게임오버).
+ *  2) 임무가 없고 매달 1일이면 이달 새 타겟 배정(의뢰는 월 1회).
  */
-export function killerWeeklyTick(state: GameState): void {
+export function killerDailyTick(state: GameState): void {
   const kj = state.killerJob;
   if (!kj?.active) return;
-  if (dayOfWeek(state.day) !== 0) return; // 일요일(0)에만
-  if (kj.assignment) {
+  // 1) 마감 지난 미완 임무 실패
+  if (kj.assignment && state.day > kj.assignment.deadlineDay) {
     kj.fails += 1;
-    pushMomo(state, `시간이 다 됐다. 이번 건 실패야. (실패 ${kj.fails}/${KILLER_MAX_FAILS})`);
+    pushMomo(state, `마감이 지났다. 이번 건 실패야. (실패 ${kj.fails}/${KILLER_MAX_FAILS})`);
     kj.assignment = null;
     if (kj.fails >= KILLER_MAX_FAILS) {
       pushMomo(state, "세 번이나 놓쳤군. 실망이야. 정리해야겠어.");
@@ -159,7 +166,8 @@ export function killerWeeklyTick(state: GameState): void {
       return;
     }
   }
-  assignNextTarget(state);
+  // 2) 월 1회(매달 1일) 새 타겟 배정 — 이미 진행 중인 임무가 없을 때만
+  if (!kj.assignment && dateOf(state.day).getDate() === 1) assignNextTarget(state);
 }
 
 export interface HitResult {
@@ -185,6 +193,6 @@ export function attemptHit(state: GameState, input: string): HitResult {
   state.money += fee;
   kj.completed += 1;
   kj.assignment = null;
-  pushMomo(state, `깔끔하군. 의뢰비 ${fee.toLocaleString("ko-KR")}원 입금했다. 다음 일요일에 또 보지.`);
+  pushMomo(state, `깔끔하군. 의뢰비 ${fee.toLocaleString("ko-KR")}원 입금했다. 다음 달에 또 보지.`);
   return { ok: true, fee, msg: `처리 완료. 의뢰비 ${fee.toLocaleString("ko-KR")}원이 입금됐다.` };
 }
