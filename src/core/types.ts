@@ -871,6 +871,9 @@ export interface GameState {
   /** 마지막으로 부장님 아재개그로 개그(comedy)를 얻은 날(일차). -1이면 없음. 하루 1회 캡. */
   bossJokeDay: number;
 
+  /** 마지막으로 EBS '오늘의 무료 강의'를 수강한 날(일차). -1이면 없음. 하루 1편 무료 캡. */
+  ebsFreeWatchedDay: number;
+
   /** 새 날 아침 딤팝업 대기 플래그. onNewDay에서 true, 팝업 닫을 때 false */
   dawnPending: boolean;
 
@@ -1029,6 +1032,11 @@ export interface GameState {
    */
   dartpinBoard: { day: number; postIds: string[] } | null;
   /**
+   * 네이놈 실시간 검색어(실검) 스냅샷. 하루 단위로 갱신된다(다트핀 board와 같은 스냅샷 방식).
+   * `ridden`은 오늘 이미 편승(부스트)한 트렌드 id — 트렌드당 1회/일 부스트 제한용.
+   */
+  trendBoard: { day: number; ids: string[]; ridden: string[] } | null;
+  /**
    * 비밀번호를 풀어 잠금을 해제한 d스토리 게시글 id 목록(`DSTORY_POSTS` 참조).
    * 본문 공개 여부와 IT 보상 중복 수령 방지를 **둘 다** 이 배열 하나로 판정한다
    * (별도 '보상 받음' 플래그를 두지 마라 — 두 출처가 어긋날 여지만 생긴다).
@@ -1051,6 +1059,8 @@ export interface GameState {
    * (판정은 systems/hosts.hostsHasGoedam). 세이브 대상(편집이 유지돼야 함).
    */
   hostsFile: string | null;
+  /** 주소창 ⭐로 담은 북마크 사이트 id 목록(BookmarkableSiteId). 브라우저 북마크바에 표시. */
+  bookmarks: string[];
   /** 성인 트윗 누적 작성 수(야밤 DM 트리거용) */
   adultTweetsPosted: number;
   /** 체벌(punish) 트윗 누적 작성 수(비공개 크루 권유 게이트용) */

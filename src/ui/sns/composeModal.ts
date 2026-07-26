@@ -4,6 +4,8 @@ import { mediaSetFor } from "@/data/mediaTweets";
 import { canWriteScam, getActiveAccount, isMentalLow, isSuspended } from "@/core/state";
 import { ATTRIBUTES, getAffinity } from "@/data/attributes";
 import { isTrending } from "@/data/trends";
+import type { TrendTopic } from "@/data/trendTopics";
+import { TREND_MULTIPLIER, rideTrend } from "@/systems/trends";
 import { maxPostSlots } from "@/systems/followers";
 import { canPostBySlot, remainingPostSlots } from "@/systems/eggs";
 import {
@@ -75,6 +77,7 @@ export function renderComposeModal(
   ctx: GameContext,
   preselect?: AttributeId,
   articleTitle?: string,
+  trend?: TrendTopic,
 ): HTMLElement {
   const s = ctx.store.getState();
   const account = getActiveAccount(s);
@@ -103,8 +106,8 @@ export function renderComposeModal(
     );
   }
 
-  // 기사 트윗 모드에선 우울 모드 무시(뉴스에 반응하는 트윗)
-  const gloomy = !articleTitle && isMentalLow(s.resources.mental);
+  // 기사·실검 트윗 모드에선 우울 모드 무시(뉴스/트렌드에 반응하는 트윗)
+  const gloomy = !articleTitle && !trend && isMentalLow(s.resources.mental);
 
   // 인기 카테고리 등에서 넘어온 preselect가 해금돼 있으면(또는 데려온 반려동물이면) 그 카테고리로 시작
   const ownsPet = (a: AttributeId): boolean =>
@@ -112,13 +115,14 @@ export function renderComposeModal(
   const hasPreselect =
     !!preselect && (account.unlockedAttributes.includes(preselect) || ownsPet(preselect));
   // 우울·기사 모드는 카테고리를 고르지 않는다(항상 '일상'으로 게시).
+  // 실검 모드는 그 트렌드의 카테고리로 고정(해금 여부와 무관 — 뉴스처럼 그 항목에 대해 쓴다).
   // 그 외에는 1단계에서 직접 고를 때까지 미선택(null) 상태.
   let selectedAttr: AttributeId | null =
-    gloomy || articleTitle ? "daily" : hasPreselect ? (preselect as AttributeId) : null;
+    gloomy || articleTitle ? "daily" : trend ? trend.attr : hasPreselect ? (preselect as AttributeId) : null;
   let tone: TweetTone = "positive";
   let adultKind: AdultKind = "sekt";
   // 도덕성이 매우 낮으면 '사기' 모드 선택 가능
-  const canScam = !gloomy && !articleTitle && canWriteScam(s.resources.morality);
+  const canScam = !gloomy && !articleTitle && !trend && canWriteScam(s.resources.morality);
   let scamMode = false;
 
   // 일반 트윗 성격 picker: 선택된 성격(미선택이면 등록 비활성) + 후보 문구 캐시.
@@ -155,7 +159,7 @@ export function renderComposeModal(
   let fanWorkId: string | null = null;
   /** 지금 창작 트윗을 쓰는 중인지(애니 카테고리 + 도구 보유 + 창작 모드 선택) */
   const isCreating = (): boolean =>
-    selectedAttr === "anime" && canCreate && !gloomy && !articleTitle && !scamMode && creation !== "off";
+    selectedAttr === "anime" && canCreate && !gloomy && !articleTitle && !trend && !scamMode && creation !== "off";
 
   // 뷰티 신상품 홍보: 이달의 신상 화장품 중 '보유한' 것만 홍보 대상.
   const ownedNewCosmetics = monthlyNewCosmetics(monthKey(s.day)).filter((c) =>
@@ -164,10 +168,10 @@ export function renderComposeModal(
   let cosmeticId: string | null = null;
   /** 지금 뷰티 신상품 홍보 트윗을 쓰는 중인지 */
   const isPromo = (): boolean =>
-    selectedAttr === "beauty" && !gloomy && !articleTitle && !scamMode && cosmeticId != null;
+    selectedAttr === "beauty" && !gloomy && !articleTitle && !trend && !scamMode && cosmeticId != null;
 
-  // 우울·기사 모드는 고를 카테고리가 없으므로 2단계에서 시작한다.
-  const skipStep1 = gloomy || !!articleTitle;
+  // 우울·기사·실검 모드는 고를 카테고리가 없으므로(고정) 2단계에서 시작한다.
+  const skipStep1 = gloomy || !!articleTitle || !!trend;
   let step: Step = skipStep1 ? 2 : 1;
 
   const container = el("div", { class: "modal compose-modal" });
@@ -180,7 +184,7 @@ export function renderComposeModal(
    * 우울·기사·사기·성인·창작·홍보는 각자 기존 흐름을 쓰므로 제외한다.
    */
   const isGeneralTweet = (): boolean =>
-    !gloomy && !articleTitle && !scamMode && !isAdultTweet() && !isCreating() && !isPromo();
+    !gloomy && !articleTitle && !trend && !scamMode && !isAdultTweet() && !isCreating() && !isPromo();
 
   /** 기사 트윗 모드: 톤에 맞는 반응 + 기사 헤드라인 */
   function articlePool(): string[] {
@@ -191,8 +195,19 @@ export function renderComposeModal(
     return reactions.map((r) => `${r}\n📰 ${articleTitle}`);
   }
 
+  /** 실검 편승 모드: 톤에 맞는 반응 + 실검 키워드(기사 모드와 같은 구조 — 그 항목에 대해 쓴다) */
+  function trendPool(): string[] {
+    const kw = trend!.keyword;
+    const reactions =
+      tone === "negative"
+        ? ["이거 실화냐...", "하 진짜 답답하다", "이건 좀 아니지 않냐", "다들 이거 어떻게 생각함?"]
+        : ["이거 지금 실검 1위 실화? 🔥", "오 이거 완전 화제네 ㅋㅋ", "다들 이거 봤어??", "나만 이거 궁금한 거 아니지?"];
+    return reactions.map((r) => `${r}\n🔥 ${kw}`);
+  }
+
   /** 현재 선택(속성·톤/종류)에 맞는 문구 풀 */
   function currentPool(): string[] {
+    if (trend) return trendPool();
     if (articleTitle) return articlePool();
     if (gloomy) return GLOOMY_TWEETS;
     if (scamMode) return SCAM_TWEETS;
@@ -462,6 +477,16 @@ export function renderComposeModal(
       ? el("div", { class: "article-note" }, `📰 ${articleTitle}`)
       : null;
 
+    // 실검 편승 안내 — articleNote와 같은 자리·톤(재사용). 해금 카테고리가 아니면 preselect가
+    // 안 먹어 selectedAttr가 다를 수 있으므로, 여기선 트렌드 존재만 안내(부스트 성사는 게시 시 판정).
+    const trendNote = trend
+      ? el(
+          "div",
+          { class: "article-note" },
+          `🔥 실시간 검색어 '${trend.keyword}' 편승 중 — 이 주제로 올리면 팔로워 부스트!`,
+        )
+      : null;
+
     const gloomyNotice = gloomy
       ? el(
           "div",
@@ -481,7 +506,7 @@ export function renderComposeModal(
 
     // 창작 종류 선택(애니 + 창작 도구 보유 시): 일반 / 1차창작 / 2차창작
     const showCreation =
-      selectedAttr === "anime" && canCreate && !gloomy && !articleTitle && !scamMode;
+      selectedAttr === "anime" && canCreate && !gloomy && !articleTitle && !trend && !scamMode;
     const creationChips = showCreation
       ? el(
           "div",
@@ -533,7 +558,7 @@ export function renderComposeModal(
 
     // 뷰티 신상품 홍보: 보유한 이달의 신상 화장품을 골라 홍보하면 팔로워 증가분↑
     const showCosmetic =
-      selectedAttr === "beauty" && !gloomy && !articleTitle && !scamMode;
+      selectedAttr === "beauty" && !gloomy && !articleTitle && !trend && !scamMode;
     let cosmeticSection: HTMLElement | null = null;
     if (showCosmetic && ownedNewCosmetics.length > 0) {
       cosmeticSection = el(
@@ -605,7 +630,7 @@ export function renderComposeModal(
             ),
           ),
         )
-      : articleTitle
+      : articleTitle || trend
         ? el(
             "div",
             { class: "chip-row chip-row--center" },
@@ -654,7 +679,7 @@ export function renderComposeModal(
             ctx.toast(`사기 트윗 등록... +${earned.toLocaleString("ko-KR")}원`);
           } else {
             const finalAttr: AttributeId = gloomy || articleTitle ? "daily" : selectedAttr ?? "daily";
-            const finalAdult = !gloomy && !articleTitle && isAdultTweet();
+            const finalAdult = !gloomy && !articleTitle && !trend && isAdultTweet();
             // 창작 가중 / 뷰티 신상품 홍보 가중
             const creating = isCreating();
             let mult = 1;
@@ -667,6 +692,10 @@ export function renderComposeModal(
             } else if (isPromo()) {
               mult = NEW_COSMETIC_MULTIPLIER;
             }
+            // 실검 편승 가중 — 트렌드가 있고 게시 카테고리가 그 트렌드의 카테고리와 일치할 때만.
+            // (해금 안 된 카테고리면 finalAttr가 daily로 떨어져 자동으로 편승이 안 붙는다.)
+            const rode = !!trend && finalAttr === trend.attr;
+            if (rode) mult *= TREND_MULTIPLIER;
             // 일반 트윗만 성격 전달. 창작(1차/2차)이면 creation을 넘겨 무조건 미디어 형태로 게시한다.
             const opts: import("@/systems/tweetSystem").PostTweetOptions = creating
               ? { creation: creation as "original" | "fan" }
@@ -693,13 +722,16 @@ export function renderComposeModal(
                 st.creationTweetCount += 1;
                 maybeSpawnAuthorDM(st);
               }
+              // 편승 성사 시 트렌드를 '오늘 편승함'으로 기록(부스트 1회/일 보장 — rideTrend가 중복 push 방지).
+              if (rode) rideTrend(st, trend!.id);
             });
             const statText = statChanges
               .map((c) => `${c.label} ${c.delta > 0 ? "+" : ""}${c.delta}`)
               .join(" · ");
             ctx.toast(
               (delta >= 0 ? `트윗 등록! +${delta} 팔로워` : `트윗 등록... ${delta} 팔로워`) +
-                (statText ? ` · ${statText}` : ""),
+                (statText ? ` · ${statText}` : "") +
+                (rode ? " · 🔥 트렌드 편승!" : ""),
             );
             if (unlockedMeeting) ctx.toast("🔓 성인 콘텐츠가 풀렸다 — 새로운 만남의 문이 열렸다.");
           }
@@ -759,6 +791,7 @@ export function renderComposeModal(
       slotIndicator,
       gloomyNotice,
       articleNote,
+      trendNote,
       // 고를 게 하나도 없는 모드(우울)에선 분위기 질문을 띄우지 않는다
       gloomy ? null : stepTitle("어떤 분위기로 쓸까?"),
       scamNotice,
@@ -777,7 +810,7 @@ export function renderComposeModal(
   const head = el(
     "div",
     { class: "modal__head" },
-    gloomy ? "새 트윗 (우울 모드)" : articleTitle ? "기사 트윗" : "새 트윗",
+    gloomy ? "새 트윗 (우울 모드)" : articleTitle ? "기사 트윗" : trend ? "실검 트윗" : "새 트윗",
     el("button", { class: "popup__close", onclick: () => ctx.closeModal() }, "✕"),
   );
 

@@ -158,6 +158,14 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           lifeTabBtn("자기개발", "growth"),
         ),
         el("div", { class: "offline-grid" }, ...items),
+        // 공부 탭: 미술·코딩 등은 EBS로 옮겼다 — 힌트로 안내(네이놈에서 검색해 접속).
+        lifeTab === "study"
+          ? el(
+              "p",
+              { class: "compose-hint", style: "margin:10px 0 0;line-height:1.6" },
+              "📚 EBS(이비에듀)에 좋은 강의가 많다던데 한번 가볼까? 미술·코딩 같은 건 거기서 배울 수 있대. (네이놈에 '이비에듀' 검색)",
+            )
+          : null,
         // 취업 / 하루 그냥 보내기 — 탭 밖 하단, 가로 한 줄(세로 스크롤 방지)
         el("div", { class: "life-foot-row" }, jobSection(), restDaySection()),
       ),

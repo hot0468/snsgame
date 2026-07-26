@@ -19,6 +19,8 @@ import {
 } from "@/systems/lotto";
 import { canEnterGoblinShop, enterGoblinShop } from "@/systems/goblin";
 import { currentContest, contestWinChance, applyContest } from "@/systems/contest";
+import { ensureTrendBoard, getTrends, hasRiddenTrend } from "@/systems/trends";
+import { openComposeModal } from "./postLimitModal";
 
 interface Article {
   id: string;
@@ -630,12 +632,58 @@ function thumb(seed: string, className: string): HTMLElement {
 
 /** '네이놈' 뉴스 포털 */
 export function renderPortal(ctx: GameContext): HTMLElement {
+  const state = ctx.store.getState();
+  // 오늘자 실검 편성 보장(다트핀 게시판과 동일 패턴 — 조건 없이 dispatch하면 재렌더→dispatch 무한 루프).
+  if (!state.trendBoard || state.trendBoard.day !== state.day) {
+    ctx.update((s) => ensureTrendBoard(s));
+  }
+
   const selected = ctx.ui.portalArticleId
     ? NEWS.find((a) => a.id === ctx.ui.portalArticleId) ?? null
     : null;
 
   if (selected) return renderArticle(ctx, selected);
   return renderNewsHome(ctx);
+}
+
+/**
+ * 실시간 검색어(실검) TOP 10 위젯 — 네이버 실검 룩(좁은 박스, 1~10위 2열).
+ * 대놓고 보여주는 위젯이다(다트핀 힌트 은닉 규칙과 무관). 클릭 → 그 트렌드 카테고리로 작성 모달.
+ * 이미 편승(부스트 획득)한 트렌드는 흐리게 표시하되 클릭은 계속 되게 둔다
+ * (부스트 1회/일 제한은 systems/trends.ts의 rideTrend가 막는다).
+ */
+function trendBoard(ctx: GameContext): HTMLElement {
+  const s = ctx.store.getState();
+  const topics = getTrends(s);
+  if (topics.length === 0) return el("div", {});
+
+  return el(
+    "div",
+    { class: "trend-board" },
+    el(
+      "div",
+      { class: "trend-board__head" },
+      el("span", {}, "실시간 검색어"),
+      el("span", { class: "trend-board__stamp" }, marketStamp(ctx)),
+    ),
+    el(
+      "div",
+      { class: "trend-board__list" },
+      ...topics.map((t, i) => {
+        const ridden = hasRiddenTrend(s, t.id);
+        return el(
+          "button",
+          {
+            class: "trend-board__item" + (ridden ? " trend-board__item--ridden" : ""),
+            onclick: () => openComposeModal(ctx, t.attr, t),
+          },
+          el("span", { class: "trend-board__rank" }, String(i + 1)),
+          el("span", { class: "trend-board__kw" }, t.keyword),
+          ridden ? el("span", { class: "trend-board__tag" }, "편승함") : null,
+        );
+      }),
+    ),
+  );
 }
 
 /** 특정 키워드에만 반응하는 검색창(장식 + 숨은 키워드). */
@@ -664,8 +712,8 @@ function searchBar(ctx: GameContext): HTMLElement {
       ctx.refresh();
       return;
     }
-    // '듄' → EBS 강의 사이트(유료 강의로 스탯 파밍). O넷과 동일한 오버레이 방식.
-    if (q === "듄") {
+    // '듄'(히든) 또는 '이비에듀'/'EBS'(현생 공부탭 힌트로 안내) → EBS 강의 사이트. O넷과 동일한 오버레이 방식.
+    if (q === "듄" || q === "이비에듀" || q === "EBS" || q === "ebs") {
       input.value = "";
       ctx.ui.ebsSiteOpen = true;
       ctx.refresh();
@@ -1411,7 +1459,7 @@ function renderNewsHome(ctx: GameContext): HTMLElement {
   return el(
     "div",
     { class: "portal" },
-    el("div", { class: "portal__hero" }, searchBar(ctx)),
+    el("div", { class: "portal__hero" }, searchBar(ctx), trendBoard(ctx)),
     adBanner(ctx),
     el("div", { class: "portal-lotto-row" }, lottoBlock(ctx), contestBanner(ctx)),
     el("div", { class: "portal-blocks" }, stocksBlock(ctx), shopBlock(ctx)),

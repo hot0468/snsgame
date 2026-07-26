@@ -82,6 +82,8 @@ export interface UIState {
   youtubeVideos: Video[];
   /** 현재 너튜브 목록이 생성된 게임 날짜(day). 날짜가 바뀌면 재생성한다. */
   youtubeVideosDay?: number;
+  /** 너튜브 검색창 입력값(Enter 확정). 빈 문자열이면 홈 목록을 보여준다. */
+  youtubeSearch: string;
   /** 현재 너튜브 목록이 운동/스포츠 영상을 포함해 생성됐는지(운동 스탯 30 초과) */
   youtubeFitnessMode: boolean;
   /** '소원을 이루어주는 가게' 사이트가 열려 있는지(탭 이동 시 닫히고 재진입 불가) */
@@ -157,6 +159,7 @@ export function createUIState(): UIState {
     followingFeed: [],
     portalArticleId: null,
     youtubeVideos: [],
+    youtubeSearch: "",
     youtubeFitnessMode: false,
     wishSiteOpen: false,
     wishOptions: [],

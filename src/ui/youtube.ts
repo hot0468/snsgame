@@ -1,8 +1,11 @@
 import type { GameContext } from "./context";
-import type { Video } from "@/data/videos";
+import type { Video, VideoAttribute } from "@/data/videos";
 import { makeRandomVideos, DEFAULT_VIDEO_ATTRS } from "@/data/videos";
+import type { HiddenVideo } from "@/data/hiddenVideos";
+import { HIDDEN_VIDEOS } from "@/data/hiddenVideos";
 import { getActiveAccount } from "@/core/state";
 import { imageForVideo } from "@/systems/youtubeImages";
+import { ATTRIBUTES } from "@/data/attributes";
 import { el } from "@/utils/dom";
 import { icon, avatar } from "./icons";
 import { renderVideoModal } from "./videoModal";
@@ -44,6 +47,66 @@ function thumbImg(video: Video, alt: string): HTMLElement | null {
   return url ? el("img", { class: "tube-thumb-img", src: url, alt }) : null;
 }
 
+/* ===================== 검색 ===================== */
+
+/** 검색어 seed로 결정되는 장식용 hue(썸네일 색). */
+function seedHue(seed: string): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+
+/** 부분일치 비교 — 공백 무시, 대소문자 무시. a 안에 b가 들어있는지. */
+function fuzzyIncludes(a: string, b: string): boolean {
+  const norm = (s: string) => s.replace(/\s+/g, "").toLowerCase();
+  return norm(a).includes(norm(b));
+}
+
+/**
+ * 숨은 영상(검색으로만 뜨는 영상)을 카드/모달에 재사용 가능한 Video로 변환한다.
+ * 감상 효과는 기존 watchVideo/postTweet 로직을 그대로 타므로 신규 효과가 없다 —
+ * tweetLines만 채워서 "감상 후 트윗한다" 버튼이 정상 동작하게 한다.
+ */
+function hiddenToVideo(hv: HiddenVideo): Video {
+  return {
+    id: `hidden_${hv.trigger}`,
+    title: hv.title,
+    channel: hv.channel,
+    attribute: hv.attribute as VideoAttribute,
+    views: "조회수 비공개",
+    age: "검색 전용",
+    hue: seedHue(hv.trigger + hv.title),
+    tweetLines: [
+      `${hv.title} 이거 실화냐 ㅋㅋ`,
+      "이 영상 진짜 몰입해서 봤다",
+      "다들 이 영상 좀 보고 와라",
+    ],
+  };
+}
+
+/** 검색창(실제 input). Enter로 확정 후 ctx.refresh — oninput마다 전체 재렌더는 무겁다. */
+function tubeSearchBox(ctx: GameContext): HTMLElement {
+  const input = el("input", {
+    class: "tube__search-input",
+    type: "text",
+    placeholder: "검색",
+    value: ctx.ui.youtubeSearch,
+  }) as HTMLInputElement;
+  const submit = (): void => {
+    ctx.ui.youtubeSearch = input.value;
+    ctx.refresh();
+  };
+  input.addEventListener("keydown", (e) => {
+    if ((e as KeyboardEvent).key === "Enter") submit();
+  });
+  return el(
+    "div",
+    { class: "tube__search" },
+    el("div", { class: "tube__search-field" }, input),
+    el("span", { class: "tube__search-btn", onclick: submit }, icon("search", { size: 18 })),
+  );
+}
+
 /* ===================== 마스트헤드(장식) ===================== */
 
 function masthead(ctx: GameContext): HTMLElement {
@@ -57,16 +120,7 @@ function masthead(ctx: GameContext): HTMLElement {
     el("sup", { class: "tube__logo-kr" }, "KR"),
   );
 
-  const searchBox = el(
-    "div",
-    { class: "tube__search" },
-    el(
-      "div",
-      { class: "tube__search-field" },
-      el("span", { class: "tube__search-ph" }, "검색"),
-    ),
-    el("span", { class: "tube__search-btn" }, icon("search", { size: 18 })),
-  );
+  const searchBox = tubeSearchBox(ctx);
 
   return el(
     "header",
@@ -221,26 +275,42 @@ export function renderYoutube(ctx: GameContext): HTMLElement {
     ctx.ui.youtubeVideosDay = day;
   }
   const videos = ctx.ui.youtubeVideos;
-  // 첫 줄 3개 → Shorts → 나머지, 유튜브 홈 배치를 흉내낸다.
-  const topRow = videos.slice(0, 3);
-  const rest = videos.slice(3);
+
+  const query = ctx.ui.youtubeSearch.trim();
+  let main: HTMLElement;
+  if (query) {
+    // 제목·카테고리 라벨(ATTR 라벨) 부분일치로 기존 영상을 필터 + 트리거 매칭된 숨은 영상을 상단에 끼운다.
+    const matched = videos.filter(
+      (v) => fuzzyIncludes(v.title, query) || fuzzyIncludes(ATTRIBUTES[v.attribute].label, query),
+    );
+    const hidden = HIDDEN_VIDEOS.filter((hv) => fuzzyIncludes(query, hv.trigger)).map(hiddenToVideo);
+    const results = [...hidden, ...matched];
+    main = el(
+      "main",
+      { class: "tube__main" },
+      el("div", { class: "tube__search-result-head" }, `'${query}' 검색 결과`),
+      results.length
+        ? el("div", { class: "tube__grid" }, ...results.map((v) => videoCard(ctx, v)))
+        : el("div", { class: "tube__search-empty" }, "검색 결과가 없습니다"),
+    );
+  } else {
+    // 첫 줄 3개 → Shorts → 나머지, 유튜브 홈 배치를 흉내낸다.
+    const topRow = videos.slice(0, 3);
+    const rest = videos.slice(3);
+    main = el(
+      "main",
+      { class: "tube__main" },
+      chips(),
+      el("div", { class: "tube__grid" }, ...topRow.map((v) => videoCard(ctx, v))),
+      shortsSection(videos),
+      el("div", { class: "tube__grid" }, ...rest.map((v) => videoCard(ctx, v))),
+    );
+  }
 
   return el(
     "div",
     { class: "tube" },
     masthead(ctx),
-    el(
-      "div",
-      { class: "tube__body" },
-      rail(),
-      el(
-        "main",
-        { class: "tube__main" },
-        chips(),
-        el("div", { class: "tube__grid" }, ...topRow.map((v) => videoCard(ctx, v))),
-        shortsSection(videos),
-        el("div", { class: "tube__grid" }, ...rest.map((v) => videoCard(ctx, v))),
-      ),
-    ),
+    el("div", { class: "tube__body" }, rail(), main),
   );
 }

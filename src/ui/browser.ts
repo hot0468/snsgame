@@ -45,6 +45,120 @@ import { renderGoedam } from "./goedam";
 import { GOEDAM_URL, hostsHasGoedam } from "@/systems/hosts";
 import { pick } from "@/utils/random";
 
+/**
+ * 북마크 가능한 사이트. 두 종류가 섞인다:
+ * - kind "overlay": `${id}SiteOpen` 플래그로 여는 오버레이(현재 탭 위에 덮임).
+ * - kind "tab": `activeTab`을 바꿔 여는 브라우저 탭(id가 BrowserTabId여야 함). 야밤·증권처럼
+ *   탭스트립엔 없고 포털/방문기록으로만 진입하던 것을 북마크로 바로 열 수 있게 한다.
+ */
+export type BookmarkableSiteId =
+  | "onet"
+  | "ebs"
+  | "gig"
+  | "jobplanet"
+  | "goedam"
+  | "yabam"
+  | "stocks";
+
+export const BOOKMARKABLE_SITES: {
+  id: BookmarkableSiteId;
+  label: string;
+  url: string;
+  kind: "overlay" | "tab";
+}[] = [
+  { id: "onet", label: "O넷", url: "o-net.go.kr", kind: "overlay" },
+  { id: "ebs", label: "EBS", url: "ebs.co.kr", kind: "overlay" },
+  { id: "gig", label: "재능마켓", url: "talentmarket.kr", kind: "overlay" },
+  { id: "jobplanet", label: "직플래닛", url: "jobplanet.work", kind: "overlay" },
+  { id: "goedam", label: "괴담", url: GOEDAM_URL, kind: "overlay" },
+  { id: "yabam", label: "야밤", url: "yabam.click", kind: "tab" },
+  { id: "stocks", label: "증권", url: "hanaro-invest.com", kind: "tab" },
+];
+
+/** 단발 오버레이를 전부 닫는다(주소창/탭전환/북마크 진입 공통). */
+export function closeOverlays(ctx: GameContext): void {
+  ctx.ui.wishSiteOpen = false;
+  ctx.ui.goblinSiteOpen = false;
+  ctx.ui.onetSiteOpen = false;
+  ctx.ui.ebsSiteOpen = false;
+  ctx.ui.gigSiteOpen = false;
+  ctx.ui.jobplanetSiteOpen = false;
+  ctx.ui.auctionSiteOpen = false;
+  ctx.ui.dstorySiteOpen = false;
+  ctx.ui.historySiteOpen = false;
+  ctx.ui.niglSiteOpen = false;
+  ctx.ui.goedamSiteOpen = false;
+}
+
+/** 현재 화면이 북마크 대상 사이트인지(없으면 null). 오버레이가 탭보다 우선(위에 덮이므로). */
+export function currentBookmarkableId(ctx: GameContext): BookmarkableSiteId | null {
+  if (ctx.ui.onetSiteOpen) return "onet";
+  if (ctx.ui.ebsSiteOpen) return "ebs";
+  if (ctx.ui.gigSiteOpen) return "gig";
+  if (ctx.ui.jobplanetSiteOpen) return "jobplanet";
+  if (ctx.ui.goedamSiteOpen) return "goedam";
+  // 북마크 대상이 아닌 오버레이라도 하나 열려 있으면 그게 화면이다 — 탭 판정을 막는다.
+  const otherOverlay =
+    ctx.ui.wishSiteOpen ||
+    ctx.ui.goblinSiteOpen ||
+    ctx.ui.auctionSiteOpen ||
+    ctx.ui.dstorySiteOpen ||
+    ctx.ui.niglSiteOpen ||
+    ctx.ui.historySiteOpen;
+  if (!otherOverlay) {
+    if (ctx.ui.activeTab === "yabam") return "yabam";
+    if (ctx.ui.activeTab === "stocks") return "stocks";
+  }
+  return null;
+}
+
+/** 북마크/주소창에서 사이트를 연다. 오버레이/탭 종류와 진입 가드를 여기서 처리. */
+export function openBookmarkSite(ctx: GameContext, id: BookmarkableSiteId): void {
+  if (id === "goedam" && !hostsHasGoedam(ctx.store.getState())) {
+    ctx.toast("페이지를 찾을 수 없습니다");
+    return;
+  }
+  closeOverlays(ctx);
+  if (id === "yabam" || id === "stocks") {
+    // 탭형: activeTab만 바꾸면 콘텐츠가 렌더된다(탭스트립엔 없어도 됨).
+    ctx.ui.activeTab = id;
+  } else if (id === "onet") ctx.ui.onetSiteOpen = true;
+  else if (id === "ebs") ctx.ui.ebsSiteOpen = true;
+  else if (id === "gig") ctx.ui.gigSiteOpen = true;
+  else if (id === "jobplanet") ctx.ui.jobplanetSiteOpen = true;
+  else if (id === "goedam") {
+    ctx.ui.goedamSiteOpen = true;
+    ctx.ui.goedamStoryId = null;
+  }
+  ctx.refresh();
+}
+
+/** 주소창 아래 상시 북마크바. 비어 있으면 안내 문구. */
+function bookmarkBar(ctx: GameContext): HTMLElement {
+  const bms = ctx.store.getState().bookmarks;
+  const items = bms
+    .map((id) => BOOKMARKABLE_SITES.find((s) => s.id === id))
+    .filter((s): s is (typeof BOOKMARKABLE_SITES)[number] => !!s)
+    .map((site) =>
+      el(
+        "button",
+        {
+          class: "bookmark",
+          title: site.url,
+          onclick: () => openBookmarkSite(ctx, site.id),
+        },
+        site.label,
+      ),
+    );
+  return el(
+    "div",
+    { class: "browser__bookmarkbar" },
+    ...(items.length
+      ? items
+      : [el("span", { class: "bookmarkbar__hint" }, "⭐로 자주 가는 사이트를 북마크하세요")]),
+  );
+}
+
 interface TabDef {
   id: BrowserTabId;
   label: string;
@@ -446,29 +560,15 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
       onkeydown: (e: Event) => {
         if ((e as KeyboardEvent).key !== "Enter") return;
         const v = (e.target as HTMLInputElement).value.trim();
-        // 단발 오버레이를 전부 닫는 헬퍼(주소창 진입 시 공통).
-        const closeOverlays = (): void => {
-          ctx.ui.wishSiteOpen = false;
-          ctx.ui.goblinSiteOpen = false;
-          ctx.ui.onetSiteOpen = false;
-          ctx.ui.ebsSiteOpen = false;
-          ctx.ui.gigSiteOpen = false;
-          ctx.ui.jobplanetSiteOpen = false;
-          ctx.ui.auctionSiteOpen = false;
-          ctx.ui.dstorySiteOpen = false;
-          ctx.ui.historySiteOpen = false;
-          ctx.ui.niglSiteOpen = false;
-          ctx.ui.goedamSiteOpen = false;
-        };
         if (v === NIGL_URL) {
-          closeOverlays();
+          closeOverlays(ctx);
           ctx.ui.niglSiteOpen = true;
           niglRejectLine = "";
           ctx.refresh();
         } else if (v === GOEDAM_URL) {
           // hosts에 goedam.kr 매핑을 넣어 저장했을 때만 실제로 해석된다(그전엔 '찾을 수 없음').
           if (hostsHasGoedam(ctx.store.getState())) {
-            closeOverlays();
+            closeOverlays(ctx);
             ctx.ui.goedamSiteOpen = true;
             ctx.ui.goedamStoryId = null;
             ctx.refresh();
@@ -481,6 +581,28 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
       },
     }),
     icon("refresh", { size: 14 }),
+    ...(function () {
+      const bmId = currentBookmarkableId(ctx);
+      if (!bmId) return [];
+      const marked = ctx.store.getState().bookmarks.includes(bmId);
+      return [
+        el(
+          "button",
+          {
+            class: "urlbar__star" + (marked ? " is-on" : ""),
+            title: marked ? "북마크 제거" : "북마크 추가",
+            onclick: () => {
+              ctx.update((d) => {
+                const i = d.bookmarks.indexOf(bmId);
+                if (i >= 0) d.bookmarks.splice(i, 1);
+                else d.bookmarks.push(bmId);
+              });
+            },
+          },
+          marked ? "★" : "☆",
+        ),
+      ];
+    })(),
     urlbarMenu(ctx),
   );
 
@@ -551,7 +673,7 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
   return el(
     "div",
     { class: "desktop" },
-    el("div", { class: "browser" }, tabs, urlbar, content),
+    el("div", { class: "browser" }, tabs, urlbar, bookmarkBar(ctx), content),
     renderStatusDock(ctx),
   );
 }

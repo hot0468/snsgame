@@ -158,6 +158,7 @@ function sanitize(state: GameState): GameState {
   if (!Array.isArray(state.appointments)) state.appointments = [];
   if (!Array.isArray(state.pastEmployers)) state.pastEmployers = [];
   if (!Array.isArray(state.jobplanetViewed)) state.jobplanetViewed = [];
+  if (!Array.isArray(state.bookmarks)) state.bookmarks = [];
   if (typeof state.jobplanetCredits !== "number" || !Number.isFinite(state.jobplanetCredits)) {
     state.jobplanetCredits = 0;
   }
@@ -283,6 +284,7 @@ function sanitize(state: GameState): GameState {
   state.postedAdultEver ??= false;
   state.dawnPending ??= false;
   state.bossJokeDay ??= -1;
+  state.ebsFreeWatchedDay ??= -1;
   // 회복 표시 필드는 신규 — 최상위 merge가 구세이브(키 부재)엔 기본 객체를 넣지만,
   // 손상된 non-object가 저장돼 있으면 dawnModal이 .action/.mental에서 터진다(pets와 같은 방어).
   // onNewDay가 매일 덮으므로 값 정확도보단 shape만 보장하면 된다.

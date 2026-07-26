@@ -1,4 +1,6 @@
 import type { GameContext } from "./context";
+import type { AttributeId } from "@/core/types";
+import type { TrendTopic } from "@/data/trendTopics";
 import { el } from "@/utils/dom";
 import { icon } from "./icons";
 import { renderComposeModal } from "./sns/composeModal";
@@ -94,11 +96,15 @@ export function renderPostSlotModal(ctx: GameContext, count: number): HTMLElemen
   );
 }
 
-/** 게시하기 진입점 — 오늘 게시 슬롯이 남았으면 작성 팝업, 없으면 한도 안내 팝업. */
-export function openComposeModal(ctx: GameContext): void {
+/**
+ * 게시하기 진입점 — 오늘 게시 슬롯이 남았으면 작성 팝업, 없으면 한도 안내 팝업.
+ * preselect/trend는 실검 편승(portal.ts trendBoard) 등 특정 카테고리로 바로 열고 싶을 때 넘긴다.
+ * 둘 다 옵셔널이라 기존 무인자 호출부(snsView.ts 등)는 그대로 동작한다.
+ */
+export function openComposeModal(ctx: GameContext, preselect?: AttributeId, trend?: TrendTopic): void {
   if (remainingPostSlots(ctx.store.getState()) <= 0) {
     ctx.openModal(renderPostLimitModal);
   } else {
-    ctx.openModal(renderComposeModal);
+    ctx.openModal((c) => renderComposeModal(c, preselect, undefined, trend));
   }
 }

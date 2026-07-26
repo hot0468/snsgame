@@ -5,6 +5,7 @@ import {
   LECTURE_COST,
   canWatchLecture,
   watchLecture,
+  isFreeLectureToday,
 } from "@/systems/ebs";
 import { SKILL_STATS } from "@/data/stats";
 import { el, formatNumber } from "@/utils/dom";
@@ -59,6 +60,7 @@ function lectureCard(ctx: GameContext, lec: EbsLecture, i: number, rank?: number
   const status = canWatchLecture(s, lec);
   const enabled = status === "ok";
   const reason = enabled ? null : reasonText(status);
+  const free = isFreeLectureToday(s, lec);
 
   return el(
     "div",
@@ -67,7 +69,7 @@ function lectureCard(ctx: GameContext, lec: EbsLecture, i: number, rank?: number
       "div",
       { class: "eb-card__thumb", style: thumbStyle(i) },
       rank ? el("span", { class: "eb-card__rank" }, String(rank)) : null,
-      el("span", { class: "eb-card__badge" }, "이비 SELECT"),
+      el("span", { class: "eb-card__badge" }, free ? "오늘 무료" : "이비 SELECT"),
       el("span", { class: "eb-card__thumb-title" }, lec.title),
     ),
     el(
@@ -79,7 +81,11 @@ function lectureCard(ctx: GameContext, lec: EbsLecture, i: number, rank?: number
       el(
         "div",
         { class: "eb-card__foot" },
-        el("span", { class: "eb-card__price" }, `${formatNumber(LECTURE_COST)}원`),
+        el(
+          "span",
+          { class: "eb-card__price" },
+          free ? "오늘 무료 🎁" : `${formatNumber(LECTURE_COST)}원`,
+        ),
         el(
           "button",
           {
@@ -156,7 +162,7 @@ export function renderEbs(ctx: GameContext): HTMLElement {
         el(
           "p",
           { class: "eb-hero__sub" },
-          `${EBS_LECTURES.length}개 강좌 중 골라 수강하세요. 편당 ${formatNumber(LECTURE_COST)}원 + 행동력 8, 관련 스탯이 오릅니다. (업무 성과 강의는 재직 중에만)`,
+          `${EBS_LECTURES.length}개 강좌 중 골라 수강하세요. 편당 ${formatNumber(LECTURE_COST)}원 + 행동력 8, 관련 스탯이 오릅니다. 매일 강의 한 편은 무료! (업무 성과 강의는 재직 중에만)`,
         ),
         el(
           "button",
