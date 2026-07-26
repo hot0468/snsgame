@@ -18,7 +18,7 @@ import { hasAction } from "@/systems/stats";
 import { renderScenarioReaderModal } from "./scenarioReader";
 import { acceptAuthorContract } from "@/systems/author";
 import { acceptAvJob, declineAvJob, switchToAvJob } from "@/systems/avJob";
-import { acceptKillerJob, declineKillerJob } from "@/systems/killer";
+import { acceptKillerJob, declineKillerJob, acceptChilnamOffer, declineChilnamOffer } from "@/systems/killer";
 import { currentJobLabel, hasAnyJob } from "@/systems/employment";
 import { confirmPurchase } from "@/ui/confirmModal";
 import { consumeWishLink, isWishTweet, rollWishOptions, spawnWishDM } from "@/systems/wish";
@@ -1110,6 +1110,35 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
           class: "btn btn--ghost",
           onclick: () => {
             ctx.update((s) => declineKillerJob(s, thread.id));
+            ctx.toast("제의를 거절했다.");
+          },
+        },
+        "거절한다",
+      ),
+    );
+  }
+  // 칠남 품앗이 동맹 제의: 수락/거절 버튼(처리 후엔 표시만)
+  if (thread.chilnamOffer) {
+    return el(
+      "div",
+      { class: "compose-actions", style: "gap:8px" },
+      el(
+        "button",
+        {
+          class: "btn",
+          onclick: () => {
+            ctx.update((s) => acceptChilnamOffer(s, thread.id));
+            ctx.toast("칠남과 품앗이 동맹을 맺었다. 이제 작업 정찰을 도와준다.");
+          },
+        },
+        "같이 하자",
+      ),
+      el(
+        "button",
+        {
+          class: "btn btn--ghost",
+          onclick: () => {
+            ctx.update((s) => declineChilnamOffer(s, thread.id));
             ctx.toast("제의를 거절했다.");
           },
         },

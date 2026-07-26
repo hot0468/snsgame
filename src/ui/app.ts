@@ -50,6 +50,8 @@ export function createApp(root: HTMLElement, store: Store): void {
   let achToastScheduled = false;
   // 마일스톤 달성 토스트도 같은 마이크로태스크 가드로 중복 예약을 막는다.
   let mileToastScheduled = false;
+  // 예언 실현 토스트 가드.
+  let prophecyToastScheduled = false;
   // 트친 성사 토스트도 같은 마이크로태스크 가드로 중복 예약을 막는다.
   let tchinToastScheduled = false;
   // 고양이 전원 버튼 블랙아웃 타이머. render()는 스토어 변경·토스트마다 통째로 다시 도므로
@@ -263,6 +265,19 @@ export function createApp(root: HTMLElement, store: Store): void {
             ? `🏅 마일스톤 달성: ${labels[0]}`
             : `🏅 마일스톤 달성: ${labels[0]} 외 ${labels.length - 1}개`;
         ctx.toast(msg, "good");
+      });
+    }
+
+    // 예언 실현 토스트. onNewDay가 pendingProphecyText를 채우면 여기서 알린 뒤 비운다.
+    if (!gameOver && state.pendingProphecyText && !prophecyToastScheduled) {
+      prophecyToastScheduled = true;
+      queueMicrotask(() => {
+        prophecyToastScheduled = false;
+        const text = store.getState().pendingProphecyText;
+        ctx.update((d) => {
+          d.pendingProphecyText = null;
+        });
+        if (text) ctx.toast(text);
       });
     }
 

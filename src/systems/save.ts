@@ -187,6 +187,10 @@ function sanitize(state: GameState): GameState {
   // 킬러 직업(momo.com)도 신규 필드 — 구세이브엔 미취직·미제의가 정답.
   state.killerJob ??= null;
   if (typeof state.momoOfferedDay !== "number") state.momoOfferedDay = -1;
+  state.chilnamAlly ??= false;
+  state.chilnamOffered ??= false;
+  state.pendingProphecy ??= false;
+  if (state.pendingProphecyText === undefined) state.pendingProphecyText = null;
   // 노콘 가산이 영구→월누적으로 바뀌며 필드명이 condomlessThisMonth로 교체됐다.
   // 구세이브(condomlessCount 또는 필드 부재)는 이번 달 0에서 다시 시작한다.
   if (state.avJob) state.avJob.condomlessThisMonth ??= 0;

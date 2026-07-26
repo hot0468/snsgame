@@ -10,6 +10,7 @@ import {
 import { ATTRIBUTES, getAffinity } from "@/data/attributes";
 import { makeOmenAccount } from "@/data/omenAccount";
 import { makeChilnamAccount } from "@/data/chilnamAccount";
+import { maybeSpawnChilnamDM } from "./killer";
 import { SPECIAL_ACCOUNT_MAKERS } from "@/data/specialAccounts";
 import { allTemplatesFor } from "@/data/tweets";
 import { chance, pick, randInt, uid } from "@/utils/random";
@@ -150,6 +151,8 @@ export function followAccount(state: GameState, account: Account): number {
   changeFollowers(state, delta);
   maybeUnlockAttribute(state, account.attribute);
   if (delta > 0) maybeSpawnFanDM(state);
+  // 칠남(동종업계 킬러)을 팔로우하면 그가 품앗이 DM을 건다(킬러일 때만).
+  if (account.handle === "chilnam_7") maybeSpawnChilnamDM(state);
   onFollow(state, account); // 봇/유령 다수 팔로우 이스터에그
   addSchedule(
     state,

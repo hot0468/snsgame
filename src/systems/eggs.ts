@@ -7,6 +7,7 @@ import { pushKakao } from "./kakao";
 import { clampSkill } from "./stats";
 import { maybeSpawnGroupRoomInviteDM } from "./groupRoom";
 import { bumpTchinProgress } from "./tchin";
+import { maybeQueueProphecy } from "./prophecy";
 
 /**
  * 이스터에그·특수 이벤트 로직.
@@ -141,6 +142,8 @@ function bumpEngage(state: GameState, tweet: Tweet): void {
 /** 남의 트윗에 좋아요를 눌렀을 때(이스터에그 처리). */
 export function onLikeTweet(state: GameState, tweet: Tweet): void {
   bumpEngage(state, tweet);
+  // 예언 계정 트윗에 좋아요 → 다음 날 예언 실현 예약(이스터에그)
+  maybeQueueProphecy(state, tweet);
 
   if (tweet.egg === "coin") {
     if (fire(state, "coinRoom")) {

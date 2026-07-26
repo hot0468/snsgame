@@ -1,4 +1,5 @@
 import type { GameState, SkillStatId } from "@/core/types";
+import { KILLER_LEGEND_REASON } from "./killer";
 
 /**
  * 승리 엔딩 — 팔로워 100만 명 달성(게임의 최종 목표) 시, **가장 높은 스탯**으로 엔딩이 갈린다.
@@ -137,16 +138,18 @@ export function winEnding(state: GameState): WinEnding {
 
 /** 엔딩 텍스트(gameOver 사유)로 축하 제목을 되찾는다(gameOverModal 표시용). */
 export function winEndingTitle(reason: string): string | undefined {
+  if (reason === KILLER_LEGEND_REASON) return "🕶️ 전설의 청부업자 엔딩";
   return ALL_ENDINGS.find((e) => e.text === reason)?.title;
 }
 
 /**
- * 팔로워 100만 달성 판정 — 도달했으면 스탯 엔딩을 gameOver에 세운다.
+ * 팔로워 100만 달성 판정 — 도달했으면 엔딩을 gameOver에 세운다.
+ * 킬러 신분(killerJob.active)이면 스탯 엔딩 대신 '전설의 청부업자' 엔딩이 나온다.
  * `changeFollowers`가 팔로워 증가마다 호출한다. 이미 끝났으면 아무것도 안 한다.
  */
 export function checkWin(state: GameState): void {
   if (state.gameOver) return;
   if (totalFollowers(state) >= WIN_FOLLOWERS) {
-    state.gameOver = winEnding(state).text;
+    state.gameOver = state.killerJob?.active ? KILLER_LEGEND_REASON : winEnding(state).text;
   }
 }

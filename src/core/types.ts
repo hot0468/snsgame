@@ -301,6 +301,8 @@ export interface DMThread {
   authorOffer?: boolean;
   /** momo 청부(킬러) 제의 스레드인지. ui가 수락/거절 버튼을 렌더한다(systems/killer). */
   momoOffer?: boolean;
+  /** 칠남의 품앗이 동맹 제의 스레드인지. ui가 수락/거절 버튼을 렌더한다(systems/killer). */
+  chilnamOffer?: boolean;
   /**
    * '금발의 신사'가 진홍안을 넘겨달라고 제안한 스레드인지(경매에서 진홍안 구매 시 유입).
    * ui는 이 플래그를 보고 넘겨줌/거절 버튼을 렌더하고 resolveEyeDeal을 호출한다.
@@ -974,6 +976,14 @@ export interface GameState {
   killerJob: KillerJob | null;
   /** momo 서적요청 제의 DM을 보낸 마지막 day(중복 제의 방지). 초기 -1 */
   momoOfferedDay: number;
+  /** 칠남(동종업계 킬러)과 품앗이 동맹인지. 켜지면 작업하기에서 칠남이 정답 트윗을 짚어준다. 초기 false */
+  chilnamAlly: boolean;
+  /** 칠남에게 이미 품앗이 제의 DM을 보냈는지(중복 방지). 초기 false */
+  chilnamOffered: boolean;
+  /** 예언 계정 트윗에 좋아요를 눌러, 다음 날 예언이 실현되기로 예약됐는지. 초기 false */
+  pendingProphecy: boolean;
+  /** 실현된 예언 결과 문구(있으면 app이 토스트 후 비운다). 초기 null */
+  pendingProphecyText: string | null;
   /** 니글니글 이번 '달' 출근 일수(월급날 NIGL_SHIFT_GOAL 미달이면 월급 반감 후 0으로 리셋). 초기 0 */
   niglShifts: number;
   /** 결과 대기 중인 취업 지원(익일 메일 통보). 없으면 null */

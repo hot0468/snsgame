@@ -1,7 +1,7 @@
 import type { GameContext } from "./context";
 import { el } from "@/utils/dom";
 import { targetById } from "@/data/killerTargets";
-import { attemptHit } from "@/systems/killer";
+import { attemptHit, chilnamMarksAnswer } from "@/systems/killer";
 import { weekdayLabel } from "@/systems/calendar";
 
 /**
@@ -77,9 +77,16 @@ export function renderKillerWorkModal(ctx: GameContext): HTMLElement {
       el(
         "div",
         { class: "killer-tweets" },
-        ...target.tweets.map((t) =>
-          el("div", { class: "killer-tweet" }, el("span", { class: "killer-tweet__at" }, `@${target.handle}`), t),
-        ),
+        ...target.tweets.map((t) => {
+          const marked = chilnamMarksAnswer(s, target.id, t);
+          return el(
+            "div",
+            { class: "killer-tweet" + (marked ? " killer-tweet--marked" : "") },
+            el("span", { class: "killer-tweet__at" }, `@${target.handle}`),
+            marked ? el("span", { class: "killer-tweet__hint" }, "🔍 칠남: 여기 봐요") : null,
+            t,
+          );
+        }),
       ),
       el("label", { class: "killer-input-label" }, "처리 위치 입력"),
       el(

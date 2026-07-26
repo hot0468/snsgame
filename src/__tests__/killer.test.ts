@@ -7,7 +7,10 @@ import {
   killerDailyTick,
   KILLER_MAX_FAILS,
   KILLER_DEAD_REASON,
+  KILLER_LEGEND_REASON,
 } from "@/systems/killer";
+import { checkWin } from "@/systems/winEnding";
+import { getActiveAccount } from "@/core/state";
 import { KILLER_TARGETS } from "@/data/killerTargets";
 
 describe("killer job", () => {
@@ -68,6 +71,30 @@ describe("killer job", () => {
     killerDailyTick(s);
     expect(s.killerJob!.assignment).not.toBeNull();
     expect(s.killerJob!.assignment!.deadlineDay).toBe(1 + 7);
+  });
+
+  it("킬러 신분으로 팔로워 100만 달성 → 전설의 청부업자 엔딩", () => {
+    const s = createInitialState();
+    s.killerJob = { active: true, fails: 0, completed: 3, assignment: null };
+    getActiveAccount(s).followers = 1_000_000;
+    checkWin(s);
+    expect(s.gameOver).toBe(KILLER_LEGEND_REASON);
+  });
+
+  it("역습 타겟 + 저역량 → 체력·정신 피해", () => {
+    const s = createInitialState();
+    s.stamina = 200;
+    s.resources.mental = 100;
+    s.killerJob = {
+      active: true,
+      fails: 0,
+      completed: 0,
+      assignment: { targetId: "bad_landlord", assignedDay: s.day, deadlineDay: s.day + 7 },
+    };
+    const res = attemptHit(s, "가평"); // bad_landlord 정답
+    expect(res.ok).toBe(true);
+    expect(s.stamina).toBeLessThan(200); // 반격 피해
+    expect(s.resources.mental).toBeLessThan(100);
   });
 
   it("의뢰비는 역량(지식·운동·어휘력·IT·평판)에 비례", () => {

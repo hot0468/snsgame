@@ -72,6 +72,8 @@ export interface GameEvent {
 /** 조건 헬퍼 */
 const hasFollowers = (n: number) => (s: GameState) => getActiveAccount(s).followers >= n;
 const moralityBelow = (n: number) => (s: GameState) => s.resources.morality < n;
+/** 특정 세부 스킬이 문턱(마일스톤과 같은 100/300/600/999 스케일) 이상이어야 함 — 스킬 전용 이벤트 게이트. */
+const skillAbove = (key: SkillStatId, n: number) => (s: GameState) => s.skills[key] >= n;
 /** 성인물 해제(유저 전역 설정)가 켜져 있어야 함 */
 const adultOn = (s: GameState) => s.adultMode;
 /** '강압/범죄 안 보기'가 꺼져 있어야 함(비합의 성인 상황 게이트) */
@@ -1002,6 +1004,100 @@ export const GAME_EVENTS: GameEvent[] = [
         result:
           "단톡에 '일정 겹침'이라고만 남겼다. 다음 날 합방 리허설 클립만 공유됐고, 애프터 이야기는 슬쩍 피했다.",
       },
+    ],
+  },
+
+  // ── 스킬 문턱 이벤트 ─────────────────────────────────
+  // 특정 세부 스킬이 600(마일스톤 3단계) 이상일 때만 뜨는 '전문가 대접' 이벤트들.
+  // 스탯을 올리면 그 스탯 전용 기회가 열린다 — 육성 방향성과 마일스톤에 시너지.
+  {
+    id: "skill_quizshow",
+    title: "방송 퀴즈쇼 섭외",
+    description: "'걸어다니는 사전'이라는 소문을 들은 방송국에서 퀴즈쇼 출연을 제안했다. 나가볼까?",
+    triggers: ["day"],
+    condition: skillAbove("knowledge", 600),
+    choices: [
+      {
+        label: "출연해서 실력을 뽐낸다",
+        effect: { followers: 4000, reputation: 4, mental: -5 },
+        result: "막힘없는 정답 행진에 시청자들이 계정을 찾아왔다! 팔로워와 평판이 크게 올랐다.",
+      },
+      { label: "부담스러워 고사한다", effect: { mental: +2 }, result: "다음 기회에... 마음은 편하다." },
+    ],
+  },
+  {
+    id: "skill_column",
+    title: "출판사 칼럼 제안",
+    description: "글빨이 좋다는 평이 돌아, 한 매체에서 정기 칼럼 연재를 제안했다.",
+    triggers: ["day"],
+    condition: skillAbove("vocabulary", 600),
+    choices: [
+      {
+        label: "연재를 수락한다",
+        effect: { money: 400_000, reputation: 5, mental: -6 },
+        result: "첫 칼럼이 화제가 됐다. 원고료와 함께 '글 잘 쓰는 사람'이라는 평판을 얻었다.",
+      },
+      { label: "마감이 부담돼 거절한다", effect: {}, result: "정중히 사양했다. 자유가 최고지." },
+    ],
+  },
+  {
+    id: "skill_fitness_deal",
+    title: "헬스 브랜드 앰배서더 제안",
+    description: "탄탄한 몸이 화제가 되어, 운동 브랜드가 앰배서더 계약을 제안했다.",
+    triggers: ["day"],
+    condition: skillAbove("fitness", 600),
+    choices: [
+      {
+        label: "계약하고 인증샷을 올린다",
+        effect: { money: 300_000, followers: 3000 },
+        result: "브랜드 태그 인증에 운동인들이 몰려왔다. 협찬비와 팔로워를 챙겼다.",
+      },
+      { label: "취향이 아니라 거절한다", effect: {}, result: "돈보다 자유. 오늘도 마이웨이." },
+    ],
+  },
+  {
+    id: "skill_esports",
+    title: "e스포츠 이벤트 초청",
+    description: "실력 있는 게이머로 소문이 나, 게임 대회 시범 경기에 초청받았다.",
+    triggers: ["day"],
+    condition: skillAbove("game", 600),
+    choices: [
+      {
+        label: "무대에 오른다",
+        effect: { followers: 5000, mental: -6 },
+        result: "관중석이 들썩였다. 하이라이트 클립이 퍼지며 팔로워가 폭발했다!",
+      },
+      { label: "긴장돼 사양한다", effect: { mental: +2 }, result: "무대는 다음에. 오늘은 집에서 랭겜이나." },
+    ],
+  },
+  {
+    id: "skill_startup",
+    title: "스타트업 기술 자문 제안",
+    description: "테크 감각을 눈여겨본 스타트업이 기술 자문 자리를 제안했다.",
+    triggers: ["day"],
+    condition: skillAbove("it", 600),
+    choices: [
+      {
+        label: "자문을 맡는다",
+        effect: { money: 500_000, mental: -8 },
+        result: "짬짬이 자문을 봐주고 두둑한 자문료를 받았다. 역시 기술이 돈이다.",
+      },
+      { label: "본업에 집중한다며 거절한다", effect: {}, result: "코드는 취미로 충분하다." },
+    ],
+  },
+  {
+    id: "skill_variety",
+    title: "예능 게스트 섭외",
+    description: "타임라인의 드립력이 방송가에 알려져, 예능 프로 게스트로 섭외가 왔다.",
+    triggers: ["day"],
+    condition: skillAbove("comedy", 600),
+    choices: [
+      {
+        label: "예능감을 폭발시킨다",
+        effect: { followers: 4500, reputation: 3, mental: -5 },
+        result: "짤이 쏟아지고 '예능 블루칩' 소리를 들었다. 팔로워가 크게 늘었다!",
+      },
+      { label: "방송은 부담이라 거절한다", effect: { mental: +2 }, result: "카메라 앞은 아직 무섭다. 다음에..." },
     ],
   },
 ];

@@ -31,6 +31,7 @@ import { maybeSpawnWorkMsg } from "./workMessenger";
 import { checkAchievements } from "./achievements";
 import { checkStatMilestones } from "./milestones";
 import { killerDailyTick } from "./killer";
+import { resolveProphecy } from "./prophecy";
 import { HOUSINGS } from "@/data/housing";
 import { clampAction } from "./stats";
 import { settleGigDeadlines } from "./gig";
@@ -222,6 +223,8 @@ function onNewDay(state: GameState): void {
   checkStatMilestones(state);
   // 킬러 사이클(매일: 마감 지난 임무 실패·게임오버 / 매달 1일 새 타겟 배정)
   killerDailyTick(state);
+  // 예약된 예언 실현(예언 계정 트윗 좋아요 이스터에그)
+  resolveProphecy(state);
   // 오늘 도래한 트친 생일이 있으면 축하 배너/카톡을 세팅(전날 미축하는 무해하게 흘려보낸다)
   processBirthdayDue(state);
 }
