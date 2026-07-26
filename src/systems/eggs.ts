@@ -45,7 +45,13 @@ function fire(state: GameState, key: string): boolean {
 }
 
 /** 간단한 알림용 DM 스레드를 만든다. */
-function spawnDM(state: GameState, name: string, handle: string, lines: string[]): void {
+function spawnDM(
+  state: GameState,
+  name: string,
+  handle: string,
+  lines: string[],
+  scam = false,
+): void {
   const account = getActiveAccount(state);
   account.dms.unshift({
     id: uid("dm"),
@@ -57,6 +63,8 @@ function spawnDM(state: GameState, name: string, handle: string, lines: string[]
     unread: true,
     metOffline: false,
     wantsToMeet: false,
+    // 사기 접선(코인·다단계 등)은 만남 제안 흐름을 타면 안 된다(로맨스 아님).
+    scam: scam || undefined,
   });
 }
 
@@ -117,7 +125,7 @@ export function consumePostSlot(state: GameState): void {
 function bumpEngage(state: GameState, tweet: Tweet): void {
   const h = tweet.authorHandle;
   // 트친(단짝) 누적도 좋아요/RT를 상호작용으로 센다(성사 시 pendingTchinToasts에 쌓임).
-  bumpTchinProgress(state, h);
+  bumpTchinProgress(state, h, tweet.authorName);
   const n = (state.eggs.authorEngage[h] ?? 0) + 1;
   state.eggs.authorEngage[h] = n;
   if (n === 5 && fire(state, `bff:${h}`)) {
@@ -136,21 +144,33 @@ export function onLikeTweet(state: GameState, tweet: Tweet): void {
 
   if (tweet.egg === "coin") {
     if (fire(state, "coinRoom")) {
-      spawnDM(state, "코인 리딩방", "moon_signal", [
-        "좋아요 감사합니다! 방금 그 종목, 사실 저희 리딩방에서 미리 콕 찍어드린 거예요 🚀",
-        "무료 체험방 초대해드릴게요. 이번 주 '확실한 거' 하나 더 있는데... 궁금하시죠?",
-      ]);
+      spawnDM(
+        state,
+        "코인 리딩방",
+        "moon_signal",
+        [
+          "좋아요 감사합니다! 방금 그 종목, 사실 저희 리딩방에서 미리 콕 찍어드린 거예요 🚀",
+          "무료 체험방 초대해드릴게요. 이번 주 '확실한 거' 하나 더 있는데... 궁금하시죠?",
+        ],
+        true, // 사기 접선 — 만남 제안 금지
+      );
       addSchedule(state, "코인 리딩방 접선", "sns");
     }
     return;
   }
   if (tweet.egg === "pyramid") {
     if (fire(state, "pyramidDM")) {
-      spawnDM(state, "이사님", "freedom_king", [
-        "관심 가져주셔서 감사합니다! 딱 보니 마인드가 남다르시네요 ✨",
-        "이번 주말 무료 사업 설명회가 있어요. 인생을 바꿀 기회, 커피 한 잔 사드릴게요!",
-        "자리가 몇 개 안 남았어요. 지금 결정하는 사람만이 자유를 얻습니다.",
-      ]);
+      spawnDM(
+        state,
+        "이사님",
+        "freedom_king",
+        [
+          "관심 가져주셔서 감사합니다! 딱 보니 마인드가 남다르시네요 ✨",
+          "이번 주말 무료 사업 설명회가 있어요. 인생을 바꿀 기회, 커피 한 잔 사드릴게요!",
+          "자리가 몇 개 안 남았어요. 지금 결정하는 사람만이 자유를 얻습니다.",
+        ],
+        true, // 다단계 접선 — 만남 제안 금지
+      );
       addSchedule(state, "다단계 설명회 권유", "sns");
     }
     return;

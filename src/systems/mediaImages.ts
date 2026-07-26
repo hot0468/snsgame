@@ -2,17 +2,20 @@ import type { Tweet } from "@/core/types";
 import type { MediaImage } from "@/data/mediaImages";
 import type { AdultImage } from "@/data/adultImages";
 import type { TweetCatImage } from "@/data/tweetCatImages";
+import type { CreationImage } from "@/data/creationImages";
 import { MEDIA_IMAGES } from "@/data/mediaImages";
 import { ADULT_IMAGES } from "@/data/adultImages";
 import { TWEET_CAT_IMAGES } from "@/data/tweetCatImages";
+import { CREATION_IMAGES } from "@/data/creationImages";
 import { hashInt } from "@/utils/random";
 
 /**
- * 미디어 트윗 ↔ 이미지 매칭. **세 경로가 있다:**
+ * 미디어 트윗 ↔ 이미지 매칭. **네 경로가 있다:**
+ * - 창작 풀(assets/creation/): `tweet.creation`(1차/2차)만 보고 붙는다. 파일명을 안 본다.
  * - 카테고리 풀(assets/tweetcat/): 파일명(트윗 속성)이 `tweet.attribute`와 정확히 같으면 붙는다.
  * - 성인 풀(assets/adult/): `tweet.isAdult`만 보고 붙는다. 파일명을 안 본다.
  * - 키워드 풀(assets/media/): 파일명(키워드)이 본문·사진설명에 들어 있으면 붙는다.
- * 우선순위는 pickTweetImage 주석 참고 — **카테고리가 성인을 이긴다. 뒤집기 전에 반드시 읽어라.**
+ * 우선순위는 pickTweetImage 주석 참고 — **창작 → 카테고리 → 성인 → 키워드. 뒤집기 전에 반드시 읽어라.**
  */
 
 /**
@@ -69,6 +72,16 @@ export function pickTweetCatImage(tweet: Tweet, images: readonly TweetCatImage[]
 }
 
 /**
+ * 창작 트윗 전용 풀에서 택1 — **파일명도 본문도 보지 않는다. `tweet.creation`만 본다.**
+ * 1차/2차 창작 트윗이면 창작 풀 전체가 후보이고, 트윗 id 해시로 하나를 고른다(난수 금지 — 깜빡임 방지).
+ * 창작 트윗이 아니면 null이다 — 이 축의 핵심 계약이다.
+ */
+export function pickCreationImage(tweet: Tweet, images: readonly CreationImage[]): string | null {
+  if (!tweet.media || !tweet.creation || images.length === 0) return null;
+  return images[hashInt(`creationImg:${tweet.id}`) % images.length].url;
+}
+
+/**
  * 이미지가 **어느 풀에서 왔는지**. UI가 성인 이미지에만 블러를 얹는 데 쓴다.
  *
  * ⚠️ UI가 `tweet.isAdult`로 블러를 판정하면 **틀린다.** 아래 우선순위 때문에 isAdult가 붙은
@@ -76,7 +89,7 @@ export function pickTweetCatImage(tweet: Tweet, images: readonly TweetCatImage[]
  *    이미지까지 뭉갠다. 실제로 성인물 보기가 켜지면 아이돌 트윗의 ~18%가 그 경우다.
  *    그래서 URL만 주지 않고 출처를 함께 준다.
  */
-export type TweetImageSource = "cat" | "adult" | "keyword";
+export type TweetImageSource = "creation" | "cat" | "adult" | "keyword";
 
 export interface TweetImage {
   url: string;
@@ -84,8 +97,9 @@ export interface TweetImage {
 }
 
 /**
- * 트윗에 붙일 이미지. 세 풀의 **우선순위는 카테고리 → 성인 → 키워드다.**
+ * 트윗에 붙일 이미지. 네 풀의 **우선순위는 창작 → 카테고리 → 성인 → 키워드다.**
  *
+ * 0. `tweet.creation`(1차/2차)이면 → 창작 풀에서 해시로 택1(계열·성인보다 먼저 — '직접 그린 그림'이 가장 구체적)
  * 1. `tweet.attribute`의 카테고리 풀에 이미지가 있으면 → 그 풀에서 해시로 택1
  * 2. 아니면 성인 트윗이고 성인 풀이 비어 있지 않으면 → 성인 풀에서 해시로 택1
  * 3. 아니면 → 키워드 부분일치 경로
@@ -110,7 +124,11 @@ export function pickTweetImage(
   adultImages: readonly AdultImage[],
   mediaImages: readonly MediaImage[],
   catImages: readonly TweetCatImage[] = [],
+  creationImages: readonly CreationImage[] = [],
 ): TweetImage | null {
+  // 창작 트윗은 계열(anime) 카테고리·성인보다 창작 풀이 먼저다 — '직접 그린 그림'이 가장 구체적이라.
+  const creation = pickCreationImage(tweet, creationImages);
+  if (creation) return { url: creation, source: "creation" };
   const cat = pickTweetCatImage(tweet, catImages);
   if (cat) return { url: cat, source: "cat" };
   const adult = pickAdultImage(tweet, adultImages);
@@ -121,7 +139,7 @@ export function pickTweetImage(
 
 /** 트윗에 붙일 이미지. 미디어 트윗이 아니거나 매칭이 없으면 null. */
 export function imageForTweet(tweet: Tweet): TweetImage | null {
-  return pickTweetImage(tweet, ADULT_IMAGES, MEDIA_IMAGES, TWEET_CAT_IMAGES);
+  return pickTweetImage(tweet, ADULT_IMAGES, MEDIA_IMAGES, TWEET_CAT_IMAGES, CREATION_IMAGES);
 }
 
 /**

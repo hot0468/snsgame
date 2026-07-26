@@ -6,6 +6,7 @@ import { renderSavannaIntrusionModal } from "./savannaModal";
 import { renderScenarioReaderModal } from "./scenarioReader";
 import { canWorkAvNow } from "@/systems/avJob";
 import { renderAvWorkModal } from "@/ui/avWorkModal";
+import { LATE_SLOT } from "@/core/state";
 import { el } from "@/utils/dom";
 import { icon } from "@/ui/icons";
 
@@ -64,6 +65,13 @@ export function renderSleepModal(ctx: GameContext): HTMLElement {
     // 성인물 보기 OFF면 사바나(여캠) 방송 행동을 노출하지 않는다.
     const savannaJoined = state.savannaJoined && state.adultMode;
     const underContract = state.authorContract != null;
+    // 오늘 심야에 잡힌 약속(있으면 '남는다'에 표시 — 자러 가면 놓친다).
+    const lateAppt = state.appointments.find(
+      (a) => a.day === state.day && a.slot === LATE_SLOT,
+    );
+    const stayDesc = lateAppt
+      ? `📅 오늘 심야에 '${lateAppt.title}' 약속이 있어요! 남아서 참석하세요 (자러 가면 놓쳐요).`
+      : "심야 트윗을 쓸 수 있지만, 잠이 부족해 다음날 회복이 줄어든다.";
 
     container.replaceChildren(
       head("낮이 지났다"),
@@ -83,17 +91,22 @@ export function renderSleepModal(ctx: GameContext): HTMLElement {
           ctx.closeModal();
           ctx.afterAction("day");
         }),
-        choice("남는다", "심야 트윗을 쓸 수 있지만, 잠이 부족해 다음날 회복이 줄어든다.", () => {
-          ctx.update((s) => {
-            s.sleepPending = false; // 심야에 남되 팝업은 클리어(다시 뜨지 않게)
-          });
-          ctx.closeModal();
-          ctx.toast("심야까지 깨어있기로 했다");
-        }),
+        choice(
+          lateAppt ? "남는다 · 📅 약속 있음" : "남는다",
+          stayDesc,
+          () => {
+            ctx.update((s) => {
+              s.sleepPending = false; // 심야에 남되 팝업은 클리어(다시 뜨지 않게)
+            });
+            ctx.closeModal();
+            ctx.toast("심야까지 깨어있기로 했다");
+          },
+          lateAppt ? "event-choice--appt" : "",
+        ),
         underContract
           ? choice(
               "✍️ 작업 (원고 작업)",
-              "심야에 원고를 붙잡아 이번 달 작업량을 채운다. 행동력·정신력을 쓰고 다음날로 넘어간다.",
+              "심야에 원고를 붙잡아 이번 달 작업량을 채운다. 행동력·정신력·체력을 쓰고 다음날로 넘어간다.",
               () => {
                 let msg = "";
                 ctx.update((s) => {

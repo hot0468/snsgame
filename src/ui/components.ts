@@ -122,12 +122,19 @@ interface TweetCardOpts {
   readerVocab?: number;
   /** 있으면 '리트윗' 버튼을 표시한다(남의 트윗을 내 탐라로 담기용) */
   retweet?: { done: boolean; onClick: () => void };
+  /**
+   * 있으면 하트(좋아요) 아이콘을 눌러 반응할 수 있다(남의 트윗용).
+   * liked=이미 좋아요 눌러 하트를 채움 / disabled=이미 반응(좋아요·악플)해 재클릭 불가.
+   */
+  like?: { liked: boolean; disabled: boolean; onClick: () => void };
   /** 행사 트윗의 '참여하기'를 눌렀을 때 동작(있으면 버튼 활성) */
   onJoinEvent?: () => void;
   /** 사진/영상 자리를 눌렀을 때 동작(설명 팝업 열기) */
   onMedia?: (tweet: Tweet) => void;
   /** 있으면 카드 전체가 클릭 가능해지고(트윗 상세 열기), 액션 버튼은 개별 동작을 유지한다 */
   onOpen?: () => void;
+  /** 있으면 작성자 프로필 사진 클릭 시 동작(남의 계정 프로필 열기). 카드 onOpen과 독립. */
+  onAuthorClick?: () => void;
   /** 멘션(답글) 본문을 항상 펼쳐 보여준다(개별 트윗 상세 화면 전용) */
   forceMentions?: boolean;
 }
@@ -259,13 +266,35 @@ export function tweetCard(tweet: Tweet, opts: TweetCardOpts = {}): HTMLElement {
       })
     : tweetAction("retweet", "rt", tweet.retweets);
 
+  // 좋아요 액션: 남의 트윗이면 하트를 눌러 좋아요(내 트윗은 표시만).
+  // 이미 반응했으면(disabled) 비클릭 상태로 두되, 좋아요였으면(liked) 하트를 채운다.
+  const likeAction = opts.like
+    ? tweetAction("heart", "like", tweet.likes, {
+        active: opts.like.liked,
+        onClick: opts.like.disabled ? undefined : opts.like.onClick,
+      })
+    : tweetAction("heart", "like", tweet.likes);
+
   return el(
     "article",
     {
       class: "tweet" + (opts.onOpen ? " tweet--clickable" : ""),
       onclick: opts.onOpen ? () => opts.onOpen?.() : undefined,
     },
-    avatar(tweet.authorName, 40),
+    opts.onAuthorClick
+      ? el(
+          "button",
+          {
+            class: "tweet__avatar-btn",
+            title: "프로필 보기",
+            onclick: (e: Event) => {
+              e.stopPropagation();
+              opts.onAuthorClick?.();
+            },
+          },
+          avatar(tweet.authorName, 40),
+        )
+      : avatar(tweet.authorName, 40),
     el(
       "div",
       { class: "tweet__body" },
@@ -293,7 +322,7 @@ export function tweetCard(tweet: Tweet, opts: TweetCardOpts = {}): HTMLElement {
         { class: "tweet__actions" },
         commentAction,
         rtAction,
-        tweetAction("heart", "like", tweet.likes),
+        likeAction,
         gainNode,
       ),
       renderReactions(tweet, ctx, opts.forceMentions),

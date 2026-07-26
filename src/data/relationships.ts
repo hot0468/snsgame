@@ -35,7 +35,13 @@ export interface MeetEvent {
  */
 export interface RelationshipChar {
   id: string;
+  /** 실제 이름 — 만남 이야기(relEventModal) 본문에서만 쓴다({name} 치환, 조사 문법 고정). */
   name: string;
+  /**
+   * SNS 닉네임 — 카톡 친구 목록·만남 약속·일정 등 플레이어에게 보이는 라벨은 전부 이걸 쓴다.
+   * 실제 이름은 헷갈리므로 페르소나가 드러나는 닉으로 표시한다(실명은 만남 이야기에서만 노출).
+   */
+  nickname: string;
   gender: "m" | "f";
   attribute: AttributeId;
   likedKind: TweetKind;
@@ -113,6 +119,7 @@ export const RELATIONSHIP_CHARS: RelationshipChar[] = [
   {
     id: "rel_idol_m",
     name: "도현",
+    nickname: "아이돌입덕러",
     gender: "m",
     attribute: "idol",
     likedKind: "emotional",
@@ -211,6 +218,7 @@ export const RELATIONSHIP_CHARS: RelationshipChar[] = [
   {
     id: "rel_idol_f",
     name: "유빈",
+    nickname: "최애덕질러",
     gender: "f",
     attribute: "idol",
     likedKind: "plain",
@@ -309,6 +317,7 @@ export const RELATIONSHIP_CHARS: RelationshipChar[] = [
   {
     id: "rel_gaming_m",
     name: "준혁",
+    nickname: "빡겜러",
     gender: "m",
     attribute: "gaming",
     likedKind: "provoke",
@@ -404,6 +413,7 @@ export const RELATIONSHIP_CHARS: RelationshipChar[] = [
   {
     id: "rel_gaming_f",
     name: "서린",
+    nickname: "겜공략러",
     gender: "f",
     attribute: "gaming",
     likedKind: "info",
@@ -501,6 +511,7 @@ export const RELATIONSHIP_CHARS: RelationshipChar[] = [
   {
     id: "rel_food_m",
     name: "태윤",
+    nickname: "맛집탐험가",
     gender: "m",
     attribute: "food",
     likedKind: "provoke",
@@ -597,6 +608,7 @@ export const RELATIONSHIP_CHARS: RelationshipChar[] = [
   {
     id: "rel_food_f",
     name: "하린",
+    nickname: "디저트덕후",
     gender: "f",
     attribute: "food",
     likedKind: "emotional",

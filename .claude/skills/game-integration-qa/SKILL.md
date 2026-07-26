@@ -12,10 +12,11 @@ description: snsgame의 변경사항을 검증할 때 사용. typecheck·build �
 
 ## 1단계: 기계 검증 (최소 기준)
 ```bash
-npm run typecheck   # 타입 정합성 — 통과가 최소 기준
-npm run build       # 필요 시 실제 번들까지 되는지
-npm test            # 상설 회귀 테스트(vitest)
+npm run typecheck              # 타입 정합성 — 통과가 최소 기준
+npm run build                  # 필요 시 실제 번들까지 되는지
+npx vitest run --pool=forks    # 상설 회귀 테스트 — 반드시 --pool=forks
 ```
+**⚠️ vitest는 반드시 `--pool=forks`로.** 기본 pool은 이 저장소에서 간헐적으로 `Cannot read ... 'config'` 오탐을 낸다 — 그 에러를 보고 "테스트가 깨졌다"고 단정하지 말고 forks로 재실행해 실제 통과 숫자를 확인하라(오탐 보고 전적 다수).
 typecheck가 상당수 경계면 버그를 잡지만, **인덱스 접근(`map[key]`)·런타임 undefined·논리 불일치는 못 잡는다.** 그래서 2단계가 필요하다.
 
 **⚠️ typecheck 통과로 PASS 판정하지 마라.** 이 저장소에서 실제로 잡힌 버그들은 **전부 typecheck를 통과했다**: 야근률이 등급과 반대로 설정됨 / 힌트가 조회수로 들통남 / 행동력 상한이 조용히 100으로 깎임 / "gaming 해금 시 game>0" 불변식이 거짓 / 자격증 5종이 며칠씩 같은 항목 고정. 전부 **런타임으로 굴려야** 나왔다.

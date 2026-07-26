@@ -6,6 +6,7 @@ import {
   COSPLAY_GENERAL_RESULTS,
 } from "@/data/cosplay";
 import { getActiveAccount } from "@/core/state";
+import { charmLevel } from "./meeting";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { applyEffect } from "./events";
@@ -23,8 +24,14 @@ import { addSchedule, advanceTime } from "./time";
 /** 코스프레 촬영 제의가 열리는 애니덕 트윗 누적 문턱 */
 export const COSPLAY_ANIME_REQ = 10;
 
-/** 애니덕 트윗 직후 촬영 제의 DM이 올 확률 */
-export const COSPLAY_DM_CHANCE = 0.35;
+/** 애니덕 트윗 직후 촬영 제의 DM이 올 확률(쿨다운이 없어 처리 직후 재제의가 잦았다 → 0.35에서 낮춤) */
+export const COSPLAY_DM_CHANCE = 0.12;
+
+/** 촬영 제의 사이 최소 간격(일) — 지난 제의 이후 이 기간이 지나야 다시 온다. */
+export const COSPLAY_COOLDOWN_DAYS = 14;
+
+/** 촬영 제의가 오기 위한 최소 매력(0~100, 미용·음란 평균) — 스튜디오는 매력 있는 계정에 연락한다. */
+export const COSPLAY_CHARM_REQ = 40;
 
 /** 촬영 1회 행동력 소모 */
 export const COSPLAY_ACTION_COST = 12;
@@ -50,10 +57,18 @@ function hasCosplayOffer(account: PlayerAccount): boolean {
  */
 export function maybeSpawnCosplayDM(state: GameState): boolean {
   if (state.animeTweetsPosted < COSPLAY_ANIME_REQ) return false;
+  // 매력(미용·음란 평균)이 문턱 미만이면 오지 않는다 — 스튜디오는 매력 있는 계정에만 연락한다.
+  if (charmLevel(state) < COSPLAY_CHARM_REQ) return false;
+  // 최소 쿨다운 — 지난 제의 이후 COSPLAY_COOLDOWN_DAYS일이 지나야 다시 온다(처리 직후 재제의 방지).
+  // lastCosplayDay 0 = 아직 한 번도 안 옴 → 쿨다운 미적용(첫 제의는 막지 않는다).
+  if (state.lastCosplayDay > 0 && state.day - state.lastCosplayDay < COSPLAY_COOLDOWN_DAYS) {
+    return false;
+  }
   const account = getActiveAccount(state);
   if (hasCosplayOffer(account)) return false;
   if (!chance(COSPLAY_DM_CHANCE)) return false;
 
+  state.lastCosplayDay = state.day;
   account.dms.unshift({
     id: uid("dm"),
     partnerName: "코스레이 스튜디오",

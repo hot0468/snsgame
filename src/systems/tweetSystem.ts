@@ -28,6 +28,7 @@ import { gainAffinityFromTweet } from "./relationship";
 import { addSchedule } from "./time";
 import { MEETING_GATE_THRESHOLDS } from "./meeting";
 import { checkAchievements } from "./achievements";
+import { checkStatMilestones } from "./milestones";
 import { maybeQueueNews } from "./news";
 
 /** 트윗 1건 작성에 드는 행동력 */
@@ -45,6 +46,8 @@ export interface PostTweetResult {
   ddeoksang: boolean;
   /** 떡상 시 눈덩이 보너스로 추가된 팔로워(연출 표시용). */
   ddeoksangGain: number;
+  /** 이번 트윗으로 변한 스탯들(덕질·지식·평판 등) — ui가 토스트로 알린다. */
+  statChanges: { label: string; delta: number }[];
 }
 
 /**
@@ -74,6 +77,11 @@ export interface PostTweetOptions {
    * 일반 트윗 작성(composeModal 4성격 picker)에서만 선택값이 전달된다.
    */
   kind?: TweetKind;
+  /**
+   * 창작 트윗이면 그 종류(1차=original / 2차=fan). 있으면 **무조건 미디어(그림) 형태**로 게시되고
+   * (mset·확률 분기를 건너뛴다), 이미지는 창작 전용 풀에서 붙는다(imageForTweet의 pickCreationImage).
+   */
+  creation?: "original" | "fan";
 }
 
 /**
@@ -93,6 +101,8 @@ export function postTweet(
   opts: PostTweetOptions = {},
 ): PostTweetResult {
   const account = getActiveAccount(state);
+  // 이번 트윗으로 오른/내린 스탯을 모아 ui가 토스트로 알린다.
+  const statChanges: { label: string; delta: number }[] = [];
   // 성인 해금 크로싱 판정용: adultTweetsPosted 증가 전 값을 잡아둔다.
   const beforeAdult = state.adultTweetsPosted;
   const kind = opts.kind ?? "plain";
@@ -126,10 +136,19 @@ export function postTweet(
   };
 
   tweet.replies = generateReactions(state, attr, text);
-  // 미디어 세트 트윗이면 그 미디어를, 아니면 확률적으로 랜덤 미디어 첨부
-  const mset = mediaSetFor(text);
-  if (mset) tweet.media = mset.media;
-  else if (chance(0.2)) tweet.media = makeMedia(attr);
+  // 창작(1차/2차) 트윗은 무조건 미디어(직접 그린 그림) 형태 — mset·확률 분기를 건너뛴다.
+  if (opts.creation) {
+    tweet.creation = opts.creation;
+    tweet.media = {
+      kind: "photo",
+      prompt: opts.creation === "original" ? "직접 그린 오리지널 일러스트" : "직접 그린 팬아트",
+    };
+  } else {
+    // 미디어 세트 트윗이면 그 미디어를, 아니면 확률적으로 랜덤 미디어 첨부
+    const mset = mediaSetFor(text);
+    if (mset) tweet.media = mset.media;
+    else if (chance(0.2)) tweet.media = makeMedia(attr);
+  }
   // 게시 순간의 이미지를 박제한다 — 등록 이미지 풀이 늘어도 내 트윗 이미지가 다음날 안 바뀌게.
   if (tweet.media) {
     const ti = imageForTweet(tweet);
@@ -143,6 +162,7 @@ export function postTweet(
     // 아이돌/애니/배우 트윗을 실제로 게시하면 덕질 스탯이 오른다(무료 게시 제외).
     if (attr === "idol" || attr === "anime" || attr === "actor") {
       state.skills.otaku = clampSkill(state.skills.otaku + 3);
+      statChanges.push({ label: "덕질", delta: 3 });
     }
   }
   changeFollowers(state, followers);
@@ -192,9 +212,11 @@ export function postTweet(
   // 성격별 부수효과: 정보=평판·지식↑, 자극=평판 리스크(감성/무난은 0). plain은 전부 0이라 특수 모드는 무영향.
   if (kindEff.reputationDelta !== 0) {
     state.resources.reputation = clampResource(state.resources.reputation + kindEff.reputationDelta);
+    statChanges.push({ label: "평판", delta: kindEff.reputationDelta });
   }
   if (kindEff.knowledgeDelta !== 0) {
     state.skills.knowledge = clampSkill(state.skills.knowledge + kindEff.knowledgeDelta);
+    statChanges.push({ label: "지식", delta: kindEff.knowledgeDelta });
   }
 
   // 평판이 낮거나 성인 트윗은 논란/박제가 터질 수 있다. 자극 성격은 논란 확률이 추가된다.
@@ -216,7 +238,9 @@ export function postTweet(
     MEETING_GATE_THRESHOLDS.some((t) => beforeAdult < t && state.adultTweetsPosted >= t);
   // 팔로워/트윗 업적 즉시 판정(첫 트윗·팔로워 마일스톤·도배왕 등).
   checkAchievements(state);
-  return { tweet, followerDelta: followers, unlockedMeeting, ddeoksang, ddeoksangGain };
+  // 트윗으로 오른 스킬(덕질·지식 등)의 스탯 마일스톤 즉시 판정.
+  checkStatMilestones(state);
+  return { tweet, followerDelta: followers, unlockedMeeting, ddeoksang, ddeoksangGain, statChanges };
 }
 
 /** 트윗 작성이 가능한지(행동력 체크) */

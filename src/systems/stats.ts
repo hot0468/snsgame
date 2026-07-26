@@ -47,6 +47,15 @@ export function clampAction(state: GameState, v: number): number {
   return Math.max(0, Math.min(actionMax(state), v));
 }
 
+/**
+ * 행동력이 비용 이상이라 그 행동을 할 수 있는지.
+ * clampAction이 0에서 바닥을 치므로 비용보다 모자라면 '행동력이 마이너스로 내려가는' 대신 조용히
+ * 0으로 깎이며 행동만 수행된다 — 그걸 막으려면 UI/시스템이 실행 전 이 게이트로 걸러야 한다.
+ */
+export function hasAction(state: GameState, cost: number): boolean {
+  return state.resources.action >= cost;
+}
+
 /** 체력 한계치(staminaMax)의 하드 실링 — 운동으로도 이 값을 넘지 못한다. */
 export const STAMINA_MAX_CAP = 999;
 

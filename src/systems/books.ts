@@ -1,10 +1,24 @@
 import type { AttributeId, GameState } from "@/core/types";
 import type { Book, BookCategory } from "@/data/books";
+import { BOOK_PRICE_BY_CATEGORY } from "@/data/books";
+import { ATTRIBUTES } from "@/data/attributes";
+import { getActiveAccount } from "@/core/state";
+import { unlockAttribute } from "./attributeUnlock";
 import { clampAction, clampResource, clampSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 
 /** 책 한 권 감상에 드는 행동력 */
 export const BOOK_ACTION_COST = 8;
+
+/** 책 한 권 감상료(권당, 계열별) */
+export function bookPrice(book: Book): number {
+  return BOOK_PRICE_BY_CATEGORY[book.category];
+}
+
+/** 소지금이 감상료 이상이어야 감상할 수 있다 */
+export function canReadBook(state: GameState, book: Book): boolean {
+  return state.money >= bookPrice(book);
+}
 
 export interface ReadResult {
   message: string;
@@ -21,6 +35,8 @@ export function readBook(
   title: string,
   bookId?: string,
 ): ReadResult {
+  // 권당 감상료 차감(미디북스 유료 열람). UI(canReadBook)가 소지금을 먼저 검사한다.
+  state.money -= BOOK_PRICE_BY_CATEGORY[category];
   state.resources.action = clampAction(state, state.resources.action - BOOK_ACTION_COST);
   // 만화책은 '봤던 작품'으로 기록된다(2차창작 대상). 만화 작품 id = 도서 id.
   if (category === "comic" && bookId && !state.seenWorks.includes(bookId)) {
@@ -42,23 +58,40 @@ export function readBook(
     state.skills.creativity = clampSkill(state.skills.creativity + 15);
     state.skills.knowledge = clampSkill(state.skills.knowledge + 5);
     extra = "요리 감각(창작)";
+  } else if (category === "adult") {
+    // 성인 도서는 음란도를 올린다(성인 활동 계열과 동일 축).
+    state.skills.lewd = clampSkill(state.skills.lewd + 15);
+    extra = "음란";
   } else {
     state.skills.creativity = clampSkill(state.skills.creativity + 20);
     extra = "창작";
   }
 
+  // 콘텐츠 소비 = 그 계열 트윗 소재 해금(너튜브 영상 시청과 같은 결). 만화 감상 → 애니덕 해금.
+  // 성인은 별도 게이팅(도덕성/이벤트)이 있어 여기서 자동 해금하지 않는다.
+  const reviewAttr = bookTweetAttr(category);
+  const unlockedNew =
+    category !== "adult" && unlockAttribute(state, getActiveAccount(state), reviewAttr);
+  if (unlockedNew) {
+    addSchedule(state, `새 트윗 속성 해금: ${ATTRIBUTES[reviewAttr].label}`, "system");
+  }
+
   addSchedule(state, `독서: ${title}`, "offline");
   advanceTime(state, 1);
+  const base = `『${title}』을(를) 감상했다. 지식·어휘력이 늘었고, ${extra}도 함께 올랐다.`;
   return {
-    message: `『${title}』을(를) 감상했다. 지식·어휘력이 늘었고, ${extra}도 함께 올랐다.`,
+    message: unlockedNew
+      ? `${base}\n새 트윗 소재를 얻었다! (${ATTRIBUTES[reviewAttr].label.replace(/계$/, "")})`
+      : base,
   };
 }
 
-/** 감상한 책을 트윗할 때의 카테고리(속성) — 교양=정보계, 소설=일상계, 만화=애니덕, 요리=요리계 */
+/** 감상한 책을 트윗할 때의 카테고리(속성) — 교양=정보계, 소설=일상계, 만화=애니덕, 요리=요리계, 성인=성인계 */
 export function bookTweetAttr(category: BookCategory): AttributeId {
   if (category === "comic") return "anime";
   if (category === "culture") return "info";
   if (category === "cooking") return "cooking";
+  if (category === "adult") return "adult";
   return "daily";
 }
 
@@ -85,6 +118,15 @@ export function bookTweetLines(book: Book): string[] {
       `『${t}』 덕분에 냉장고 재료로 근사한 한 상 차렸다 이 책은 소장각`,
       `요리 왕초보인데 『${t}』 한 권으로 기본기 다 잡았다 밥이 는다`,
       `『${t}』 펼쳐두고 주말마다 한 가지씩 도전하는 재미가 쏠쏠하다`,
+    ];
+  }
+  if (book.category === "adult") {
+    return [
+      `『${t}』… 이거 밤에 혼자 읽다가 얼굴 화끈거려서 몇 번을 덮었는지 ㅋㅋ 심장에 안 좋음 주의`,
+      `${a} 신작 『${t}』 결국 밤새 정주행함 자극이 너무 세서 다음 편 결제 손가락이 알아서 움직임`,
+      `『${t}』 표지만 보고 골랐는데 웬걸, 문장이 은근 고급져서 더 위험하다 취향 저격 당함`,
+      `『${t}』 읽는 중인데 이건 남한테 추천은 못 하고 속으로만 별 다섯 개 준다 아주 그냥…`,
+      `오늘의 야식은 『${t}』 한 편 ㅎㅎ 잠 다 깼네 이 작가 왜 이렇게 잘 써`,
     ];
   }
   if (book.category === "novel") {

@@ -13,6 +13,7 @@ import { avatar, icon } from "./icons";
 import { renderRelEventModal } from "./relEventModal";
 import { renderMeetChatModal } from "./meetChatModal";
 import { renderBossChatModal } from "./bossChatModal";
+import { canLaughToday } from "@/systems/bossJoke";
 import { BOSS_NAME } from "@/data/bossJokes";
 
 /** 관계 캐릭터가 좋아하는 트윗 유형 라벨(composeModal의 KIND_META와 동일). */
@@ -36,6 +37,8 @@ export function renderKakaoListView(ctx: GameContext): HTMLElement {
   // 카톡의 섹션 접기(∨) — 휘발성 로컬 상태, 모달 닫으면 리셋.
   let eventsCollapsed = false;
   let friendsCollapsed = false;
+  // 뷰: 'friends'=친구(만난 사람)만 / 'new'=알 수도 있는 사람(아직 안 만난 사람, 여기서 첫 만남 약속).
+  let view: "friends" | "new" = "friends";
 
   function sectionHeader(label: string, collapsed: boolean, onToggle: () => void): HTMLElement {
     return el(
@@ -129,7 +132,7 @@ export function renderKakaoListView(ctx: GameContext): HTMLElement {
         {
           class: "kklist__pill",
           disabled: hasAppt,
-          title: hasAppt ? "약속을 잡았어요" : `만남 성사 확률 ${chance}%`,
+          title: hasAppt ? "약속을 잡았어요" : `만남 수락 확률 ${chance}%`,
           onclick: () => {
             if (hasAppt) return;
             ctx.openModal((c) => renderMeetChatModal(c, charId, name, attribute));
@@ -140,8 +143,9 @@ export function renderKakaoListView(ctx: GameContext): HTMLElement {
     );
   }
 
-  /** 부장님 — 로스터와 무관한 고정 특수 친구. 항상 노출, 클릭 시 아재개그 챗. */
+  /** 부장님 — 로스터와 무관한 고정 특수 친구. 아재개그 챗은 하루 1번(개그 보상도 1일 1회 캡과 같은 게이트). */
   function bossRow(): HTMLElement {
+    const canChat = canLaughToday(ctx.store.getState());
     return el(
       "div",
       { class: "kklist__row" },
@@ -161,9 +165,13 @@ export function renderKakaoListView(ctx: GameContext): HTMLElement {
         "button",
         {
           class: "kklist__pill",
-          onclick: () => ctx.openModal((c) => renderBossChatModal(c)),
+          disabled: !canChat,
+          title: canChat ? "부장님 아재개그로 개그 스탯을 얻어요" : "오늘은 이미 부장님과 카톡했어요",
+          onclick: () => {
+            if (canChat) ctx.openModal((c) => renderBossChatModal(c));
+          },
         },
-        "카톡하기",
+        canChat ? "카톡하기" : "오늘 완료",
       ),
     );
   }
@@ -173,7 +181,10 @@ export function renderKakaoListView(ctx: GameContext): HTMLElement {
     const chars = relCharsInKakao(state);
     const chance = Math.round(meetSuccessChance(state) * 100);
     const me = getActiveAccount(state);
-    const pendingChars = chars.filter((c) => relPendingArc(state, c.id) !== null);
+    // 새 이벤트(관계 이벤트)는 '만난 사람'에게만 — 안 만난 사람은 '알 수도 있는 사람'에만 뜬다.
+    const pendingChars = chars.filter(
+      (c) => relStateOf(state, c.id).met && relPendingArc(state, c.id) !== null,
+    );
 
     // 내 프로필 행(맨 위)
     const meRow = el(
@@ -188,12 +199,56 @@ export function renderKakaoListView(ctx: GameContext): HTMLElement {
       ),
     );
 
-    const body =
-      chars.length === 0
+    // 만남을 성사한 사람만 '친구'로, 아직 안 만난(호감도만 쌓인) 사람은 '새로운 인연'으로 가른다.
+    const metChars = chars.filter((c) => relStateOf(state, c.id).met);
+    const newChars = chars.filter((c) => !relStateOf(state, c.id).met);
+
+    const friendGroup = (list: typeof chars): HTMLElement =>
+      el(
+        "div",
+        { class: "kklist__group" },
+        ...list.map((char) => {
+          const hasAppt = state.appointments.some((a) => a.charId === char.id);
+          return friendRow(
+            char.id,
+            char.nickname,
+            char.gender,
+            char.attribute,
+            char.likedKind,
+            hasAppt,
+            chance,
+          );
+        }),
+      );
+
+    const friendSection = (
+      label: string,
+      list: typeof chars,
+      collapsed: boolean,
+      toggle: () => void,
+    ): HTMLElement | null =>
+      list.length === 0
+        ? null
+        : el("div", {}, sectionHeader(label, collapsed, toggle), collapsed ? null : friendGroup(list));
+
+    // '알 수도 있는 사람' 뷰: 아직 안 만난 사람만 — 여기서 '만남 약속'으로 첫 만남을 잡는다.
+    // 만난 사람은 자동으로 '친구' 뷰로 넘어가 이 목록에서 사라진다.
+    const newBody =
+      newChars.length === 0
         ? el(
             "div",
             { class: "kklist__empty" },
-            "아직 카톡할 친구가 없어요.\n계열을 해금하고 트윗으로 호감도를 쌓아보세요.",
+            "지금은 새로 알게 된 사람이 없어요.\n관심 계열 트윗을 올려 호감도를 쌓으면 여기 떠요.",
+          )
+        : el("div", { class: "kklist" }, friendGroup(newChars));
+
+    // '친구' 뷰: 만남을 성사한 사람만(+ 새 이벤트). 트윗만으로는 여기 안 뜬다.
+    const friendsBody =
+      metChars.length === 0 && pendingChars.length === 0
+        ? el(
+            "div",
+            { class: "kklist__empty" },
+            "아직 만난 친구가 없어요.\n'알 수도 있는 사람'에서 만남 약속을 잡아보세요.",
           )
         : el(
             "div",
@@ -216,44 +271,43 @@ export function renderKakaoListView(ctx: GameContext): HTMLElement {
                     : el(
                         "div",
                         { class: "kklist__group" },
-                        ...pendingChars.map((c) => eventRow(c.id, c.name)),
+                        ...pendingChars.map((c) => eventRow(c.id, c.nickname)),
                       ),
                 )
               : null,
-            // 친구 섹션
-            sectionHeader(`친구 ${chars.length}`, friendsCollapsed, () => {
+            // 친구(만남을 성사한 사람만)
+            friendSection(`친구 ${metChars.length}`, metChars, friendsCollapsed, () => {
               friendsCollapsed = !friendsCollapsed;
               render();
             }),
-            friendsCollapsed
-              ? null
-              : el(
-                  "div",
-                  { class: "kklist__group" },
-                  ...chars.map((char) => {
-                    const hasAppt = state.appointments.some((a) => a.charId === char.id);
-                    return friendRow(
-                      char.id,
-                      char.name,
-                      char.gender,
-                      char.attribute,
-                      char.likedKind,
-                      hasAppt,
-                      chance,
-                    );
-                  }),
-                ),
           );
+
+    const body = view === "new" ? newBody : friendsBody;
 
     container.replaceChildren(
       el(
         "div",
         { class: "kklist__topbar" },
-        el("span", { class: "kklist__title" }, "친구"),
+        el("span", { class: "kklist__title" }, view === "new" ? "알 수도 있는 사람" : "친구"),
         el(
           "span",
           { class: "kklist__topicons" },
-          icon("search", { size: 18, className: "kklist__topicon" }),
+          // 친구 ↔ 알 수도 있는 사람 전환. 새로 알게 된 사람 수를 뱃지로 보여준다.
+          el(
+            "button",
+            {
+              class: "kklist__pill",
+              onclick: () => {
+                view = view === "new" ? "friends" : "new";
+                render();
+              },
+            },
+            view === "new"
+              ? "친구 목록"
+              : newChars.length > 0
+                ? `알 수도 있는 사람 ${newChars.length}`
+                : "알 수도 있는 사람",
+          ),
           el("button", { class: "kklist__close", onclick: () => ctx.closeModal() }, "✕"),
         ),
       ),
@@ -261,7 +315,8 @@ export function renderKakaoListView(ctx: GameContext): HTMLElement {
         "div",
         { class: "kklist__panel" },
         meRow,
-        el("div", { class: "kklist__group" }, bossRow()),
+        // 부장님은 로스터 무관 고정 친구 — '친구' 뷰에서만 노출.
+        view === "friends" ? el("div", { class: "kklist__group" }, bossRow()) : null,
         body,
       ),
     );

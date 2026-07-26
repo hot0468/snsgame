@@ -11,6 +11,9 @@ const SENDER = "너아무튼온";
 // 좌측 레일 아이콘(순수 장식). 첫 번째(채팅)만 활성 강조.
 const RAIL_ICONS: IconName[] = ["comment", "coin", "clock", "grid"];
 
+// 현재 열려 있는 채팅방(업무 요청 id). null이면 목록 화면. 세션 휘발 상태.
+let openId: string | null = null;
+
 /**
  * 업무 메신저 "너아무튼온" — 회사가 보낸 업무 요청 목록(작업표시줄 업무 버튼으로 연다).
  * 카톡 PC 클라이언트(아이콘 레일 + 광고 배너 + 검색 헤더 + 채팅 목록 행) 룩앤필.
@@ -19,46 +22,33 @@ const RAIL_ICONS: IconName[] = ["comment", "coin", "clock", "grid"];
  */
 export function renderWorkMessengerView(ctx: GameContext): HTMLElement {
   const container = el("div", { class: "modal wmsg-modal" });
+  openId = null; // 열 때마다 목록부터 시작
 
-  // 채팅 목록의 한 행(업무 요청 1건 = 채팅방 1개)
-  function chatRow(m: WorkMsg): HTMLElement {
-    const state = ctx.store.getState();
-    const canAccept = !m.resolved && canAcceptWork(state);
-
-    let action: HTMLElement;
-    if (m.resolved) {
-      action = el("span", { class: "wmsg-chat__done" }, "처리됨");
-    } else if (!canAccept) {
-      action = el(
-        "button",
-        { class: "wmsg-chat__accept", disabled: true, title: "남은 시간이 없어" },
-        "시간 없어",
-      );
+  // 업무 요청 1건을 수락한다(목록/방 공통). 성공 시 모달을 닫고, 실패면 화면만 갱신.
+  function accept(m: WorkMsg): void {
+    let ok = false;
+    ctx.update((s) => {
+      ok = acceptWorkMsg(s, m.id);
+    });
+    if (ok) {
+      ctx.toast("업무 처리 완료 · 성과↑ 정신력·행동력↓", "bad");
+      ctx.closeModal(); // advanceTime 부수효과(취침·새벽 팝업) 자연 발생
     } else {
-      action = el(
-        "button",
-        {
-          class: "wmsg-chat__accept wmsg-chat__accept--go",
-          onclick: () => {
-            let ok = false;
-            ctx.update((s) => {
-              ok = acceptWorkMsg(s, m.id);
-            });
-            if (ok) {
-              ctx.toast("업무 처리 완료 · 성과↑ 정신력·행동력↓", "bad");
-              ctx.closeModal(); // advanceTime 부수효과(취침·새벽 팝업) 자연 발생
-            } else {
-              render();
-            }
-          },
-        },
-        "수락",
-      );
+      render();
     }
+  }
 
+  // 채팅 목록의 한 행(업무 요청 1건 = 채팅방 1개). 카톡처럼 행 클릭 시 방을 연다.
+  function chatRow(m: WorkMsg): HTMLElement {
     return el(
       "div",
-      { class: "wmsg-chat" + (m.resolved ? " wmsg-chat--done" : "") },
+      {
+        class: "wmsg-chat" + (m.resolved ? " wmsg-chat--done" : ""),
+        onclick: () => {
+          openId = m.id;
+          render();
+        },
+      },
       el(
         "span",
         { class: "wmsg-chat__ava" },
@@ -75,8 +65,64 @@ export function renderWorkMessengerView(ctx: GameContext): HTMLElement {
         "div",
         { class: "wmsg-chat__meta" },
         el("span", { class: "wmsg-chat__date" }, dateLabel(m.day)),
-        action,
+        m.resolved ? el("span", { class: "wmsg-chat__done" }, "처리됨") : null,
       ),
+    );
+  }
+
+  // 채팅방(카톡 대화창) — 받은 업무 메시지 전문을 말풍선으로 보여주고 하단에 수락 액션.
+  function room(m: WorkMsg): HTMLElement {
+    const canAccept = !m.resolved && canAcceptWork(ctx.store.getState());
+
+    let footer: HTMLElement;
+    if (m.resolved) {
+      footer = el("span", { class: "wmsg-room__done" }, "처리됨");
+    } else if (!canAccept) {
+      footer = el(
+        "button",
+        { class: "wmsg-chat__accept", disabled: true, title: "남은 시간이 없어" },
+        "시간 없어",
+      );
+    } else {
+      footer = el(
+        "button",
+        { class: "wmsg-chat__accept wmsg-chat__accept--go", onclick: () => accept(m) },
+        "수락",
+      );
+    }
+
+    return el(
+      "div",
+      { class: "wmsg-room" },
+      el(
+        "div",
+        { class: "wmsg-room__head" },
+        el(
+          "button",
+          {
+            class: "wmsg-room__back",
+            title: "목록",
+            onclick: () => {
+              openId = null;
+              render();
+            },
+          },
+          "‹",
+        ),
+        el("span", { class: "wmsg-room__title" }, SENDER),
+      ),
+      el(
+        "div",
+        { class: "wmsg-room__area" },
+        el("div", { class: "wmsg-room__date" }, dateLabel(m.day)),
+        el(
+          "div",
+          { class: "wmsg-room__row" },
+          el("span", { class: "wmsg-chat__ava" }, avatar(SENDER, 34)),
+          el("div", { class: "wmsg-room__bubble" }, m.text),
+        ),
+      ),
+      el("div", { class: "wmsg-room__foot" }, footer),
     );
   }
 
@@ -101,8 +147,15 @@ export function renderWorkMessengerView(ctx: GameContext): HTMLElement {
   }
 
   function render(): void {
-    // 최신 요청이 위로
     const msgs = [...ctx.store.getState().workMsgs].reverse();
+
+    // 방이 열려 있으면(해당 메시지가 아직 존재하면) 대화창을, 아니면 목록을 보여준다.
+    const opened = openId ? msgs.find((m) => m.id === openId) : undefined;
+    if (opened) {
+      container.replaceChildren(rail(), el("div", { class: "wmsg-body" }, room(opened)));
+      return;
+    }
+    openId = null;
 
     const list =
       msgs.length === 0

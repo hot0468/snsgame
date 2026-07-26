@@ -23,7 +23,7 @@ export const PERF_LEVEL_RAISE = 30_000;
 
 /**
  * 현재 월급 — 회사 등급별 기본급(`TIERS[tier].baseSalary`)에 성과 레벨을 더한다.
- * 등급이 높을수록 기본급이 많다(극소 20만 ~ 대기업 60만).
+ * 등급이 높을수록 기본급이 많다(극소 60만 ~ 대기업 100만).
  */
 export function currentSalary(emp: Employment): number {
   return TIERS[emp.tier].baseSalary + emp.perfLevel * PERF_LEVEL_RAISE;
@@ -85,6 +85,16 @@ export function daysUntilRent(state: GameState): number {
 /** 현재 빚 상태(잔고가 음수)인지 */
 export function inDebt(state: GameState): boolean {
   return state.money < 0;
+}
+
+/**
+ * 지금 돈 드는 행동을 할 수 있는지 — **잔고가 마이너스면 모든 지출을 막는다.**
+ * 대부분의 구매는 이미 `money >= 가격`으로 게이팅돼(음수면 자동 차단), 이 헬퍼는 그런 개별
+ * 가격 검사가 없는 지출(에스테틱 정기권·휴가 등)에 같은 규칙을 적용하기 위한 공통 관문이다.
+ * (자동 차감인 월세·생활비·정기권 관리비는 빚을 만드는 쪽이라 이 게이트를 쓰지 않는다.)
+ */
+export function canSpend(state: GameState): boolean {
+  return state.money >= 0;
 }
 
 /** 오늘의 생활비(중견/대기업 재직 시 평일은 면제) */

@@ -7,7 +7,7 @@ import {
   TCHIN_BOOST_CHANCE,
   TCHIN_BOOST_MIN,
   TCHIN_BOOST_MAX,
-  TCHIN_CHEER_LINES,
+  TCHIN_CHEER_CHATS,
 } from "@/data/tchin";
 import {
   TCHINSO_COOLDOWN_DAYS,
@@ -49,7 +49,7 @@ export type TchinBump = "became" | "progress" | "already";
  * - 임계치를 이번에 넘겨 새로 성사되면 "became"(호출부가 알림).
  * - 그 외엔 "progress".
  */
-export function bumpTchinProgress(state: GameState, handle: string): TchinBump {
+export function bumpTchinProgress(state: GameState, handle: string, name?: string): TchinBump {
   const account = getActiveAccount(state);
   if (account.tchins.includes(handle)) return "already";
 
@@ -57,6 +57,8 @@ export function bumpTchinProgress(state: GameState, handle: string): TchinBump {
   account.tchinProgress[handle] = next;
   if (next >= TCHIN_THRESHOLD) {
     account.tchins.push(handle);
+    // 표시용 계정명 기억(없으면 나중에 @핸들로 폴백). 카톡·일정에 @아이디 대신 이름을 쓰기 위함.
+    if (name) account.tchinNames[handle] = name;
     state.pendingTchinToasts.push(handle);
     // 성사 즉시 이 트친의 생일을 결정론적으로 달력에 예약(도래 처리는 onNewDay).
     scheduleBirthday(state, handle);
@@ -89,8 +91,11 @@ export function maybeSpawnTchinBoost(state: GameState): void {
   const handle = pick(account.tchins);
   const bonus = randInt(TCHIN_BOOST_MIN, TCHIN_BOOST_MAX);
   changeFollowers(state, bonus);
-  pushKakao(state, `@${handle}`, [pick(TCHIN_CHEER_LINES)], { hue: 200 });
-  addSchedule(state, `트친 @${handle}의 리트윗 (+${bonus} 팔로워)`, "sns");
+  // 표시는 계정명으로(없는 구세이브만 @핸들 폴백). 응원 카톡은 자연스러운 대화 한 세트로 연다.
+  const name = account.tchinNames[handle] ?? `@${handle}`;
+  const chat = pick(TCHIN_CHEER_CHATS);
+  pushKakao(state, name, chat.opener, { hue: 200, reply: chat.reply });
+  addSchedule(state, `트친 ${name}의 리트윗 (+${bonus} 팔로워)`, "sns");
 }
 
 /* ─────────────────── 트친 생일 ─────────────────── */

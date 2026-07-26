@@ -2,11 +2,15 @@ import type { GameContext } from "./context";
 import { RESOURCE_STATS, RESOURCE_STAT_IDS, SKILL_STATS, SKILL_STAT_IDS } from "@/data/stats";
 import { daysUntilRent, livingCostToday, rentAmount } from "@/systems/economy";
 import { salaryOf } from "@/systems/employment";
+import { isAuthorPrepMonth, AUTHOR_WORKLOAD_TARGET, AUTHOR_MAX_MISS } from "@/systems/author";
 import { avSalaryOf, canWorkAvNow, AV_MONTHLY_QUOTA } from "@/systems/avJob";
 import { certById } from "@/systems/certification";
 import { actionMax } from "@/systems/stats";
 import type { SkillStatId } from "@/core/types";
+import { highestMilestoneTier } from "@/systems/milestones";
+import { MILESTONE_TITLES } from "@/data/milestones";
 import { SLOT_LABELS } from "@/core/state";
+import { dateLabel, weekdayLabel } from "@/systems/time";
 import { el, formatNumber } from "@/utils/dom";
 import { statBar } from "./components";
 import { icon, type IconName } from "./icons";
@@ -112,7 +116,8 @@ function renderMoneyInfo(s: import("@/core/types").GameState): HTMLElement {
 function renderJobInfo(s: import("@/core/types").GameState): HTMLElement | null {
   const emp = s.employment;
   const av = s.avJob;
-  if (!emp && !av) return null;
+  const author = s.authorContract;
+  if (!emp && !av && !author) return null;
 
   const rows: (HTMLElement | null)[] = [
     el("div", { style: "font-weight:700;color:var(--text)" }, "직업"),
@@ -124,6 +129,7 @@ function renderJobInfo(s: import("@/core/types").GameState): HTMLElement | null 
         { style: "color:var(--good);font-weight:700" },
         `재직: ${emp.company} · 월급 ${formatNumber(salaryOf(s))}원 (10일)`,
       ),
+      el("div", {}, `업무 성과 Lv.${emp.perfLevel} (${Math.round(emp.performance)}/100)`),
     );
   }
   if (av) {
@@ -148,6 +154,25 @@ function renderJobInfo(s: import("@/core/types").GameState): HTMLElement | null 
         ),
       );
     }
+  }
+  if (author) {
+    const prep = isAuthorPrepMonth(s);
+    const met = author.workload >= AUTHOR_WORKLOAD_TARGET;
+    rows.push(
+      el(
+        "div",
+        { style: "font-weight:700" },
+        prep ? "작가 계약 · 준비 기간" : `작가 계약 · ${author.monthsWorked + 1}개월차`,
+      ),
+      el(
+        "div",
+        { style: met ? "color:var(--good)" : "" },
+        prep
+          ? "다음 달부터 작업 시작"
+          : `작업량 ${author.workload}/${AUTHOR_WORKLOAD_TARGET}` +
+              (met ? " · 목표 달성 ✓" : ` · 미달 ${author.missCount}/${AUTHOR_MAX_MISS}`),
+      ),
+    );
   }
   return el("div", { class: "money-info" }, ...rows);
 }
@@ -211,7 +236,18 @@ function detailStatRow(
       el("div", { class: "bar__fill bar__fill--skill", style: `width:${pct}%` }),
     ),
     el("span", { class: "detail-row__val" }, String(val)),
+    ...milestoneBadge(s, id),
   );
+}
+
+/** 해당 스킬의 최고 칭호 배지(없으면 빈 배열). */
+function milestoneBadge(
+  s: import("@/core/types").GameState,
+  id: SkillStatId,
+): HTMLElement[] {
+  const tier = highestMilestoneTier(s, id);
+  if (tier < 0) return [];
+  return [el("span", { class: "detail-row__badge" }, MILESTONE_TITLES[id][tier])];
 }
 
 /** 스테이터스 내용(제목 + 본문) — 팝업/도킹 패널이 공유한다. */
@@ -269,7 +305,34 @@ function statusInner(ctx: GameContext): HTMLElement[] {
   const slotClass = ["morning", "late"][s.slot] ?? "morning";
   // "스테이터스" 텍스트 대신 시간대 아이콘(낮=해 / 심야=달)을 얹는다.
   const slotIcon = (["sun", "moon"] as const)[s.slot] ?? "sun";
+  // 날짜+슬롯 트래커 — 지금 며칠인지·오늘 어디쯤인지를 상시 크게 보여준다.
+  const dayHeader = el(
+    "div",
+    { class: `status-day status-day--${slotClass}` },
+    // 날짜 관련(며칠차·날짜·낮/심야 슬롯)을 한 줄에 가로로 배치한다.
+    el("span", { class: "status-day__num" }, `${s.day}일차`),
+    el("span", { class: "status-day__date" }, `${dateLabel(s.day)} (${weekdayLabel(s.day)})`),
+    el(
+      "div",
+      { class: "status-day__slots" },
+      el(
+        "span",
+        { class: "status-day__slot" + (s.slot === 0 ? " is-now" : " is-done") },
+        icon("sun", { size: 13 }),
+        " 낮",
+      ),
+      el("span", { class: "status-day__slot-arrow" }, "→"),
+      el(
+        "span",
+        { class: "status-day__slot" + (s.slot === 1 ? " is-now" : "") },
+        icon("moon", { size: 13 }),
+        " 심야",
+      ),
+    ),
+  );
+
   const nodes: HTMLElement[] = [
+    dayHeader,
     el(
       "div",
       { class: `popup__title popup__title--${slotClass}` },

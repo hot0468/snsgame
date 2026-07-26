@@ -40,6 +40,7 @@ export const CHARS_ANIMAL_PLANT: RelationshipChar[] = [
   {
     id: "rel_animal_m",
     name: "정한",
+    nickname: "야생다큐러",
     gender: "m",
     attribute: "animal",
     likedKind: "info",
@@ -138,6 +139,7 @@ export const CHARS_ANIMAL_PLANT: RelationshipChar[] = [
   {
     id: "rel_animal_f",
     name: "소민",
+    nickname: "동물보듬이",
     gender: "f",
     attribute: "animal",
     likedKind: "emotional",
@@ -236,6 +238,7 @@ export const CHARS_ANIMAL_PLANT: RelationshipChar[] = [
   {
     id: "rel_plant_m",
     name: "하준",
+    nickname: "감성식집사",
     gender: "m",
     attribute: "plant",
     likedKind: "emotional",
@@ -334,6 +337,7 @@ export const CHARS_ANIMAL_PLANT: RelationshipChar[] = [
   {
     id: "rel_plant_f",
     name: "초원",
+    nickname: "화분수집가",
     gender: "f",
     attribute: "plant",
     likedKind: "plain",

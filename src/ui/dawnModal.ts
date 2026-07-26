@@ -7,7 +7,8 @@ import { el } from "@/utils/dom";
  * 확인 시 dawnPending을 클리어해야 다음 render에서 다시 강제로 뜨지 않는다(필수).
  */
 export function renderDawnModal(ctx: GameContext): HTMLElement {
-  const gain = ctx.store.getState().lastRestGain;
+  const s = ctx.store.getState();
+  const gain = s.lastRestGain;
   const restParts: string[] = [];
   if (gain.action > 0) restParts.push(`행동력 +${gain.action}`);
   if (gain.mental > 0) restParts.push(`정신력 +${gain.mental}`);
@@ -19,6 +20,8 @@ export function renderDawnModal(ctx: GameContext): HTMLElement {
       "div",
       { class: "modal__body dawn__body" },
       el("div", { class: "dawn__sun", "aria-hidden": "true" }),
+      // 넘어간 순간이 각인되게 며칠차를 크게 얹는다.
+      el("div", { class: "dawn__day" }, `${s.day}일차`),
       el("p", { class: "dawn__line" }, "오늘도 또다시 해가 떴다"),
       restParts.length
         ? el("p", { class: "dawn__rest" }, `${restParts.join(" · ")} 회복`)

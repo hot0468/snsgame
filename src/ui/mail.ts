@@ -11,6 +11,7 @@ import {
   switchToCompanyJob,
 } from "@/systems/employment";
 import { applyEsthetic } from "@/systems/esthetic";
+import { canSpend } from "@/systems/economy";
 import { openSpamEmail } from "@/systems/spam";
 import { tweetJobResult } from "@/systems/studyGroup";
 import { tweetContestResult } from "@/systems/contest";
@@ -38,9 +39,11 @@ let searchQuery = "";
 const starredIds = new Set<string>();
 const checkedIds = new Set<string>();
 
-/** 게임 메일 → 카테고리 탭 분류. spam·adOffer→프로모션, jobOffer→업데이트, 그 외→기본. */
+/**
+ * 게임 메일 → 카테고리 탭 분류. adOffer·esthetic→프로모션, jobOffer→업데이트, 그 외→기본.
+ * ⚠️ 스팸은 여기 오지 않는다 — 받은편지함에서 아예 제외되고(visibleEmails) 스팸함에만 보인다.
+ */
 function categoryOf(mail: Email): MailTab {
-  if (mail.spam) return "promotions";
   if (mail.adOffer) return "promotions";
   if (mail.esthetic) return "promotions";
   if (mail.jobOffer) return "updates";
@@ -74,8 +77,9 @@ function visibleEmails(emails: readonly Email[]): Email[] {
   if (activeView === "starred") return list.filter((m) => starredIds.has(m.id));
   if (activeView === "spam") return list.filter((m) => m.spam);
   if (activeView === "sent") return [];
-  // inbox → 카테고리 탭으로 한 번 더 거른다.
-  return list.filter((m) => categoryOf(m) === activeTab);
+  // inbox → 스팸은 제외(스팸함 전용)하고, 카테고리 탭으로 한 번 더 거른다.
+  // (스팸이 받은편지함에 섞이면 기본 탭이 비어 보이고 개수가 부풀려진다 — 사용자 신고 지점.)
+  return list.filter((m) => !m.spam && categoryOf(m) === activeTab);
 }
 
 function markRead(ctx: GameContext, id: string): void {
@@ -350,7 +354,7 @@ function emailView(ctx: GameContext, mail: Email | null): HTMLElement {
                 if (hasAnyJob(st)) {
                   confirmPurchase(ctx, {
                     title: "직업 변경",
-                    message: `현재 '${currentJobLabel(st)}' 직업이 있어요. '${offer.company}'(으)로 바꿀까요? (기존 직업은 그만둡니다)`,
+                    message: `현재 '${currentJobLabel(st)}' 직업이 있어요. '${offer.company}'(으)로 바꿀까요? (기존 직업은 그만둡니다) 출근하면 평일 낮시간이 모두 회사 근무로 자동 소모돼요.`,
                     confirmLabel: "바꾼다",
                     cancelLabel: "유지",
                     onConfirm: () => {
@@ -361,9 +365,17 @@ function emailView(ctx: GameContext, mail: Email | null): HTMLElement {
                   });
                   return;
                 }
-                ctx.update((s) => acceptJobOffer(s, mail.id));
-                ctx.toast(`${offer.company} 입사 결정! 다음 근무일부터 출근해요`);
-                ctx.refresh();
+                confirmPurchase(ctx, {
+                  title: "출근 안내",
+                  message: `'${offer.company}'에 출근하면 평일 낮시간이 모두 회사 근무로 자동 소모돼요. 다음 근무일부터 출근합니다.`,
+                  confirmLabel: "출근한다",
+                  cancelLabel: "취소",
+                  onConfirm: () => {
+                    ctx.update((s) => acceptJobOffer(s, mail.id));
+                    ctx.toast(`${offer.company} 입사 결정! 다음 근무일부터 출근해요`);
+                    ctx.refresh();
+                  },
+                });
               },
             },
             "출근한다",
@@ -463,7 +475,11 @@ function emailView(ctx: GameContext, mail: Email | null): HTMLElement {
               "button",
               {
                 class: "btn",
+                // 잔고가 마이너스면 지출을 막는다(다른 구매의 'money >= 가격'과 같은 규칙).
+                disabled: !canSpend(ctx.store.getState()),
+                title: canSpend(ctx.store.getState()) ? undefined : "잔고가 마이너스라 신청할 수 없어요",
                 onclick: () => {
+                  if (!canSpend(ctx.store.getState())) return;
                   let result: "member" | "scam" = "member";
                   ctx.update((s) => {
                     result = applyEsthetic(s);
@@ -476,7 +492,7 @@ function emailView(ctx: GameContext, mail: Email | null): HTMLElement {
                   ctx.refresh();
                 },
               },
-              "정기권 신청",
+              canSpend(ctx.store.getState()) ? "정기권 신청" : "잔고 부족",
             ),
           )
       : null,
@@ -657,7 +673,7 @@ export function renderMail(ctx: GameContext): HTMLElement {
         el(
           "nav",
           { class: "mail-labels" },
-          labelItem(ctx, "inbox", "받은편지함", "mail", emails.length),
+          labelItem(ctx, "inbox", "받은편지함", "mail", emails.length - spamCount),
           labelItem(ctx, "starred", "별표편지함", "star", starredIds.size),
           labelItem(ctx, "spam", "스팸", "shield", spamCount),
           labelItem(ctx, "sent", "보낸편지함", "article", 0),

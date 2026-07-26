@@ -58,10 +58,10 @@ export function renderNewsModal(ctx: GameContext): HTMLElement {
       ),
       el(
         "div",
-        { class: "news-card" },
-        el("div", { class: "news-card__outlet" }, outlet),
-        el("div", { class: "news-card__headline" }, headlineText),
-        el("p", { class: "news-card__quote" }, `"${news?.tweetText ?? ""}"`),
+        { class: "newsmodal-card" },
+        el("div", { class: "newsmodal-card__outlet" }, outlet),
+        el("div", { class: "newsmodal-card__headline" }, headlineText),
+        el("p", { class: "newsmodal-card__quote" }, `"${news?.tweetText ?? ""}"`),
       ),
       distorted
         ? el(

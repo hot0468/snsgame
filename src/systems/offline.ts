@@ -5,7 +5,7 @@ import { ALL_ATTRIBUTE_IDS } from "@/data/attributes";
 import { SKILL_STATS } from "@/data/stats";
 import { pick } from "@/utils/random";
 import { clampAction, clampResource, gainSkill, gainStamina, STAMINA_MAX_CAP } from "./stats";
-import { REST_STAMINA, WORKOUT_STAMINA, WORKOUT_STAMINA_MAX_GAIN } from "./health";
+import { REST_STAMINA, WORKOUT_STAMINA, WORKOUT_STAMINA_MAX_GAIN, AUTHOR_WORK_STAMINA } from "./health";
 import { addSchedule, advanceTime } from "./time";
 import { doAuthorWork } from "./author";
 import { estheticBeautyMult, maybeSpawnEstheticAd } from "./esthetic";
@@ -14,13 +14,14 @@ import { rollAdultOfflineEncounter } from "./adultOffline";
 import type { AdultOfflineEncounterId } from "@/data/adultOffline";
 import { CREATURES } from "@/data/creatures";
 import type { Creature } from "@/data/creatures";
+import { VACATION_EVENTS } from "@/data/vacation";
 
 export interface OfflineActivity {
   id: string;
   label: string;
   emoji: string;
-  /** 현생 탭 분류: rest(쉬기·산책·외출) / growth(공부·운동·꾸미기·아르바이트·작업) */
-  group: "rest" | "growth";
+  /** 현생 탭 분류: rest(쉬기·산책·외출) / study(교양·미술·코딩) / growth(운동·꾸미기·아르바이트·작업) */
+  group: "rest" | "study" | "growth";
   /** 성인물 보기(adultMode) ON일 때만 목록에 노출되는 성인 활동(예: 해피타임) */
   adultOnly?: boolean;
   description: string;
@@ -42,6 +43,8 @@ export interface OfflineActivity {
   petWalk?: boolean;
   /** 작가 계약 원고 작업 — 작업량 게이지를 채운다(계약 중일 때만 노출) */
   authorWork?: boolean;
+  /** 휴가 — 10만원 소비, 20개 이벤트 중 하나가 랜덤 발생해 특정 스킬이 오른다(행동력·정신력은 기본 회복) */
+  vacation?: boolean;
   /** 결과 팝업에 뜨는 분위기 문구(랜덤 선택) */
   results: string[];
   /** 활동 후 올릴 수 있는 트윗의 속성과 문구 */
@@ -103,6 +106,14 @@ const PART_TIME_RAISE = 5_000;
 /** 누적 횟수(count)에 따른 다음 아르바이트 일당 */
 export function partTimePay(count: number): number {
   return PART_TIME_BASE + Math.floor(count / PART_TIME_TIER) * PART_TIME_RAISE;
+}
+
+/** 휴가 1회 비용 */
+export const VACATION_COST = 100_000;
+
+/** 휴가를 갈 수 있는지(소지금이 비용 이상이어야 한다 — UI가 버튼 게이트에 쓴다) */
+export function canAffordVacation(state: GameState): boolean {
+  return state.money >= VACATION_COST;
 }
 
 /** 이 친화력(0~999) 미만에서 알바하면 손님 응대 스트레스로 정신력이 추가로 깎인다 */
@@ -176,6 +187,20 @@ export const OFFLINE_ACTIVITIES: OfflineActivity[] = [
     tweetLines: ["오늘은 아무것도 안 하고 푹 쉬는 날", "늘어지게 자고 일어나니 개운하다"],
   },
   {
+    id: "vacation",
+    label: "휴가",
+    emoji: "",
+    group: "rest",
+    vacation: true,
+    description: "10만원 들여 훌쩍 떠난다. 행동력·정신력을 크게 회복하고, 뜻밖의 경험으로 능력치도 오른다.",
+    action: +30,
+    mental: +45,
+    money: -VACATION_COST,
+    results: ["휴가를 다녀왔다."], // 실제 문구는 발생한 휴가 이벤트가 덮어쓴다(fallback)
+    tweetAttr: "daily",
+    tweetLines: ["휴가 다녀왔더니 세상이 다르게 보인다", "가끔은 이렇게 훌쩍 떠나줘야 해"],
+  },
+  {
     // 성인트윗 없이 음란도를 쌓는 유일 경로. lewd 12 → 해피타임 4회에 야밤(40), 5회에 푸시타임(50) 도달.
     // 수위는 암시·완곡까지(노골적 성행위 묘사 금지). "해피타임" 완곡어 유지.
     id: "happytime",
@@ -198,21 +223,98 @@ export const OFFLINE_ACTIVITIES: OfflineActivity[] = [
   },
   {
     id: "study",
-    label: "공부",
+    label: "교양",
     emoji: "",
-    group: "growth",
+    group: "study",
     description: "책상 앞에서 어휘력과 지식을 쌓는다.",
     action: -15,
     mental: -10,
     skillGains: { vocabulary: 10, knowledge: 10 },
-    unlockAttributePool: ["politics", "humor", "info", "it", "plant"],
+    unlockAttributePool: ["politics", "humor", "info", "plant"],
     results: [
       "책장을 넘기며 머릿속을 정리했다.",
       "조용히 집중하는 시간을 가졌다.",
       "새로 알게 된 것들을 노트에 적어뒀다.",
     ],
     tweetAttr: "daily",
-    tweetLines: ["오늘 공부 좀 했다 뿌듯", "책 읽는데 생각보다 재밌네"],
+    tweetLines: ["오늘 교양 좀 쌓았다 뿌듯", "책 읽는데 생각보다 재밌네"],
+  },
+  {
+    id: "art",
+    label: "미술",
+    emoji: "",
+    group: "study",
+    description: "그림을 그리며 창작 감각을 키운다.",
+    action: -15,
+    mental: -8,
+    skillGains: { creativity: 10, beauty: 3 },
+    results: [
+      "빈 종이를 채워가는 재미에 시간 가는 줄 몰랐다.",
+      "손 가는 대로 그리다 보니 마음이 차분해졌다.",
+      "색을 이리저리 섞어보며 감각을 다듬었다.",
+    ],
+    tweetAttr: "daily",
+    tweetLines: ["오늘 그림 좀 끄적여봤다 손맛이 좋네", "낙서인 듯 낙서 아닌 그림 완성 🎨"],
+  },
+  {
+    id: "coding",
+    label: "코딩",
+    emoji: "",
+    group: "study",
+    description: "코드를 짜며 IT 실력과 지식을 쌓는다.",
+    action: -15,
+    mental: -12,
+    skillGains: { it: 10, knowledge: 5 },
+    unlockAttributePool: ["it"],
+    results: [
+      "에러를 잡고 나니 화면에 딱 원하는 결과가 떴다.",
+      "머리를 싸맸지만 로직이 굴러가는 걸 보니 뿌듯하다.",
+      "낯설던 문법이 조금씩 손에 익는 게 느껴진다.",
+    ],
+    tweetAttr: "it",
+    tweetLines: ["드디어 그 버그 잡음… 두 시간 날림 ㅋㅋ", "코드 한 줄에 인생을 배운다"],
+  },
+  {
+    id: "comedy",
+    label: "개그 연습",
+    emoji: "",
+    group: "study",
+    description: "예능·밈·짤을 보며 드립과 개그 감각을 갈고닦는다.",
+    action: -12,
+    mental: -4,
+    skillGains: { comedy: 12 },
+    unlockAttributePool: ["humor"],
+    results: [
+      "웃긴 짤을 모으다 보니 어느새 나만의 드립 노트가 두둑해졌다.",
+      "예능을 돌려보며 웃음 타이밍과 밈을 연구했다. 포인트가 보이기 시작한다.",
+      "거울 앞에서 개그를 연습하다 혼자 빵 터졌다.",
+    ],
+    tweetAttr: "humor",
+    tweetLines: [
+      "개그 감각은 갈고닦는 거임 ㅋㅋ 오늘도 드립 연습 완료",
+      "웃긴 짤 수집만 세 시간째… 이게 다 자기계발이지",
+    ],
+  },
+  {
+    id: "volunteer",
+    label: "봉사활동",
+    emoji: "",
+    group: "growth",
+    description: "지역 센터에서 봉사한다. 몸은 고단해도 마음이 따뜻해지고 도덕성이 오른다.",
+    action: -15,
+    mental: +3,
+    morality: +6,
+    skillGains: { sociability: 5 },
+    results: [
+      "땀 흘려 남을 도우니 마음 한구석이 따뜻해졌다.",
+      "고맙다는 말 한마디에 하루의 피로가 싹 가셨다.",
+      "봉사 끝에 다 같이 나눠 먹은 밥이 유난히 맛있었다.",
+    ],
+    tweetAttr: "daily",
+    tweetLines: [
+      "오늘 봉사활동 다녀옴. 받는 게 더 많은 하루였다",
+      "작은 손길이라도 보태니 마음이 꽉 차는 기분",
+    ],
   },
   {
     id: "workout",
@@ -273,7 +375,7 @@ export const OFFLINE_ACTIVITIES: OfflineActivity[] = [
     label: "작업",
     emoji: "",
     group: "growth",
-    description: "작가 원고 작업으로 이번 달 작업량을 채운다. (창작·어휘력·개그·지식이 높을수록 잘 채워짐)",
+    description: "작가 원고 작업으로 이번 달 작업량을 채운다. 체력이 크게 깎인다. (창작·어휘력·개그·지식이 높을수록 잘 채워짐)",
     action: -15,
     mental: -10,
     authorWork: true,
@@ -352,6 +454,8 @@ export function doOfflineActivity(
     gainStamina(state, WORKOUT_STAMINA);
   } else if (activity.id === "rest") {
     gainStamina(state, REST_STAMINA);
+  } else if (activity.authorWork) {
+    gainStamina(state, -AUTHOR_WORK_STAMINA); // 웹툰 원고 작업은 체력을 깎는다
   }
 
   // 아르바이트: 누적 횟수에 따라 급여가 오른다
@@ -389,6 +493,16 @@ export function doOfflineActivity(
     const key = pick(activity.randomSkillPool.pool);
     const gained = gainSkill(state, key, activity.randomSkillPool.amount);
     randomSkillLabel = `${SKILL_STATS[key].label} +${gained}`;
+  }
+
+  // 휴가: 20개 이벤트 중 하나가 랜덤 발생 → 특정 스킬↑ (행동력·정신력·비용은 위에서 이미 반영).
+  //       발생 이벤트의 문구가 결과 메시지를 덮고, 오른 스킬은 randomSkillLabel로 표시한다.
+  let vacationMessage: string | null = null;
+  if (activity.vacation) {
+    const ev = pick(VACATION_EVENTS);
+    const gained = gainSkill(state, ev.stat, ev.amount);
+    randomSkillLabel = `${SKILL_STATS[ev.stat].label} +${gained}`;
+    vacationMessage = ev.message;
   }
 
   // 활동을 통한 트윗 속성 해금 시도(현재 활성 계정에 적용)
@@ -456,7 +570,9 @@ export function doOfflineActivity(
   }
 
   // 작가 원고 작업: 작업량 게이지를 채운다
-  let message = partTimeMistake ? pick(PART_TIME_MISTAKE_RESULTS) : pick(activity.results);
+  // (휴가면 발생한 이벤트 문구가 우선한다)
+  let message =
+    vacationMessage ?? (partTimeMistake ? pick(PART_TIME_MISTAKE_RESULTS) : pick(activity.results));
   if (activity.authorWork) {
     const r = doAuthorWork(state);
     if (r) {

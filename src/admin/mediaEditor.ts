@@ -11,6 +11,7 @@
  * | 성인 트윗 | `src/assets/adult/` | **자동**(`adult`·`adult__2`…) | `isAdult`만 본다 + 트윗 id 해시로 택1 |
  * | 트윗 카테고리 | `src/assets/tweetcat/` | **트윗 속성**(목록에서 고름) | `tweet.attribute` 정확일치 + 트윗 id 해시로 택1 |
  * | 야밤 영상 | `src/assets/yabam/` | **영상 id**(목록에서 고름) | id 1:1 정확 매칭. 확률 없음(아이템과 같은 결) |
+ * | 창작 | `src/assets/creation/` | **자동**(`creation`·`creation__2`…) | `tweet.creation`만 본다 + 트윗 id 해시로 택1(성인과 같은 결) |
  *
  * ⚠️ 「너튜브」와 「트윗 카테고리」는 둘 다 '카테고리'지만 **다른 축이다.** 너튜브는 영상
  *    카테고리(VideoAttribute), 트윗 카테고리는 트윗 속성(AttributeId)이다. 겹치는 이름이
@@ -28,6 +29,7 @@ import { YOUTUBE_IMAGES } from "@/data/youtubeImages";
 import { ADULT_IMAGES } from "@/data/adultImages";
 import { TWEET_CAT_IMAGES, TWEET_CAT_IDS } from "@/data/tweetCatImages";
 import { YABAM_IMAGES } from "@/data/yabamImages";
+import { CREATION_IMAGES } from "@/data/creationImages";
 import { YABAM_VIDEOS } from "@/data/yabam";
 import type { VideoAttribute } from "@/data/videos";
 import { ATTRIBUTES } from "@/data/attributes";
@@ -94,7 +96,7 @@ const VIDEO_CATEGORIES: VideoAttribute[] = [
   "gaming",
 ];
 
-type Mode = "media" | "item" | "youtube" | "adult" | "tweetcat" | "yabam";
+type Mode = "media" | "item" | "youtube" | "adult" | "tweetcat" | "yabam" | "creation";
 
 /**
  * 야밤 영상 커버 저장 규격 — `.yabam-vid__cover`가 16:10이라 240x150으로 저장한다.
@@ -114,6 +116,8 @@ const YABAM_IMG_H = Math.round((YABAM_IMG_W * 10) / 16); // 150
  *    붙이는 번호(`adult__2`)가 한다.
  */
 const ADULT_NAME = "adult";
+/** 창작 이미지 자동 파일명 — 성인과 같은 결(파일명이 매칭에 안 쓰인다). 장 구분은 서버 uniqueName의 번호가 한다. */
+const CREATION_NAME = "creation";
 
 /** 크롭 상태: 이미지 중심이 무대 어디에 놓이는지(cx,cy) + 확대율(zoom) */
 let img: HTMLImageElement | null = null;
@@ -207,6 +211,8 @@ const WEBP_QUALITY: Record<Mode, number> = {
   // 값이 갈릴 이유가 없다.
   adult: 0.5,
   tweetcat: 0.5,
+  // 창작도 트윗과 같은 자리(.tweet-media)에 그려진다 — 성인·트윗 카테고리와 같은 0.5.
+  creation: 0.5,
   // 야밤 커버는 아이템과 같은 결(선명해야 하는 상품/영상 이미지)이라 0.7.
   yabam: 0.7,
 };
@@ -235,6 +241,7 @@ function outName(): string {
   if (mode === "item") return itemSelect.value;
   if (mode === "yabam") return yabamSelect.value;
   if (mode === "adult") return ADULT_NAME;
+  if (mode === "creation") return CREATION_NAME;
   if (mode === "tweetcat") return tweetCatSelect.value;
   return mode === "youtube" ? catSelect.value : nameInput.value.trim();
 }
@@ -407,7 +414,7 @@ async function save(): Promise<void> {
     // 성인은 이름이 고정이라 번호가 붙는 게 정상 동작이다 — 개명 경고를 띄우면 안 된다.
     // ('키워드는 그대로'라고 안내하는 것도 거짓말이다. 성인 축엔 키워드가 없다.)
     const note =
-      renamed && mode !== "adult"
+      renamed && mode !== "adult" && mode !== "creation"
         ? `저장됨: ${body.path} · ${kb}KB — 같은 이름이 있어 '${body.name}'로 저장했습니다(${keyWord} '${outName()}' 그대로).`
         : `저장됨: ${body.path} · ${kb}KB`;
     // 저장하면 src/ 아래에 파일이 생겨 dev 서버가 이 페이지를 통째로 새로고침한다
@@ -586,6 +593,27 @@ function fillSaved(): void {
     );
     return;
   }
+  if (mode === "creation") {
+    // 성인과 같은 결 — 장수가 곧 다양성이다(창작 트윗이 이 풀에서 해시로 하나를 뽑는다).
+    savedTitle.textContent = `저장된 창작 이미지 (${CREATION_IMAGES.length})`;
+    savedBox.replaceChildren(
+      CREATION_IMAGES.length === 0
+        ? el("div", { class: "saved__empty" }, "아직 저장된 이미지가 없습니다.")
+        : el(
+            "div",
+            { class: "saved" },
+            ...CREATION_IMAGES.map((c) =>
+              el(
+                "div",
+                { class: "saved__item" },
+                el("img", { src: c.url, alt: c.file }),
+                el("div", { class: "saved__kw" }, c.file),
+              ),
+            ),
+          ),
+    );
+    return;
+  }
   if (mode === "media") {
     savedTitle.textContent = `저장된 트윗 이미지 (${MEDIA_IMAGES.length})`;
     savedBox.replaceChildren(
@@ -662,6 +690,7 @@ function apply(): void {
   const isAdult = mode === "adult";
   const isTweetCat = mode === "tweetcat";
   const isYabam = mode === "yabam";
+  const isCreation = mode === "creation";
   itemRow.style.display = isItem ? "" : "none";
   screenRow.style.display = isItem ? "" : "none";
   catRow.style.display = isTube ? "" : "none";
@@ -671,7 +700,7 @@ function apply(): void {
   // 트윗 속성을 목록에서 고르고, 성인은 이름이 아무 역할도 안 해서 아예 묻지 않는다
   // (ADULT_NAME 주석). 여기에 트윗 카테고리용 이름 입력을 되살리지 마라 — 매칭이 속성
   // 정확일치라 목록에 없는 이름은 어떤 트윗에도 안 붙는다(사용자 확정).
-  const named = isItem || isTube || isAdult || isTweetCat || isYabam;
+  const named = isItem || isTube || isAdult || isTweetCat || isYabam || isCreation;
   nameRow.style.display = named ? "none" : "";
   mediaNotes.style.display = named ? "none" : "";
   itemNote.style.display = named ? "" : "none";
@@ -689,6 +718,12 @@ function apply(): void {
       ` 파일명은 '${ADULT_NAME}'으로 자동 저장됩니다(adult, adult__2 …) — 이름은 매칭에 쓰이지 않습니다.` +
       ` 성인 미디어 트윗이면 저장된 ${ADULT_IMAGES.length}장 전체가 후보이고, 트윗 id 해시로 하나가 뽑힙니다.` +
       ` 키워드가 없으니 '어떤 트윗에 붙일지'는 고를 수 없습니다.`;
+  } else if (isCreation) {
+    itemNote.textContent =
+      `창작 이미지 ${MEDIA_W}x${MEDIA_H} (트윗과 같은 규격 — 표시 ${TWEET_IMG_W}x${TWEET_IMG_H}의 1/${MEDIA_DIVISOR}, 일부러 흐리게).` +
+      ` 파일명은 '${CREATION_NAME}'으로 자동 저장됩니다(creation, creation__2 …) — 이름은 매칭에 쓰이지 않습니다.` +
+      ` 1차/2차 창작 트윗이면 저장된 ${CREATION_IMAGES.length}장 전체가 후보이고, 트윗 id 해시로 하나가 뽑힙니다.` +
+      ` 창작 트윗은 무조건 미디어 형태이고, 이 축이 계열(애니)·성인 축보다 먼저입니다.`;
   } else if (isItem) {
     itemNote.textContent = `${target.label} 규격 ${target.w}x${target.h} · 파일명은 아이템 id(${itemSelect.value || "—"})로 저장됩니다.`;
   } else if (isYabam) {
@@ -723,8 +758,9 @@ const modeSelect = el(
   el("option", { value: "adult" }, "성인 트윗 (isAdult 매칭 · 이름 없음)"),
   el("option", { value: "tweetcat" }, "트윗 카테고리 (속성 정확일치)"),
   el("option", { value: "yabam" }, "야밤 영상 (id 1:1)"),
+  el("option", { value: "creation" }, "창작 (1차·2차 매칭 · 이름 없음)"),
 );
-const MODES: Mode[] = ["media", "item", "youtube", "adult", "tweetcat", "yabam"];
+const MODES: Mode[] = ["media", "item", "youtube", "adult", "tweetcat", "yabam", "creation"];
 modeSelect.addEventListener("change", () => {
   mode = MODES.find((m) => m === modeSelect.value) ?? "media";
   apply();

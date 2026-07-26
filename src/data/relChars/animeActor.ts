@@ -11,6 +11,7 @@ export const CHARS_ANIME_ACTOR: RelationshipChar[] = [
   {
     id: "rel_anime_m",
     name: "재훈",
+    nickname: "고증덕후",
     gender: "m",
     attribute: "anime",
     likedKind: "info",
@@ -108,6 +109,7 @@ export const CHARS_ANIME_ACTOR: RelationshipChar[] = [
   {
     id: "rel_anime_f",
     name: "소윤",
+    nickname: "최애앓이러",
     gender: "f",
     attribute: "anime",
     likedKind: "emotional",
@@ -205,6 +207,7 @@ export const CHARS_ANIME_ACTOR: RelationshipChar[] = [
   {
     id: "rel_actor_m",
     name: "은성",
+    nickname: "배우입덕러",
     gender: "m",
     attribute: "actor",
     likedKind: "emotional",
@@ -302,6 +305,7 @@ export const CHARS_ANIME_ACTOR: RelationshipChar[] = [
   {
     id: "rel_actor_f",
     name: "지안",
+    nickname: "드라마정주행러",
     gender: "f",
     attribute: "actor",
     likedKind: "plain",

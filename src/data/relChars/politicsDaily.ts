@@ -40,6 +40,7 @@ export const CHARS_POLITICS_DAILY: RelationshipChar[] = [
   {
     id: "rel_politics_m",
     name: "현준",
+    nickname: "시사논객",
     gender: "m",
     attribute: "politics",
     likedKind: "provoke",
@@ -138,6 +139,7 @@ export const CHARS_POLITICS_DAILY: RelationshipChar[] = [
   {
     id: "rel_politics_f",
     name: "수현",
+    nickname: "팩트체커",
     gender: "f",
     attribute: "politics",
     likedKind: "info",
@@ -236,6 +238,7 @@ export const CHARS_POLITICS_DAILY: RelationshipChar[] = [
   {
     id: "rel_daily_m",
     name: "정민",
+    nickname: "일상기록러",
     gender: "m",
     attribute: "daily",
     likedKind: "plain",
@@ -334,6 +337,7 @@ export const CHARS_POLITICS_DAILY: RelationshipChar[] = [
   {
     id: "rel_daily_f",
     name: "하은",
+    nickname: "감성일상러",
     gender: "f",
     attribute: "daily",
     likedKind: "emotional",

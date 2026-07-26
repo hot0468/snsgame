@@ -40,19 +40,30 @@ export function renderStocks(ctx: GameContext): HTMLElement {
     const change = dayChangePct(s, a.id);
     const held = holdingOf(s, a.id);
     const dir = change > 0 ? "up" : change < 0 ? "down" : "flat";
-    const changeText = `${change > 0 ? "▲" : change < 0 ? "▼" : "-"} ${Math.abs(change).toFixed(1)}%`;
+    const changeText = `${change > 0 ? "+" : change < 0 ? "-" : ""}${Math.abs(change).toFixed(1)}%`;
 
     return el(
       "div",
       { class: "stock-row" },
       el(
         "div",
-        { class: "stock-row__head" },
+        { class: "stock-row__main" },
+        // 토스식 원형 종목 아이콘 — 종목명 첫 글자, 종류별 색.
+        el("div", { class: `stock-row__icon stock-row__icon--${a.kind}` }, a.name.slice(0, 1)),
         el(
           "div",
-          {},
-          el("span", { class: "stock-row__name" }, a.name),
-          el("span", { class: `stock-row__tag stock-row__tag--${a.kind}` }, a.kind === "coin" ? "코인" : "주식"),
+          { class: "stock-row__info" },
+          el(
+            "div",
+            { class: "stock-row__name-line" },
+            el("span", { class: "stock-row__name" }, a.name),
+            el("span", { class: `stock-row__tag stock-row__tag--${a.kind}` }, a.kind === "coin" ? "코인" : "주식"),
+          ),
+          el(
+            "div",
+            { class: "stock-row__hold" },
+            held > 0 ? `보유 ${formatNumber(held)}주 · ${formatNumber(held * price)}원` : "미보유",
+          ),
         ),
         el(
           "div",
@@ -63,41 +74,40 @@ export function renderStocks(ctx: GameContext): HTMLElement {
       ),
       el(
         "div",
-        { class: "stock-row__foot" },
-        el(
-          "div",
-          { class: "stock-row__hold" },
-          held > 0
-            ? `보유 ${formatNumber(held)} · 평가 ${formatNumber(held * price)}원`
-            : "보유 없음",
-        ),
-        el(
-          "div",
-          { class: "stock-row__btns" },
-          tradeBtn(a.id, 1, false),
-          tradeBtn(a.id, 10, false),
-          tradeBtn(a.id, 1, true),
-          tradeBtn(a.id, 10, true),
-        ),
+        { class: "stock-row__btns" },
+        tradeBtn(a.id, 1, false),
+        tradeBtn(a.id, 10, false),
+        tradeBtn(a.id, 1, true),
+        tradeBtn(a.id, 10, true),
       ),
     );
   }
 
+  const total = s.money + portfolioValue(s);
+
   return el(
     "div",
     { class: "stocks" },
+    // 토스식 상단 바 + 총자산 히어로 카드
     el(
       "div",
-      { class: "stocks__bar" },
-      el("div", { class: "stocks__logo" }, icon("coin", { size: 20 }), "하나로 투자"),
+      { class: "stocks__top" },
+      el("div", { class: "stocks__logo" }, icon("coin", { size: 18 }), "토스증권"),
+    ),
+    el(
+      "div",
+      { class: "stocks__hero" },
+      el("div", { class: "stocks__hero-label" }, "내 투자 자산"),
+      el("div", { class: "stocks__hero-total" }, `${formatNumber(total)}원`),
       el(
         "div",
-        { class: "stocks__summary" },
-        el("span", {}, `보유현금 ${formatNumber(s.money)}원`),
-        el("span", {}, `평가자산 ${formatNumber(portfolioValue(s))}원`),
+        { class: "stocks__hero-sub" },
+        el("span", {}, `보유 현금 ${formatNumber(s.money)}원`),
+        el("span", { class: "stocks__hero-dot" }, "·"),
+        el("span", {}, `평가 자산 ${formatNumber(portfolioValue(s))}원`),
       ),
     ),
-    el("div", { class: "stocks__hint" }, "시세는 매일 바뀝니다. 싸게 사서 비싸게 파세요. (원금 손실 주의)"),
+    el("div", { class: "stocks__hint" }, "시세는 매일 바뀌어요. 싸게 사서 비싸게 파세요. (원금 손실 주의)"),
     el("div", { class: "stocks__list" }, ...MARKET_ASSETS.map(assetRow)),
   );
 }

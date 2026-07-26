@@ -20,6 +20,9 @@ import { canPostTweet, postScamTweet, postTweet, TWEET_ACTION_COST } from "@/sys
 import { availableAdultKinds } from "@/systems/yabam";
 import { hasDrawingTool } from "@/systems/shop";
 import { maybeSpawnAuthorDM } from "@/systems/author";
+import { canPostTchinso } from "@/systems/tchin";
+import { TCHINSO_COOLDOWN_DAYS } from "@/data/tchinso";
+import { renderTchinsoModal } from "@/ui/tchinsoModal";
 import { monthKey } from "@/systems/time";
 import {
   ALL_WORKS,
@@ -167,7 +170,7 @@ export function renderComposeModal(
   const skipStep1 = gloomy || !!articleTitle;
   let step: Step = skipStep1 ? 2 : 1;
 
-  const container = el("div", { class: "modal" });
+  const container = el("div", { class: "modal compose-modal" });
 
   /** 성인 카테고리 선택 = 성인 트윗 */
   const isAdultTweet = () => selectedAttr === "adult";
@@ -408,6 +411,35 @@ export function renderComposeModal(
       "다음",
     );
 
+    // 트친소(트친 소개) 진입 — 게시하기 팝업 안으로 옮겨왔다. 주 1회 쿨다운 + 일반 트윗과 동일한
+    // 일일 슬롯/행동력 게이트(canPostTweet && canPostBySlot). 누르면 트친소 확인 모달로 전환된다.
+    const tchinsoCooldownReady = canPostTchinso(s);
+    const tchinsoReady = tchinsoCooldownReady && canPostTweet(s) && canPostBySlot(s);
+    const tchinsoDaysLeft = Math.max(0, TCHINSO_COOLDOWN_DAYS - (s.day - account.lastTchinsoDay));
+    const tchinsoHint = !tchinsoCooldownReady
+      ? `${tchinsoDaysLeft}일 후 가능`
+      : !canPostTweet(s)
+        ? "행동력이 부족해요"
+        : !canPostBySlot(s)
+          ? "오늘 게시 슬롯을 다 썼어요"
+          : null;
+    const tchinsoEntry = el(
+      "div",
+      { class: "tchinso-entry", style: "margin-top:14px;border-top:1px solid var(--border);padding-top:12px" },
+      el(
+        "button",
+        {
+          class: "btn btn--ghost",
+          disabled: !tchinsoReady,
+          onclick: () => {
+            if (tchinsoReady) ctx.openModal(renderTchinsoModal);
+          },
+        },
+        "🤝 트친소 올리기",
+      ),
+      tchinsoHint ? el("span", { class: "tchinso-entry__hint" }, tchinsoHint) : null,
+    );
+
     return el(
       "div",
       { class: "modal__body compose-step" },
@@ -419,6 +451,7 @@ export function renderComposeModal(
           ? null
           : el("div", { class: "compose-hint" }, "카테고리를 골라야 다음으로 넘어갈 수 있어요."),
       el("div", { class: "compose-actions" }, cancelBtn(), nextBtn),
+      tchinsoEntry,
     );
   }
 
@@ -475,7 +508,7 @@ export function renderComposeModal(
           el(
             "div",
             { class: "compose-label" },
-            `2차창작 작품 · 이달의 인기작 ⭐《${popular.title}》 맞히면 팔로워 대폭 상승`,
+            "2차창작 작품",
           ),
           el(
             "div",
@@ -634,14 +667,20 @@ export function renderComposeModal(
             } else if (isPromo()) {
               mult = NEW_COSMETIC_MULTIPLIER;
             }
-            // 일반 트윗만 성격 전달, 나머지는 opts 생략 → plain(중립)으로 기존 동작 유지
-            const opts = general && selectedKind ? { kind: selectedKind } : {};
+            // 일반 트윗만 성격 전달. 창작(1차/2차)이면 creation을 넘겨 무조건 미디어 형태로 게시한다.
+            const opts: import("@/systems/tweetSystem").PostTweetOptions = creating
+              ? { creation: creation as "original" | "fan" }
+              : general && selectedKind
+                ? { kind: selectedKind }
+                : {};
             let delta = 0;
             let unlockedMeeting = false;
+            let statChanges: { label: string; delta: number }[] = [];
             ctx.update((st) => {
               const res = postTweet(st, finalAttr, finalText, finalAdult, adultKind, mult, opts);
               delta = res.followerDelta;
               unlockedMeeting = res.unlockedMeeting;
+              statChanges = res.statChanges;
               if (res.ddeoksang) {
                 ddPayload = {
                   likes: res.tweet.likes,
@@ -655,8 +694,12 @@ export function renderComposeModal(
                 maybeSpawnAuthorDM(st);
               }
             });
+            const statText = statChanges
+              .map((c) => `${c.label} ${c.delta > 0 ? "+" : ""}${c.delta}`)
+              .join(" · ");
             ctx.toast(
-              delta >= 0 ? `트윗 등록! +${delta} 팔로워` : `트윗 등록... ${delta} 팔로워`,
+              (delta >= 0 ? `트윗 등록! +${delta} 팔로워` : `트윗 등록... ${delta} 팔로워`) +
+                (statText ? ` · ${statText}` : ""),
             );
             if (unlockedMeeting) ctx.toast("🔓 성인 콘텐츠가 풀렸다 — 새로운 만남의 문이 열렸다.");
           }

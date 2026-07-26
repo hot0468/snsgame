@@ -21,7 +21,7 @@ export type BrowserTabId =
   | "shop";
 
 /** SNS 중앙 영역에서 보여줄 페이지(팝업 대신 인라인으로 전환) */
-export type SnsPage = "home" | "explore" | "posts" | "search" | "tweet" | "dm" | "ad" | "me";
+export type SnsPage = "home" | "explore" | "posts" | "search" | "tweet" | "dm" | "ad" | "me" | "profile";
 
 /** 내 트윗 피드를 한 번에 몇 개까지 그릴지(윈도잉 단위). "더 보기"가 이만큼씩 늘린다.
  *  전체 재렌더가 리스트를 통째로 DOM에 그리므로, 긴 타임라인을 전량 렌더하면 상호작용마다 렉이 낀다. */
@@ -48,6 +48,10 @@ export interface UIState {
 
   /** 현재 SNS 중앙 페이지 */
   snsPage: SnsPage;
+  /** "profile" 페이지에 표시할 남의 계정(아무 트윗 아바타 클릭 시 세팅). null이면 없음 */
+  viewProfile: Account | null;
+  /** "profile"에서 뒤로가기로 돌아갈 페이지(프로필 진입 직전 페이지) */
+  profilePrevPage: SnsPage;
   /** 탐색 페이지: 표시 중인 랜덤 계정들 */
   exploreAccounts: Account[];
   /** 탐색 페이지: 상세 프로필로 연 계정 id(null이면 목록) */
@@ -62,10 +66,14 @@ export interface UIState {
   tweetDetailId: string | null;
   /** 쪽지 페이지: 선택된 대화 스레드 id */
   dmThreadId: string | null;
-  /** 이미 좋아요/악플 반응을 남긴 남의 트윗 id 집합 */
+  /** 이미 좋아요/악플 반응을 남긴 남의 트윗 id 집합(재반응 차단용) */
   reactedTweetIds: Set<string>;
+  /** 좋아요(긍정)를 누른 남의 트윗 id 집합 — 하트 채움 표시용(악플과 구분). */
+  likedTweetIds: Set<string>;
   /** 홈 피드 탭: 추천(내 타임라인) / 팔로잉(팔로우한 계정 트윗) */
   homeTab: "recommend" | "following";
+  /** 미디북스 탭: 홈(일반 도서) / 성인(성인물 보기 ON일 때만) */
+  medibooksTab: "home" | "adult";
   /** 팔로잉 탭에 표시 중인 랜덤 트윗들 */
   followingFeed: Tweet[];
   /** 네이놈 포털에서 열어본 기사 id(null이면 목록) */
@@ -84,6 +92,14 @@ export interface UIState {
   goblinSiteOpen: boolean;
   /** 'O넷' 자격증 사이트가 열려 있는지(탭 이동 시 닫힘, 재진입 제한 없음) */
   onetSiteOpen: boolean;
+  /** EBS 강의 사이트가 열려 있는지(네이놈 '듄' 검색으로 진입, 탭 이동 시 닫힘) */
+  ebsSiteOpen: boolean;
+  /** 재능마켓(외주) 사이트가 열려 있는지(네이놈 '외주' 검색으로 진입, 탭 이동 시 닫힘) */
+  gigSiteOpen: boolean;
+  /** 직플래닛(기업정보) 사이트가 열려 있는지(채용공고 '직플래닛' 버튼으로 진입, 탭 이동 시 닫힘) */
+  jobplanetSiteOpen: boolean;
+  /** 직플래닛 업체명 검색어(엔터/버튼으로 확정, 재렌더 넘어 유지). 빈 문자열이면 전체. */
+  jobplanetQuery: string;
   /** '서던피스' 경매장이 열려 있는지(피메일 초대장 링크로만 진입, 탭 이동 시 닫힘) */
   auctionSiteOpen: boolean;
   /** 피메일에서 선택해 열어본 메일 id */
@@ -125,6 +141,8 @@ export function createUIState(): UIState {
     expandedTweets: new Set(),
     feedShown: FEED_PAGE,
     snsPage: "home",
+    viewProfile: null,
+    profilePrevPage: "home",
     exploreAccounts: [],
     exploreSelectedId: null,
     explorePosts: [],
@@ -133,7 +151,9 @@ export function createUIState(): UIState {
     tweetDetailId: null,
     dmThreadId: null,
     reactedTweetIds: new Set(),
+    likedTweetIds: new Set(),
     homeTab: "recommend",
+    medibooksTab: "home",
     followingFeed: [],
     portalArticleId: null,
     youtubeVideos: [],
@@ -142,6 +162,10 @@ export function createUIState(): UIState {
     wishOptions: [],
     goblinSiteOpen: false,
     onetSiteOpen: false,
+    ebsSiteOpen: false,
+    gigSiteOpen: false,
+    jobplanetSiteOpen: false,
+    jobplanetQuery: "",
     auctionSiteOpen: false,
     mailSelectedId: null,
     groceryCart: [],

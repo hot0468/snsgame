@@ -15,6 +15,12 @@ export const COLDWAVE_NOTICE_HIT: string =
 export const COLDWAVE_NOTICE_SAFE: string =
   "한파주의보. 밖은 살을 에는 추위지만 전기장판에 등 지지며 따뜻하게 넘겼다. 세상 부러울 게 없다.";
 
+/** 카톡 '안전안내문자' 채널에 뜨는 실제 재난문자 투 문구(에어컨/전기장판 소유와 무관하게 동일). */
+export const HEATWAVE_ALERT: string =
+  "[기상청] 오늘 12시 폭염경보 발효. 낮 최고기온 35도 이상. 물 자주 마시기, 한낮 야외활동 자제, 어르신·어린이 등 건강 유의 바랍니다.";
+export const COLDWAVE_ALERT: string =
+  "[기상청] 오늘 06시 한파경보 발효. 아침 최저기온 영하 12도 이하. 외출 시 보온 철저, 수도계량기·보일러 동파 대비 바랍니다.";
+
 export const SICK_TITLE: string = "몸살이 났다";
 export const SICK_LINES: string[] = [
   "온몸이 쑤시고 열이 오른다. 도저히 일어날 수가 없어 하루 종일 이불 속에서 앓았다.",

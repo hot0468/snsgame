@@ -9,6 +9,7 @@ import {
   SLOTS_PER_DAY,
 } from "@/core/state";
 import { grantAttributeUnlockFloor } from "./attributeUnlock";
+import { backfillClaimedMilestones } from "./milestones";
 import { maxPostSlots } from "./followers";
 import { getActiveAccount } from "@/core/state";
 import { initialMarket } from "@/data/market";
@@ -117,6 +118,7 @@ function sanitize(state: GameState): GameState {
     acc.postSlotsUsed ??= 0;
     // 트친(단짝): 구세이브엔 없으므로 초기화.
     if (!Array.isArray(acc.tchins)) acc.tchins = [];
+    if (typeof acc.tchinNames !== "object" || acc.tchinNames === null) acc.tchinNames = {};
     acc.tchinProgress ??= {};
     acc.lastTchinsoDay ??= 0;
     for (const thread of acc.dms) {
@@ -154,8 +156,19 @@ function sanitize(state: GameState): GameState {
   if (!Array.isArray(state.kakao)) state.kakao = [];
   if (!Array.isArray(state.workMsgs)) state.workMsgs = [];
   if (!Array.isArray(state.appointments)) state.appointments = [];
+  if (!Array.isArray(state.pastEmployers)) state.pastEmployers = [];
+  if (!Array.isArray(state.jobplanetViewed)) state.jobplanetViewed = [];
+  if (typeof state.jobplanetCredits !== "number" || !Number.isFinite(state.jobplanetCredits)) {
+    state.jobplanetCredits = 0;
+  }
   state.lastRentReminderDay ??= -1;
   state.crewJoined ??= false;
+  if (typeof state.crewRunCount !== "number" || !Number.isFinite(state.crewRunCount)) {
+    state.crewRunCount = 0;
+  }
+  if (typeof state.groupNightCount !== "number" || !Number.isFinite(state.groupNightCount)) {
+    state.groupNightCount = 0;
+  }
   state.rejectionTweets ??= 0;
   state.studyJoined ??= false;
   state.estheticMember ??= false;
@@ -166,6 +179,7 @@ function sanitize(state: GameState): GameState {
   state.lingerieContract ??= false;
   state.lingerieOffered ??= false;
   state.animeTweetsPosted ??= 0;
+  state.lastCosplayDay ??= 0;
   state.employment ??= null;
   // AV배우 직업은 신규 기능 — 구세이브엔 키가 없다(미계약·미제의가 정답).
   state.avJob ??= null;
@@ -324,6 +338,13 @@ function sanitize(state: GameState): GameState {
   // 도전과제는 신규 필드 — 구세이브엔 키가 없다(미달성·알림없음이 정답).
   if (!Array.isArray(state.achievements)) state.achievements = [];
   if (!Array.isArray(state.pendingAchievements)) state.pendingAchievements = [];
+  // 마일스톤은 신규 필드. statMilestones 키가 없으면 구세이브 → 현재 스킬 기준으로
+  // 칭호만 소급(claimed 백필)하고 일회성·퍼크는 지급하지 않는다(소급 보상 방지).
+  if (!Array.isArray(state.statMilestones)) {
+    state.statMilestones = [];
+    backfillClaimedMilestones(state);
+  }
+  if (!Array.isArray(state.pendingMilestones)) state.pendingMilestones = [];
   return state;
 }
 

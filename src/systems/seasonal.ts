@@ -11,6 +11,8 @@ import {
   COLDWAVE_NOTICE_SAFE,
   HEATWAVE_NOTICE_HIT,
   HEATWAVE_NOTICE_SAFE,
+  HEATWAVE_ALERT,
+  COLDWAVE_ALERT,
 } from "@/data/health";
 import { randInt, uid } from "@/utils/random";
 import { dateOf } from "./calendar";
@@ -116,12 +118,12 @@ export function applySeasonalEvents(state: GameState): void {
   if (m === 7 && date === 1 && fire(`heatwave:${y}`)) {
     if (state.ownedItems.includes(AIRCON_ID)) {
       pushSchedule(state, HEATWAVE_NOTICE_SAFE, "system");
-      pushKakao(state, "안전안내문자", [HEATWAVE_NOTICE_SAFE], { hue: 200 });
+      pushKakao(state, "안전안내문자", [HEATWAVE_ALERT], { hue: 15 });
     } else {
       gainStamina(state, -HEATWAVE_STAMINA);
       state.resources.mental = clampResource(state.resources.mental - HEATWAVE_MENTAL);
       pushSchedule(state, HEATWAVE_NOTICE_HIT, "system");
-      pushKakao(state, "안전안내문자", [HEATWAVE_NOTICE_HIT], { hue: 15 });
+      pushKakao(state, "안전안내문자", [HEATWAVE_ALERT], { hue: 15 });
     }
   }
 
@@ -129,12 +131,12 @@ export function applySeasonalEvents(state: GameState): void {
   if (m === 0 && date === 15 && fire(`coldwave:${y}`)) {
     if (state.ownedItems.includes(HEATPAD_ID)) {
       pushSchedule(state, COLDWAVE_NOTICE_SAFE, "system");
-      pushKakao(state, "안전안내문자", [COLDWAVE_NOTICE_SAFE], { hue: 200 });
+      pushKakao(state, "안전안내문자", [COLDWAVE_ALERT], { hue: 210 });
     } else {
       gainStamina(state, -COLDWAVE_STAMINA);
       state.resources.mental = clampResource(state.resources.mental - COLDWAVE_MENTAL);
       pushSchedule(state, COLDWAVE_NOTICE_HIT, "system");
-      pushKakao(state, "안전안내문자", [COLDWAVE_NOTICE_HIT], { hue: 210 });
+      pushKakao(state, "안전안내문자", [COLDWAVE_ALERT], { hue: 210 });
     }
   }
 

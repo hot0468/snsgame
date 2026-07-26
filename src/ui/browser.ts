@@ -18,6 +18,9 @@ import { renderShop } from "./shop";
 import { renderWishSite } from "./wishSite";
 import { renderGoblinShop } from "./goblinShop";
 import { renderOnet } from "./onet";
+import { renderEbs } from "./ebs";
+import { renderGig } from "./gig";
+import { renderJobplanet } from "./jobplanet";
 import { renderAuction } from "./auction";
 import { renderDartpin } from "./dartpin";
 import { DARTPIN_URL } from "@/systems/dartpin";
@@ -33,7 +36,9 @@ import {
   NIGL_APPLY,
   NIGL_HIRED_LINES,
   NIGL_REJECT_LINES,
+  NIGL_SHIFT_GOAL,
 } from "@/data/niglnigl";
+import { confirmPurchase } from "./confirmModal";
 import { canBeHiredByNigl, hireNigl } from "@/systems/employment";
 import { renderHistory } from "./history";
 import { renderGoedam } from "./goedam";
@@ -61,7 +66,6 @@ const STEAM_TAB: TabDef = { id: "steam", label: "증기", url: "jeunggi.store" }
 // 게시판이 매일 갱신되고 힌트가 드물게 섞이므로 단발 사이트가 아니라 상시 탭이다.
 const DARTPIN_TAB: TabDef = { id: "dartpin", label: "다트 핀", url: DARTPIN_URL };
 const PUSHTIME_TAB: TabDef = { id: "pushtime", label: "푸시타임", url: "pushtime.xyz" };
-const YABAM_TAB: TabDef = { id: "yabam", label: "야밤", url: "yabam.click" };
 
 /** 증권/쇼핑/남의방/마켓걸리버/피망마켓은 상단 탭이 아니라 네이놈 포털에서 진입한다. url바 표시·activeDef 조회에 사용. */
 const SUBPAGES: TabDef[] = [
@@ -70,6 +74,8 @@ const SUBPAGES: TabDef[] = [
   { id: "housing", label: "남의방", url: "namroom.com" },
   { id: "grocery", label: "마켓걸리버", url: "marketgulliver.com" },
   { id: "peemang", label: "피망마켓", url: "peemang.market" },
+  // 야밤은 탭에 추가되지 않는다 — 방문기록에서만 진입한다(activeTab="yabam"). 주소창 표시용으로만 둔다.
+  { id: "yabam", label: "야밤", url: "yabam.click" },
 ];
 
 /** 탭/주소창에 쓰는 사이트 파비콘(브랜드 마크) SVG */
@@ -201,6 +207,9 @@ function urlbarMenu(ctx: GameContext): HTMLElement {
                 ctx.ui.wishSiteOpen = false;
                 ctx.ui.goblinSiteOpen = false;
                 ctx.ui.onetSiteOpen = false;
+                ctx.ui.ebsSiteOpen = false;
+                ctx.ui.gigSiteOpen = false;
+                ctx.ui.jobplanetSiteOpen = false;
                 ctx.ui.auctionSiteOpen = false;
                 ctx.ui.dstorySiteOpen = false;
                 ctx.ui.niglSiteOpen = false;
@@ -249,10 +258,20 @@ function renderNiglApply(ctx: GameContext): HTMLElement {
       ctx.refresh();
       return;
     }
-    ctx.update((s) => hireNigl(s));
-    ctx.ui.niglSiteOpen = false;
-    niglRejectLine = "";
-    ctx.toast(pick(NIGL_HIRED_LINES));
+    // 니글니글은 평일 낮 고정 근무가 아니라 자유 출근 — 팝업 문구도 그에 맞춘다.
+    confirmPurchase(ctx, {
+      title: "출근 안내",
+      message: `니글니글은 출근시간이 고정돼 있지 않아요. 주말·심야 포함 원할 때 자유롭게 출근하면 되고, 한 달에 ${NIGL_SHIFT_GOAL}일만 채우면 만근이에요(미달 시 월급 반감). 지원할까요?`,
+      confirmLabel: "지원한다",
+      cancelLabel: "취소",
+      onConfirm: () => {
+        ctx.update((s) => hireNigl(s));
+        ctx.ui.niglSiteOpen = false;
+        niglRejectLine = "";
+        ctx.toast(pick(NIGL_HIRED_LINES));
+        ctx.refresh();
+      },
+    });
   };
 
   return el(
@@ -307,7 +326,8 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
   const active = ctx.ui.activeTab;
   const state = ctx.store.getState();
   // 탭 표출의 주 기준은 음란도(state.skills.lewd). 기존 DM 해금(unlocked)은 OR로 유지(하위호환).
-  // 야밤은 음란도 기준 위에 성인물 해제(adultMode) ON을 추가로 요구한다.
+  // 야밤은 탭에 추가하지 않는다 — 방문기록에서만 진입한다(아래 render 분기). yabamVisible는
+  // 성인물 해제(adultMode) ON일 때만 렌더를 허용하는 게이트로만 쓴다.
   const lewd = state.skills.lewd;
   const yabamVisible = state.adultMode && (lewd >= YABAM_LEWD_SHOW || state.yabamUnlocked);
   // 너튜브·미디북스는 해금 시에만, 네이놈(blank) 뒤에 자연스럽게 삽입한다.
@@ -322,7 +342,7 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
     }
   }
   if (lewd >= PUSH_LEWD_SHOW || state.pushtimeUnlocked) visibleTabs.push(PUSHTIME_TAB);
-  if (yabamVisible) visibleTabs.push(YABAM_TAB);
+  // 야밤 탭은 추가하지 않는다 — 방문기록(history.ts)에서 activeTab="yabam"으로만 진입한다.
   const activeDef =
     visibleTabs.find((t) => t.id === active) ??
     SUBPAGES.find((t) => t.id === active) ??
@@ -342,6 +362,9 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
             ctx.ui.wishSiteOpen = false;
             ctx.ui.goblinSiteOpen = false;
             ctx.ui.onetSiteOpen = false;
+            ctx.ui.ebsSiteOpen = false;
+            ctx.ui.gigSiteOpen = false;
+            ctx.ui.jobplanetSiteOpen = false;
             ctx.ui.auctionSiteOpen = false;
             ctx.ui.dstorySiteOpen = false;
             ctx.ui.niglSiteOpen = false;
@@ -391,7 +414,13 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
       ? "dokkaebi.shop"
       : ctx.ui.onetSiteOpen
         ? "o-net.go.kr"
-        : ctx.ui.auctionSiteOpen
+        : ctx.ui.ebsSiteOpen
+          ? "ebs.co.kr"
+          : ctx.ui.gigSiteOpen
+            ? "talentmarket.kr"
+            : ctx.ui.jobplanetSiteOpen
+          ? "jobplanet.work"
+          : ctx.ui.auctionSiteOpen
           ? "southernpeace.auction/private"
           : ctx.ui.dstorySiteOpen
             ? DSTORY_URL
@@ -422,6 +451,9 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
           ctx.ui.wishSiteOpen = false;
           ctx.ui.goblinSiteOpen = false;
           ctx.ui.onetSiteOpen = false;
+          ctx.ui.ebsSiteOpen = false;
+          ctx.ui.gigSiteOpen = false;
+          ctx.ui.jobplanetSiteOpen = false;
           ctx.ui.auctionSiteOpen = false;
           ctx.ui.dstorySiteOpen = false;
           ctx.ui.historySiteOpen = false;
@@ -462,6 +494,15 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
   } else if (ctx.ui.onetSiteOpen) {
     // O넷도 현재 탭 콘텐츠를 덮어쓴다('자격증' 검색으로 진입, 재진입 제한 없음).
     content.append(renderOnet(ctx));
+  } else if (ctx.ui.ebsSiteOpen) {
+    // EBS 강의 사이트도 현재 탭 콘텐츠를 덮어쓴다('듄' 검색으로 진입, 재진입 제한 없음).
+    content.append(renderEbs(ctx));
+  } else if (ctx.ui.gigSiteOpen) {
+    // 재능마켓도 현재 탭 콘텐츠를 덮어쓴다('외주' 검색으로 진입, 재진입 제한 없음).
+    content.append(renderGig(ctx));
+  } else if (ctx.ui.jobplanetSiteOpen) {
+    // 직플래닛(기업정보)도 현재 탭 콘텐츠를 덮어쓴다(채용공고 '직플래닛' 버튼으로 진입).
+    content.append(renderJobplanet(ctx));
   } else if (ctx.ui.auctionSiteOpen) {
     // 서던피스 경매장도 현재 탭 콘텐츠를 덮어쓴다(피메일 초대장 링크로만 진입).
     content.append(renderAuction(ctx));

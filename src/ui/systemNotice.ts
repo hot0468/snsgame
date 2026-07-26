@@ -1,7 +1,12 @@
 import type { GameContext } from "./context";
+import type { SkillStatId } from "@/core/types";
 import { el, formatNumber } from "@/utils/dom";
+import { RESOURCE_STATS, SKILL_STATS, MAX_SKILL } from "@/data/stats";
 import posIcon from "@/assets/system/systempop_pos.svg";
 import negIcon from "@/assets/system/systempop_neg.svg";
+
+/** 프메 스타일 스탯바로 보여줄 핵심 자원 4종(도크 바와 동일 색). 나머지(돈·팔로워)는 바가 없어 텍스트로. */
+const BAR_STATS = ["action", "mental", "morality", "reputation"] as const;
 
 /** 시스템 알림에 표시할 핵심 자원 델타. 있으면 증감 줄 렌더 + tone 자동 판정에 쓰인다. */
 export interface NoticeDeltas {
@@ -17,6 +22,8 @@ export interface SystemNoticeOpts {
   title?: string;
   message: string;
   deltas?: NoticeDeltas;
+  /** 스킬 증감(어휘력·지식 등). 있으면 자원 바 아래에 스킬 바로 렌더한다(0~999 스케일). */
+  skillDeltas?: Partial<Record<SkillStatId, number>>;
   /** 델타로 표현 못 하는 추가 획득(스킬/새 소재/일당 등). 델타 줄과 같은 테마색으로 아래에 붙는다. */
   extraLines?: string[];
   /** 명시 override. 없으면 deltas 부호로 자동, deltas도 없으면 "good". */
@@ -32,16 +39,54 @@ function signed(n: number): string {
   return n > 0 ? `+${n}` : `${n}`;
 }
 
-/** 델타 한 줄: "행동력 +25 · 정신력 +30 · +5,000원 · 팔로워 +120" */
+/** 돈·팔로워 델타 텍스트 줄(바가 없는 자원). 핵심 4스탯은 statDeltaBar로 따로 그린다. */
 function deltaLine(d: NoticeDeltas): string {
   const parts: string[] = [];
-  if (d.action) parts.push(`행동력 ${signed(d.action)}`);
-  if (d.mental) parts.push(`정신력 ${signed(d.mental)}`);
-  if (d.morality) parts.push(`도덕성 ${signed(d.morality)}`);
-  if (d.reputation) parts.push(`평판 ${signed(d.reputation)}`);
   if (d.money) parts.push(`${d.money > 0 ? "+" : "-"}${formatNumber(Math.abs(d.money))}원`);
   if (d.followers) parts.push(`팔로워 ${d.followers > 0 ? "+" : "-"}${formatNumber(Math.abs(d.followers))}`);
   return parts.join(" · ");
+}
+
+/**
+ * 프린세스 메이커식 스탯바 한 줄 — 변화한 스탯의 현재값을 바로 보여주고,
+ * 변화 전(old)→후(new)로 채워지는 애니메이션 + 증감 뱃지를 붙인다.
+ * 이 카드는 ctx.update 이후 렌더되므로 resources는 이미 '변화 후' 값이다 → old = 현재 - delta.
+ */
+function deltaBar(
+  label: string,
+  cur: number,
+  delta: number,
+  baseCap: number,
+  fillClass: string,
+): HTMLElement {
+  const newVal = Math.max(0, cur);
+  const oldVal = Math.max(0, cur - delta);
+  // 행동력은 치트로 상한(100)을 넘을 수 있다 → 실제 값이 max를 넘으면 그 값을 상한으로.
+  const cap = Math.max(baseCap, newVal, oldVal);
+  const oldPct = Math.round((oldVal / cap) * 100);
+  const newPct = Math.round((newVal / cap) * 100);
+  const fill = el("div", {
+    class: `bar__fill ${fillClass}`,
+    style: `width:${oldPct}%;transition:width .8s cubic-bezier(.22,1,.36,1)`,
+  });
+  // 두 프레임 뒤 목표 너비로 → 브라우저가 초기 너비를 반영한 뒤 트랜지션이 돈다(채워지는 연출).
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      fill.style.width = `${newPct}%`;
+    }),
+  );
+  return el(
+    "div",
+    { class: "sys-notice__statrow" },
+    el("span", { class: "sys-notice__statlabel" }, label),
+    el("div", { class: "bar" }, fill),
+    el("span", { class: "sys-notice__statval" }, String(Math.round(newVal))),
+    el(
+      "span",
+      { class: "sys-notice__statbadge sys-notice__statbadge--" + (delta >= 0 ? "up" : "down") },
+      signed(delta),
+    ),
+  );
 }
 
 /**
@@ -59,6 +104,23 @@ export function renderSystemNotice(ctx: GameContext, opts: SystemNoticeOpts): HT
 
   const line = d ? deltaLine(d) : "";
 
+  // 변화한 핵심 스탯(행동력·정신력·도덕성·평판) + 스킬(어휘력·지식 등)을 프메식 스탯바로.
+  // 현재값은 스토어에서 읽는다(변화 후 값 → old = 현재 - delta).
+  const state = ctx.store.getState();
+  const res = state.resources;
+  const statBars: HTMLElement[] = [
+    ...(d
+      ? BAR_STATS.filter((id) => d[id]).map((id) =>
+          deltaBar(RESOURCE_STATS[id].label, res[id], d[id] as number, RESOURCE_STATS[id].max, `bar__fill--${id}`),
+        )
+      : []),
+    ...(opts.skillDeltas
+      ? (Object.entries(opts.skillDeltas) as [SkillStatId, number][])
+          .filter(([, v]) => v)
+          .map(([id, v]) => deltaBar(SKILL_STATS[id].label, state.skills[id], v, MAX_SKILL, "bar__fill--skill"))
+      : []),
+  ];
+
   return el(
     "div",
     { class: `modal sys-notice sys-notice--${tone}` },
@@ -72,6 +134,7 @@ export function renderSystemNotice(ctx: GameContext, opts: SystemNoticeOpts): HT
       "div",
       { class: "sys-notice__box" },
       el("p", { class: "sys-notice__msg" }, opts.message),
+      statBars.length ? el("div", { class: "sys-notice__stats" }, ...statBars) : null,
       line ? el("p", { class: "sys-notice__delta" }, line) : null,
       ...(opts.extraLines ?? []).map((t) => el("p", { class: "sys-notice__extra" }, t)),
       el(

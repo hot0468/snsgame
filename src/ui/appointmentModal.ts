@@ -19,6 +19,8 @@ import { renderScenarioReaderModal } from "./sns/scenarioReader";
 import { pickLingerieScenario, resolveLingerieShoot } from "@/systems/lingerie";
 import { resolveStudy } from "@/systems/studyGroup";
 import { resolveEsthetic } from "@/systems/esthetic";
+import { postTweet } from "@/systems/tweetSystem";
+import { pick } from "@/utils/random";
 import { el } from "@/utils/dom";
 import { icon } from "./icons";
 
@@ -161,8 +163,8 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
               if (!canGo) return;
               if (appt.kind === "crew") return handleCrewGo(appt);
               if (appt.kind === "lingerie") return handleLingerieGo();
-              if (appt.kind === "study") return handleStudyGo();
-              if (appt.kind === "esthetic") return handleEstheticGo();
+              if (appt.kind === "study") return handleStudyGo(appt);
+              if (appt.kind === "esthetic") return handleEstheticGo(appt);
               resolve(appt, true);
             },
           },
@@ -180,7 +182,14 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
   /** 관계 캐릭터와의 만남 약속: 만나러 갈지 고른다. 발동 시 resolveMeet가 성사/바람맞음을 판정한다. */
   function showRelMeet(appt: Appointment): void {
     const name = appt.partnerName ?? "친구";
+    // 확정 약속(내가 제안 → 상대 수락)은 당일 무조건 성사 — 바람맞음 안내를 띄우지 않는다.
     const chance = Math.round(meetSuccessChance(ctx.store.getState()) * 100);
+    const intro = appt.confirmed
+      ? `${name}와 만나기로 약속한 날이다. 나가면 즐거운 시간을 보낼 것이다.`
+      : `${name}와 만나기로 한 날이다. 나가면 성사될 수도, 바람맞을 수도 있다.`;
+    const hint = appt.confirmed
+      ? "약속 확정 · 만나면 호감도가 크게 오른다"
+      : `성사 확률 ${chance}% · 성사하면 호감도가 크게 오른다`;
     container.replaceChildren(
       el(
         "div",
@@ -193,12 +202,12 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
         el(
           "p",
           { style: "font-size:15px;line-height:1.6;margin:0 0 8px" },
-          `${name}와 만나기로 한 날이다. 나가면 성사될 수도, 바람맞을 수도 있다.`,
+          intro,
         ),
         el(
           "p",
           { class: "compose-hint", style: "margin:0 0 16px" },
-          `성사 확률 ${chance}% · 성사하면 호감도가 크게 오른다`,
+          hint,
         ),
         el(
           "button",
@@ -218,19 +227,21 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
   function resolveRelMeet(appt: Appointment, skip = false): void {
     const name = appt.partnerName ?? "친구";
     let msg = "";
+    let met = false;
     ctx.update((s) => {
       s.appointments = s.appointments.filter((a) => a.id !== appt.id);
       if (skip) {
         msg = `${name}에게 오늘은 못 나갈 것 같다고 양해를 구했다.`;
         return;
       }
-      const r = resolveMeet(s, appt.charId!);
+      const r = resolveMeet(s, appt.charId!, appt.confirmed ?? false);
+      met = r.success;
       msg = r.success
         ? `${name}을(를) 만나 즐거운 시간을 보냈다. 부쩍 가까워진 기분이다. (호감도 +${r.gain})`
         : `한참을 기다렸지만 ${name}은(는) 끝내 나오지 않았다... 바람맞았다. (호감도 +${r.gain})`;
       if (r.pending !== null) msg += "\n\n카톡에 새 이벤트가 도착했다!";
     });
-    showResult(msg);
+    showResult(msg, met ? appt : undefined); // 성사(실제로 만남)했을 때만 후기 트윗
   }
 
   /** 티켓팅 도입: 좌석 미니게임을 시작할지, 포기할지 */
@@ -382,7 +393,7 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
       const live = s.appointments.find((a) => a.id === appt.id);
       if (live) msg = resolveComiccon(s, live, mode).message;
     });
-    showResult(msg);
+    showResult(msg, appt); // 코믹콘 참가 = 다녀옴 → 후기 트윗 가능
   }
 
   /**
@@ -412,24 +423,24 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
    * resolveStudy가 스탯 상승·행동력 소모·시간진행·다음 주 재예약을 모두 처리한다 —
    * UI는 결과 문구만 보여준다(크루의 resolveAppointment 역할을 study는 resolveStudy가 대신).
    */
-  function handleStudyGo(): void {
+  function handleStudyGo(appt: Appointment): void {
     let msg = "";
     ctx.update((s) => {
       msg = resolveStudy(s);
     });
-    showResult(msg);
+    showResult(msg, appt);
   }
 
   /**
    * 에스테틱 정기 방문 "간다" 분기.
    * resolveEsthetic이 방문비·매력·시간진행·다음 주 재예약을 모두 처리한다(study 패턴).
    */
-  function handleEstheticGo(): void {
+  function handleEstheticGo(appt: Appointment): void {
     let msg = "";
     ctx.update((s) => {
       msg = resolveEsthetic(s);
     });
-    showResult(msg);
+    showResult(msg, appt);
   }
 
   function handleCrewGo(appt: Appointment): void {
@@ -527,21 +538,60 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
       const live = s.appointments.find((a) => a.id === appt.id);
       if (live) msg = resolveAppointment(s, live, go).message;
     });
-    showResult(msg);
+    showResult(msg, go ? appt : undefined); // 다녀왔을 때만 후기 트윗 가능
   }
 
-  function showResult(result: string): void {
+  /** 다녀온 약속의 '후기 트윗' 문구 — 상대/행사/일반 순으로 결이 다르다. attr은 약속 계열(없으면 일상). */
+  function scheduleTweetText(appt: Appointment): string {
+    if (appt.partnerName) {
+      return pick([
+        `${appt.partnerName} 만나고 왔다! 오랜만이라 더 반가웠어 ㅎㅎ`,
+        `오늘 ${appt.partnerName}랑 신나게 놀다 옴 🥳 역시 만나야 제맛`,
+        `${appt.partnerName}랑 수다 실컷 떨고 왔다 기분 좋아졌어`,
+      ]);
+    }
+    if (appt.kind === "event") {
+      return pick([
+        `「${appt.title}」 다녀옴! 역시 현장이 최고다 🙌`,
+        `${appt.title} 갔다 왔다 진짜 알찼음… 여운 오짐`,
+        `오늘 ${appt.title} 다녀온 후기: 안 갔으면 후회할 뻔 👏`,
+      ]);
+    }
+    return pick([
+      `오늘 ${appt.title} 다녀옴! 알찬 하루였다`,
+      `${appt.title} 갔다 오니 기분 전환 제대로 됐다 ㅎㅎ`,
+      `밖에 나갔다 오니 몸은 피곤한데 마음은 든든하네`,
+    ]);
+  }
+
+  /** 후기 트윗 게시 후 모달을 닫는다(트윗은 행동력 소모 — 일반 트윗과 동일). */
+  function postScheduleTweet(appt: Appointment): void {
+    const attr = appt.attribute ?? "daily";
+    const text = scheduleTweetText(appt);
+    let delta = 0;
+    ctx.update((s) => {
+      delta = postTweet(s, attr, text, false).followerDelta;
+    });
+    ctx.closeModal();
+    ctx.toast(delta >= 0 ? `트윗 게시! +${delta} 팔로워` : `트윗 게시... ${delta} 팔로워`);
+  }
+
+  /** 결과 화면. attendedAppt가 있으면(실제로 다녀온 약속) 후기 트윗 버튼을 함께 띄운다. */
+  function showResult(result: string, attendedAppt?: Appointment): void {
+    const actions = attendedAppt
+      ? [
+          el("button", { class: "btn btn--ghost", onclick: () => ctx.closeModal() }, "안 올린다"),
+          el("button", { class: "btn", onclick: () => postScheduleTweet(attendedAppt) }, "트윗한다"),
+        ]
+      : [el("button", { class: "btn", onclick: () => ctx.closeModal() }, "확인")];
+
     container.replaceChildren(
       el("div", { class: "modal__head" }, "약속"),
       el(
         "div",
         { class: "modal__body" },
         el("p", { style: "font-size:15px;line-height:1.6;margin:0 0 18px" }, result),
-        el(
-          "div",
-          { style: "text-align:right" },
-          el("button", { class: "btn", onclick: () => ctx.closeModal() }, "확인"),
-        ),
+        el("div", { class: "compose-actions", style: "gap:10px" }, ...actions),
       ),
     );
   }

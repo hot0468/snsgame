@@ -39,6 +39,8 @@ const DIRS: Record<string, string> = {
   adult: "src/assets/adult",
   tweetcat: "src/assets/tweetcat",
   yabam: "src/assets/yabam",
+  // creation=창작(1차/2차) 트윗 이미지(파일명은 매칭에 안 쓰인다 — 어드민이 `creation` 고정으로 보낸다).
+  creation: "src/assets/creation",
 };
 
 /**
@@ -48,7 +50,7 @@ const DIRS: Record<string, string> = {
  * tweetcat은 한 속성에 여러 장을 두고 트윗 id 해시로 택1하는 설계다(youtube와 같다) —
  * 빼면 아이돌 이미지를 두 장 넣을 수 없다.
  */
-const DEDUP_DIRS = new Set(["media", "youtube", "adult", "tweetcat"]);
+const DEDUP_DIRS = new Set(["media", "youtube", "adult", "tweetcat", "creation"]);
 
 async function exists(path: string): Promise<boolean> {
   try {

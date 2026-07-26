@@ -1,6 +1,12 @@
 import type { Account, AttributeId, EggKind, GameState, Tweet } from "@/core/types";
 import { dominantAttribute, getActiveAccount, pushTimeline } from "@/core/state";
-import { makeEggTweet, makeRandomAccount, makeRandomTweet, makeTweetOfAttribute } from "@/data/accounts";
+import {
+  makeEggTweet,
+  makeRandomAccount,
+  makeRandomTweet,
+  makeTweetOfAttribute,
+  profileFromAuthor,
+} from "@/data/accounts";
 import { ATTRIBUTES, getAffinity } from "@/data/attributes";
 import { allTemplatesFor } from "@/data/tweets";
 import { chance, pick, randInt, uid } from "@/utils/random";
@@ -95,6 +101,31 @@ export function searchTweetsByCategory(state: GameState, attr: AttributeId): Twe
  * - 궁합에 따라 내 팔로워 증감
  * - 상대 성향이 아직 미해금이면 낮은 확률로 트윗 작성 속성 해금
  */
+/**
+ * 아무 남의 트윗 작성자든 그 사람의 계정 프로필(Account)을 얻는다 — 트윗 아바타 클릭용.
+ * 이미 팔로우한 계정이면 그 실물을 재사용(상태 일관), 아니면 핸들로 결정론 합성한다.
+ * `followed`는 현재 팔로잉 목록으로 정확히 표시한다.
+ */
+export function accountForTweet(state: GameState, tweet: Tweet): Account {
+  const me = getActiveAccount(state);
+  const existing = me.followingAccounts.find((a) => a.handle === tweet.authorHandle);
+  if (existing) return { ...existing, followed: true };
+  const acc = profileFromAuthor(
+    tweet.authorName,
+    tweet.authorHandle,
+    tweet.attribute,
+    tweet.isAdult,
+    state.day,
+  );
+  acc.followed = me.followingAccounts.some((a) => a.handle === tweet.authorHandle);
+  return acc;
+}
+
+/** 이미 팔로우한 핸들인지 */
+export function isFollowingHandle(state: GameState, handle: string): boolean {
+  return getActiveAccount(state).followingAccounts.some((a) => a.handle === handle);
+}
+
 export function followAccount(state: GameState, account: Account): number {
   const me = getActiveAccount(state);
   me.following += 1;

@@ -10,6 +10,7 @@ export const CHARS_FITNESS_IT_COOKING: RelationshipChar[] = [
   {
     id: "rel_fitness_m",
     name: "강혁",
+    nickname: "헬스관장",
     gender: "m",
     attribute: "fitness",
     likedKind: "provoke",
@@ -105,6 +106,7 @@ export const CHARS_FITNESS_IT_COOKING: RelationshipChar[] = [
   {
     id: "rel_fitness_f",
     name: "세연",
+    nickname: "운동루틴러",
     gender: "f",
     attribute: "fitness",
     likedKind: "info",
@@ -201,6 +203,7 @@ export const CHARS_FITNESS_IT_COOKING: RelationshipChar[] = [
   {
     id: "rel_it_m",
     name: "지훈",
+    nickname: "야근개발자",
     gender: "m",
     attribute: "it",
     likedKind: "info",
@@ -297,6 +300,7 @@ IT계 {name}은 벌써 신형 노트북을 붙잡고, 발열과 부팅 속도를
   {
     id: "rel_it_f",
     name: "나연",
+    nickname: "코딩갓생러",
     gender: "f",
     attribute: "it",
     likedKind: "plain",
@@ -394,6 +398,7 @@ IT계 {name}은 벌써 창가에 노트북을 펴고, 어제 올린 커밋 이�
   {
     id: "rel_cooking_m",
     name: "민석",
+    nickname: "집밥장인",
     gender: "m",
     attribute: "cooking",
     likedKind: "emotional",
@@ -491,6 +496,7 @@ IT계 {name}은 벌써 창가에 노트북을 펴고, 어제 올린 커밋 이�
   {
     id: "rel_cooking_f",
     name: "다은",
+    nickname: "레시피덕후",
     gender: "f",
     attribute: "cooking",
     likedKind: "info",

@@ -9,8 +9,9 @@ import { el } from "@/utils/dom";
  * 브라우저 주소창 ⋮ 메뉴의 '방문기록'으로 진입한다(browser.ts historySiteOpen).
  *
  * 대부분은 클릭해도 다시 열 수 없는 더미 기록이고, 그중 '야밤' 한 줄만 실제로
- * 동작한다 — 클릭하면 야밤이 해금된다(기존 DM 해금 경로를 대체). 야밤 항목은
- * 성인물 해제(adultMode) ON일 때만 기록에 노출된다(야밤 탭 표출 게이트와 정합).
+ * 동작한다 — 클릭하면 야밤에 진입한다(activeTab="yabam"). 야밤은 브라우저 탭에
+ * 추가되지 않으므로 **이 방문기록이 유일한 진입로**다(재방문도 여기서). 야밤 항목은
+ * 성인물 해제(adultMode) ON일 때만 기록에 노출된다(야밤 렌더 게이트와 정합).
  *
  * ⚠️ 해금 규칙은 systems/yabam(unlockYabam)이 소유한다. 여기서 state.yabamUnlocked를
  *    직접 만지지 마라 — 규칙을 UI에 흘리면 경로가 갈린다.
@@ -57,10 +58,12 @@ function historyRow(ctx: GameContext, entry: HistoryEntry): HTMLElement {
       class: "hist-row",
       onclick: () => {
         if (entry.yabam) {
+          // 야밤은 브라우저 탭에 추가되지 않는다 — 방문기록에서만 진입한다.
+          // unlockYabam은 렌더 게이트(yabamVisible)를 여는 용도로 유지(탭은 안 생김).
           ctx.update((s) => unlockYabam(s));
           ctx.ui.historySiteOpen = false;
           ctx.ui.activeTab = "yabam";
-          ctx.toast("야밤이 브라우저에 추가됐어요 🔞");
+          ctx.toast("야밤에 접속했어요 🔞 (방문기록에서 다시 들어올 수 있어요)");
           ctx.refresh();
           return;
         }

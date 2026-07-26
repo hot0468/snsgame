@@ -13,7 +13,8 @@ import { canJoinGroupBuy, joinGroupBuy } from "@/systems/groupBuy";
 import { joinSavanna } from "@/systems/savanna";
 import { joinStudy } from "@/systems/studyGroup";
 import { signLingerie } from "@/systems/lingerie";
-import { resolveCosplayGeneral, pickCosplayAdultScenario, resolveCosplayAdult } from "@/systems/cosplay";
+import { resolveCosplayGeneral, pickCosplayAdultScenario, resolveCosplayAdult, COSPLAY_ACTION_COST } from "@/systems/cosplay";
+import { hasAction } from "@/systems/stats";
 import { renderScenarioReaderModal } from "./scenarioReader";
 import { acceptAuthorContract } from "@/systems/author";
 import { acceptAvJob, declineAvJob, switchToAvJob } from "@/systems/avJob";
@@ -42,6 +43,7 @@ import {
   exploreTweets,
   searchTweetsByCategory,
   followAccount,
+  accountForTweet,
   reactToTweet,
   retweetTweet,
 } from "@/systems/exploreSystem";
@@ -190,6 +192,7 @@ function doRetweet(ctx: GameContext, tweet: Tweet): void {
 /** 남의 트윗에 반응(좋아요/악플)을 남긴다. */
 function doReact(ctx: GameContext, tweet: Tweet, positive: boolean): void {
   ctx.ui.reactedTweetIds.add(tweet.id);
+  if (positive) ctx.ui.likedTweetIds.add(tweet.id); // 하트 채움 표시(악플과 구분)
   // 까칠한외눈 트윗에 좋아요를 누르면 소원 가게 링크 DM이 온다.
   if (positive && isWishTweet(tweet)) {
     ctx.update((s) => spawnWishDM(s));
@@ -401,13 +404,24 @@ export function reactableCard(ctx: GameContext, tweet: Tweet): HTMLElement {
   const state = ctx.store.getState();
   const rtDone = alreadyRetweeted(state, tweet.id);
   const reacted = ctx.ui.reactedTweetIds.has(tweet.id);
+  const liked = ctx.ui.likedTweetIds.has(tweet.id);
 
   const card = tweetCard(tweet, {
     retweet: { done: rtDone, onClick: () => doRetweet(ctx, tweet) },
+    // 하트(좋아요)로 반응 — 어느 화면(탐라·검색·프로필)에서든 남의 트윗에 좋아요 가능.
+    like: { liked, disabled: reacted, onClick: () => doReact(ctx, tweet, true) },
     onJoinEvent:
       tweet.event && !tweet.event.joined ? () => joinTweetEvent(ctx, tweet) : undefined,
     onMedia: openMedia(ctx),
     readerVocab: state.skills.knowledge,
+    // 남의 트윗 프로필 사진 클릭 → 그 계정 프로필 페이지(팔로우 가능)를 트윗 영역에 연다(둘러보기처럼).
+    onAuthorClick: () => {
+      // 프로필 안에서 또 다른 아바타를 눌러도 뒤로가기는 '원래 피드'로 돌아가게 prevPage를 보존한다.
+      if (ctx.ui.snsPage !== "profile") ctx.ui.profilePrevPage = ctx.ui.snsPage;
+      ctx.ui.viewProfile = accountForTweet(ctx.store.getState(), tweet);
+      ctx.ui.snsPage = "profile";
+      ctx.refresh();
+    },
   });
 
   // 링크 트윗이면 본문 아래(액션 바 위)에 링크 카드를 끼운다.
@@ -439,16 +453,7 @@ export function reactableCard(ctx: GameContext, tweet: Tweet): HTMLElement {
     el(
       "div",
       { class: "react-row" },
-      el(
-        "button",
-        {
-          class: "react-btn react-btn--pos" + (reacted ? " react-btn--done" : ""),
-          disabled: reacted,
-          onclick: () => doReact(ctx, tweet, true),
-        },
-        icon("heart", { size: 14 }),
-        "좋아요",
-      ),
+      // 좋아요는 카드의 하트 아이콘으로 대체됐다(별도 버튼 없음). 악플·인용만 여기 둔다.
       el(
         "button",
         {
@@ -568,6 +573,23 @@ function profileBody(ctx: GameContext, acc: Account): HTMLElement {
     acc.timeline.length
       ? el("div", {}, ...acc.timeline.map((t) => reactableCard(ctx, t)))
       : el("div", { class: "empty" }, "아직 게시물이 없어요"),
+  );
+}
+
+/**
+ * 남의 계정 프로필 페이지 — 아무 트윗 아바타를 눌러 트윗 영역에 뜬다(모달 아님, 둘러보기 프로필과 동일 그릇).
+ * 탐색의 프로필(profileBody)을 그대로 재사용하되, 뒤로가기는 프로필 진입 직전 페이지로 돌아간다.
+ */
+export function renderAccountProfilePage(ctx: GameContext, acc: Account): HTMLElement {
+  return el(
+    "section",
+    { class: "sns__feed" },
+    pageHeader(acc.name, () => {
+      ctx.ui.snsPage = ctx.ui.profilePrevPage;
+      ctx.ui.viewProfile = null;
+      ctx.refresh();
+    }),
+    profileBody(ctx, acc),
   );
 }
 
@@ -1039,11 +1061,15 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
   }
   // 코스프레 촬영 제의 스레드: 전연령이라 성인물 보기와 무관하게 노출. 반복 촬영(계약 아님).
   if (thread.cosplay) {
+    const canShoot = hasAction(ctx.store.getState(), COSPLAY_ACTION_COST);
     return el(
       "button",
       {
         class: "btn",
+        disabled: !canShoot,
+        title: canShoot ? undefined : `행동력이 부족해요 (촬영에 ${COSPLAY_ACTION_COST} 필요)`,
         onclick: () => {
+          if (!canShoot) return;
           const adult = ctx.store.getState().adultMode;
           if (!adult) {
             // 전연령: 바로 촬영 결과.
@@ -1529,6 +1555,10 @@ export function dmPage(ctx: GameContext): HTMLElement {
   // 성인물 보기 OFF면 성인 DM 스레드는 목록·대화에서 제외한다.
   const dms = visibleDms(ctx.store.getState());
   const selected = dms.find((t) => t.id === ctx.ui.dmThreadId) ?? null;
+  // 화면에 열려 있는 스레드는 곧 '읽는 중' → 읽음 처리(뱃지 즉시 감소).
+  // 목록 클릭 외 진입 경로(페이지 진입 자동 선택·만남 모달 점프)도 여기서 함께 처리된다.
+  // 조건부 dispatch라 루프가 없다: 읽음이면 update를 호출하지 않는다(renderDartpin과 같은 패턴).
+  if (selected?.unread) ctx.update((s) => markRead(s, selected.id));
   return el(
     "section",
     { class: "sns__feed sns__feed--dm" },

@@ -4,6 +4,7 @@ import { chance, pick, uid } from "@/utils/random";
 import { dateOfMonth, monthKey } from "./calendar";
 import { totalFollowers } from "./economy";
 import { skillTo100 } from "./stats";
+import { pushKakao } from "./kakao";
 
 /**
  * 플랫폼 작가 계약 시스템.
@@ -50,6 +51,18 @@ export function authorWorkGain(state: GameState): number {
 /** 다음 월 정산 시 받을 '기본' 월급(작업량 달성 기준). 미달 시 절반. */
 export function authorMonthlySalary(state: GameState, monthsWorked: number): number {
   return AUTHOR_BASE_SALARY + monthsWorked * AUTHOR_MONTH_RAISE + totalFollowers(state) * AUTHOR_FOLLOWER_RATE;
+}
+
+/**
+ * 담당 편집자가 전하는 '이번 달 웹툰 인기' 코멘트.
+ * 인기 척도는 '기본 월급(full)' 액수 — 팔로워·연차가 클수록 올라간다(미달 반감은 반영 안 함).
+ */
+function authorPopularityLine(full: number): string {
+  if (full < 300_000) return "이번 달은 반응이 좀 조용했어요. 조회수가 아쉬웠는데, 다음 화에서 뒤집어봐요!";
+  if (full < 600_000) return "이번 달 인기는 무난했어요. 꾸준히 챙겨보는 독자층이 탄탄하네요 :)";
+  if (full < 1_200_000) return "이번 달 반응 좋았어요! 댓글이 부쩍 늘고 별점도 올랐어요 👍";
+  if (full < 3_000_000) return "이번 달 인기 대박이에요! 조회수가 껑충 뛰어서 위에서도 주목하고 있어요 🔥";
+  return "이번 달 완전 역대급이에요!! 플랫폼 메인에 걸리고 화제작 소리 듣고 있어요 😱";
 }
 
 /** 작가 계약을 체결한다(제안 DM 수락 시 호출). adult=성인물 계약 여부. */
@@ -176,6 +189,28 @@ export function settleAuthorMonthly(state: GameState): void {
   const full = authorMonthlySalary(state, c.monthsWorked);
   const salary = met ? full : Math.round(full * 0.5);
   state.money += salary;
+
+  // 월급날, 담당 편집자가 이번 달 웹툰 인기(=원고료 액수 기준)와 입금 내역을 카톡으로 전한다.
+  const popLine = authorPopularityLine(full);
+  const editorMsgs = met
+    ? [
+        `작가님, ${c.monthsWorked}개월차 정산 나왔어요!`,
+        popLine,
+        `그래서 이번 달 원고료 ${won(salary)}원 입금해드렸어요. 다음 화도 잘 부탁드려요 :)`,
+      ]
+    : [
+        "작가님, 이번 달 정산 안내예요.",
+        popLine,
+        `다만 이번 달은 작업량이 부족해서 원고료가 절반인 ${won(salary)}원만 나갔어요. 다음 달엔 마감 꼭 지켜주세요! (미달 ${c.missCount + 1}/${AUTHOR_MAX_MISS})`,
+      ];
+  pushKakao(state, "담당 편집자", editorMsgs, {
+    hue: 265,
+    reply: {
+      me: "네, 다음 달도 열심히 그릴게요!",
+      them: "믿을게요 작가님 :) 좋은 작품 기대할게요!",
+      label: "네, 열심히 할게요",
+    },
+  });
 
   if (met) {
     pushSchedule(state, `작가 월급 +${won(salary)}원 (${c.monthsWorked}개월차)`, "system");

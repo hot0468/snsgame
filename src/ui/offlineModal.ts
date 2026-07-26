@@ -8,6 +8,7 @@ import {
   partTimePay,
   petLabel,
   canSpendDay,
+  canAffordVacation,
   spendDayResting,
   creatureById,
   collectCreature,
@@ -16,19 +17,21 @@ import { postTweet } from "@/systems/tweetSystem";
 import { outdoorShoot, blackVanOrgy } from "@/systems/events";
 import { getAdultOfflineEncounter } from "@/data/adultOffline";
 import { resolveAdultOfflineEncounter } from "@/systems/adultOffline";
-import { AUTHOR_WORKLOAD_TARGET, AUTHOR_MAX_MISS, isAuthorPrepMonth } from "@/systems/author";
-import { salaryOf, canNiglWork } from "@/systems/employment";
+import { canNiglWork, quitCurrentJob } from "@/systems/employment";
+import { confirmPurchase } from "./confirmModal";
 import { NIGL_COMPANY, NIGL_SHIFT_GOAL } from "@/data/niglnigl";
 import { renderWorkModal } from "./workModal";
 import { hasCertification } from "@/systems/certification";
 import { isWeekday } from "@/systems/time";
-import { makeJobPostings, TIERS, DEV_JOB_COMPANY, DEV_JOB_IT_REQ } from "@/data/jobs";
+import { isAuthorPrepMonth } from "@/systems/author";
+import { LATE_SLOT } from "@/core/state";
+import { makeJobPostings, DEV_JOB_IT_REQ } from "@/data/jobs";
 import { SKILL_STATS } from "@/data/stats";
+import { hasAction } from "@/systems/stats";
 import { ATTRIBUTES } from "@/data/attributes";
 import { pick } from "@/utils/random";
 import { el, formatNumber } from "@/utils/dom";
 import { icon, ACTIVITY_ICON } from "./icons";
-import { renderCommitGrass } from "./components";
 import { renderJobBoardModal } from "./jobBoardModal";
 import { renderSystemNotice } from "./systemNotice";
 
@@ -65,11 +68,18 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
   }
 
   function activityItem(act: OfflineActivity, partTimeCount: number): HTMLElement {
+    // 휴가는 10만원이 있어야 갈 수 있다 — 소지금 부족이면 비활성.
+    const cantAfford = !!act.vacation && !canAffordVacation(ctx.store.getState());
+    // 행동력을 쓰는 활동(act.action<0)은 잔여 행동력이 비용보다 적으면 막는다(마이너스 방지).
+    const notEnoughAction = act.action < 0 && !hasAction(ctx.store.getState(), -act.action);
+    const blocked = cantAfford || notEnoughAction;
     return el(
       "button",
       {
-        class: "life-item",
+        class: "life-item" + (blocked ? " life-item--off" : ""),
+        disabled: blocked,
         onclick: () => {
+          if (blocked) return;
           let outcome: OfflineOutcome | undefined;
           ctx.update((s) => {
             outcome = doOfflineActivity(s, act);
@@ -83,22 +93,32 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         { class: "life-item__body" },
         el("span", { class: "life-item__label" }, act.label),
         el("span", { class: "life-item__desc" }, act.description),
-        el("span", { class: "life-item__delta" }, activityDeltas(act, partTimeCount)),
+        el(
+          "span",
+          { class: "life-item__delta" },
+          cantAfford
+            ? "소지금이 부족해요 (10만원 필요)"
+            : notEnoughAction
+              ? `행동력이 부족해요 (${-act.action} 필요)`
+              : activityDeltas(act, partTimeCount),
+        ),
       ),
     );
   }
 
   function showChoices(): void {
-    const partTimeCount = ctx.store.getState().partTimeCount;
-    // 작가 원고 작업은 계약 중일 때만 노출
-    const underContract = ctx.store.getState().authorContract != null;
-    const growth = lifeTab === "growth";
+    const state = ctx.store.getState();
+    const partTimeCount = state.partTimeCount;
+    // 작가 원고 작업은 계약 중일 때 노출. 단 준비 기간의 심야엔 숨긴다(아직 작업 시작 전).
+    const underContract = state.authorContract != null;
+    const showAuthorWork =
+      underContract && !(isAuthorPrepMonth(state) && state.slot === LATE_SLOT);
 
-    const adultMode = ctx.store.getState().adultMode;
+    const adultMode = state.adultMode;
     const items = OFFLINE_ACTIVITIES.filter(
       (act) =>
         act.group === lifeTab &&
-        (!act.authorWork || underContract) &&
+        (!act.authorWork || showAuthorWork) &&
         (!act.adultOnly || adultMode), // 해피타임 등 성인 활동은 성인물 보기 ON일 때만
     ).map((act) => activityItem(act, partTimeCount));
 
@@ -134,11 +154,10 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           "div",
           { class: "feed__tabs life-tabs" },
           lifeTabBtn("휴식", "rest"),
+          lifeTabBtn("공부", "study"),
           lifeTabBtn("자기개발", "growth"),
         ),
         el("div", { class: "offline-grid" }, ...items),
-        // 작가 계약 게이지는 자기개발(작업) 탭에서만
-        growth ? authorSection() : null,
         // 취업 / 하루 그냥 보내기 — 탭 밖 하단, 가로 한 줄(세로 스크롤 방지)
         el("div", { class: "life-foot-row" }, jobSection(), restDaySection()),
       ),
@@ -176,106 +195,100 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
     );
   }
 
-  /** 작가 계약 섹션: 계약 중이면 이번 달 작업량 게이지와 미달 횟수를 표시 */
-  function authorSection(): HTMLElement | null {
-    const state = ctx.store.getState();
-    const c = state.authorContract;
-    if (!c) return null;
-    // 계약한 달은 준비 기간 — 다음 달(익월)부터 작업이 시작되고, 첫 월급은 그다음 달 1일.
-    const prep = isAuthorPrepMonth(state);
-    const pct = Math.min(100, Math.round((c.workload / AUTHOR_WORKLOAD_TARGET) * 100));
-    const met = c.workload >= AUTHOR_WORKLOAD_TARGET;
-    return el(
-      "div",
-      { class: "job-section" },
-      el(
-        "div",
-        { class: "job-status" },
-        el("span", { class: "job-status__icon" }, icon("pen", { size: 18 })),
-        el(
-          "div",
-          { style: "flex:1" },
-          el(
-            "div",
-            { class: "job-status__title" },
-            prep
-              ? "작가 계약 · 준비 기간"
-              : `작가 계약 · ${c.monthsWorked + 1}개월차` + (met ? " · 이번 달 목표 달성 ✓" : ""),
-          ),
-          el(
-            "div",
-            { class: "job-status__meta" },
-            prep
-              ? "이번 달은 준비 기간 · 다음 달부터 작업 시작 (첫 월급은 그다음 달 1일)"
-              : `이번 달 작업량 ${c.workload}/${AUTHOR_WORKLOAD_TARGET} · 미달 ${c.missCount}/${AUTHOR_MAX_MISS}`,
-          ),
-          el(
-            "div",
-            {
-              style:
-                "margin-top:6px;height:8px;border-radius:4px;background:var(--border);overflow:hidden",
-            },
-            el("div", {
-              style: `height:100%;width:${pct}%;background:${met ? "var(--accent)" : "var(--accent)"};transition:width .2s`,
-            }),
-          ),
-        ),
-      ),
-    );
-  }
-
   /** 취업 섹션: 재직 중이면 상태 표시, 무직이면 취업(지원) 버튼(평일·하루 1회) */
   function jobSection(): HTMLElement {
     const s = ctx.store.getState();
     const emp = s.employment;
 
+    // 채용공고 열기(취업·이직 공용) — 하루 1회 소진 후 채용공고 모달을 연다.
+    const openJobBoard = (): void => {
+      const st = ctx.store.getState();
+      // 변호사 자격증이 있으면 5칸 중 한 칸이 나루호도 법률사무소로 바뀐다.
+      // data는 systems를 import할 수 없으므로 조회는 여기서 해서 넘긴다.
+      const postings = makeJobPostings(
+        5,
+        st.day,
+        hasCertification(st, "lawyer"),
+        st.skills.it >= DEV_JOB_IT_REQ,
+      );
+      ctx.update((st) => {
+        st.lastJobBoardDay = st.day; // 하루 1회 소진
+      });
+      ctx.openModal((c) => renderJobBoardModal(c, postings));
+    };
+
     if (emp) {
-      const tier = TIERS[emp.tier];
       const isNigl = emp.company === NIGL_COMPANY;
-      const meta =
-        emp.company === DEV_JOB_COMPANY
-          ? el(
-              "div",
-              { class: "job-status__meta" },
-              el(
-                "div",
-                { style: "margin-bottom:5px" },
-                `커밋 성과 Lv.${emp.perfLevel} · 월급 ${formatNumber(salaryOf(s))}원`,
-              ),
-              renderCommitGrass(emp.performance, emp.perfLevel),
-            )
-          : isNigl
-            ? el(
-                "div",
-                { class: "job-status__meta" },
-                `이번 달 출근 ${s.niglShifts}/${NIGL_SHIFT_GOAL}일 · 월급 ${formatNumber(salaryOf(s))}원 (20일 미달 시 반감)`,
-              )
-            : el(
-                "div",
-                { class: "job-status__meta" },
-                `성과 Lv.${emp.perfLevel} (${Math.round(emp.performance)}/100) · 월급 ${formatNumber(salaryOf(s))}원`,
-              );
+
+      // 이직 버튼 상태: 지원/오퍼 대기·평일·하루 1회 게이트(무직 취업과 동일 규칙).
+      const jobPending = !!s.pendingJobApp;
+      const offerWaiting = s.emails.some((e) => e.jobOffer);
+      const appliedToday = s.lastJobBoardDay === s.day;
+      const weekday = isWeekday(s.day);
+      const canChange = !jobPending && !offerWaiting && weekday && !appliedToday;
+      const changeLabel = jobPending
+        ? "이직 지원 결과 대기 중"
+        : offerWaiting
+          ? "합격 메일을 확인하세요"
+          : !weekday
+            ? "이직 (평일에만 지원)"
+            : appliedToday
+              ? "이직 (오늘은 이미 지원함)"
+              : "이직 — 채용공고 보기";
+
+      const hasWorkBtn = isNigl && canNiglWork(s);
+      // 재직 상태 정보(재직 중·회사·성과)는 스테이터스 도크에서 보여주므로 여기선 액션 버튼만 둔다.
       return el(
         "div",
         { class: "job-section" },
-        el(
-          "div",
-          { class: "job-status" },
-          el("span", { class: "job-status__icon" }, icon("article", { size: 18 })),
-          el("div", {}, el("div", { class: "job-status__title" }, `재직 중 · ${emp.company} (${tier.label})`), meta),
-        ),
         // 니글니글은 자유 출근 — 원할 때 자발적으로 나간다(주말·심야 포함, 강제 팝업 없음).
-        isNigl && canNiglWork(s)
+        hasWorkBtn
           ? el(
               "button",
               {
                 class: "btn",
-                style: "margin-top:10px;width:100%",
+                style: "width:100%",
                 onclick: () => ctx.openModal((c) => renderWorkModal(c)),
               },
               `출근하기 (자유출근 · 이번 달 ${s.niglShifts}/${NIGL_SHIFT_GOAL}일)`,
             )
           : null,
+        // 재직 중 액션: 이직(다른 회사 지원) / 퇴사.
+        el(
+          "div",
+          { class: "job-actions", style: `display:flex;gap:8px${hasWorkBtn ? ";margin-top:8px" : ""}` },
+          el(
+            "button",
+            {
+              class: "btn btn--ghost",
+              style: "flex:1",
+              disabled: !canChange,
+              onclick: () => canChange && openJobBoard(),
+            },
+            changeLabel,
+          ),
+          el(
+            "button",
+            {
+              class: "btn btn--ghost",
+              style: "flex:none",
+              onclick: () =>
+                confirmPurchase(ctx, {
+                  title: "퇴사",
+                  message: `'${emp.company}'을(를) 정말 퇴사할까요? 월급·복지가 끊기고 무직이 됩니다.`,
+                  confirmLabel: "퇴사한다",
+                  cancelLabel: "취소",
+                  onConfirm: () => {
+                    ctx.update((st) => quitCurrentJob(st));
+                    ctx.toast(`${emp.company}을(를) 퇴사했어요`);
+                    showChoices(); // 이 모달은 refresh로 재렌더 안 됨 — 본문을 직접 다시 그린다
+                    ctx.refresh();
+                  },
+                }),
+            },
+            "퇴사",
+          ),
+        ),
       );
     }
 
@@ -334,22 +347,7 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         {
           class: "life-btn job-apply-btn" + (canApply ? "" : " job-apply-btn--off"),
           disabled: !canApply,
-          onclick: () => {
-            if (!canApply) return;
-            const st = ctx.store.getState();
-            // 변호사 자격증이 있으면 5칸 중 한 칸이 나루호도 법률사무소로 바뀐다.
-            // data는 systems를 import할 수 없으므로 조회는 여기서 해서 넘긴다.
-            const postings = makeJobPostings(
-              5,
-              st.day,
-              hasCertification(st, "lawyer"),
-              st.skills.it >= DEV_JOB_IT_REQ,
-            );
-            ctx.update((st) => {
-              st.lastJobBoardDay = st.day; // 하루 1회 소진
-            });
-            ctx.openModal((c) => renderJobBoardModal(c, postings));
-          },
+          onclick: () => canApply && openJobBoard(),
         },
         icon("article", { size: 18 }),
         label,
@@ -358,39 +356,91 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
   }
 
   function showResult(act: OfflineActivity, outcome: OfflineOutcome): void {
-    const isSpecial = !!(
-      outcome.blackVanEncounter ||
-      outcome.nudeExposure ||
-      outcome.adultEncounter ||
-      outcome.petEncounter ||
-      outcome.creatureEncounter
-    );
-
-    // 일반(특수 조우 아님) 현생 결과는 공용 시스템 알림 카드로 통일한다.
-    // 특수 조우 4종(봉고·노출·성인·펫)은 각자 서사 서브플로우+분홍 테마라 아래 기존 코드 그대로.
-    if (!isSpecial) {
-      showNormalResult(act, outcome);
+    // 성인 이벤트(검은 봉고·야외노출·성인 조우)는 스테이터스 안내창과 분리한다(사용자 요청):
+    // 먼저 활동 결과(스탯) 안내창을 띄우고, 그 창을 닫으면 그때 성인 이벤트 모달을 연다.
+    if (outcome.blackVanEncounter || outcome.nudeExposure || outcome.adultEncounter) {
+      showStatusNotice(act, outcome, () => showAdultEncounter(act, outcome));
       return;
     }
+    // 펫·크리처 조우(성인 아님)는 기존처럼 결과+선택을 한 모달에 함께 보여준다.
+    if (outcome.petEncounter || outcome.creatureEncounter) {
+      showPetCreatureResult(act, outcome);
+      return;
+    }
+    // 그 외 일반 결과는 공용 시스템 알림 카드.
+    showNormalResult(act, outcome);
+  }
 
-    // 아르바이트 급여는 별도 줄로 표시하므로 델타 요약에선 뺀다.
-    const deltaParts = [activityDeltas({ ...act, partTime: false }, 0), outcome.randomSkillLabel]
-      .filter(Boolean)
-      .join(" · ");
-    const earnedMsg =
-      outcome.earnedMoney != null ? `일당 ${formatNumber(outcome.earnedMoney)}원을 받았다!` : null;
-    const unlockMsg = outcome.unlockedAttribute
-      ? `새 트윗 소재를 얻었다! (${ATTRIBUTES[outcome.unlockedAttribute].label.replace(/계$/, "")})`
-      : null;
+  /**
+   * 활동 결과 '스테이터스 안내창'(스탯 델타 카드)만 먼저 띄운다. 확인('계속')하면 onNext로 다음 단계로.
+   * 성인 이벤트를 스탯 안내와 섞지 않으려는 분리 흐름 전용 — showNormalResult는 트윗 버튼이 붙어 재사용 못 한다.
+   */
+  function showStatusNotice(
+    act: OfflineActivity,
+    outcome: OfflineOutcome,
+    onNext: () => void,
+  ): void {
+    const extraLines: string[] = [];
+    if (outcome.randomSkillLabel) extraLines.push(outcome.randomSkillLabel);
+    if (outcome.unlockedAttribute) {
+      extraLines.push(
+        `새 트윗 소재를 얻었다! (${ATTRIBUTES[outcome.unlockedAttribute].label.replace(/계$/, "")})`,
+      );
+    }
+    ctx.openModal((c) =>
+      renderSystemNotice(c, {
+        message: outcome.message,
+        tone: "good", // 활동 자체는 생산적 — showNormalResult와 같은 이유로 good 고정.
+        deltas: {
+          action: act.action,
+          mental: act.mental,
+          morality: act.morality,
+          money: outcome.earnedMoney ?? act.money,
+        },
+        skillDeltas: act.skillGains,
+        extraLines,
+        confirmLabel: "계속",
+        onConfirm: onNext,
+      }),
+    );
+  }
 
-    const bodyChildren: (HTMLElement | null)[] = [
-      el("p", { class: "life-result__flavor" }, outcome.message),
-      earnedMsg ? el("p", { class: "life-result__earn" }, earnedMsg) : null,
-      deltaParts ? el("p", { class: "life-result__delta" }, deltaParts) : null,
-      unlockMsg ? el("p", { class: "life-result__unlock" }, unlockMsg) : null,
-    ];
+  /**
+   * 성인 이벤트 모달(검은 봉고·야외노출·성인 조우) — 스테이터스 안내창을 닫은 뒤 열린다.
+   * 스탯 델타·활동 flavor는 앞선 안내창이 이미 보여줬으므로, 여기선 이벤트 서사와 선택만 다룬다.
+   */
+  function showAdultEncounter(act: OfflineActivity, outcome: OfflineOutcome): void {
+    const c2 = el("div", { class: "modal modal--adult" });
 
-    const kind = outcome.petEncounter;
+    /** 선택 결과 문구 화면으로 전환(세 이벤트 공통). 확인 시 닫고 afterAction. */
+    function showEncResult(title: string, msg: string): void {
+      c2.replaceChildren(
+        el(
+          "div",
+          { class: "modal__head" },
+          el("span", { class: "modal__head-title" }, icon("shield", { size: 18 }), title),
+        ),
+        el(
+          "div",
+          { class: "modal__body" },
+          el("p", { class: "life-result__flavor" }, msg),
+          el(
+            "button",
+            {
+              class: "btn",
+              style: "margin-top:14px",
+              onclick: () => {
+                ctx.closeModal();
+                ctx.afterAction("offline");
+              },
+            },
+            "확인",
+          ),
+        ),
+      );
+    }
+
+    const bodyChildren: (HTMLElement | null)[] = [];
     if (outcome.blackVanEncounter) {
       // 고음란 산책 — 검정 봉고. 길을 알려주러 다가가면 납치 난교 루트.
       bodyChildren.push(
@@ -427,30 +477,7 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
                 ctx.update((s) => {
                   msg = blackVanOrgy(s);
                 });
-                container.replaceChildren(
-                  el(
-                    "div",
-                    { class: "modal__head" },
-                    el("span", { class: "modal__head-title" }, icon("shield", { size: 18 }), "검은 봉고"),
-                  ),
-                  el(
-                    "div",
-                    { class: "modal__body" },
-                    el("p", { class: "life-result__flavor" }, msg),
-                    el(
-                      "button",
-                      {
-                        class: "btn",
-                        style: "margin-top:14px",
-                        onclick: () => {
-                          ctx.closeModal();
-                          ctx.afterAction("offline");
-                        },
-                      },
-                      "확인",
-                    ),
-                  ),
-                );
+                showEncResult("검은 봉고", msg);
               },
             },
             "길을 알려주러 다가간다",
@@ -493,30 +520,7 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
                 ctx.update((s) => {
                   msg = outdoorShoot(s);
                 });
-                container.replaceChildren(
-                  el(
-                    "div",
-                    { class: "modal__head" },
-                    el("span", { class: "modal__head-title" }, icon("shield", { size: 18 }), "야외 노출"),
-                  ),
-                  el(
-                    "div",
-                    { class: "modal__body" },
-                    el("p", { class: "life-result__flavor" }, msg),
-                    el(
-                      "button",
-                      {
-                        class: "btn",
-                        style: "margin-top:14px",
-                        onclick: () => {
-                          ctx.closeModal();
-                          ctx.afterAction("offline");
-                        },
-                      },
-                      "확인",
-                    ),
-                  ),
-                );
+                showEncResult("야외 노출", msg);
               },
             },
             "감행한다",
@@ -543,35 +547,7 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
                     ctx.update((s) => {
                       msg = resolveAdultOfflineEncounter(s, encId, idx);
                     });
-                    container.replaceChildren(
-                      el(
-                        "div",
-                        { class: "modal__head" },
-                        el(
-                          "span",
-                          { class: "modal__head-title" },
-                          icon("shield", { size: 18 }),
-                          enc.title,
-                        ),
-                      ),
-                      el(
-                        "div",
-                        { class: "modal__body" },
-                        el("p", { class: "life-result__flavor" }, msg),
-                        el(
-                          "button",
-                          {
-                            class: "btn",
-                            style: "margin-top:14px",
-                            onclick: () => {
-                              ctx.closeModal();
-                              ctx.afterAction("offline");
-                            },
-                          },
-                          "확인",
-                        ),
-                      ),
-                    );
+                    showEncResult(enc.title, msg);
                   },
                 },
                 choice.label,
@@ -580,7 +556,48 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           ),
         );
       }
-    } else if (kind) {
+    }
+
+    c2.replaceChildren(
+      el(
+        "div",
+        { class: "modal__head" },
+        el(
+          "span",
+          { class: "modal__head-title" },
+          icon(ACTIVITY_ICON[act.id] ?? "star", { size: 18 }),
+          `${act.label} 완료`,
+        ),
+      ),
+      el("div", { class: "modal__body" }, ...bodyChildren),
+    );
+    // 함수 identity로 캐시되도록 노드를 그대로 반환(매 렌더 새 화살표 금지 — 여기선 한 번만 넘긴다).
+    ctx.openModal(() => c2);
+  }
+
+  /**
+   * 펫·크리처 조우 결과(성인 아님) — 결과 flavor·델타와 선택을 한 모달에 함께 보여준다(기존 동작).
+   */
+  function showPetCreatureResult(act: OfflineActivity, outcome: OfflineOutcome): void {
+    // 아르바이트 급여는 별도 줄로 표시하므로 델타 요약에선 뺀다.
+    const deltaParts = [activityDeltas({ ...act, partTime: false }, 0), outcome.randomSkillLabel]
+      .filter(Boolean)
+      .join(" · ");
+    const earnedMsg =
+      outcome.earnedMoney != null ? `일당 ${formatNumber(outcome.earnedMoney)}원을 받았다!` : null;
+    const unlockMsg = outcome.unlockedAttribute
+      ? `새 트윗 소재를 얻었다! (${ATTRIBUTES[outcome.unlockedAttribute].label.replace(/계$/, "")})`
+      : null;
+
+    const bodyChildren: (HTMLElement | null)[] = [
+      el("p", { class: "life-result__flavor" }, outcome.message),
+      earnedMsg ? el("p", { class: "life-result__earn" }, earnedMsg) : null,
+      deltaParts ? el("p", { class: "life-result__delta" }, deltaParts) : null,
+      unlockMsg ? el("p", { class: "life-result__unlock" }, unlockMsg) : null,
+    ];
+
+    const kind = outcome.petEncounter;
+    if (kind) {
       // 산책 중 길동물을 만난 이벤트 — 데려가면 해당 동물 주접 트윗이 열린다.
       const flavor =
         kind === "dog"
@@ -625,7 +642,7 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         ),
       );
     } else if (outcome.creatureEncounter) {
-      // 산책 중 신비한 크리처를 만난 이벤트 — 데려가면 도감에 등록된다. (펫 다음, 일반 결과 앞)
+      // 산책 중 신비한 크리처를 만난 이벤트 — 데려가면 도감에 등록된다.
       const cr = creatureById(outcome.creatureEncounter);
       if (cr) {
         const id = cr.id;
@@ -668,12 +685,6 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
       }
     }
 
-    // 노골 성인 조우(검은 봉고·야외노출·성인 조우)만 분홍 테마.
-    container.classList.toggle(
-      "modal--adult",
-      !!(outcome.blackVanEncounter || outcome.nudeExposure || outcome.adultEncounter),
-    );
-
     container.replaceChildren(
       el(
         "div",
@@ -696,14 +707,10 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
    * 쓰는 활동이 부정(레드)으로 오분류된다. 진짜 부정 결과(특수 조우)는 이 분기로 안 온다.
    */
   function showNormalResult(act: OfflineActivity, outcome: OfflineOutcome): void {
-    // 스킬 획득(고정 skillGains + 랜덤)·새 소재 해금은 델타로 표현 못 하니 extraLines로 붙인다.
-    const skillParts: string[] = [];
-    for (const [skill, amount] of Object.entries(act.skillGains ?? {})) {
-      skillParts.push(`${SKILL_STATS[skill as keyof typeof SKILL_STATS].label} +${amount}`);
-    }
-    if (outcome.randomSkillLabel) skillParts.push(outcome.randomSkillLabel);
+    // 고정 skillGains(어휘력·지식 등)는 스탯바로 보여준다(skillDeltas). 랜덤 스킬 라벨·새 소재 해금은
+    // 델타로 표현 못 하니(랜덤은 id 미노출, 소재는 스탯 아님) 텍스트 extraLines로 붙인다.
     const extraLines: string[] = [];
-    if (skillParts.length) extraLines.push(skillParts.join(" · "));
+    if (outcome.randomSkillLabel) extraLines.push(outcome.randomSkillLabel);
     if (outcome.unlockedAttribute) {
       extraLines.push(
         `새 트윗 소재를 얻었다! (${ATTRIBUTES[outcome.unlockedAttribute].label.replace(/계$/, "")})`,
@@ -750,6 +757,7 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           // 아르바이트 급여(earnedMoney)가 있으면 그 값을, 아니면 활동 고정 보상을.
           money: outcome.earnedMoney ?? act.money,
         },
+        skillDeltas: act.skillGains,
         extraLines,
         extraActions: [skipBtn, tweetBtn],
       }),

@@ -29,8 +29,10 @@ import { checkStatEggs, maybeCatPowerButton } from "./eggs";
 import { deliverPendingGoods } from "./groupBuy";
 import { maybeSpawnWorkMsg } from "./workMessenger";
 import { checkAchievements } from "./achievements";
+import { checkStatMilestones } from "./milestones";
 import { HOUSINGS } from "@/data/housing";
 import { clampAction } from "./stats";
+import { settleGigDeadlines } from "./gig";
 // 달력/요일 헬퍼는 calendar.ts에 있다(순환 참조 방지). 내부에서 dateLabel을 쓰고, 나머지는 재노출한다.
 import {
   dateLabel,
@@ -171,6 +173,8 @@ function onNewDay(state: GameState): void {
   applyInactivityDecay(state);
   // 생활비·월세 정산
   applyDailyCosts(state);
+  // 재능마켓 외주 마감 정산(초과 미완료 건 위약금·평판↓·제거)
+  settleGigDeadlines(state);
   // 작가 계약 월 정산(매월 1일, 익월부터)
   settleAuthorMonthly(state);
   // 취업 지원 결과 메일(지원 익일) 도착
@@ -213,6 +217,8 @@ function onNewDay(state: GameState): void {
   deliverPendingGoods(state);
   // 일 단위 상태 업적 판정(소지금·자격증·집·연속 밤샘 등)
   checkAchievements(state);
+  // 스탯 마일스톤 판정(하루 중 여러 경로로 오른 스킬을 일괄 인정)
+  checkStatMilestones(state);
   // 오늘 도래한 트친 생일이 있으면 축하 배너/카톡을 세팅(전날 미축하는 무해하게 흘려보낸다)
   processBirthdayDue(state);
 }

@@ -134,6 +134,7 @@ export function createAccount(
     postSlotsUsed: 0,
     // 트친(단짝): 상호작용 누적으로 성사. 도달 배율은 systems/tchin이 계산.
     tchins: [],
+    tchinNames: {},
     tchinProgress: {},
     lastTchinsoDay: 0,
   };
@@ -181,11 +182,14 @@ export function createInitialState(): GameState {
     actionMaxBonus: 0,
     cheats: createInitialCheats(),
     schedule: [],
+    activeGigs: [],
     partTimeCount: 0,
     kakao: [],
     workMsgs: [],
     lastRentReminderDay: -1,
     crewJoined: false,
+    crewRunCount: 0,
+    groupNightCount: 0,
     rejectionTweets: 0,
     studyJoined: false,
     estheticMember: false,
@@ -196,6 +200,7 @@ export function createInitialState(): GameState {
     lingerieContract: false,
     lingerieOffered: false,
     animeTweetsPosted: 0,
+    lastCosplayDay: 0,
     paidChannelJoined: false,
     appointments: [],
     employment: null,
@@ -209,6 +214,9 @@ export function createInitialState(): GameState {
     overdueRent: 0,
     lastIncomeSettleMonth: -1,
     lastJobBoardDay: -1,
+    pastEmployers: [],
+    jobplanetCredits: 0,
+    jobplanetViewed: [],
     pendingJobApp: null,
     pendingContest: null,
     certifications: [],
@@ -284,6 +292,8 @@ export function createInitialState(): GameState {
     gameOver: null,
     achievements: [],
     pendingAchievements: [],
+    statMilestones: [],
+    pendingMilestones: [],
   };
 }
 

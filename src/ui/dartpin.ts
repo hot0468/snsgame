@@ -45,8 +45,8 @@ function messageAuthor(ctx: GameContext, post: DartpinPost): void {
 
 /* ============================================================
  * 다트 핀(dartpin.com) — 익명 게시판(네이트 판 패러디).
- * 목록(제목·작성자·조회·추천) → 글 클릭 → 상세(본문·댓글) → 목록 복귀.
- * 촌스러운 2000년대 게시판 톤(테이블 목록·파란 링크 제목·빨간 브랜드).
+ * 목록(제목 + 작성자·시각·조회·추천 메타 스택) → 글 클릭 → 상세(본문·댓글) → 목록 복귀.
+ * 네이트 판 톤: 빨간 브랜드·검색창·밑줄 카테고리 탭·실시간 인기톡식 리스트.
  *
  * ⚠️ 게시판 편성(무슨 글이 며칠에 뜨는지)·힌트 확률은 전부 systems/dartpin이 정한다.
  *    여기서는 ensureDartpinBoard로 오늘자 편성을 보장하고 getDartpinBoard 결과를 그릴 뿐이다.
@@ -58,8 +58,8 @@ function messageAuthor(ctx: GameContext, post: DartpinPost): void {
 
 /** 상단 장식용 메뉴(클릭 불가) */
 const GNB = ["뉴스", "판", "톡톡", "쇼핑", "만화", "TV연예"];
-/** 게시판 장식용 탭 — 실제 목록은 항상 오늘자 '판'이다 */
-const BOARD_TABS = ["톡커들의 선택", "오늘의 판", "이슈", "연예", "직장"];
+/** 게시판 장식용 탭 — 실제 목록은 항상 오늘자 '판'이다(첫 탭이 활성) */
+const BOARD_TABS = ["실시간 인기톡", "일상다반사", "사랑 그리고", "직장인", "결혼과 나", "연예제태"];
 
 /** 글 id로 안정적인 등록 시각 플레이버("14:07")를 만든다(표시용). */
 function postTime(id: string): string {
@@ -80,6 +80,13 @@ function masthead(): HTMLElement {
       el("span", { class: "dp__logo" }, "다트"),
       el("span", { class: "dp__logo-sub" }, "핀"),
       el("span", { class: "dp__mast-slogan" }, "익명으로 털어놓는 그곳"),
+      // 장식용 검색창(클릭 불가) — 네이트 판 상단 검색 느낌
+      el(
+        "div",
+        { class: "dp__search" },
+        el("span", { class: "dp__search-ph" }, "판 검색"),
+        el("span", { class: "dp__search-ico" }, "🔍"),
+      ),
       el("span", { class: "dp__mast-login" }, "로그인"),
     ),
     el("nav", { class: "dp__gnb" }, ...GNB.map((m, i) =>
@@ -96,24 +103,29 @@ function openPost(ctx: GameContext, id: string): void {
 }
 
 /**
- * 목록 한 줄.
+ * 목록 한 줄(네이트 판 실시간 인기톡 스타일 — 제목 줄 + 메타 줄).
  * ⚠️ post.hint 여부로 클래스·아이콘·순서를 바꾸지 않는다(위 파일 주석 참조).
  */
-function boardRow(ctx: GameContext, post: DartpinPost, no: number): HTMLElement {
+function boardRow(ctx: GameContext, post: DartpinPost): HTMLElement {
   const commentCount = post.comments.length;
   return el(
-    "tr",
-    { class: "dp-row", onclick: () => openPost(ctx, post.id) },
-    el("td", { class: "dp-row__no" }, String(no)),
+    "li",
+    { class: "dp-item", onclick: () => openPost(ctx, post.id) },
     el(
-      "td",
-      { class: "dp-row__title" },
-      el("span", { class: "dp-row__link" }, post.title),
-      commentCount > 0 ? el("span", { class: "dp-row__cnt" }, `[${commentCount}]`) : null,
+      "div",
+      { class: "dp-item__title" },
+      el("span", { class: "dp-item__link" }, post.title),
+      commentCount > 0 ? el("span", { class: "dp-item__cnt" }, `[${commentCount}]`) : null,
     ),
-    el("td", { class: "dp-row__author" }, post.author),
-    el("td", { class: "dp-row__num" }, formatNumber(post.views)),
-    el("td", { class: "dp-row__num" }, formatNumber(post.likes)),
+    el(
+      "div",
+      { class: "dp-item__meta" },
+      el("span", { class: "dp-item__author" }, post.author),
+      el("span", { class: "dp-item__sep" }, "·"),
+      el("span", {}, `${dateLabel(ctx.store.getState().day)} ${postTime(post.id)}`),
+      el("span", { class: "dp-item__stat" }, `조회 ${formatNumber(post.views)}`),
+      el("span", { class: "dp-item__stat" }, `추천 ${formatNumber(post.likes)}`),
+    ),
   );
 }
 
@@ -121,19 +133,9 @@ function boardPage(ctx: GameContext): HTMLElement {
   const state = ctx.store.getState();
   const posts = getDartpinBoard(state);
 
-  const rows = posts.length
-    ? posts.map((p, i) => boardRow(ctx, p, posts.length - i))
-    : [
-        el(
-          "tr",
-          {},
-          el(
-            "td",
-            { class: "dp-empty", colspan: "5" },
-            "오늘은 등록된 글이 없습니다.",
-          ),
-        ),
-      ];
+  const list = posts.length
+    ? el("ul", { class: "dp-list" }, ...posts.map((p) => boardRow(ctx, p)))
+    : el("div", { class: "dp-empty" }, "오늘은 등록된 글이 없습니다.");
 
   return el(
     "div",
@@ -144,27 +146,10 @@ function boardPage(ctx: GameContext): HTMLElement {
     el(
       "div",
       { class: "dp__board-head" },
-      el("span", { class: "dp__board-title" }, "톡커들의 선택"),
+      el("span", { class: "dp__board-title" }, "실시간 인기톡"),
       el("span", { class: "dp__board-date" }, dateLabel(state.day)),
     ),
-    el(
-      "table",
-      { class: "dp-table" },
-      el(
-        "thead",
-        {},
-        el(
-          "tr",
-          {},
-          el("th", { class: "dp-th dp-th--no" }, "번호"),
-          el("th", { class: "dp-th" }, "제목"),
-          el("th", { class: "dp-th dp-th--author" }, "작성자"),
-          el("th", { class: "dp-th dp-th--num" }, "조회"),
-          el("th", { class: "dp-th dp-th--num" }, "추천"),
-        ),
-      ),
-      el("tbody", {}, ...rows),
-    ),
+    list,
     // 페이지네이션·글쓰기는 장식(클릭 불가)
     el(
       "div",

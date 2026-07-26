@@ -1,5 +1,5 @@
 import type { Account, AttributeId, Tweet } from "@/core/types";
-import { pick, randInt, uid, chance } from "@/utils/random";
+import { pick, randInt, uid, chance, hashInt } from "@/utils/random";
 import { ALL_ATTRIBUTE_IDS, ATTRIBUTES } from "./attributes";
 import { allTemplatesFor } from "./tweets";
 import { maybeEventTweet } from "./tweetEvents";
@@ -98,6 +98,39 @@ export function makeRandomAccount(adultMode: boolean, day: number): Account {
     isAdult: ATTRIBUTES[attr].adultOnly,
     bio: pick(BIO_BY_ATTR[attr]),
     followers: randInt(50, 50_000),
+    timeline,
+    followed: false,
+  };
+}
+
+/**
+ * 트윗 작성자(이름·핸들·계열)로부터 남의 계정 프로필을 합성한다.
+ * bio·팔로워 수는 핸들 해시로 고정(같은 사람은 언제 봐도 같은 프로필). 프로필 페이지의 '게시물'
+ * 탭을 채울 타임라인 트윗 몇 개를 그 계열로 생성한다(호출 시점 1회 — 저장돼 그동안은 안 흔들림).
+ * 아무 남의 트윗이든 아바타를 눌러 프로필을 여는 용도(exploreSystem.accountForTweet가 호출).
+ * 팔로우 여부(followed)는 systems가 상태로 덮는다.
+ */
+export function profileFromAuthor(
+  name: string,
+  handle: string,
+  attribute: AttributeId,
+  isAdult: boolean,
+  day: number,
+): Account {
+  const h = hashInt(handle);
+  const bios = BIO_BY_ATTR[attribute] ?? BIO_BY_ATTR.daily;
+  const author = { name, handle };
+  const timeline = Array.from({ length: 3 }, (_, i) =>
+    makeForeignTweet(attribute, author, isAdult, day - i),
+  );
+  return {
+    id: "prof_" + handle,
+    name,
+    handle,
+    attribute,
+    isAdult,
+    bio: bios[h % bios.length],
+    followers: 50 + (h % 199_950), // 50 ~ 20만, 핸들로 고정
     timeline,
     followed: false,
   };

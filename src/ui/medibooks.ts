@@ -1,10 +1,18 @@
 import type { GameContext } from "./context";
 import type { Book } from "@/data/books";
-import { BOOKS, BOOK_CATEGORY_LABEL } from "@/data/books";
-import { readBook, BOOK_ACTION_COST, bookTweetAttr, bookTweetLines } from "@/systems/books";
+import { BOOKS, ADULT_BOOKS, BOOK_CATEGORY_LABEL } from "@/data/books";
+import {
+  readBook,
+  BOOK_ACTION_COST,
+  bookPrice,
+  canReadBook,
+  bookTweetAttr,
+  bookTweetLines,
+} from "@/systems/books";
+import { hasAction } from "@/systems/stats";
 import { postTweet } from "@/systems/tweetSystem";
 import { pick } from "@/utils/random";
-import { el } from "@/utils/dom";
+import { el, formatNumber } from "@/utils/dom";
 import { icon } from "./icons";
 
 /* ============================================================
@@ -112,8 +120,13 @@ function quick(): HTMLElement {
 
 /** 책 클릭 → 감상 확인 모달 */
 function openBookModal(ctx: GameContext, book: Book): void {
-  ctx.openModal((c) =>
-    el(
+  ctx.openModal((c) => {
+    const price = bookPrice(book);
+    const enoughMoney = canReadBook(c.store.getState(), book);
+    // 행동력이 감상 비용보다 적으면 막는다(마이너스 방지) — 소지금과 별개 사유.
+    const enoughAction = hasAction(c.store.getState(), BOOK_ACTION_COST);
+    const afford = enoughMoney && enoughAction;
+    return el(
       "div",
       { class: "modal" },
       el(
@@ -138,8 +151,17 @@ function openBookModal(ctx: GameContext, book: Book): void {
         el(
           "p",
           { style: "font-size:14px;margin:0 0 16px" },
-          `감상하시겠습니까? (시간 1칸 · 행동력 ${BOOK_ACTION_COST} 소모)`,
+          `감상하시겠습니까? (${formatNumber(price)}원 · 시간 1칸 · 행동력 ${BOOK_ACTION_COST} 소모)`,
         ),
+        afford
+          ? null
+          : el(
+              "p",
+              { class: "compose-hint", style: "margin:-8px 0 14px" },
+              !enoughMoney
+                ? `소지금이 부족해요 (감상료 ${formatNumber(price)}원)`
+                : `행동력이 부족해요 (감상에 ${BOOK_ACTION_COST} 필요)`,
+            ),
         el(
           "div",
           { class: "compose-actions", style: "gap:10px" },
@@ -147,8 +169,10 @@ function openBookModal(ctx: GameContext, book: Book): void {
           el(
             "button",
             {
-              class: "btn",
+              class: "btn" + (afford ? "" : " btn--ghost"),
+              disabled: !afford,
               onclick: () => {
+                if (!afford) return;
                 let msg = "";
                 c.update((s) => {
                   msg = readBook(s, book.category, book.title, book.id).message;
@@ -157,12 +181,12 @@ function openBookModal(ctx: GameContext, book: Book): void {
                 openReadResultModal(c, book, msg);
               },
             },
-            "감상하기",
+            `감상하기 (${formatNumber(price)}원)`,
           ),
         ),
       ),
-    ),
-  );
+    );
+  });
 }
 
 /** 감상 완료 화면 — 방금 읽은 책에 대한 트윗을 올릴지 선택 */
@@ -208,7 +232,9 @@ function openReadResultModal(ctx: GameContext, book: Book, msg: string): void {
                 const text = pick(bookTweetLines(book));
                 let delta = 0;
                 c.update((s) => {
-                  delta = postTweet(s, bookTweetAttr(book.category), text, false, "meetup", 1).followerDelta;
+                  // 성인 도서 감상 트윗은 성인 트윗으로 게시된다(18+ 라벨·성과 가중).
+                  const isAdult = book.category === "adult";
+                  delta = postTweet(s, bookTweetAttr(book.category), text, isAdult, "meetup", 1).followerDelta;
                 });
                 c.closeModal();
                 c.toast(delta >= 0 ? `트윗 게시! +${delta} 팔로워` : `트윗 게시... ${delta} 팔로워`);
@@ -238,6 +264,7 @@ function bookRow(ctx: GameContext, book: Book, rank: number): HTMLElement {
         { class: "mb-book__rating" },
         el("span", { class: "mb-book__star" }, "★"),
         `${book.rating.toFixed(1)}(${book.reviews.toLocaleString("ko-KR")})`,
+        el("span", { class: "mb-book__price" }, `${formatNumber(bookPrice(book))}원`),
       ),
     ),
   );
@@ -246,18 +273,39 @@ function bookRow(ctx: GameContext, book: Book, rank: number): HTMLElement {
 /* ===================== 홈 화면 ===================== */
 
 export function renderMediBooks(ctx: GameContext): HTMLElement {
-  return el(
-    "div",
-    { class: "mb" },
-    masthead(),
+  // 성인물 보기가 꺼져 있으면 성인 탭은 없다 → 홈으로 강제(꺼진 뒤 남은 상태 방어).
+  const adultOn = ctx.store.getState().adultMode;
+  const tab = adultOn ? ctx.ui.medibooksTab : "home";
+
+  const tabBtn = (id: "home" | "adult", label: string) =>
     el(
       "div",
-      { class: "mb__body" },
-      chips(),
-      banners(),
-      quick(),
-      el("div", { class: "mb__sec-title" }, "지금 많이 읽고 있는 작품"),
-      el("div", { class: "mb__books" }, ...BOOKS.map((b, i) => bookRow(ctx, b, i + 1))),
-    ),
-  );
+      {
+        class: "feed__tab" + (tab === id ? " feed__tab--active" : ""),
+        onclick: () => {
+          ctx.ui.medibooksTab = id;
+          ctx.refresh();
+        },
+      },
+      el("span", { class: "feed__tab-label" }, label),
+    );
+  const tabs = adultOn
+    ? el("div", { class: "feed__tabs mb__tabs" }, tabBtn("home", "홈"), tabBtn("adult", "🔞 성인"))
+    : null;
+
+  const body =
+    tab === "adult"
+      ? [
+          el("div", { class: "mb__sec-title" }, "🔞 성인 · 지금 인기 있는 작품"),
+          el("div", { class: "mb__books" }, ...ADULT_BOOKS.map((b, i) => bookRow(ctx, b, i + 1))),
+        ]
+      : [
+          chips(),
+          banners(),
+          quick(),
+          el("div", { class: "mb__sec-title" }, "지금 많이 읽고 있는 작품"),
+          el("div", { class: "mb__books" }, ...BOOKS.map((b, i) => bookRow(ctx, b, i + 1))),
+        ];
+
+  return el("div", { class: "mb" }, masthead(), el("div", { class: "mb__body" }, tabs, ...body));
 }

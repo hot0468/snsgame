@@ -146,12 +146,42 @@ export function currentJobLabel(state: GameState): string {
 export function quitCurrentJob(state: GameState): void {
   if (state.employment) {
     addSchedule(state, `${state.employment.company} 퇴사`, "system");
+    // 퇴사한 회사는 잡플래닛 리뷰 대상이 된다(리뷰 1건당 기업정보 무료 열람권 1장).
+    if (!state.pastEmployers.includes(state.employment.company)) {
+      state.pastEmployers.push(state.employment.company);
+    }
     state.employment = null;
   }
   if (state.avJob) {
     addSchedule(state, "AV배우 계약 해지", "system");
     state.avJob = null;
   }
+}
+
+/** 잡플래닛 기업정보 1건 열람 비용(무료 열람권이 없을 때). */
+export const JOBPLANET_VIEW_COST = 100_000;
+
+/**
+ * 이전 직장 리뷰를 쓴다 — pastEmployers에서 제거하고 무료 열람권 1장을 얻는다.
+ * @returns 리뷰를 실제로 작성했으면 true(대상이 없으면 false).
+ */
+export function writeJobplanetReview(state: GameState, company: string): boolean {
+  const i = state.pastEmployers.indexOf(company);
+  if (i < 0) return false;
+  state.pastEmployers.splice(i, 1);
+  state.jobplanetCredits += 1;
+  return true;
+}
+
+/** 잡플래닛 기업정보를 1건 열람한다(무료 열람권 우선, 없으면 10만원 차감). @returns 열람 성공 여부 */
+export function payForJobplanetInfo(state: GameState): boolean {
+  if (state.jobplanetCredits > 0) {
+    state.jobplanetCredits -= 1;
+    return true;
+  }
+  if (state.money < JOBPLANET_VIEW_COST) return false;
+  state.money -= JOBPLANET_VIEW_COST;
+  return true;
 }
 
 /**

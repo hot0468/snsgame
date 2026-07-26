@@ -91,7 +91,7 @@ export function renderRelEventModal(ctx: GameContext, charId: string): HTMLEleme
       el(
         "div",
         { class: "modal__head" },
-        char!.name,
+        char!.nickname,
         isLast
           ? null
           : el("span", { class: "novel-head__page" }, `${pageIndex + 1} / ${event.pages.length}`),
@@ -105,7 +105,7 @@ export function renderRelEventModal(ctx: GameContext, charId: string): HTMLEleme
   function renderResult(result: string): void {
     container.replaceChildren(
       closeX(),
-      el("div", { class: "modal__head" }, `${char!.name} — 만남`),
+      el("div", { class: "modal__head" }, `${char!.nickname} — 만남`),
       el(
         "div",
         { class: "novel-body" },

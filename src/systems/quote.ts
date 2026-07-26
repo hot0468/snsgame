@@ -50,7 +50,7 @@ export function postQuoteTweet(
   state.resources.action = clampAction(state, state.resources.action - TWEET_ACTION_COST);
   consumePostSlot(state);
   // 인용도 대상 계정과의 상호작용 — 트친 누적에 센다.
-  bumpTchinProgress(state, target.authorHandle);
+  bumpTchinProgress(state, target.authorHandle, target.authorName);
 
   let followerDelta = 0;
   let ratioed = false;

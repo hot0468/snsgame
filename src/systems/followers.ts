@@ -19,6 +19,16 @@ import { isTrending, TRENDING_MULTIPLIER } from "@/data/trends";
  */
 export const TWEET_CONV_RATE = 0.32;
 
+/**
+ * skillMul 가중 곡선의 지수. 양 끝점(스킬 0→0.3배, 999→2.5배, 격차 8배)은
+ * 지수와 무관하게 고정이고, **중간 구간의 체감만** 바꾼다.
+ *   1 = 선형 · 2 = 옛 볼록(초반 바닥, 후반 급등) · <1 = 오목(초반부터 눈에 보임).
+ * 0.6 기준 skillWeight: 100→0.25 · 300→0.49 · 500→0.66(옛 0.25).
+ * 초반 육성 피드백을 살리려 오목으로 뒀다 — 낮출수록 초반이 더 도드라지고
+ * 만렙까지의 체감 시간이 짧아진다. 진행 속도가 빠르다 싶으면 이 값을 1쪽으로.
+ */
+export const SKILL_CURVE_EXP = 0.6;
+
 export interface TweetOutcome {
   likes: number;
   retweets: number;
@@ -80,13 +90,13 @@ export function calcTweetOutcome(
   const affinity = getAffinity(account.attribute, attr); // -1..1
   const affinityMul = 1 + affinity * 0.4; // 0.6 ~ 1.4
 
-  // 연계 스탯 정도(0~1). 초반 저스탯일수록 성과가 급격히 낮아지도록 제곱 가중.
+  // 연계 스탯 정도(0~1). 초반 육성이 눈에 보이도록 오목 가중(SKILL_CURVE_EXP<1).
   const skill01 = Math.min(1, Math.max(0, skillAvg) / MAX_SKILL);
-  const skillWeight = skill01 * skill01; // 0 → 0, 500 → 0.25, 999 → 1
+  const skillWeight = Math.pow(skill01, SKILL_CURVE_EXP); // 0 → 0, 500 → 0.66, 999 → 1
 
   // 기본 도달: 팔로워의 일정 비율 + 최소 노출
   const reach = 20 + account.followers * 0.05;
-  const skillMul = 0.3 + skillWeight * 2.2; // 스킬 0 → 0.3배, 500 → 0.85배, 999 → 2.5배
+  const skillMul = 0.3 + skillWeight * 2.2; // 스킬 0 → 0.3배, 500 → 1.75배, 999 → 2.5배
 
   // 오늘의 인기 카테고리면 도달·성과가 크게 상승
   const trendMul = isTrending(state.day, attr) ? TRENDING_MULTIPLIER : 1;

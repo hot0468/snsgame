@@ -3,8 +3,11 @@
  * 판정/게시는 systems/drunk가 한다. 여기선 콘텐츠·수치만.
  */
 
-/** 심야 진입 시 취할 확률(취중 트윗 팝업 예약). */
-export const DRUNK_CHANCE = 0.15;
+/** 심야 진입 시 취할 확률(취중 트윗 팝업 예약). 심야는 매일 오므로 이 값이 곧 '며칠에 한 번' 빈도다. */
+export const DRUNK_CHANCE = 0.04;
+
+/** 이 정신력 미만일 때만 취한다(정신력이 낮을수록 홧술 → 취중 트윗). 이상이면 아예 발동 안 함. */
+export const DRUNK_MENTAL_MAX = 50;
 
 /** 취중 트윗 팔로워 분산 크기(대박 +범위 / 흑역사 −범위×0.7). */
 export const DRUNK_VARIANCE = { min: 200, max: 1500 };

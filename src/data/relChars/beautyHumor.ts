@@ -40,6 +40,7 @@ export const CHARS_BEAUTY_HUMOR: RelationshipChar[] = [
   {
     id: "rel_beauty_m",
     name: "시헌",
+    nickname: "스킨케어덕후",
     gender: "m",
     attribute: "beauty",
     likedKind: "plain",
@@ -138,6 +139,7 @@ export const CHARS_BEAUTY_HUMOR: RelationshipChar[] = [
   {
     id: "rel_beauty_f",
     name: "채원",
+    nickname: "발색장인",
     gender: "f",
     attribute: "beauty",
     likedKind: "provoke",
@@ -236,6 +238,7 @@ export const CHARS_BEAUTY_HUMOR: RelationshipChar[] = [
   {
     id: "rel_humor_m",
     name: "우진",
+    nickname: "드립장인",
     gender: "m",
     attribute: "humor",
     likedKind: "provoke",
@@ -334,6 +337,7 @@ export const CHARS_BEAUTY_HUMOR: RelationshipChar[] = [
   {
     id: "rel_humor_f",
     name: "예린",
+    nickname: "짤부자",
     gender: "f",
     attribute: "humor",
     likedKind: "plain",

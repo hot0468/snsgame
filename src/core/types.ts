@@ -197,6 +197,11 @@ export interface Tweet {
   siteLink?: SiteLinkId;
   /** 굿즈 공동구매 모집 트윗이면 그 정보('공구 참여하기' 버튼 노출). joined면 참여 완료 */
   groupBuy?: { itemId: string; price: number; joined?: boolean };
+  /**
+   * 창작 트윗이면 그 종류(1차=original / 2차=fan). 있으면 무조건 미디어(그림) 형태로 게시되고,
+   * 이미지는 창작 전용 풀(assets/creation/)에서 붙는다(systems/mediaImages.ts의 pickCreationImage).
+   */
+  creation?: "original" | "fan";
 }
 
 /**
@@ -323,6 +328,11 @@ export interface DMThread {
   /** 취업스터디 모임 가입 권유 스레드인지(불합격 결과 트윗 누적 시 유입, 전연령). ui가 가입 버튼을 렌더한다 */
   study?: boolean;
   /**
+   * 사기/피싱 접선 스레드인지(코인 리딩방·다단계 등, 이스터에그 좋아요로 유입).
+   * 이런 상대는 로맨스/친구가 아니라 사기꾼이므로 오프라인 만남 제안(maybePropose)을 하지 않는다.
+   */
+  scam?: boolean;
+  /**
    * 다트 핀 글 작성자에게 쪽지를 보내 받은 도움 스레드인지, 그 원본 글 id.
    * 같은 글에 중복 쪽지를 막는 마커다(systems/dartpin.hasDartpinAuthorDM). 렌더는 일반 대화와 동일.
    */
@@ -371,6 +381,8 @@ export interface KakaoThread {
   invite?: KakaoInvite;
   /** 대부업체의 대출 제안이 담긴 카톡이면 그 내용 */
   loanOffer?: KakaoLoanOffer;
+  /** 기본 답장 대신 발신자가 지정한 답장 문구(단계별 독촉 등). 없으면 기본 문구 사용. */
+  reply?: { me: string; them: string; label?: string };
 }
 
 /** 업무 메신저("너아무튼온") 업무 요청 메시지(재직 중 평일 저녁·심야·주말에 도착) */
@@ -424,6 +436,8 @@ export interface Appointment {
   partnerName?: string;
   /** 관계 캐릭터와의 만남 약속일 때, 그 캐릭터 id(도래 시 resolveMeet 대상). 있으면 관계 만남으로 처리한다. */
   charId?: string;
+  /** 카톡에서 내가 제안 → 상대가 수락해 확정된 만남인지. 확정이면 당일 무조건 성사(바람맞음 없음). */
+  confirmed?: boolean;
   attribute?: AttributeId;
   /** 행사 약속의 특별 진행 종류(예: 코믹콘) */
   variant?: EventVariant;
@@ -545,6 +559,8 @@ export interface PlayerAccount {
    * 구세이브엔 없으므로 save.sanitize가 `[]`로 채운다.
    */
   tchins: string[];
+  /** 트친 핸들 → 계정명. 카톡·일정 등 표시용(트친은 핸들만 저장하므로 이름을 따로 기억한다). 구세이브엔 없어 `{}`. */
+  tchinNames: Record<string, string>;
   /** 트친 성사용 상호작용 카운터(핸들 → 누적 횟수). 구세이브엔 없어 sanitize가 `{}`로 채운다. */
   tchinProgress: Record<string, number>;
   /** 마지막으로 트친소(트친 소개) 트윗을 올린 날(day). 0이면 미사용. 주 1회 쿨다운 판정. */
@@ -561,6 +577,8 @@ export interface RelationshipProgress {
   affinity: number;
   stage: 0 | 1 | 2 | 3;
   bond: "none" | "friend" | "lover";
+  /** 만남 약속을 한 번이라도 성사한 적 있는지(카톡 '친구' 목록 노출 기준). 구세이브엔 없음. */
+  met?: boolean;
 }
 
 /** 투자 시장 상태(자산별 현재가·전일가·보유량) */
@@ -737,6 +755,13 @@ export interface PendingNews {
   distorted: boolean;
 }
 
+/** 진행 중인 재능마켓 외주 1건(GIG_JOBS의 id로 원본 스펙과 join) */
+export interface ActiveGig {
+  id: string;
+  progress: number;
+  dueDay: number;
+}
+
 export interface GameState {
   version: number;
 
@@ -787,6 +812,9 @@ export interface GameState {
   /** 달력 스케줄 */
   schedule: ScheduleEvent[];
 
+  /** 진행 중인 재능마켓 외주(수주 후 데드라인 안에 작업량을 채워야 하는 건들) */
+  activeGigs: ActiveGig[];
+
   /** 아르바이트 누적 횟수(할수록 급여 상승) */
   partTimeCount: number;
 
@@ -799,6 +827,10 @@ export interface GameState {
 
   /** 러닝크루 가입 여부('사람' 단위 — 계정 무관) */
   crewJoined: boolean;
+  /** 러닝크루 정기런 참석 누적 횟수(마일스톤 특별 이벤트 트리거). */
+  crewRunCount: number;
+  /** 그룹방 정기 모임 참석 누적 횟수(마일스톤 특별 이벤트 트리거). */
+  groupNightCount: number;
   /** 불합격 결과 트윗 누적 수(취업스터디 권유 게이트용, '사람' 단위) */
   rejectionTweets: number;
   /** 취업스터디 모임 가입 여부('사람' 단위) — 가입 후 매주 월요일 낮 정기 모임이 유지된다 */
@@ -825,6 +857,8 @@ export interface GameState {
   lingerieOffered: boolean;
   /** 애니덕(anime) 트윗 누적 작성 수 — 코스프레 촬영 제의 트리거용(성인 무관) */
   animeTweetsPosted: number;
+  /** 마지막 코스프레 촬영 제의가 온 날(day). 0=아직 없음. 제의 간 최소 쿨다운 판정용. */
+  lastCosplayDay: number;
   /** 유료 구독 채널 개설 여부 — 매월 구독 수익이 정산된다 */
   paidChannelJoined: boolean;
 
@@ -946,6 +980,12 @@ export interface GameState {
   lastIncomeSettleMonth: number;
   /** 마지막으로 채용공고를 연 날(day). 취업 시도는 하루 1회. -1이면 없음 */
   lastJobBoardDay: number;
+  /** 퇴사한 이전 직장명 목록(아직 잡플래닛 리뷰를 안 쓴 곳). 리뷰 1건당 무료 열람권 1장. */
+  pastEmployers: string[];
+  /** 잡플래닛 기업정보 무료 열람권(이전 직장 리뷰 작성으로 획득). */
+  jobplanetCredits: number;
+  /** 직플래닛에서 이미 정보를 열람한 업체명(영구 저장 — 재열람 무료). */
+  jobplanetViewed: string[];
 
   /** 진행 중인 논란 시나리오 id(있으면 강제 팝업). null이면 없음 */
   pendingControversy: string | null;
@@ -1069,4 +1109,9 @@ export interface GameState {
   achievements: string[];
   /** 달성 알림 대기 중인 도전과제 id 목록 — app이 토스트 후 비운다 */
   pendingAchievements: string[];
+
+  /** 획득한 스탯 마일스톤 id(`skill:tier`) — 영구, 재지급 방지용 claimed 집합 */
+  statMilestones: string[];
+  /** 마일스톤 달성 알림 대기 id 목록 — app이 토스트 후 비운다(pendingAchievements와 동일 패턴) */
+  pendingMilestones: string[];
 }

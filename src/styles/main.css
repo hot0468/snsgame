@@ -170,6 +170,90 @@ body {
   padding: 0;
   display: flex;
   gap: 1px;
+  transition: background 0.6s ease; /* 낮↔심야 앰비언트 전환을 부드럽게 */
+}
+
+/* 시간대 앰비언트: 심야엔 바탕화면을 밤 톤으로(가리는 창 사이 1px 틈·미가림 영역용) */
+.night .desktop {
+  background: linear-gradient(160deg, #0e1c38, #05091a);
+}
+/* 창이 데스크톱을 거의 다 덮으므로, 실제 '밤' 체감은 화면 위 비네트 오버레이로 준다.
+   가장자리만 어둡게(가운데는 투명 → 본문 가독성 유지), 클릭은 통과, 모달 레이어보다 아래. */
+.night::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  background: radial-gradient(ellipse 120% 92% at 50% 32%, transparent 42%, rgba(8, 14, 40, 0.4) 100%);
+  animation: nightFadeIn 0.6s ease;
+}
+@keyframes nightFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ── 상태 도크 날짜+슬롯 트래커 (한 줄 가로 정렬) ── */
+.status-day {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.status-day__num {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.status-day__date {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.status-day__slots {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto; /* 날짜 옆 오른쪽 끝으로 밀어 정렬 */
+}
+.status-day__slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(128, 128, 128, 0.12);
+}
+.status-day__slot.is-now {
+  color: #fff;
+  background: var(--accent);
+}
+.status-day--late .status-day__slot.is-now {
+  background: #3b4a86; /* 심야는 밤 블루 톤 */
+}
+.status-day__slot.is-done {
+  opacity: 0.4;
+}
+.status-day__slot-arrow {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+/* 해돋이 모달 며칠차 각인 */
+.dawn__day {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 2px 0 0;
 }
 
 .browser {
@@ -251,6 +335,12 @@ body {
   cursor: pointer;
   text-align: left;
   font-family: inherit;
+}
+
+/* 소지금 부족 등으로 못 고르는 활동(휴가) — 흐리게 + 클릭 불가 */
+.life-item--off {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .life-item:hover {
@@ -1459,6 +1549,7 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  gap: 2px;
 }
 
 .news-card__title {
@@ -1534,6 +1625,12 @@ body {
   font-size: 12px;
   color: var(--text-muted);
   flex-shrink: 0;
+}
+/* 네이버 뉴스처럼 언론사 앞에 옅은 중점(·) 구분자 */
+.news-row__source::before {
+  content: "·";
+  margin-right: 5px;
+  color: var(--border);
 }
 
 /* --- 하단 사이트 광고 띠(남의방·마켓걸리버·피망마켓) --- */
@@ -1709,6 +1806,10 @@ body {
 .taskbar__right {
   display: flex;
   align-items: center;
+}
+
+.taskbar__left,
+.taskbar__right {
   gap: 8px;
 }
 
@@ -1742,6 +1843,11 @@ body {
 }
 .taskbar-kakao__icon .icon {
   display: inline-flex;
+}
+/* 메모장 아이콘은 흰 배경(카카오 노랑 대신) */
+.taskbar-memo__icon {
+  background: #fff;
+  color: #333;
 }
 .taskbar-kakao__badge {
   position: absolute;
@@ -2556,6 +2662,14 @@ body {
 .event-choice--av > b {
   color: #e0247e;
 }
+/* 심야 약속이 있는 '남는다' 선택지 강조 */
+.event-choice--appt {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, rgba(80, 90, 240, 0.12), rgba(80, 90, 240, 0.06));
+}
+.event-choice--appt > b {
+  color: var(--accent);
+}
 
 .adult-warn__list {
   margin: 0;
@@ -3035,6 +3149,7 @@ body {
 /* --- 트윗 카드 --- */
 .tweet {
   display: flex;
+  align-items: flex-start; /* 프로필 사진을 트윗 상단에 맞춘다(트위터처럼) */
   gap: 12px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
@@ -3042,6 +3157,20 @@ body {
 
 .tweet:hover {
   background: rgba(15, 20, 25, 0.02);
+}
+
+/* 남의 트윗 프로필 사진 = 프로필 열기 버튼(외형은 아바타 그대로, 커서만 손) */
+.tweet__avatar-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  line-height: 0;
+  border-radius: 50%;
+}
+.tweet__avatar-btn:hover {
+  filter: brightness(0.92);
 }
 
 /* 클릭해서 상세로 들어갈 수 있는 트윗(내 타임라인) */
@@ -3167,6 +3296,15 @@ body {
 }
 
 .tweet__action--like:hover .tweet__action-icon {
+  color: var(--danger);
+  background: rgba(224, 36, 94, 0.12);
+}
+
+/* 좋아요를 누른 상태 — 하트를 붉게 채운다 */
+.tweet__action--like.tweet__action--active {
+  color: var(--danger);
+}
+.tweet__action--like.tweet__action--active .tweet__action-icon {
   color: var(--danger);
   background: rgba(224, 36, 94, 0.12);
 }
@@ -3346,6 +3484,13 @@ body {
   font-weight: 700;
   font-size: 12px;
   flex-shrink: 0;
+  cursor: pointer;
+}
+/* 이미 팔로우한 계정 — 흰 배경·테두리(트위터 '팔로잉' 룩) */
+.follow-row__btn--done {
+  background: #fff;
+  color: #0f1419;
+  border: 1px solid #cfd9de;
 }
 
 .trend-row,
@@ -3586,18 +3731,22 @@ body {
   color: var(--danger);
 }
 
+/* 후보 4카드를 가로로 펼치려면 모달이 넓어야 한다(기본 560px → 후보 픽커일 때만 확장). */
+.compose-modal {
+  width: min(900px, 100%);
+}
 /* 일반 트윗 성격 4카드 picker (긍정/부정 톤 대체) — 문구 + 라벨 + 질적 효과 힌트 */
 .compose-kind-cards {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 12px auto 2px;
-  max-width: 420px;
   text-align: left;
 }
 .compose-kind-card {
   display: block;
-  width: 100%;
+  flex: 1 1 190px;
+  min-width: 190px;
   text-align: left;
   padding: 10px 12px;
   border: 1px solid var(--border);
@@ -4352,6 +4501,93 @@ body {
   font-size: 13px;
   white-space: pre-line;
   line-height: 1.6;
+}
+
+/* 업무 메신저 채팅방(카톡 대화창) */
+.wmsg-room {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #b2c7d9; /* 카톡 대화창 배경 톤 */
+}
+.wmsg-room__head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+}
+.wmsg-room__back {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: #333;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+.wmsg-room__back:hover {
+  color: #000;
+}
+.wmsg-room__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+.wmsg-room__area {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.wmsg-room__date {
+  align-self: center;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.12);
+  color: #fff;
+  font-size: 11.5px;
+}
+.wmsg-room__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.wmsg-room__row .avatar {
+  border-radius: 13px;
+  flex: none;
+}
+.wmsg-room__bubble {
+  max-width: 78%;
+  padding: 9px 12px;
+  border-radius: 4px 14px 14px 14px;
+  background: #fff;
+  color: #1a1a1a;
+  font-size: 13.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.wmsg-room__foot {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  background: #b2c7d9; /* 위 채팅 영역과 동일 */
+  border-top: none;
+}
+.wmsg-room__done {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #aaa;
 }
 
 /* 카카오톡 메시지창(데스크톱 스타일) */
@@ -5109,7 +5345,7 @@ body {
   position: fixed;
   right: 300px;
   top: 96px;
-  width: 480px;
+  width: 620px;
   max-width: calc(100vw - 24px);
   max-height: 72vh;
   overflow-x: hidden;
@@ -5156,10 +5392,10 @@ body {
   text-transform: uppercase;
 }
 
-/* 세부 스탯 3열 배열 (스킬 11개 → 3열×4행) */
+/* 세부 스탯 2열 배열 (칭호 배지가 들어갈 자리를 확보하려 3열→2열, 팝오버 폭도 확대) */
 .detail-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px 10px;
 }
 .detail-row {
@@ -5198,6 +5434,18 @@ body {
   font-weight: 800;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
+}
+
+/* 스탯 마일스톤 칭호 배지. 2열 확대 그리드에서 칭호 전문이 보이도록 안 줄인다(bar가 대신 줄어듦). */
+.detail-row__badge {
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 8px;
+  background: var(--accent-grad);
+  color: #fff;
 }
 
 /* 음란(lewd)은 3열 그리드에서 빼 별도 전폭 행으로 분리하고 빨간색으로 강조한다 */
@@ -5282,6 +5530,18 @@ body {
   padding: 13px 28px;
   font-size: 15px;
   min-width: 110px;
+}
+
+/* 계정 관리 액션 버튼(이름변경·전환·삭제)만은 '사용 중' 칩과 같은 콤팩트 크기로 —
+   위 '크고 통통한 모달 버튼' 규칙이 계정 카드 버튼까지 키워 칩과 크기가 어긋나는 걸 되돌린다.
+   (이 규칙이 위보다 뒤·더 구체적이라 이긴다: 칩 오버라이드 .acct-actions .chip와 동일 치수) */
+.modal .acct-actions .btn:not(.btn--ghost),
+.modal .acct-actions .btn--ghost {
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 0;
+  border: 1px solid transparent; /* 칩의 1px 테두리와 높이를 정확히 맞춘다 */
 }
 
 .modal .btn:not(.btn--ghost):hover {
@@ -5569,6 +5829,62 @@ body {
   font-size: 15px;
   font-weight: 600;
   color: var(--sys);
+}
+/* 프메식 스탯바 묶음 — 변화한 핵심 스탯을 도크 바와 같은 색으로 보여준다 */
+.sys-notice__stats {
+  margin: 14px 0 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.sys-notice__statrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.sys-notice__statlabel {
+  flex: none;
+  width: 46px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 800;
+  color: #1b2333;
+}
+.sys-notice__statrow .bar {
+  flex: 1;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.sys-notice__statrow .bar__fill {
+  height: 100%;
+}
+.sys-notice__statval {
+  flex: none;
+  min-width: 30px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #1b2333;
+}
+.sys-notice__statbadge {
+  flex: none;
+  min-width: 40px;
+  text-align: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.sys-notice__statbadge--up {
+  color: #1a7f37;
+  background: #e7f6ec;
+}
+.sys-notice__statbadge--down {
+  color: #d1242f;
+  background: #fdecee;
 }
 .sys-notice__extra {
   margin: 6px 0 0;
@@ -6271,6 +6587,11 @@ body {
   padding: 16px 20px 28px;
 }
 
+/* 홈/성인 탭 바 — 공용 feed__tabs 위에 미디북스용 하단 여백만 얹는다 */
+.mb__tabs {
+  margin-bottom: 14px;
+}
+
 .mb__chips {
   display: flex;
   gap: 10px;
@@ -6461,6 +6782,13 @@ body {
 .mb-book__rating {
   font-size: 12px;
   color: #666;
+}
+
+/* 권당 감상료 라벨 — 평점 옆에 강조색으로 */
+.mb-book__price {
+  margin-left: 8px;
+  font-weight: 700;
+  color: var(--accent);
 }
 
 .mb-book__star {
@@ -6716,6 +7044,173 @@ body {
     align-self: center;
   }
 }
+
+/* ===== 직플래닛(잡플래닛 패러디) — 기업정보 열람(jobBoardModal) ===== */
+.jobplanet-open {
+  background: #00a4bd;
+  border: none;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 800;
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+.jobplanet-open:hover { background: #0091a8; }
+.jobplanet-logo { color: #00a4bd; font-weight: 900; }
+.jobplanet-review {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 14px;
+  background: var(--surface-2, rgba(148, 163, 184, 0.06));
+}
+.jobplanet-review__title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+.jobplanet-review__hint { font-size: 11.5px; font-weight: 400; color: var(--text-muted); }
+.jobplanet-review__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+}
+.jobplanet-list { display: flex; flex-direction: column; gap: 8px; }
+.jobplanet-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 11px 13px;
+}
+.jobplanet-card__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.jobplanet-card__name { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.jobplanet-card__company { font-size: 14.5px; font-weight: 800; }
+.jobplanet-card__tier {
+  font-size: 11px;
+  font-weight: 700;
+  color: #00a4bd;
+  border: 1px solid #00a4bd;
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.jobplanet-card__role { font-size: 12px; color: var(--text-muted); margin: 3px 0 9px; }
+.jobplanet-info__view { padding: 7px 14px; font-size: 12.5px; }
+.jobplanet-info__revealed { font-size: 13px; line-height: 1.6; }
+.jobplanet-info__revealed b { color: var(--accent); }
+.jobplanet-info__stats { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; }
+
+/* 직플래닛 브라우저 오버레이 사이트(잡플래닛 스타일) */
+.jp-site {
+  min-height: 100%;
+  overflow: auto;
+  background: #f4f6f5;
+  color: #1a1a1a;
+}
+/* 상단바(흰 배경 + 초록 로고 + 장식 메뉴) */
+.jp-nav {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 14px 24px;
+  background: #fff;
+  border-bottom: 1px solid #eaecec;
+}
+.jp-logo { font-size: 20px; font-weight: 900; color: #00c471; letter-spacing: -0.02em; flex: none; }
+.jp-menu { display: flex; gap: 20px; overflow: hidden; }
+.jp-menu__item { font-size: 13.5px; font-weight: 600; color: #444; white-space: nowrap; }
+.jp-nav__right { margin-left: auto; display: flex; align-items: center; gap: 12px; flex: none; }
+.jp-credits { font-size: 12px; font-weight: 700; color: #00a05c; }
+.jp-money { font-size: 12.5px; font-weight: 800; color: #1a1a1a; font-variant-numeric: tabular-nums; }
+.jp-close {
+  border: 1px solid #d5d9d7;
+  background: #fff;
+  color: #444;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.jp-close:hover { background: #f4f6f5; }
+/* 히어로 + 검색 */
+.jp-hero {
+  background: linear-gradient(180deg, #eafaf1, #f4f6f5);
+  padding: 44px 24px 40px;
+  text-align: center;
+}
+.jp-hero__title { font-size: 26px; font-weight: 900; color: #159c5b; margin: 0 0 22px; }
+.jp-search {
+  display: flex;
+  align-items: center;
+  max-width: 620px;
+  margin: 0 auto;
+  background: #fff;
+  border: 2px solid #00c471;
+  border-radius: 999px;
+  padding: 4px 4px 4px 20px;
+  box-shadow: 0 6px 20px rgba(0, 196, 113, 0.12);
+}
+.jp-search__input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 15px;
+  color: #1a1a1a;
+  padding: 12px 8px;
+}
+.jp-search__input::placeholder { color: #9a9a9a; }
+.jp-search__btn {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 999px;
+  background: #00c471;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.jp-search__btn:hover { background: #00b267; }
+.jp-empty {
+  padding: 30px 16px;
+  text-align: center;
+  color: #8a8a8a;
+  font-size: 13px;
+}
+.jp-clear {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: #00a05c;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.jobplanet-body { max-width: 720px; margin: 0 auto; padding: 18px 20px 28px; }
+.jobplanet-intro { font-size: 12.5px; color: #667; line-height: 1.6; margin: 0 0 14px; }
+.jobplanet-h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 900;
+  color: #1a1a1a;
+  margin: 18px 0 12px;
+}
+.jobplanet-h2__count { font-size: 12px; font-weight: 600; color: #8a94a3; }
+.jp-site .jobplanet-card { background: #fff; border-color: #eaecec; }
+.jp-site .jobplanet-card__tier { color: #00a05c; border-color: #00c471; }
+.jp-site .jobplanet-review { background: #fff; border-color: #eaecec; }
+.jp-site .jobplanet-info__revealed b { color: #159c5b; }
 
 .job-section {
   margin-top: 14px;
@@ -7029,43 +7524,105 @@ body {
 }
 
 /* ── 증권/코인 탭 ───────────────────────── */
-.stocks { background: var(--bg-window); min-height: 100%; }
-.stocks__bar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px; border-bottom: 1px solid var(--border);
-  position: sticky; top: 0; background: var(--bg-window); z-index: 2; flex-wrap: wrap; gap: 6px;
+/* ── 증권(토스증권 스타일) ─────────────────────────
+   토스 룩: 연회색 배경 + 흰 카드, 토스블루(#3182f6), 큼직한 볼드 숫자,
+   테두리 대신 부드러운 그림자, 넉넉한 여백. 한국식 상승=빨강/하락=파랑. */
+.stocks {
+  --toss-blue: #3182f6;
+  --toss-up: #f04452;
+  --toss-ink: #191f28;
+  --toss-gray: #8b95a1;
+  background: #f2f4f6;
+  min-height: 100%;
+  padding-bottom: 20px;
+  font-family: inherit;
 }
-.stocks__logo { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 18px; color: #1565c0; }
-.stocks__summary { display: flex; gap: 14px; font-size: 13px; font-weight: 700; color: var(--text-muted); }
-.stocks__hint { padding: 10px 16px 0; font-size: 13px; color: var(--text-muted); }
-.stocks__list { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; }
-.stock-row { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
-.stock-row__head { display: flex; align-items: flex-start; justify-content: space-between; }
-.stock-row__name { font-weight: 700; font-size: 15px; }
+.stocks__top {
+  padding: 14px 20px 10px;
+}
+.stocks__logo {
+  display: flex; align-items: center; gap: 6px;
+  font-weight: 800; font-size: 17px; color: var(--toss-blue);
+  letter-spacing: -0.02em;
+}
+/* 총자산 히어로 카드 */
+.stocks__hero {
+  margin: 0 16px 8px;
+  padding: 22px 22px 20px;
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 2px 10px rgba(24, 31, 40, 0.05);
+}
+.stocks__hero-label { font-size: 14px; font-weight: 700; color: var(--toss-gray); }
+.stocks__hero-total {
+  margin-top: 6px;
+  font-size: 30px; font-weight: 800; color: var(--toss-ink);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.stocks__hero-sub {
+  margin-top: 12px;
+  display: flex; align-items: center; gap: 7px;
+  font-size: 13px; font-weight: 600; color: var(--toss-gray);
+}
+.stocks__hero-dot { color: #d1d6db; }
+.stocks__hint { padding: 6px 24px 4px; font-size: 12.5px; color: var(--toss-gray); }
+.stocks__list { display: flex; flex-direction: column; gap: 10px; padding: 10px 16px 0; }
+
+.stock-row {
+  background: #fff;
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 10px rgba(24, 31, 40, 0.05);
+}
+.stock-row__main { display: flex; align-items: center; gap: 12px; }
+/* 원형 종목 아이콘(첫 글자) */
+.stock-row__icon {
+  flex: none;
+  width: 42px; height: 42px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; font-weight: 800; color: #fff;
+}
+.stock-row__icon--stock { background: linear-gradient(135deg, #4593fc, #3182f6); }
+.stock-row__icon--coin { background: linear-gradient(135deg, #ffb340, #ff9500); }
+.stock-row__info { flex: 1; min-width: 0; }
+.stock-row__name-line { display: flex; align-items: center; gap: 6px; }
+.stock-row__name {
+  font-weight: 700; font-size: 15px; color: var(--toss-ink);
+  letter-spacing: -0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .stock-row__tag {
-  margin-left: 6px; font-size: 10.5px; font-weight: 700; padding: 2px 6px; border-radius: 999px; color: #fff;
+  flex: none;
+  font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px;
 }
-.stock-row__tag--stock { background: #1565c0; }
-.stock-row__tag--coin { background: #f59e0b; }
-.stock-row__price { text-align: right; }
-.stock-row__now { font-weight: 800; font-size: 15px; }
-.stock-row__chg { font-size: 12.5px; font-weight: 700; }
-.stock-row__chg--up { color: #e53935; }
-.stock-row__chg--down { color: #1e88e5; }
-.stock-row__chg--flat { color: var(--text-muted); }
-.stock-row__foot {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  margin-top: 10px; flex-wrap: wrap;
+.stock-row__tag--stock { background: #e8f2ff; color: var(--toss-blue); }
+.stock-row__tag--coin { background: #fff3e0; color: #f59000; }
+.stock-row__hold { margin-top: 3px; font-size: 12.5px; color: var(--toss-gray); }
+.stock-row__price { text-align: right; flex: none; }
+.stock-row__now {
+  font-weight: 800; font-size: 15px; color: var(--toss-ink);
+  font-variant-numeric: tabular-nums;
 }
-.stock-row__hold { font-size: 12.5px; color: var(--text-muted); }
-.stock-row__btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.stock-row__chg { margin-top: 2px; font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stock-row__chg--up { color: var(--toss-up); }
+.stock-row__chg--down { color: var(--toss-blue); }
+.stock-row__chg--flat { color: var(--toss-gray); }
+
+.stock-row__btns {
+  display: flex; gap: 7px; margin-top: 13px;
+}
 .stock-btn {
-  border: 1px solid var(--border); background: var(--bg-window);
-  border-radius: 8px; padding: 6px 10px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  flex: 1;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 0; font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: filter 0.12s;
 }
-.stock-btn--buy { color: #e53935; }
-.stock-btn--sell { color: #1e88e5; }
-.stock-btn:hover { background: var(--bg-panel); }
+.stock-btn--buy { background: #fdecee; color: var(--toss-up); }
+.stock-btn--sell { background: #e8f2ff; color: var(--toss-blue); }
+.stock-btn:hover { filter: brightness(0.96); }
+.stock-btn:active { filter: brightness(0.92); }
 
 /* ── 팬 후원 배너 ──────────────────────── */
 .dm-donation {
@@ -8790,6 +9347,366 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
 }
 .onet-leave:hover { background: #f2f6fb; }
 
+/* ===== 이비에듀 — 클래스101+ 스타일 구독형 강의 사이트(ebs.ts) ===== */
+.eb-site {
+  background: #fff;
+  color: #1a1a1a;
+  font-size: 14px;
+}
+/* 상단바 */
+.eb-topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 22px;
+  border-bottom: 1px solid #ececec;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 2;
+}
+.eb-brand { display: flex; align-items: center; gap: 6px; flex: none; }
+.eb-logo { font-size: 19px; font-weight: 900; letter-spacing: -0.02em; color: #111; }
+.eb-logo__plus { font-size: 19px; font-weight: 900; color: #ff5a1f; margin-left: -3px; }
+.eb-brand__pill {
+  font-size: 13px;
+  font-weight: 800;
+  color: #111;
+  padding: 3px 8px;
+}
+.eb-search {
+  flex: 1;
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: #f4f4f5;
+  color: #9a9a9a;
+}
+.eb-search__ico { color: #9a9a9a; flex: none; }
+.eb-search__ph { font-size: 13px; }
+.eb-topbar__right { margin-left: auto; display: flex; align-items: center; gap: 12px; flex: none; }
+.eb-money { font-size: 13px; font-weight: 800; color: #ff5a1f; font-variant-numeric: tabular-nums; }
+.eb-close {
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #444;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 7px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.eb-close:hover { background: #f4f4f5; }
+/* 카테고리 칩 */
+.eb-cats {
+  display: flex;
+  gap: 20px;
+  padding: 11px 22px;
+  border-bottom: 1px solid #ececec;
+  overflow-x: auto;
+}
+.eb-cat { font-size: 13.5px; font-weight: 600; color: #8a8a8a; white-space: nowrap; }
+.eb-cat--on { color: #111; font-weight: 800; }
+/* 본문 */
+.eb-body { max-width: 1000px; margin: 0 auto; padding: 20px 22px 30px; }
+/* 히어로 */
+.eb-hero {
+  border-radius: 14px;
+  padding: 26px 24px;
+  margin-bottom: 26px;
+  background: linear-gradient(120deg, #fff1ea, #ffe6f0);
+}
+.eb-hero__eyebrow { font-size: 13px; font-weight: 800; color: #ff5a1f; margin-bottom: 6px; }
+.eb-hero__title { font-size: 22px; font-weight: 900; color: #111; margin: 0 0 8px; }
+.eb-hero__sub { font-size: 13px; color: #555; line-height: 1.6; margin: 0 0 16px; max-width: 620px; }
+.eb-hero__cta {
+  border: none;
+  background: #ff5a1f;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 11px 22px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.eb-hero__cta:hover { background: #ec4d15; }
+/* 섹션 제목 */
+.eb-h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 900;
+  color: #111;
+  margin: 26px 0 14px;
+}
+.eb-h2__count { font-size: 12.5px; font-weight: 600; color: #9a9a9a; margin-left: auto; }
+/* 카드 그리드 */
+.eb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 18px 16px;
+}
+.eb-card { display: flex; flex-direction: column; cursor: default; }
+.eb-card__thumb {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: 14px;
+}
+.eb-card__thumb-title {
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.25;
+  color: #fff;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.28);
+  word-break: keep-all;
+}
+.eb-card__rank {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  font-size: 30px;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  line-height: 1;
+}
+.eb-card__badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 10px;
+  font-weight: 900;
+  color: #1a1a1a;
+  background: #e9ff5a;
+  padding: 3px 7px;
+  border-radius: 5px;
+}
+.eb-card__body { padding: 10px 2px 0; display: flex; flex-direction: column; gap: 4px; }
+.eb-card__title { font-size: 14px; font-weight: 800; color: #111; line-height: 1.35; word-break: keep-all; }
+.eb-card__inst { font-size: 12px; color: #8a8a8a; }
+.eb-card__effect { font-size: 12px; font-weight: 700; color: #ff5a1f; }
+.eb-card__foot { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.eb-card__price { font-size: 13px; font-weight: 800; color: #111; font-variant-numeric: tabular-nums; }
+.eb-card__buy {
+  margin-left: auto;
+  border: none;
+  background: #111;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 800;
+  padding: 7px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  flex: none;
+}
+.eb-card__buy:hover { background: #333; }
+.eb-card__buy--off { background: #cfcfcf; cursor: not-allowed; }
+.eb-card__buy--off:hover { background: #cfcfcf; }
+.eb-card__reason { font-size: 11px; color: #c0392b; margin-top: 3px; }
+.eb-foot {
+  margin-top: 30px;
+  padding-top: 16px;
+  border-top: 1px solid #ececec;
+  font-size: 11px;
+  color: #b0b0b0;
+  line-height: 1.7;
+  text-align: center;
+}
+
+/* ===== 끄몽(재능마켓, gig) — 크몽(kmong) 랜딩 스타일 ===== */
+.km-site { background: #fff; color: #16181d; font-size: 14px; }
+/* 상단 네비 */
+.km-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 24px;
+  border-bottom: 1px solid #eee;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 3;
+}
+.km-logo { font-size: 22px; font-weight: 900; letter-spacing: -0.03em; color: #ff5b3a; flex: none; }
+.km-logo__dot { color: #16181d; }
+.km-nav__search {
+  flex: 1;
+  max-width: 440px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1.5px solid #16181d;
+  color: #9aa0a6;
+  font-size: 13px;
+  font-weight: 500;
+}
+.km-nav__search svg { color: #16181d; flex: none; }
+.km-nav__right { margin-left: auto; display: flex; align-items: center; gap: 12px; flex: none; }
+.km-money { font-size: 13.5px; font-weight: 800; color: #ff5b3a; font-variant-numeric: tabular-nums; }
+.km-close {
+  border: 1px solid #dcdde0;
+  background: #fff;
+  color: #444;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.km-close:hover { background: #f5f5f6; }
+/* 카테고리 원형 아이콘 행 */
+.km-cats {
+  display: flex;
+  gap: 22px;
+  padding: 16px 24px;
+  overflow-x: auto;
+  border-bottom: 1px solid #f0f0f0;
+}
+.km-cat { display: flex; flex-direction: column; align-items: center; gap: 7px; flex: none; width: 54px; }
+.km-cat__ico {
+  width: 50px;
+  height: 50px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  background: #f4f5f7;
+}
+.km-cat__label { font-size: 11.5px; font-weight: 600; color: #56595f; white-space: nowrap; }
+.km-cat--on .km-cat__ico { background: #ffece7; }
+.km-cat--on .km-cat__label { color: #16181d; font-weight: 800; }
+/* 본문 */
+.km-body { max-width: 1040px; margin: 0 auto; padding: 22px 24px 34px; }
+/* 히어로 */
+.km-hero {
+  border-radius: 16px;
+  padding: 34px 30px;
+  margin-bottom: 8px;
+  background: linear-gradient(115deg, #fff0ec 0%, #ffe9f1 55%, #eef0ff 100%);
+}
+.km-hero__title { font-size: 27px; font-weight: 900; line-height: 1.28; letter-spacing: -0.02em; color: #16181d; }
+.km-hero__sub { margin-top: 12px; font-size: 13.5px; line-height: 1.65; color: #56595f; max-width: 660px; }
+/* 섹션 헤더 */
+.km-sec-head { display: flex; align-items: baseline; gap: 10px; margin: 28px 2px 14px; }
+.km-sec-head__t { font-size: 18px; font-weight: 900; color: #16181d; letter-spacing: -0.01em; }
+.km-sec-head__c { font-size: 12.5px; font-weight: 800; color: #ff5b3a; }
+.km-empty {
+  border: 1px dashed #dcdde0;
+  border-radius: 14px;
+  padding: 30px;
+  text-align: center;
+  color: #9aa0a6;
+  font-size: 13px;
+}
+/* 카드 그리드 */
+.km-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 22px 18px;
+}
+.km-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #eef0f2;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.km-card:hover { box-shadow: 0 8px 22px rgba(20, 24, 29, 0.1); transform: translateY(-2px); }
+.km-card__thumb {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  display: grid;
+  place-items: center;
+}
+.km-card__thumb-ico { font-size: 40px; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.18)); }
+.km-card__badge {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.42);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.km-card__info { padding: 12px 13px 14px; display: flex; flex-direction: column; gap: 7px; }
+.km-card__seller { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #8a8f96; }
+.km-card__avatar { width: 17px; height: 17px; border-radius: 50%; background: #d9dbe0; flex: none; }
+.km-card__title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #16181d;
+  line-height: 1.4;
+  word-break: keep-all;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 38px;
+}
+.km-card__rate { font-size: 12px; font-weight: 700; }
+.km-card__rate--good { color: #12b886; }
+.km-card__rate--bad { color: #e8590c; }
+.km-card__rate .km-star { color: #ffb400; }
+.km-card__tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.km-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #56595f;
+  background: #f2f3f5;
+  padding: 3px 7px;
+  border-radius: 6px;
+}
+.km-tag--warn { color: #e03131; background: #fff0f0; }
+/* 진행 바(진행 중 카드) */
+.km-bar { height: 7px; border-radius: 999px; background: #eef0f2; overflow: hidden; }
+.km-bar__fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #ff8a5b, #ff5b3a); }
+.km-prog { font-size: 11.5px; font-weight: 700; color: #56595f; }
+/* 가격 + 버튼 줄 */
+.km-card__pricerow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 3px; }
+.km-price { font-size: 16px; font-weight: 900; color: #16181d; font-variant-numeric: tabular-nums; }
+.km-price__won { font-size: 12px; font-weight: 700; margin-left: 1px; }
+.km-dleft { font-size: 13px; font-weight: 800; color: #16181d; }
+.km-dleft--urgent { color: #e03131; }
+.km-card__buy {
+  border: none;
+  background: #ff5b3a;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 800;
+  padding: 8px 16px;
+  border-radius: 9px;
+  cursor: pointer;
+  flex: none;
+}
+.km-card__buy:hover { background: #ef4620; }
+.km-card__buy--off { background: #d3d5d9; color: #fff; cursor: not-allowed; }
+.km-card__buy--off:hover { background: #d3d5d9; }
+.km-card__reason { font-size: 11px; font-weight: 600; color: #e03131; }
+/* 푸터 */
+.km-foot {
+  margin-top: 34px;
+  padding-top: 18px;
+  border-top: 1px solid #eef0f2;
+  font-size: 11px;
+  color: #b0b4ba;
+  line-height: 1.7;
+  text-align: center;
+}
+
 /* ===== 터커 연구실 — 체포 속보 배너(labModal) ===== */
 /* 5회째 출근 결과에만 붙는다. 출근 묘사와 확실히 분리돼 보여야 조용히 지나가지 않는다. */
 .lab-arrest {
@@ -9771,8 +10688,28 @@ button.np-menu__item:hover {
   color: #8a8f97;
 }
 
-.dp__mast-login {
+/* 장식용 검색창(네이트 판 상단 검색 느낌) */
+.dp__search {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(220px, 40%);
+  padding: 5px 10px;
+  border: 1.5px solid #444b56;
+  border-radius: 3px;
+  background: #fff;
+}
+.dp__search-ph {
+  flex: 1;
+  font-size: 12px;
+  color: #9aa0a8;
+}
+.dp__search-ico {
+  font-size: 12px;
+}
+
+.dp__mast-login {
   font-size: 11.5px;
   color: #6b7280;
 }
@@ -9804,26 +10741,28 @@ button.np-menu__item:hover {
   padding: 14px 16px 24px;
 }
 
+/* 카테고리 탭 바 — 네이트 판 실시간 인기톡 스타일(밑줄 활성) */
 .dp__tabs {
   display: flex;
-  gap: 4px;
-  margin-bottom: 12px;
+  gap: 2px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid #d8dbe0;
   overflow-x: auto;
 }
 
 .dp__tab {
-  padding: 5px 11px;
-  font-size: 12px;
+  padding: 8px 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #6b7280;
-  background: #e6e8eb;
-  border-radius: 999px;
   white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
 }
 
 .dp__tab--on {
-  background: #444b56;
-  color: #fff;
+  color: #e8283c;
+  border-bottom-color: #e8283c;
 }
 
 .dp__board-head {
@@ -9845,80 +10784,71 @@ button.np-menu__item:hover {
   margin-left: auto;
 }
 
-/* ===== 목록 테이블(촌스러운 게시판 톤) ===== */
-.dp-table {
-  width: 100%;
-  border-collapse: collapse;
+/* ===== 목록(네이트 판 실시간 인기톡 스타일 — 제목 + 메타 스택) ===== */
+.dp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   background: #fff;
   border-top: 2px solid #444b56;
   border-bottom: 1px solid #d8dbe0;
 }
 
-.dp-th {
-  padding: 8px 6px;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #5b6270;
-  background: #f7f8f9;
-  border-bottom: 1px solid #d8dbe0;
-}
-
-.dp-th--no { width: 46px; }
-.dp-th--author { width: 92px; }
-.dp-th--num { width: 62px; }
-
-.dp-row {
+.dp-item {
   cursor: pointer;
+  padding: 12px 14px;
   border-bottom: 1px solid #eceef1;
 }
 
-.dp-row:hover {
+.dp-item:last-child {
+  border-bottom: 0;
+}
+
+.dp-item:hover {
   background: #fafbfc;
 }
 
-.dp-row td {
-  padding: 9px 6px;
-  vertical-align: middle;
+.dp-item__title {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
 }
 
-.dp-row__no {
-  text-align: center;
+.dp-item__link {
+  font-size: 14px;
+  font-weight: 500;
+  color: #2b2f36;
+  line-height: 1.4;
+}
+
+.dp-item:hover .dp-item__link {
+  text-decoration: underline;
+}
+
+.dp-item__cnt {
+  font-size: 12px;
+  font-weight: 700;
+  color: #e8283c;
+}
+
+.dp-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin-top: 6px;
   font-size: 11.5px;
   color: #9aa0a8;
   font-variant-numeric: tabular-nums;
 }
 
-.dp-row__title {
-  padding-left: 10px !important;
-}
-
-.dp-row__link {
-  font-size: 13px;
-  color: #2b4b8f;
-}
-
-.dp-row:hover .dp-row__link {
-  text-decoration: underline;
-}
-
-.dp-row__cnt {
-  margin-left: 5px;
-  font-size: 11.5px;
+.dp-item__author {
   font-weight: 700;
-  color: #e8283c;
-}
-
-.dp-row__author {
-  text-align: center;
-  font-size: 11.5px;
   color: #6b7280;
 }
 
-.dp-row__num {
-  text-align: center;
-  font-size: 11.5px;
-  color: #8a8f97;
-  font-variant-numeric: tabular-nums;
+.dp-item__sep {
+  color: #cfd3d9;
 }
 
 .dp-empty {
@@ -11859,7 +12789,9 @@ button.np-menu__item:hover {
 
 /* ===================== 내 트윗이 기사화(newsModal) ===================== */
 /* 신문 마스트헤드 톤 — drunk-modal__tweet(카드 틀) 변수를 재사용하고 상단에 언론사 라벨을 얹는다. */
-.news-card {
+/* ⚠️ 클래스명은 `.newsmodal-card*` — 포털 뉴스란의 `.news-card`(1439행)와 이름이 겹치면
+   나중 정의인 이쪽이 포털 카드를 덮어 회색 박스가 씌워진다(실제로 그랬음). 분리 유지. */
+.newsmodal-card {
   padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -11867,7 +12799,7 @@ button.np-menu__item:hover {
   margin-bottom: 16px;
 }
 
-.news-card__outlet {
+.newsmodal-card__outlet {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -11875,7 +12807,7 @@ button.np-menu__item:hover {
   margin-bottom: 4px;
 }
 
-.news-card__headline {
+.newsmodal-card__headline {
   font-size: 15.5px;
   font-weight: 700;
   line-height: 1.4;
@@ -11883,7 +12815,7 @@ button.np-menu__item:hover {
   margin-bottom: 10px;
 }
 
-.news-card__quote {
+.newsmodal-card__quote {
   margin: 0;
   padding: 8px 10px;
   border-left: 3px solid var(--border);

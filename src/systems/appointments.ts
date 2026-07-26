@@ -2,6 +2,8 @@ import type { Appointment, AttributeId, GameState } from "@/core/types";
 import { MORNING_SLOT, LATE_SLOT, SLOTS_PER_DAY, SLOT_LABELS, getActiveAccount } from "@/core/state";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
+import { applyEffect } from "./events";
+import { CREW_MILESTONES, GROUP_NIGHT_MILESTONES, type MeetMilestone } from "@/data/regularMeetEvents";
 import { pushKakao } from "./kakao";
 import { ownedCount } from "./shop";
 import { clampAction, clampResource, clampSkill, gainSkill, skillTo100 } from "./stats";
@@ -86,6 +88,19 @@ export function scheduleNextCrewRun(state: GameState): void {
   });
 }
 
+/** 참석 누적 횟수가 마일스톤과 맞으면 특별 이벤트 효과를 적용하고 결과에 덧붙일 문구를 돌려준다(없으면 ""). */
+function meetMilestoneBonus(
+  state: GameState,
+  milestones: MeetMilestone[],
+  count: number,
+): string {
+  const m = milestones.find((x) => x.count === count);
+  if (!m) return "";
+  applyEffect(state, m.effect);
+  addSchedule(state, `특별 이벤트 (정기모임 ${count}회)`, "sns");
+  return `\n\n🎉 [특별 이벤트] ${m.message}`;
+}
+
 function resolveCrewRun(state: GameState, go: boolean): string {
   // 정기 일정이므로 결과와 무관하게 다음 주를 다시 잡는다
   scheduleNextCrewRun(state);
@@ -104,6 +119,9 @@ function resolveCrewRun(state: GameState, go: boolean): string {
   const delta = randInt(3, 9);
   changeFollowers(state, delta);
   addSchedule(state, "러닝크루 정기런", "offline");
+  // 참석 누적 → 마일스톤 특별 이벤트(있으면 보상·문구 추가).
+  state.crewRunCount += 1;
+  const bonus = meetMilestoneBonus(state, CREW_MILESTONES, state.crewRunCount);
   advanceTime(state, 1);
   return (
     "약속 시간에 맞춰 집결지에 나가니 크루원들이 반갑게 맞아주었다. 가볍게 몸을 풀고 다 함께 강변을 " +
@@ -114,7 +132,8 @@ function resolveCrewRun(state: GameState, go: boolean): string {
     "결승 지점에 도착했을 땐 다들 숨을 헐떡이면서도 서로를 보며 웃음이 터졌다. 함께 스트레칭을 하고 " +
     "가볍게 음료를 나눠 마시며 도란도란 이야기를 나누는 시간이 오늘 러닝의 진짜 보상 같았다. 땀은 " +
     "뻘뻘 났지만 몸도 마음도 더없이 개운하다. 오늘 만난 크루원 몇몇이 내 계정을 팔로우해줬다. " +
-    `(팔로워 +${delta})`
+    `(팔로워 +${delta})` +
+    bonus
   );
 }
 
@@ -169,6 +188,9 @@ function resolveGroupNight(state: GameState, go: boolean): string {
   const delta = randInt(12, 28);
   changeFollowers(state, delta);
   addSchedule(state, "그룹방 정기 모임", "offline");
+  // 참석 누적 → 마일스톤 특별 이벤트(있으면 보상·문구 추가).
+  state.groupNightCount += 1;
+  const bonus = meetMilestoneBonus(state, GROUP_NIGHT_MILESTONES, state.groupNightCount);
   advanceTime(state, 1);
   return (
     "토 심야, 단톡에 찍힌 주소는 외곽 모텔 한 동이었다. 문을 열자 이미 서넛이 술을 나눠 마시며 " +
@@ -177,7 +199,8 @@ function resolveGroupNight(state: GameState, go: boolean): string {
     "정액과 땀이 섞인 공기가 방을 채울 무렵, 마지막 사정이 끝나고 나서야 물티슈 통이 돌았다. " +
     "촬영은 합의된 각도만, 얼굴은 가린 채. 단톡에는 ‘오늘 호흡 좋았음. 다음 토 심야 동일’ " +
     "한 줄만 남았다. 몸은 무거웠지만 성인 피드 알림은 유난히 시끄러웠다. " +
-    `(팔로워 +${delta})`
+    `(팔로워 +${delta})` +
+    bonus
   );
 }
 

@@ -110,12 +110,14 @@ export interface MeetResult {
 /**
  * 카톡 만남 약속을 성사 판정한다(ui가 약속 발동 시 호출).
  * 성사면 +20, 실패(바람맞음)면 +3. 문구는 ui가 success로 분기한다.
+ * forceSuccess=true(내가 제안 → 상대가 수락한 확정 약속)면 판정 없이 무조건 성사.
  */
-export function resolveMeet(state: GameState, charId: string): MeetResult {
+export function resolveMeet(state: GameState, charId: string, forceSuccess = false): MeetResult {
   const rel = relOf(getActiveAccount(state), charId);
-  const success = Math.random() < meetSuccessChance(state);
+  const success = forceSuccess || Math.random() < meetSuccessChance(state);
   const gain = success ? AFFINITY_PER_MEET : AFFINITY_MEET_FAIL;
   rel.affinity += gain;
+  if (success) rel.met = true; // 성사한 만남만 카톡 '친구' 자격이 된다(바람맞음은 제외)
   return { success, gain, pending: pendingArc(rel) };
 }
 
@@ -143,17 +145,16 @@ export function advanceRelStage(state: GameState, charId: string, choiceIndex: n
   if (arc === 2) {
     // ⚠️ giftId는 REL_GIFTS에 정의돼 있어야 서랍장/판매에서 해석된다(resolveItem 함정).
     state.ownedItems.push(char.giftId);
-    addSchedule(state, `${char.name}의 선물이 도착했다`, "system");
+    addSchedule(state, `${char.nickname}의 선물이 도착했다`, "system");
   }
-  addSchedule(state, `${char.name} — 관계 이벤트`, "sns");
+  addSchedule(state, `${char.nickname} — 관계 이벤트`, "sns");
 
   return dynamic || (choice?.result ?? "");
 }
 
 /**
- * 카톡 친구 목록 — 해금된 계열이면서 **이미 연결된(호감도>0) 캐릭터만** 노출한다.
- * 호감도는 매칭 트윗(+8)이나 만남(+20)으로만 쌓이므로, 아무 상호작용도 없는 낯선
- * 로스터 전원이 목록을 채우던 문제를 막는다(빈 목록 안내 "트윗으로 호감도를 쌓아보세요"와 정합).
+ * 카톡 목록에 잡히는 관계 캐릭터 풀 — 해금된 계열이면서 **이미 연결된(호감도>0)** 캐릭터.
+ * ui는 이 풀을 met(만남 성사) 여부로 갈라 '친구'(만난 사람)와 '새로운 인연'(아직 안 만남)으로 나눈다.
  * (기존 시스템 카톡(집주인·월급 토스트)과는 별개 목록.)
  */
 export function relCharsInKakao(state: GameState): RelationshipChar[] {
@@ -163,7 +164,10 @@ export function relCharsInKakao(state: GameState): RelationshipChar[] {
   );
 }
 
-/** 카톡 목록에 표시할 안 읽은 관계 이벤트가 하나라도 있는지(작업표시줄 뱃지용) */
+/** 카톡 목록에 표시할 안 읽은 관계 이벤트가 하나라도 있는지(작업표시줄 뱃지용).
+ *  관계 이벤트는 '만난(met)' 캐릭터에게만 열리므로 뱃지도 met 기준으로 판정한다(카톡 새 이벤트 섹션과 정합). */
 export function hasPendingRelEvent(state: GameState): boolean {
-  return relCharsInKakao(state).some((c) => relPendingArc(state, c.id) !== null);
+  return relCharsInKakao(state).some(
+    (c) => relStateOf(state, c.id).met && relPendingArc(state, c.id) !== null,
+  );
 }

@@ -5,10 +5,11 @@ import { FOLLOWER_GOAL, getActiveAccount, isMentalLow, isSuspended, visibleTimel
 import { canWatchAd } from "@/systems/ads";
 import { claimAdReward, ensureAdTweetsSeeded, unlockAppTab } from "@/systems/adTweets";
 import { unreadDMCount } from "@/systems/dm";
-import { followingFeedTweets } from "@/systems/exploreSystem";
+import { followingFeedTweets, followAccount, isFollowingHandle } from "@/systems/exploreSystem";
+import { profileFromAuthor } from "@/data/accounts";
 import { totalFollowers } from "@/systems/economy";
 import { maxPostSlots } from "@/systems/followers";
-import { remainingPostSlots, canPostBySlot } from "@/systems/eggs";
+import { remainingPostSlots } from "@/systems/eggs";
 import { ATTRIBUTES } from "@/data/attributes";
 import { getTrendingCategories } from "@/data/trends";
 import { el, formatNumber } from "@/utils/dom";
@@ -19,10 +20,7 @@ import { openComposeModal } from "@/ui/postLimitModal";
 import { renderAccountModal } from "./accountModal";
 import { renderMediaModal } from "@/ui/mediaModal";
 import { renderAdultWarnModal } from "@/ui/adultWarnModal";
-import { renderTchinsoModal } from "@/ui/tchinsoModal";
-import { canPostTchinso, sendBirthdayTweet } from "@/systems/tchin";
-import { canPostTweet } from "@/systems/tweetSystem";
-import { TCHINSO_COOLDOWN_DAYS } from "@/data/tchinso";
+import { sendBirthdayTweet } from "@/systems/tchin";
 import {
   adPage,
   dmPage,
@@ -37,6 +35,7 @@ import {
   mePage,
   postsPage,
   reactableCard,
+  renderAccountProfilePage,
   searchPage,
   tweetDetailPage,
 } from "./snsPages";
@@ -239,6 +238,10 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
   // ===== 중앙 피드(페이지별 전환) =====
   function renderFeed(): HTMLElement {
     switch (ctx.ui.snsPage) {
+      case "profile":
+        return ctx.ui.viewProfile
+          ? renderAccountProfilePage(ctx, ctx.ui.viewProfile)
+          : renderHomeFeed();
       case "explore":
         return explorePage(ctx);
       case "posts":
@@ -309,33 +312,6 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
         { class: "composer__send", onclick: () => openComposeModal(ctx) },
         "게시하기",
       ),
-    );
-
-    // 트친소(트친 소개) 진입 — 주 1회 쿨다운 + 일반 트윗과 동일한 일일 게시 슬롯/행동력 게이트.
-    // 트친소도 트윗 한 건이므로 quoteModal 선례(canPostTweet && canPostBySlot)를 그대로 적용한다.
-    const tchinsoCooldownReady = canPostTchinso(s);
-    const tchinsoReady = tchinsoCooldownReady && canPostTweet(s) && canPostBySlot(s);
-    const tchinsoDaysLeft = Math.max(0, TCHINSO_COOLDOWN_DAYS - (s.day - account.lastTchinsoDay));
-    const tchinsoHint = !tchinsoCooldownReady
-      ? `${tchinsoDaysLeft}일 후 가능`
-      : !canPostTweet(s)
-        ? "행동력이 부족해요"
-        : !canPostBySlot(s)
-          ? "오늘 게시 슬롯을 다 썼어요"
-          : null;
-    const tchinsoBar = el(
-      "div",
-      { class: "tchinso-entry" },
-      el(
-        "button",
-        {
-          class: "btn btn--ghost",
-          disabled: !tchinsoReady,
-          onclick: () => tchinsoReady && ctx.openModal(renderTchinsoModal),
-        },
-        "🤝 트친소 올리기",
-      ),
-      tchinsoHint ? el("span", { class: "tchinso-entry__hint" }, tchinsoHint) : null,
     );
 
     // 오늘 생일인 트친 배너 — 판정·처리는 systems/tchin(sendBirthdayTweet)이 한다. pendingBirthday가
@@ -438,7 +414,6 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
       header,
       birthdayBanner,
       composer,
-      tchinsoBar,
       ...body,
     );
   }
@@ -495,8 +470,9 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
       if (suggestions.length >= 3) break;
     }
 
-    const followRows = suggestions.map((u) =>
-      el(
+    const followRows = suggestions.map((u) => {
+      const followed = isFollowingHandle(s, u.handle);
+      return el(
         "button",
         {
           class: "follow-row",
@@ -509,9 +485,27 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
           el("div", { class: "follow-row__name" }, u.name),
           el("div", { class: "follow-row__handle" }, `@${u.handle}`),
         ),
-        el("span", { class: "follow-row__btn" }, "팔로우"),
-      ),
-    );
+        // 팔로우 버튼: 행 클릭(탐색 이동)과 분리 — 여기서 바로 팔로우한다.
+        el(
+          "span",
+          {
+            class: "follow-row__btn" + (followed ? " follow-row__btn--done" : ""),
+            onclick: (e: Event) => {
+              e.stopPropagation();
+              if (isFollowingHandle(ctx.store.getState(), u.handle)) return;
+              let delta = 0;
+              ctx.update((st) => {
+                const acc = profileFromAuthor(u.name, u.handle, u.attribute, u.isAdult, st.day);
+                delta = followAccount(st, acc);
+              });
+              ctx.toast(`${u.name} 팔로우! (${delta >= 0 ? "+" : ""}${delta} 팔로워)`);
+              ctx.refresh();
+            },
+          },
+          followed ? "팔로잉" : "팔로우",
+        ),
+      );
+    });
 
     // 검색 페이지에선 이미 상단에 검색바가 있으니 오른쪽 검색박스는 숨긴다.
     const searchBox =

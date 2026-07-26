@@ -1,4 +1,4 @@
-import type { GameState } from "@/core/types";
+import type { CompanyTier, GameState } from "@/core/types";
 import { SLOTS_PER_DAY } from "@/core/state";
 import { WORK_MSG_POOL } from "@/data/workMessages";
 import { chance, pick, uid } from "@/utils/random";
@@ -22,8 +22,19 @@ export const WORK_MSG_PERF = 12;
 export const WORK_MSG_MENTAL = 18;
 /** 수락 시 행동력 감소(크게) */
 export const WORK_MSG_ACTION = 22;
-/** 자격 슬롯 전환마다 업무 요청이 뜰 확률 */
+/** 평일 자격 슬롯 전환마다 업무 요청이 뜰 확률 */
 export const WORK_MSG_CHANCE = 0.4;
+
+/**
+ * 주말 업무 요청 확률(슬롯 전환마다) — 규모가 작을수록 워라밸이 없어 주말 호출이 잦다.
+ * 대기업 < 중견 < 중소 < 극소 순으로 높아진다(overtimeRate와 같은 방향).
+ */
+export const WORK_MSG_WEEKEND_CHANCE: Record<CompanyTier, number> = {
+  large: 0.2,
+  medium: 0.35,
+  small: 0.5,
+  micro: 0.65,
+};
 
 /** 미해결(수락 대기) 업무 요청이 하나라도 있는지 — 배지·중복 스폰 가드용 */
 export function hasPendingWorkMsg(state: GameState): boolean {
@@ -57,7 +68,9 @@ export function maybeSpawnWorkMsg(state: GameState): void {
   const weekday = dow >= 1 && dow <= 5;
   if (!weekend && !weekday) return;
 
-  if (!chance(WORK_MSG_CHANCE)) return;
+  // 주말은 회사 규모별 확률, 평일은 공통 확률.
+  const p = weekend ? WORK_MSG_WEEKEND_CHANCE[state.employment.tier] : WORK_MSG_CHANCE;
+  if (!chance(p)) return;
 
   state.workMsgs.push({
     id: uid("wmsg"),

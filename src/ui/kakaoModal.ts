@@ -1,6 +1,7 @@
 import type { GameContext } from "./context";
 import type { KakaoThread } from "@/core/types";
 import { SLOT_LABELS } from "@/core/state";
+import { NO_REPLY_SENDERS, FRIENDLY_SENDERS } from "@/systems/kakao";
 import { addAppointment } from "@/systems/appointments";
 import { acceptLoan } from "@/systems/loan";
 import { dateLabel } from "@/systems/time";
@@ -256,9 +257,18 @@ export function renderKakaoModal(ctx: GameContext, threadId: string): HTMLElemen
       return [decline, accept];
     }
 
+    // 정산·급여 같은 통보 카톡은 답장이 필요 없다 — 답장 버튼을 아예 띄우지 않는다.
+    if (NO_REPLY_SENDERS.includes(thread.sender)) return [];
+
     // 일반 카톡(집주인 등) — 간단 답장. 한 번 답하면(내 메시지가 생기면) 버튼을 없앤다.
     // (일반 스레드의 'me' 메시지는 이 답장뿐이라 이 검사가 곧 '이미 답함' 판정이다.)
     if (thread.messages.some((m) => m.from === "me")) return [];
+    // 발신자가 단계별 답장을 지정했으면 그걸, 아니면 기본 문구를 쓴다.
+    // 친구(타임라인 친구)에겐 반말, 집주인 등 공식 발신자에겐 존댓말로 답한다.
+    const friendly = FRIENDLY_SENDERS.includes(thread.sender);
+    const myText = thread.reply?.me ?? (friendly ? "ㅇㅇ 알겠어! 😊" : "네, 알겠습니다! 😊");
+    const theirText = thread.reply?.them ?? (friendly ? "고맙다~ 믿는다 👍" : "고마워요~ 믿을게요 👍");
+    const replyLabel = thread.reply?.label ?? (friendly ? "알겠어" : "네, 알겠습니다");
     const reply = el(
       "button",
       {
@@ -267,18 +277,18 @@ export function renderKakaoModal(ctx: GameContext, threadId: string): HTMLElemen
           ctx.update((s) => {
             const t = s.kakao.find((x) => x.id === threadId);
             if (!t) return;
-            t.messages.push({ id: uid("kkom"), from: "me", text: "네, 알겠습니다! 😊", day: s.day });
+            t.messages.push({ id: uid("kkom"), from: "me", text: myText, day: s.day });
             t.messages.push({
               id: uid("kkom"),
               from: "them",
-              text: "고마워요~ 믿을게요 👍",
+              text: theirText,
               day: s.day,
             });
           });
           render();
         },
       },
-      "네, 알겠습니다",
+      replyLabel,
     );
     return [reply];
   }

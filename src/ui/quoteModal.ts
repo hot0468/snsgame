@@ -1,6 +1,6 @@
 import type { GameContext } from "./context";
 import type { Tweet } from "@/core/types";
-import { QRT_COMMENTS, QRT_TONES, type QrtTone } from "@/data/quote";
+import { QRT_POSITIVE_COMMENTS, QRT_SNARK_COMMENTS, QRT_TONES, type QrtTone } from "@/data/quote";
 import { postQuoteTweet } from "@/systems/quote";
 import { canPostTweet } from "@/systems/tweetSystem";
 import { canPostBySlot } from "@/systems/eggs";
@@ -16,8 +16,10 @@ import { pick } from "@/utils/random";
 export function renderQuoteModal(ctx: GameContext, target: Tweet): HTMLElement {
   let tone: QrtTone = "agree";
   // 톤별 코멘트는 톤당 1회만 뽑아 캐시(재렌더에도 문구가 흔들리지 않게).
+  // 동조/맞장구(긍정)는 원본 계열(target.attribute)에 반응하는 풀에서, 츳코미는 계열무관 반박 풀에서 뽑는다.
   const commentCache: Partial<Record<QrtTone, string>> = {};
-  const commentFor = (t: QrtTone): string => (commentCache[t] ??= pick(QRT_COMMENTS[t]));
+  const commentFor = (t: QrtTone): string =>
+    (commentCache[t] ??= pick(t === "snark" ? QRT_SNARK_COMMENTS : QRT_POSITIVE_COMMENTS[target.attribute]));
 
   const container = el("div", { class: "modal" });
 

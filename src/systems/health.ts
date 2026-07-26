@@ -25,6 +25,8 @@ export const WORKOUT_STAMINA_MAX_GAIN = 8;
 export const WORKOUT_STAMINA = 8;
 /** 쉬기 1회로 회복하는 체력 */
 export const REST_STAMINA = 40;
+/** 웹툰(작가) 원고 작업 1회로 깎이는 체력 — 장시간 앉아 마감치는 소모 */
+export const AUTHOR_WORK_STAMINA = 25;
 
 /** 폭염(에어컨 미소유) 시 깎이는 체력 */
 export const HEATWAVE_STAMINA = 60;

@@ -24,15 +24,15 @@ export interface TierDef {
  * 즉 대기업은 "일찍 퇴근하지만 근무 중 딴짓은 잘 걸린다". 한쪽을 다른 쪽에 맞춰
  * 정렬하지 마라 — 두 축의 상충이 등급 선택의 트레이드오프 그 자체다.
  *
- * baseSalary는 등급이 높을수록 **많다**(생활비 월 30만이 기준선이다 — 극소기업 20만은
- * 그것도 못 메우고, 대기업 60만은 월세 반값·평일 생활비 면제까지 겹쳐 확실히 여유가 난다).
+ * baseSalary는 등급이 높을수록 **많다**. 최저(극소)를 최저생계비 60만으로 잡고 위로 올린다 —
+ * 어떤 직업이든 최저생계비는 벌고, 등급이 높을수록 여유가 커진다(대기업 100만 + 월세 반값·평일 생활비 면제).
  * 후반 수입은 광고가 좌우하므로 이 격차는 초·중반에만 크게 체감된다.
  */
 export const TIERS: Record<CompanyTier, TierDef> = {
-  micro: { id: "micro", label: "극소기업", requirement: 8, overtimeRate: 0.65, caughtRate: 0.15, baseSalary: 200_000 },
-  small: { id: "small", label: "중소기업", requirement: 28, overtimeRate: 0.45, caughtRate: 0.2, baseSalary: 280_000 },
-  medium: { id: "medium", label: "중견기업", requirement: 52, overtimeRate: 0.25, caughtRate: 0.28, baseSalary: 400_000 },
-  large: { id: "large", label: "대기업", requirement: 78, overtimeRate: 0.1, caughtRate: 0.35, baseSalary: 600_000 },
+  micro: { id: "micro", label: "극소기업", requirement: 8, overtimeRate: 0.65, caughtRate: 0.15, baseSalary: 600_000 },
+  small: { id: "small", label: "중소기업", requirement: 28, overtimeRate: 0.45, caughtRate: 0.2, baseSalary: 680_000 },
+  medium: { id: "medium", label: "중견기업", requirement: 52, overtimeRate: 0.25, caughtRate: 0.28, baseSalary: 800_000 },
+  large: { id: "large", label: "대기업", requirement: 78, overtimeRate: 0.1, caughtRate: 0.35, baseSalary: 1_000_000 },
 };
 
 /** 등급 순서(약→강) */
@@ -137,7 +137,7 @@ export const LAWYER_JOB_COMPANY = "나루호도 법률사무소";
  * 변호사 자격증(`lawyer`) 보유자에게만 뜨는 공고.
  *
  * 등급이 `micro`인 건 의도다 — 가장 어려운 자격증(기준 92)을 따고 극소기업에 가는 게
- * 이 공고의 개그이고, 원작의 그 사무소도 망하기 직전의 구멍가게다. 월급 20만·야근률 65%가
+ * 이 공고의 개그이고, 원작의 그 사무소도 망하기 직전의 구멍가게다. 월급 60만(극소 기본급)·야근률 65%가
  * 붙지만 그건 등급이 정하는 값이지 이 공고의 페널티가 아니다.
  */
 function makeLawyerPosting(currentDay: number): JobPosting {
@@ -164,7 +164,7 @@ export const DEV_JOB_COMPANY = "우주최강소프트";
  *
  * 오리지널 판교 IT 스타트업 패러디("우주최강"은 유니콘 되기 전부터 우주정복을 외치는
  * 스타트업 특유의 허장성세 개그). 등급이 `large`인 건 의도다 — IT 스킬 문턱을 넘긴
- * 보상으로 대기업 급여(월 60만)·낮은 야근률을 준다. 성과는 UI에서 커밋 잔디로 표시된다.
+ * 보상으로 대기업 급여(월 100만)·낮은 야근률을 준다. 성과는 UI에서 커밋 잔디로 표시된다.
  */
 function makeDevPosting(currentDay: number): JobPosting {
   return {

@@ -11,6 +11,7 @@ export const CHARS_DOG_CAT: RelationshipChar[] = [
   {
     id: "rel_dog_m",
     name: "준영",
+    nickname: "댕댕이바보",
     gender: "m",
     attribute: "dog",
     likedKind: "emotional",
@@ -107,6 +108,7 @@ export const CHARS_DOG_CAT: RelationshipChar[] = [
   {
     id: "rel_dog_f",
     name: "보람",
+    nickname: "댕집사",
     gender: "f",
     attribute: "dog",
     likedKind: "plain",
@@ -203,6 +205,7 @@ export const CHARS_DOG_CAT: RelationshipChar[] = [
   {
     id: "rel_cat_m",
     name: "태경",
+    nickname: "고양이집사",
     gender: "m",
     attribute: "cat",
     likedKind: "plain",
@@ -299,6 +302,7 @@ export const CHARS_DOG_CAT: RelationshipChar[] = [
   {
     id: "rel_cat_f",
     name: "수빈",
+    nickname: "냥건강박사",
     gender: "f",
     attribute: "cat",
     likedKind: "info",

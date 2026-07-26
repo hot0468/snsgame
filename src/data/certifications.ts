@@ -51,6 +51,16 @@ export interface Certification {
  */
 export const CERTIFICATIONS: Certification[] = [
   {
+    id: "driver_2",
+    name: "2종 보통 운전면허",
+    issuer: "한국도로주행공단",
+    fee: 25000,
+    skills: { knowledge: 0.6, fitness: 0.4 },
+    requirement: 13,
+    jobBonus: 0.02,
+    desc: "오토 전용이지만 시작은 여기부터. 가장 무난한 첫 면허.",
+  },
+  {
     id: "driver_1",
     name: "1종 보통 운전면허",
     issuer: "한국도로주행공단",
@@ -59,6 +69,16 @@ export const CERTIFICATIONS: Certification[] = [
     requirement: 18,
     jobBonus: 0.03,
     desc: "굴러가는 쇳덩이를 합법적으로 다루는 첫 관문.",
+  },
+  {
+    id: "driver_large",
+    name: "1종 대형 운전면허",
+    issuer: "한국도로주행공단",
+    fee: 55000,
+    skills: { fitness: 0.6, knowledge: 0.4 },
+    requirement: 42,
+    jobBonus: 0.06,
+    desc: "버스·트럭까지 모는 상위 면허. 없던 일도 생긴다.",
   },
   {
     id: "gtq",

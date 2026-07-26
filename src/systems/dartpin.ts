@@ -1,7 +1,7 @@
 import type { GameState, Tweet } from "@/core/types";
 import { DARTPIN_POSTS, DARTPIN_TWEET_TEMPLATES, type DartpinPost } from "@/data/dartpin";
 import { getActiveAccount } from "@/core/state";
-import { chance, pick, randInt, sample, uid } from "@/utils/random";
+import { pick, randInt, sample, uid } from "@/utils/random";
 
 /**
  * '다트 핀' — 익명 게시판 사이트(네이트 판 패러디). 브라우저 **탭**으로 열린다.
@@ -13,9 +13,9 @@ import { chance, pick, randInt, sample, uid } from "@/utils/random";
  * ## ⚠️ 왜 '탭'인가 — 단발 사이트로 바꾸지 마라
  * 도깨비상점·O넷·경매처럼 `ui.*SiteOpen` 플래그로 한 번 열고 마는 **오버레이 사이트**로
  * 만들고 싶을 수 있다(초기 설계가 실제로 그랬다). 그러면 **기능이 죽는다**:
- * 게시판은 **하루 단위로 갱신**되고(`ensureDartpinBoard`) 힌트 글은 `DARTPIN_HINT_CHANCE`
- * (25%)로 **드물게** 섞인다. 즉 이 콘텐츠는 **재방문이 전제**다 — 단발 진입이면 히든 힌트
- * 3종을 영영 못 보고 끝난다. 탭은 `dartpinUnlocked` 이후 상시 남으므로 재방문이 보장된다.
+ * 게시판은 **하루 단위로 갱신**되고(`ensureDartpinBoard`) 힌트(꿀팁) 글이 **매일 1개** 섞인다
+ * (rollBoard). 어느 글이 힌트인지는 여전히 숨겨져 있어 매일 새 편성을 훑어야 한다. 즉 이 콘텐츠는
+ * **재방문이 전제**다 — 단발 진입이면 그날 편성만 보고 끝난다. 탭은 `dartpinUnlocked` 이후 상시 남는다.
  * 그래서 해금 후 별도 재진입 경로(네이놈 검색 등)가 **필요 없다** — 탭 자체가 재진입로다.
  *
  * ## ⚠️ 광고 시스템(systems/adTweets.ts)과 별개다 — adPromo로 되돌리지 마라
@@ -39,14 +39,8 @@ export const DARTPIN_URL = "dartpin.com";
 /** 하루 게시판에 노출되는 글 수 */
 export const DARTPIN_BOARD_SIZE = 14;
 
-/**
- * 하루 게시판에 힌트 글이 섞일 확률. 섞이더라도 **최대 1개**다.
- * 게시판은 매일 갱신되므로 낮아도 계속 플레이하면 언젠가 만난다 — '드물게'의 의도.
- */
-export const DARTPIN_HINT_CHANCE = 0.25;
-
 /** 둘러보기 피드에 발견 트윗이 섞일 확률(미해금일 때만 굴린다) */
-export const DARTPIN_TWEET_CHANCE = 0.15;
+export const DARTPIN_TWEET_CHANCE = 0.5;
 
 /** 이 트윗이 다트 핀 발견 트윗인지 */
 export function isDartpinTweet(tweet: Tweet): boolean {
@@ -86,14 +80,15 @@ const NORMAL_POSTS = (): DartpinPost[] => DARTPIN_POSTS.filter((p) => !p.hint);
 
 /**
  * 오늘자 게시판을 편성한다.
- * - 일반 글로 채우되, DARTPIN_HINT_CHANCE 확률로 힌트 글 **1개**를 끼워 넣는다.
+ * - 힌트(꿀팁) 글을 **매일 1개 무조건** 끼워 넣는다(힌트 풀이 있으면). 나머지는 일반 글로 채운다.
  * - 힌트 글은 목록 안 임의 위치에 들어간다(항상 맨 위면 힌트인 게 티난다).
+ *   어느 글이 힌트인지는 여전히 티나지 않아야 한다 — 조회수/추천수 분포로 숨긴다(data/dartpin.ts).
  */
 function rollBoard(): string[] {
   const normals = NORMAL_POSTS();
   const hints = HINT_POSTS();
 
-  const withHint = hints.length > 0 && chance(DARTPIN_HINT_CHANCE);
+  const withHint = hints.length > 0; // 매일 힌트 1개 보장(사용자 요청)
   const normalCount = Math.min(normals.length, withHint ? DARTPIN_BOARD_SIZE - 1 : DARTPIN_BOARD_SIZE);
   const ids = sample(normals, normals.length).slice(0, normalCount).map((p) => p.id);
 

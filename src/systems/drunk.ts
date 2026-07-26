@@ -1,6 +1,6 @@
 import type { GameState, Tweet } from "@/core/types";
 import { getActiveAccount, pushTimeline } from "@/core/state";
-import { DRUNK_CHANCE, DRUNK_TWEETS, DRUNK_VARIANCE } from "@/data/drunk";
+import { DRUNK_CHANCE, DRUNK_MENTAL_MAX, DRUNK_TWEETS, DRUNK_VARIANCE } from "@/data/drunk";
 import { changeFollowers } from "./followers";
 import { applyTchinReach } from "./tchin";
 import { rollControversy } from "./controversy";
@@ -21,6 +21,8 @@ import { chance, pick, randInt, uid } from "@/utils/random";
 export function maybeGetDrunk(state: GameState): void {
   if (state.gameOver) return;
   if (state.drunkPending || state.pendingRegretTweetId) return;
+  // 정신력이 넉넉하면(50 이상) 홧술을 안 마신다 — 취중 트윗은 멘탈 낮은 날에만.
+  if (state.resources.mental >= DRUNK_MENTAL_MAX) return;
   if (chance(DRUNK_CHANCE)) state.drunkPending = true;
 }
 

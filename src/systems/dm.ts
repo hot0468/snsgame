@@ -53,13 +53,21 @@ function fanDMsToday(account: PlayerAccount, day: number): number {
  * 나오므로 — 후보가 0이 되어 DM이 끊기는 일은 없다.
  */
 export function fanDMAttributePool(state: GameState, account: PlayerAccount): AttributeId[] {
-  const pool = account.unlockedAttributes.filter((attr) => {
+  // 팬은 내가 '실제로 올린' 콘텐츠를 보고 온다 — 그래서 후보는 **직접 게시한 트윗(리트윗 제외)의 계열**이다.
+  // ⚠️ unlockedAttributes(해금된 계열)로 뽑으면 안 된다: 공부·외출 같은 현생 활동이 식물계 등을
+  //    '해금'만 하고(offline.unlockAttributePool) 트윗은 한 번도 안 썼는데도 팬 DM이 그 계열로
+  //    와버린다(식물 트윗 없는데 "화분 근황" DM 버그). 게시 이력이 곧 팬층이다.
+  const posted = new Set<AttributeId>();
+  for (const t of account.timeline) {
+    if (t.authorHandle === account.handle && !t.isRetweet) posted.add(t.attribute);
+  }
+  const pool = [...posted].filter((attr) => {
     if (attr === "dog" && !state.pets.dog) return false;
     if (attr === "cat" && !state.pets.cat) return false;
     if (ATTRIBUTES[attr]?.adultOnly && !state.adultMode) return false;
     return true;
   });
-  if (pool.length === 0) return ["daily"];
+  if (pool.length === 0) return ["daily"]; // 아직 올린 트윗이 없으면 일상 팬만
   // 실제로 많이 올리는 성향(계정 대표 속성)의 팬이 더 자주 오도록 가중치를 한 번 더 준다.
   if (pool.includes(account.attribute)) pool.push(account.attribute);
   return pool;
@@ -175,6 +183,8 @@ const MEET_PROPOSALS = [
  * 제안이 있어야만 '만나기'가 가능해진다.
  */
 function maybePropose(state: GameState, thread: DMThread, p: number): void {
+  // 사기/피싱 접선(코인 리딩방·다단계 등)은 로맨스/친구가 아니라 사기꾼이므로 만남을 제안하지 않는다.
+  if (thread.scam) return;
   if (thread.metOffline || thread.wantsToMeet) return;
   if (!chance(p)) return;
   thread.wantsToMeet = true;
@@ -385,7 +395,7 @@ export function replyDM(state: GameState, thread: DMThread, tone: DMTone): DMRep
   thread.messages.push({ id: uid("dmm"), from: "partner", text: partnerText, day: state.day });
   thread.unread = false;
   // DM 답장도 상대와의 상호작용 — 트친 누적에 센다.
-  bumpTchinProgress(state, thread.partnerHandle);
+  bumpTchinProgress(state, thread.partnerHandle, thread.partnerName);
 
   let followerDelta = 0;
   applyToneEffects(state, tone);
@@ -429,7 +439,7 @@ export function replyDM(state: GameState, thread: DMThread, tone: DMTone): DMRep
 /** 자유 입력 메시지 전송(간단 응답, 특별 효과 없음) */
 export function sendCustomDM(state: GameState, thread: DMThread, text: string): void {
   thread.messages.push({ id: uid("dmm"), from: "me", text, day: state.day });
-  bumpTchinProgress(state, thread.partnerHandle);
+  bumpTchinProgress(state, thread.partnerHandle, thread.partnerName);
   thread.messages.push({
     id: uid("dmm"),
     from: "partner",

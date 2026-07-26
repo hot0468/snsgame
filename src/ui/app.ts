@@ -21,7 +21,7 @@ import { isLabNow } from "@/systems/lab";
 import { renderLabModal } from "./labModal";
 import { getControversy } from "@/data/controversies";
 import { renderControversyModal } from "./controversyModal";
-import { FIRE_MONEY } from "@/core/state";
+import { FIRE_MONEY, LATE_SLOT } from "@/core/state";
 import { renderFireOfferModal } from "./fireModal";
 import { pendingEndingOffer } from "@/systems/endings";
 import { renderEndingOfferModal } from "./endingModal";
@@ -36,6 +36,7 @@ import { renderConsoleReviewModal } from "./auctionModals";
 import { renderLoginScreen } from "./loginScreen";
 import { renderPostSlotModal } from "./postLimitModal";
 import { ACHIEVEMENTS } from "@/data/achievements";
+import { MILESTONE_TITLES } from "@/data/milestones";
 
 /**
  * 앱 루트. 스토어를 구독해 전체 화면을 (단순하게) 통째로 다시 그린다.
@@ -47,6 +48,8 @@ export function createApp(root: HTMLElement, store: Store): void {
   // 업적 달성 토스트 소비가 마이크로태스크로 이미 예약됐는지(한 프레임에 render가 여러 번
   // 돌아도 중복 예약하지 않게 한다). computeDrops의 commitScheduled와 같은 가드.
   let achToastScheduled = false;
+  // 마일스톤 달성 토스트도 같은 마이크로태스크 가드로 중복 예약을 막는다.
+  let mileToastScheduled = false;
   // 트친 성사 토스트도 같은 마이크로태스크 가드로 중복 예약을 막는다.
   let tchinToastScheduled = false;
   // 고양이 전원 버튼 블랙아웃 타이머. render()는 스토어 변경·토스트마다 통째로 다시 도므로
@@ -71,8 +74,10 @@ export function createApp(root: HTMLElement, store: Store): void {
   // 스크롤 위치를 복원하고, 탭·페이지가 바뀐 재렌더는 자연히 맨 위에서 시작하게 둔다.
   let lastViewKey = "";
   // 전체 재렌더는 스크롤 컨테이너를 새 노드로 갈아끼워 scrollTop을 0으로 되돌린다.
-  // 너튜브(.browser__content)·야밤(.yabam__body) 본문만 최소 보존한다.
-  const SCROLL_SELECTORS = [".browser__content", ".yabam__body"];
+  // 너튜브(.browser__content)·야밤(.yabam__body) 본문 + SNS 피드(.sns__feed)를 보존한다.
+  // .sns__feed는 자체 overflow-y:auto라 별도 스크롤 컨테이너다 — 좋아요·리트윗 재렌더에
+  // 이걸 저장·복원하지 않으면 피드가 매번 최상단으로 튄다.
+  const SCROLL_SELECTORS = [".browser__content", ".yabam__body", ".sns__feed"];
 
   const ctx: GameContext = {
     store,
@@ -234,6 +239,33 @@ export function createApp(root: HTMLElement, store: Store): void {
       });
     }
 
+    // 마일스톤 달성 토스트. systems가 pendingMilestones에 쌓아둔 id의 칭호를 찾아
+    // 알린 뒤 **배열을 비운다**(안 비우면 매 렌더 재토스트). 업적 토스트와 동일 패턴.
+    if (!gameOver && state.pendingMilestones?.length && !mileToastScheduled) {
+      mileToastScheduled = true;
+      queueMicrotask(() => {
+        mileToastScheduled = false;
+        const ids = store.getState().pendingMilestones;
+        if (!ids?.length) return;
+        const labels = ids
+          .map((id) => {
+            const [skill, tierStr] = id.split(":");
+            const titles = MILESTONE_TITLES[skill as keyof typeof MILESTONE_TITLES];
+            return titles ? titles[Number(tierStr)] : null;
+          })
+          .filter((n): n is string => !!n);
+        ctx.update((d) => {
+          d.pendingMilestones = [];
+        });
+        if (labels.length === 0) return;
+        const msg =
+          labels.length === 1
+            ? `🏅 마일스톤 달성: ${labels[0]}`
+            : `🏅 마일스톤 달성: ${labels[0]} 외 ${labels.length - 1}개`;
+        ctx.toast(msg, "good");
+      });
+    }
+
     // 트친 성사 토스트. systems/tchin이 pendingTchinToasts에 새 트친 핸들을 쌓아두면
     // 여기서 알린 뒤 **배열을 비운다**(안 비우면 매 렌더 재토스트). 업적 토스트와 동일 패턴.
     if (!gameOver && state.pendingTchinToasts?.length && !tchinToastScheduled) {
@@ -329,6 +361,8 @@ export function createApp(root: HTMLElement, store: Store): void {
     root.replaceChildren(...children.filter((c): c is Node => c !== null));
     // 취중(drunkPending) 동안 앱 배경을 블러 처리한다(모달 레이어는 root 밖이라 선명하게 유지).
     root.classList.toggle("drunk-blur", !!state.drunkPending && !gameOver);
+    // 시간대 앰비언트: 심야엔 데스크톱 배경을 밤 톤으로 어둡게(하루 안 시간 흐름 체감).
+    root.classList.toggle("night", state.slot === LATE_SLOT && state.loggedIn && !gameOver);
 
     for (const sel in savedScroll) {
       const e = root.querySelector<HTMLElement>(sel);

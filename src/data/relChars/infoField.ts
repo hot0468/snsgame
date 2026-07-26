@@ -28,6 +28,7 @@ export const CHARS_INFO: RelationshipChar[] = [
   {
     id: "rel_info_m",
     name: "지원",
+    nickname: "생활정보통",
     gender: "m",
     attribute: "info",
     likedKind: "info",
@@ -126,6 +127,7 @@ export const CHARS_INFO: RelationshipChar[] = [
   {
     id: "rel_info_f",
     name: "서율",
+    nickname: "꿀팁공유러",
     gender: "f",
     attribute: "info",
     likedKind: "plain",

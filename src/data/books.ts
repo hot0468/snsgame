@@ -4,13 +4,23 @@
  */
 
 /** 책 종류 — 감상 시 오르는 관련 스탯이 다르다 */
-export type BookCategory = "culture" | "novel" | "comic" | "cooking";
+export type BookCategory = "culture" | "novel" | "comic" | "cooking" | "adult";
 
 export const BOOK_CATEGORY_LABEL: Record<BookCategory, string> = {
   culture: "교양",
   novel: "소설",
   comic: "만화",
   cooking: "요리",
+  adult: "성인",
+};
+
+/** 미디북스 권당 감상료(계열별). 감상 시 소지금에서 차감된다(systems/books.readBook). */
+export const BOOK_PRICE_BY_CATEGORY: Record<BookCategory, number> = {
+  comic: 3000, // 만화는 권당 저렴
+  novel: 8000,
+  culture: 9000,
+  cooking: 10000,
+  adult: 12000,
 };
 
 export interface Book {
@@ -44,4 +54,17 @@ export const BOOKS: Book[] = [
   { id: "b15", title: "초보를 위한 홈베이킹의 정석", author: "오븐요정", category: "cooking", rating: 4.9, reviews: 884, hue: 45 },
   { id: "b16", title: "제철 재료로 차리는 사계절 밥상", author: "이한상 외 1명", category: "cooking", rating: 4.8, reviews: 631, hue: 130 },
   { id: "b17", title: "혼밥러의 5분 레시피", author: "나혼밥", category: "cooking", rating: 4.6, reviews: 1247, hue: 340 },
+];
+
+/**
+ * 성인(19금) 도서 — 성인물 보기(adultMode)가 켜졌을 때만 미디북스 '성인' 탭에 노출된다.
+ * 실제 작품/저자와 무관한 창작 패러디이며, 톤은 자극적이되 노골 묘사는 두지 않는다(제목·감상 위주).
+ */
+export const ADULT_BOOKS: Book[] = [
+  { id: "ab1", title: "사장님은 밤에 더 위험해", author: "야한밤", category: "adult", rating: 4.8, reviews: 4821, hue: 345 },
+  { id: "ab2", title: "은밀한 옆집", author: "달세뇨", category: "adult", rating: 4.7, reviews: 2610, hue: 300 },
+  { id: "ab3", title: "달콤한 독점욕", author: "설탕중독", category: "adult", rating: 4.9, reviews: 6042, hue: 330 },
+  { id: "ab4", title: "한밤의 개인 레슨", author: "야근요정", category: "adult", rating: 4.6, reviews: 1888, hue: 280 },
+  { id: "ab5", title: "금지된 사이", author: "밤을잊은그대", category: "adult", rating: 4.8, reviews: 3355, hue: 355 },
+  { id: "ab6", title: "닿을 듯 말 듯", author: "간질간질", category: "adult", rating: 4.7, reviews: 2199, hue: 315 },
 ];

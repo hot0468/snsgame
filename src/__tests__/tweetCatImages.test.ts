@@ -149,3 +149,36 @@ describe("pickTweetImage — 우선순위: 카테고리 > 성인 > 키워드", (
     expect(ADULT.map((a) => a.url)).toContain(pickTweetImage(t, ADULT, MEDIA)?.url);
   });
 });
+
+describe("창작 축 — creation 풀이 최우선", () => {
+  const CREA = [
+    { file: "creation", url: "/creation.webp" },
+    { file: "creation__2", url: "/creation__2.webp" },
+  ];
+  const CREA_URLS = CREA.map((c) => c.url);
+
+  it("1차/2차 창작 트윗은 계열(애니) 카테고리보다 창작 풀이 먼저다", () => {
+    const t = tweet({ attribute: "anime", creation: "original", text: "그림 그려봄" });
+    const hit = pickTweetImage(t, ADULT, MEDIA, CATS, CREA);
+    expect(hit?.source).toBe("creation");
+    expect(CREA_URLS).toContain(hit?.url);
+  });
+
+  it("창작이 아니면 창작 풀을 절대 안 뽑는다 (축이 새면 안 된다)", () => {
+    const t = tweet({ attribute: "anime", text: "일반 애니 트윗" });
+    expect(pickTweetImage(t, ADULT, MEDIA, CATS, CREA)?.source).toBe("cat");
+  });
+
+  it("창작 트윗인데 창작 풀이 비면 계열 카테고리로 폴백 (그래도 미디어)", () => {
+    const t = tweet({ attribute: "anime", creation: "fan" });
+    expect(pickTweetImage(t, ADULT, MEDIA, CATS, [])?.source).toBe("cat");
+  });
+
+  it("같은 트윗 id면 항상 같은 창작 URL (결정론 — 깜빡임 방지)", () => {
+    const t = tweet({ id: "cr1", attribute: "anime", creation: "original" });
+    const first = pickTweetImage(t, ADULT, MEDIA, CATS, CREA)?.url;
+    expect(first).toBeTruthy();
+    for (let i = 0; i < 100; i++)
+      expect(pickTweetImage(t, ADULT, MEDIA, CATS, CREA)?.url).toBe(first);
+  });
+});
