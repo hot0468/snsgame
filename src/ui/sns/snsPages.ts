@@ -57,6 +57,7 @@ import { renderMeetingModal } from "./meetingModal";
 import { renderMotelModal } from "./motelModal";
 import { renderTicketModal } from "./ticketModal";
 import { renderAccountModal } from "./accountModal";
+import { renderFollowingModal } from "@/ui/followingModal";
 import { renderMediaModal } from "@/ui/mediaModal";
 
 /** 트윗의 사진/영상 자리 클릭 → 설명 팝업 */
@@ -667,7 +668,16 @@ export function mePage(ctx: GameContext): HTMLElement {
         // 게시물 수는 account.postCount(누적)로 센다 — 타임라인은 TIMELINE_MAX로 잘리므로
         // timeline.length를 쓰면 상한에서 숫자가 멈춘다. postCount는 잘려도 계속 는다.
         el("span", {}, el("b", {}, formatNumber(account.postCount)), " 게시물"),
-        el("span", {}, el("b", {}, formatNumber(account.following)), " 팔로우 중"),
+        el(
+          "span",
+          {
+            class: "profile__stat-link",
+            title: "팔로우 목록 보기",
+            onclick: () => ctx.openModal(renderFollowingModal),
+          },
+          el("b", {}, formatNumber(account.following)),
+          " 팔로우 중",
+        ),
         el("span", {}, el("b", {}, formatNumber(account.followers)), " 팔로워"),
       ),
       el(

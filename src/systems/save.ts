@@ -10,6 +10,7 @@ import {
 } from "@/core/state";
 import { grantAttributeUnlockFloor } from "./attributeUnlock";
 import { backfillClaimedMilestones } from "./milestones";
+import { ensureMissions } from "./missions";
 import { maxPostSlots } from "./followers";
 import { getActiveAccount } from "@/core/state";
 import { initialMarket } from "@/data/market";
@@ -355,6 +356,11 @@ function sanitize(state: GameState): GameState {
     backfillClaimedMilestones(state);
   }
   if (!Array.isArray(state.pendingMilestones)) state.pendingMilestones = [];
+  // 도전과제(미션)는 신규 필드. 없으면 빈 세트로 두고 ensureMissions가 현재 날짜 기준으로 굴린다.
+  if (!state.missions || !Array.isArray(state.missions.daily)) {
+    state.missions = { day: -1, week: -1, daily: [], weekly: [] };
+  }
+  ensureMissions(state);
   return state;
 }
 

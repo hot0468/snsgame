@@ -10,6 +10,8 @@ import { makeMedia } from "@/data/media";
 import { mediaSetFor } from "@/data/mediaTweets";
 import { DDEOKSANG_MIN, DDEOKSANG_RATE, DDEOKSANG_BONUS_RATE } from "@/data/tweetFun";
 import { imageForTweet } from "./mediaImages";
+import { recordMission } from "./missions";
+import { PC_UPGRADE_ID } from "@/data/shop";
 import { calcTweetOutcome, changeFollowers, TWEET_KIND_EFFECTS } from "./followers";
 import { maybeSpawnDickPicDM, maybeSpawnFanDM, maybeSpawnMotelDM, maybeSpawnTicketDM } from "./dm";
 import { maybeSpawnAvOfferDM } from "./avJob";
@@ -31,8 +33,22 @@ import { checkAchievements } from "./achievements";
 import { checkStatMilestones } from "./milestones";
 import { maybeQueueNews } from "./news";
 
-/** 트윗 1건 작성에 드는 행동력 */
+/** 트윗 1건 작성에 드는 기본 행동력(컴퓨터 업그레이드로 감소 — tweetActionCost 참조) */
 export const TWEET_ACTION_COST = 10;
+/** 컴퓨터 업그레이드 1개당 트윗 행동력 감소분 */
+export const PC_UPGRADE_ACTION_CUT = 1;
+/** 컴퓨터 업그레이드로도 이 밑으로는 안 내려가는 트윗 행동력 하한 */
+export const TWEET_ACTION_MIN = 5;
+
+/**
+ * 지금 이 계정이 트윗 1건 게시에 실제로 쓰는 행동력.
+ * 기본 TWEET_ACTION_COST에서 컴퓨터 업그레이드(pc_upgrade) 보유 개수만큼 깎되 TWEET_ACTION_MIN이 하한.
+ * 게시 경로(일반·인용·트친소)와 UI 게이트·표시가 모두 이 값을 쓴다.
+ */
+export function tweetActionCost(state: GameState): number {
+  const upgrades = state.ownedItems.filter((id) => id === PC_UPGRADE_ID).length;
+  return Math.max(TWEET_ACTION_MIN, TWEET_ACTION_COST - PC_UPGRADE_ACTION_CUT * upgrades);
+}
 
 /** 성인 트윗의 신규 팔로워 배율(일반 대비) */
 export const ADULT_FOLLOWER_MULTIPLIER = 1.5;
@@ -121,6 +137,7 @@ export function postTweet(
   );
 
   const postedSlot = state.slot;
+  recordMission(state, "tweet"); // 도전과제: 트윗 게시 카운트
 
   const tweet: Tweet = {
     id: uid("tweet"),
@@ -157,7 +174,7 @@ export function postTweet(
 
   // 무료 게시(opts.free)면 행동력 소모와 게시 슬롯 소비를 둘 다 건너뛴다.
   if (!opts.free) {
-    state.resources.action = clampAction(state, state.resources.action - TWEET_ACTION_COST);
+    state.resources.action = clampAction(state, state.resources.action - tweetActionCost(state));
     consumePostSlot(state);
     // 아이돌/애니/배우 트윗을 실제로 게시하면 덕질 스탯이 오른다(무료 게시 제외).
     if (attr === "idol" || attr === "anime" || attr === "actor") {
@@ -245,7 +262,7 @@ export function postTweet(
 
 /** 트윗 작성이 가능한지(행동력 체크) */
 export function canPostTweet(state: GameState): boolean {
-  return state.resources.action >= TWEET_ACTION_COST;
+  return state.resources.action >= tweetActionCost(state);
 }
 
 /** 사기 트윗 1건이 깎는 평판 */

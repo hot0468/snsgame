@@ -19,6 +19,8 @@ import { renderOfflineModal } from "./offlineModal";
 import { renderInventoryModal } from "./inventory";
 import { renderAchievementsModal } from "./achievementsModal";
 import { renderCreaturesModal } from "./creaturesModal";
+import { renderMissionsModal } from "./missionsModal";
+import { claimableCount } from "@/systems/missions";
 import { renderAvWorkModal } from "./avWorkModal";
 
 /** 세부 스탯 아이콘 */
@@ -404,25 +406,16 @@ export function renderStatusDock(ctx: GameContext): HTMLElement {
       "div",
       { class: "status-dock__foot" },
       el(
-        "button",
-        {
-          class: "life-btn life-btn--sub",
-          onclick: () => ctx.openModal(renderInventoryModal),
-        },
-        icon("drawer", { size: 18 }),
-        "서랍장",
-      ),
-      el(
         "div",
         { class: "life-btn-row" },
         el(
           "button",
           {
             class: "life-btn life-btn--sub",
-            onclick: () => ctx.openModal(renderAchievementsModal),
+            onclick: () => ctx.openModal(renderInventoryModal),
           },
-          "🏆",
-          "업적",
+          icon("drawer", { size: 18 }),
+          "서랍장",
         ),
         el(
           "button",
@@ -430,8 +423,34 @@ export function renderStatusDock(ctx: GameContext): HTMLElement {
             class: "life-btn life-btn--sub",
             onclick: () => ctx.openModal(renderCreaturesModal),
           },
-          "🔍",
+          icon("book", { size: 18 }),
           "도감",
+        ),
+      ),
+      el(
+        "div",
+        { class: "life-btn-row" },
+        (() => {
+          const claim = claimableCount(ctx.store.getState());
+          return el(
+            "button",
+            {
+              class: "life-btn life-btn--sub",
+              onclick: () => ctx.openModal(renderMissionsModal),
+            },
+            icon("article", { size: 18 }),
+            "도전과제",
+            claim > 0 ? el("span", { class: "life-btn__badge" }, String(claim)) : null,
+          );
+        })(),
+        el(
+          "button",
+          {
+            class: "life-btn life-btn--sub",
+            onclick: () => ctx.openModal(renderAchievementsModal),
+          },
+          icon("star", { size: 18 }),
+          "업적",
         ),
       ),
       // AV 촬영은 서랍장 아래·현생살기 위. 성인/AV 톤으로 분홍(life-btn--av).

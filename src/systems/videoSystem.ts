@@ -23,6 +23,9 @@ export interface VideoOutcome {
 /** 시청 시 회복되는 정신력 */
 const WATCH_MENTAL = 5;
 
+/** 숨은 영상(검색 이스터에그) 감상 효과 배율 — 일반 영상보다 좋다(정신력·스킬 2배). */
+export const HIDDEN_VIDEO_BONUS = 2;
+
 /** 그래픽카드 보유 시 시청으로 오르는 관련 스탯 증가량에 더해지는 보너스 */
 export const GPU_WATCH_SKILL_BONUS = 5;
 
@@ -94,9 +97,11 @@ const FLAVOR: Record<VideoAttribute, string[]> = {
 };
 
 export function watchVideo(state: GameState, video: Video): VideoOutcome {
-  state.resources.mental = clampResource(state.resources.mental + WATCH_MENTAL);
+  // 검색으로만 뜨는 숨은 영상(id "hidden_*")은 감상 효과가 일반 영상의 2배다(발견 보상).
+  const hiddenMul = video.id.startsWith("hidden_") ? HIDDEN_VIDEO_BONUS : 1;
+  state.resources.mental = clampResource(state.resources.mental + WATCH_MENTAL * hiddenMul);
   const rel = RELATED_SKILL[video.attribute];
-  const amount = watchSkillAmount(state, rel.amount);
+  const amount = watchSkillAmount(state, rel.amount) * hiddenMul;
   state.skills[rel.skill] = clampSkill(state.skills[rel.skill] + amount);
 
   // 애니 영상이면 그 작품을 '봤던 작품'으로 기록(2차창작 대상이 된다)
@@ -116,5 +121,7 @@ export function watchVideo(state: GameState, video: Video): VideoOutcome {
   addSchedule(state, `너튜브 시청 (${ATTRIBUTES[video.attribute].label})`, "sns");
   advanceTime(state, 1);
 
-  return { message: pick(FLAVOR[video.attribute]), unlockedAttribute };
+  const base = pick(FLAVOR[video.attribute]);
+  const message = hiddenMul > 1 ? `🔎 숨은 영상을 발견했다! ${base} (효과 2배)` : base;
+  return { message, unlockedAttribute };
 }

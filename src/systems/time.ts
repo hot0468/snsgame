@@ -29,6 +29,7 @@ import { checkStatEggs, maybeCatPowerButton } from "./eggs";
 import { deliverPendingGoods } from "./groupBuy";
 import { maybeSpawnWorkMsg } from "./workMessenger";
 import { checkAchievements } from "./achievements";
+import { ensureMissions } from "./missions";
 import { checkStatMilestones } from "./milestones";
 import { killerDailyTick } from "./killer";
 import { resolveProphecy } from "./prophecy";
@@ -151,6 +152,8 @@ function onLateNight(state: GameState): void {
 function onNewDay(state: GameState): void {
   // 새 날 아침이 밝았음을 표시(UI가 감지해 "또다시 해가 떴다" 딤팝업을 띄우고, 닫을 때 false로 되돌린다).
   state.dawnPending = true;
+  // 일일/주간 도전과제 리셋(날짜·주차 바뀌면 세트 재추첨)
+  ensureMissions(state);
   // 자고 일어나면 정신력/행동력 회복. 단, 심야 트윗을 썼으면 수면 부족으로 회복이 줄어든다.
   // 좋은 집일수록(주거 단계) 회복량이 늘어난다.
   const rested = !state.lateTweetToday;

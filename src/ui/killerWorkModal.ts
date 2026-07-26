@@ -1,6 +1,6 @@
 import type { GameContext } from "./context";
 import { el } from "@/utils/dom";
-import { targetById } from "@/data/killerTargets";
+import { targetById, targetFullTweets } from "@/data/killerTargets";
 import { attemptHit, chilnamMarksAnswer } from "@/systems/killer";
 import { weekdayLabel } from "@/systems/calendar";
 
@@ -77,7 +77,7 @@ export function renderKillerWorkModal(ctx: GameContext): HTMLElement {
       el(
         "div",
         { class: "killer-tweets" },
-        ...target.tweets.map((t) => {
+        ...targetFullTweets(target).map((t) => {
           const marked = chilnamMarksAnswer(s, target.id, t);
           return el(
             "div",

@@ -64,8 +64,8 @@ function fuzzyIncludes(a: string, b: string): boolean {
 
 /**
  * 숨은 영상(검색으로만 뜨는 영상)을 카드/모달에 재사용 가능한 Video로 변환한다.
- * 감상 효과는 기존 watchVideo/postTweet 로직을 그대로 타므로 신규 효과가 없다 —
- * tweetLines만 채워서 "감상 후 트윗한다" 버튼이 정상 동작하게 한다.
+ * id를 "hidden_*"로 두면 watchVideo가 감상 효과를 2배로 준다(HIDDEN_VIDEO_BONUS) —
+ * tweetLines도 채워 "감상 후 트윗한다" 버튼이 정상 동작하게 한다.
  */
 function hiddenToVideo(hv: HiddenVideo): Video {
   return {

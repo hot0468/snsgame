@@ -10,6 +10,7 @@ import { addSchedule, advanceTime } from "./time";
 import { doAuthorWork } from "./author";
 import { estheticBeautyMult, maybeSpawnEstheticAd } from "./esthetic";
 import { unlockAttribute } from "./attributeUnlock";
+import { recordMission } from "./missions";
 import { rollAdultOfflineEncounter } from "./adultOffline";
 import type { AdultOfflineEncounterId } from "@/data/adultOffline";
 import { CREATURES } from "@/data/creatures";
@@ -416,6 +417,8 @@ export function doOfflineActivity(
 ): OfflineOutcome {
   // 시간이 진행되기 전 슬롯을 기록(심야 여부 판정용)
   const wasLate = state.slot === LATE_SLOT;
+  recordMission(state, "offline"); // 도전과제: 현생 살기 카운트
+
   // 휴식 활동은 activity.action이 양수 — 상한이 걸리는 지점이라 clampAction이어야 한다.
   state.resources.action = clampAction(state, state.resources.action + activity.action);
   state.resources.mental = clampResource(state.resources.mental + activity.mental);

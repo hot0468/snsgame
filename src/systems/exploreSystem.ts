@@ -29,6 +29,7 @@ import { makeGoodsGroupBuyTweet } from "./groupBuy";
 import { addSchedule, advanceTime } from "./time";
 import { unlockAttribute } from "./attributeUnlock";
 import { clampAction } from "./stats";
+import { recordMission } from "./missions";
 
 /** 남에게 다정하게(긍정) 반응하려면 필요한 최소 친화력 */
 export const SOCIABILITY_NICE_MIN = 250;
@@ -154,6 +155,7 @@ export function followAccount(state: GameState, account: Account): number {
   // 칠남(동종업계 킬러)을 팔로우하면 그가 품앗이 DM을 건다(킬러일 때만).
   if (account.handle === "chilnam_7") maybeSpawnChilnamDM(state);
   onFollow(state, account); // 봇/유령 다수 팔로우 이스터에그
+  recordMission(state, "follow");
   addSchedule(
     state,
     `${account.name} 팔로우 (${delta >= 0 ? "+" : ""}${delta})`,
@@ -220,7 +222,10 @@ export function reactToTweet(state: GameState, tweet: Tweet, positive: boolean):
     state.resources.morality = Math.max(0, state.resources.morality - randInt(3, 6));
   }
   changeFollowers(state, delta);
-  if (positive) onLikeTweet(state, tweet); // 이스터에그(코인/다단계/동물/찐친)
+  if (positive) {
+    onLikeTweet(state, tweet); // 이스터에그(코인/다단계/동물/찐친)
+    recordMission(state, "like");
+  }
   addSchedule(state, positive ? "응원 반응" : "악플", "sns");
   return delta;
 }
@@ -254,6 +259,7 @@ export function retweetTweet(state: GameState, tweet: Tweet): number | null {
   maybeUnlockAttribute(state, tweet.attribute);
   if (delta > 0) maybeSpawnFanDM(state);
   onRetweet(state, tweet); // 같은 사람 반복 리트윗 → 찐친 이스터에그
+  recordMission(state, "retweet");
   addSchedule(state, `리트윗 (${delta >= 0 ? "+" : ""}${delta})`, "sns");
   return delta;
 }

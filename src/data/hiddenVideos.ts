@@ -4,7 +4,8 @@ import type { AttributeId } from "@/core/types";
  * 너튜브 검색으로만 뜨는 숨은 영상.
  * 일반 영상 목록(makeRandomVideos)에는 절대 섞이지 않고, 검색창에 trigger가
  * 부분일치(공백무시)로 들어갈 때만 결과에 끼어든다(ui/youtube.ts).
- * 감상 시 효과는 기존 Video 처리 로직을 그대로 재사용한다(신규 효과 없음).
+ * 감상 효과는 일반 영상의 **2배**다(정신력·관련 스킬 ×HIDDEN_VIDEO_BONUS) — 발견 보상.
+ * 판정은 id "hidden_*" 접두사로 한다(systems/videoSystem.watchVideo).
  */
 export interface HiddenVideo {
   /** 이 영상을 띄우는 검색어(부분일치, 공백무시 비교) */

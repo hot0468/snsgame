@@ -9,6 +9,7 @@ import type {
 } from "./types";
 import { uid } from "@/utils/random";
 import { initialMarket } from "@/data/market";
+import { rollDaily, rollWeekly, currentWeek } from "@/data/missions";
 
 /**
  * 치트의 초기(미사용) 상태 — 새 게임과 구세이브 보정이 함께 쓴다.
@@ -304,6 +305,7 @@ export function createInitialState(): GameState {
     pendingAchievements: [],
     statMilestones: [],
     pendingMilestones: [],
+    missions: { day: 1, week: currentWeek(1), daily: rollDaily(1), weekly: rollWeekly(currentWeek(1)) },
   };
 }
 

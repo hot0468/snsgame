@@ -1,6 +1,6 @@
 import type { GameState, SkillStatId, Tweet } from "@/core/types";
 import type { ShopItem } from "@/data/shop";
-import { SHOP_ITEMS } from "@/data/shop";
+import { SHOP_ITEMS, PC_UPGRADE_ID } from "@/data/shop";
 import { COSMETICS } from "@/data/cosmetics";
 import { GOBLIN_ITEMS } from "@/data/goblin";
 import { PEEMANG_ITEMS } from "@/data/peemang";
@@ -37,9 +37,11 @@ export function hasDrawingTool(state: GameState): boolean {
   return DRAWING_TOOL_IDS.some((id) => state.ownedItems.includes(id));
 }
 
-/** 세일 반영 실구매가 */
+/** 세일 반영 실구매가. 컴퓨터 업그레이드는 보유 개수에 비례해 기본가가 오른다(300k→600k→900k…). */
 export function effectivePrice(state: GameState, item: ShopItem): number {
-  return salePrice(state.day, item.price);
+  const base =
+    item.id === PC_UPGRADE_ID ? item.price * (ownedCount(state, item.id) + 1) : item.price;
+  return salePrice(state.day, base);
 }
 
 /** 구매 가능한지(미보유 or 반복 구매 가능 + 잔고 충분) */

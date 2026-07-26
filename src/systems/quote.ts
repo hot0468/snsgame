@@ -12,7 +12,7 @@ import { changeFollowers } from "./followers";
 import { consumePostSlot } from "./eggs";
 import { clampAction, clampResource } from "./stats";
 import { rollControversy } from "./controversy";
-import { ddeoksangBonus, isDdeoksang, TWEET_ACTION_COST } from "./tweetSystem";
+import { ddeoksangBonus, isDdeoksang, tweetActionCost } from "./tweetSystem";
 import { applyTchinReach, bumpTchinProgress } from "./tchin";
 import { addSchedule } from "./time";
 import { maybeQueueNews } from "./news";
@@ -47,7 +47,7 @@ export function postQuoteTweet(
   const aff = getAffinity(account.attribute, target.attribute);
 
   // 비용(일반 트윗과 동일)
-  state.resources.action = clampAction(state, state.resources.action - TWEET_ACTION_COST);
+  state.resources.action = clampAction(state, state.resources.action - tweetActionCost(state));
   consumePostSlot(state);
   // 인용도 대상 계정과의 상호작용 — 트친 누적에 센다.
   bumpTchinProgress(state, target.authorHandle, target.authorName);

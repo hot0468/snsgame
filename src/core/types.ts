@@ -1172,4 +1172,24 @@ export interface GameState {
   statMilestones: string[];
   /** 마일스톤 달성 알림 대기 id 목록 — app이 토스트 후 비운다(pendingAchievements와 동일 패턴) */
   pendingMilestones: string[];
+
+  /** 일일/주간 도전과제 진행 상태(data/missions.ts + systems/missions.ts) */
+  missions: MissionState;
+}
+
+/** 도전과제 한 건의 진행 상태(정의는 data/missions.ts의 id로 참조) */
+export interface MissionInstance {
+  id: string;
+  progress: number;
+  claimed: boolean;
+}
+
+/** 일일/주간 미션 세트 — day/week가 바뀌면 systems/missions.ensureMissions가 다시 굴린다 */
+export interface MissionState {
+  /** daily 세트를 굴린 일차 */
+  day: number;
+  /** weekly 세트를 굴린 주차(currentWeek) */
+  week: number;
+  daily: MissionInstance[];
+  weekly: MissionInstance[];
 }

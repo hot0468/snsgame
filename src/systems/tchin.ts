@@ -31,7 +31,7 @@ import { clampAction } from "./stats";
 import { pushKakao } from "./kakao";
 import { addSchedule } from "./time";
 import { addAppointment } from "./appointments";
-import { TWEET_ACTION_COST } from "./tweetSystem";
+import { tweetActionCost } from "./tweetSystem";
 import { chance, hashInt, pick, randInt, uid } from "@/utils/random";
 
 /**
@@ -177,7 +177,7 @@ export function postTchinso(state: GameState): TchinsoResult {
   const account = getActiveAccount(state);
 
   // 비용(일반 트윗과 동일)
-  state.resources.action = clampAction(state, state.resources.action - TWEET_ACTION_COST);
+  state.resources.action = clampAction(state, state.resources.action - tweetActionCost(state));
   consumePostSlot(state);
 
   // 응답 계정 수: 기본 2~4, 친화력 300당 상한 +1(최종 상한 RESP_MAX+2).

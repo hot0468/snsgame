@@ -29,6 +29,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: "pen_tablet", name: "판 타블렛", desc: "화면 없이 그리는 입문용 태블릿. 애니/만화 창작이 열린다.", price: 150_000, skill: "creativity", boost: 40 },
   { id: "display_tablet", name: "액정 타블렛", desc: "화면에 바로 그리는 전문가용. 애니/만화 창작이 열린다.", price: 400_000, skill: "creativity", boost: 70 },
   { id: "gpu", name: "그래픽카드", price: 600_000 },
+  { id: "pc_upgrade", name: "컴퓨터 업그레이드", desc: "부품을 하나씩 손보면 작업 흐름이 빨라진다. 하나 늘 때마다 트윗 게시에 드는 행동력이 1씩 영구히 줄어든다(최소 5까지). 업그레이드할수록 다음 부품값이 비싸진다.", price: 300_000, repeatable: true },
   { id: "mouse", name: "마우스", desc: "클릭이 손끝을 그대로 따라온다. 하나 늘 때마다 티켓팅 제한 시간이 0.1초씩 벌어지고, 그 0.1초가 자리를 가른다.", price: 100_000, repeatable: true },
   { id: "ereader", name: "전자책 리더기", desc: "어휘와 지식을 틈틈이 채운다.", price: 70_000, skill: "vocabulary", boost: 30 },
   { id: "hometrainer", name: "홈트 기구 세트", desc: "집에서도 꾸준히 몸을 만든다.", price: 100_000, skill: "fitness", boost: 30 },
@@ -43,3 +44,5 @@ export const SHOP_ITEMS: ShopItem[] = [
 /** 계절 이벤트(seasonal)가 소유 판정에 import. */
 export const AIRCON_ID = "aircon";
 export const HEATPAD_ID = "heatpad";
+/** 컴퓨터 업그레이드 — 보유 개수만큼 트윗 게시 행동력이 줄어든다(tweetSystem.tweetActionCost). */
+export const PC_UPGRADE_ID = "pc_upgrade";
