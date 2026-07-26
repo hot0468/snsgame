@@ -3,6 +3,8 @@ import { doWork, WORK_ACTION_COST } from "@/systems/employment";
 import { TIERS, DEV_JOB_COMPANY } from "@/data/jobs";
 import { NIGL_COMPANY, NIGL_SHIFT_GOAL } from "@/data/niglnigl";
 import { MORNING_SLOT } from "@/core/state";
+import { getAdultOfflineEncounter, type AdultOfflineEncounterId } from "@/data/adultOffline";
+import { rollAdultOfflineEncounter, resolveAdultOfflineEncounter } from "@/systems/adultOffline";
 import { el } from "@/utils/dom";
 import { icon } from "./icons";
 import { renderCommitGrass } from "./components";
@@ -101,10 +103,58 @@ export function renderWorkModal(ctx: GameContext): HTMLElement {
 
   function resolve(mode: "work" | "slack"): void {
     let message = "";
+    let encId: AdultOfflineEncounterId | null = null;
     ctx.update((s) => {
       message = doWork(s, mode).message;
+      // 근무를 마치며 오늘 야근이 잡혔으면(overtimeDay===day) 성인 조우를 확률 추첨.
+      // 성인모드·음란도·강압여부 게이트는 rollAdultOfflineEncounter가 처리한다. 야근=심야 취급(wasLate).
+      const emp = s.employment;
+      if (emp && emp.overtimeDay === s.day) {
+        encId = rollAdultOfflineEncounter(s, "overtime", true);
+      }
     });
-    showResult(message);
+    if (encId) showEncounter(encId, message);
+    else showResult(message);
+  }
+
+  /** 야근 성인 조우 — 근무 결과 문구에 이어 조우 프롬프트·선택지를 보여준다(offlineModal과 동일 패턴). */
+  function showEncounter(encId: AdultOfflineEncounterId, workMsg: string): void {
+    const enc = getAdultOfflineEncounter(encId);
+    if (!enc) return showResult(workMsg);
+    container.replaceChildren(
+      el(
+        "div",
+        { class: "modal__head" },
+        el("span", { class: "modal__head-title" }, icon("article", { size: 18 }), "야근"),
+      ),
+      el(
+        "div",
+        { class: "modal__body" },
+        el("p", { style: "font-size:15px;line-height:1.6;margin:0 0 10px;opacity:.85" }, workMsg),
+        el("p", { class: "life-result__unlock" }, enc.prompt),
+        el("p", { class: "compose-hint", style: "margin-top:14px" }, enc.hint),
+        el(
+          "div",
+          { class: "compose-actions", style: "gap:10px; flex-wrap:wrap" },
+          ...enc.choices.map((choice, idx) =>
+            el(
+              "button",
+              {
+                class: idx === 0 ? "btn" : "btn btn--ghost",
+                onclick: () => {
+                  let msg = "";
+                  ctx.update((s) => {
+                    msg = resolveAdultOfflineEncounter(s, encId, idx);
+                  });
+                  showResult(msg);
+                },
+              },
+              choice.label,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   function showResult(message: string): void {

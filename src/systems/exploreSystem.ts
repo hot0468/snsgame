@@ -8,6 +8,8 @@ import {
   profileFromAuthor,
 } from "@/data/accounts";
 import { ATTRIBUTES, getAffinity } from "@/data/attributes";
+import { makeOmenAccount } from "@/data/omenAccount";
+import { SPECIAL_ACCOUNT_MAKERS } from "@/data/specialAccounts";
 import { allTemplatesFor } from "@/data/tweets";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { calcEncounterFollowerDelta, changeFollowers } from "./followers";
@@ -42,7 +44,7 @@ const BOT_NAMES = ["팔로우맞팔", "선팔하면맞팔", "무료홍보", "이
 /** 계정 탐색: 랜덤 계정 3개 생성(일부는 봇/유령 계정) */
 export function exploreAccounts(state: GameState): Account[] {
   const adult = state.adultMode;
-  return Array.from({ length: 3 }, () => {
+  const accounts = Array.from({ length: 3 }, () => {
     const acc = makeRandomAccount(adult, state.day);
     // 낮은 확률로 봇/유령 계정(다수 팔로우 시 신뢰도 하락 이벤트)
     if (chance(0.25)) {
@@ -54,6 +56,12 @@ export function exploreAccounts(state: GameState): Account[] {
     }
     return acc;
   });
+  // 낮은 확률로 한 칸을 전용 트윗 풀을 쓰는 고정 NPC(예언·리딩방·명언봇·공식봇)로 교체한다.
+  if (chance(0.3)) {
+    const makers = [makeOmenAccount, ...SPECIAL_ACCOUNT_MAKERS];
+    accounts[randInt(0, 2)] = pick(makers)(state.day);
+  }
+  return accounts;
 }
 
 const EGG_KINDS: EggKind[] = ["coin", "pyramid", "animal"];

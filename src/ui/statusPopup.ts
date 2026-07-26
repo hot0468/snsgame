@@ -12,6 +12,7 @@ import { MILESTONE_TITLES } from "@/data/milestones";
 import { SLOT_LABELS } from "@/core/state";
 import { dateLabel, weekdayLabel } from "@/systems/time";
 import { el, formatNumber } from "@/utils/dom";
+import { renderWorkTweetModal } from "./workTweetModal";
 import { statBar } from "./components";
 import { icon, type IconName } from "./icons";
 import { renderOfflineModal } from "./offlineModal";
@@ -113,7 +114,8 @@ function renderMoneyInfo(s: import("@/core/types").GameState): HTMLElement {
  * 직업란 — 회사 재직·AV배우 계약을 함께 보여준다.
  * 둘 다 없으면 null(빈 박스 금지). "상세 스탯 보기" 버튼 바로 위에 놓인다.
  */
-function renderJobInfo(s: import("@/core/types").GameState): HTMLElement | null {
+function renderJobInfo(ctx: GameContext): HTMLElement | null {
+  const s = ctx.store.getState();
   const emp = s.employment;
   const av = s.avJob;
   const author = s.authorContract;
@@ -130,6 +132,19 @@ function renderJobInfo(s: import("@/core/types").GameState): HTMLElement | null 
         `재직: ${emp.company} · 월급 ${formatNumber(salaryOf(s))}원 (10일)`,
       ),
       el("div", {}, `업무 성과 Lv.${emp.perfLevel} (${Math.round(emp.performance)}/100)`),
+      // 오늘 회사 얘기 트윗(선택·하루 1번) — 긍정/부정 톤을 골라 올린다. 안 써도 됨.
+      el(
+        "button",
+        {
+          class: "btn btn--ghost",
+          style: "margin-top:6px;width:100%;font-size:12.5px",
+          disabled: s.lastWorkTweetDay === s.day,
+          onclick: () => {
+            if (s.lastWorkTweetDay !== s.day) ctx.openModal(renderWorkTweetModal);
+          },
+        },
+        s.lastWorkTweetDay === s.day ? "💼 오늘 회사 얘기 완료" : "💼 오늘 회사 얘기 트윗",
+      ),
     );
   }
   if (av) {
@@ -355,7 +370,7 @@ function statusInner(ctx: GameContext): HTMLElement[] {
       ...resourceRows,
       staminaRow,
       renderMoneyInfo(s),
-      renderJobInfo(s),
+      renderJobInfo(ctx),
       el(
         "button",
         {

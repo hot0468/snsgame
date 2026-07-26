@@ -22,6 +22,10 @@ export type AttributeId =
   | "animal" // 동물계(반려동물이 아닌 동물)
   | "plant" // 식물계
   | "cooking" // 요리계
+  | "finance" // 재테크/주식계
+  | "sports" // 스포츠계
+  | "fashion" // 패션계(OOTD)
+  | "travel" // 여행계
   | "adult"; // 성인계
 
 /**
@@ -295,6 +299,8 @@ export interface DMThread {
   savanna?: boolean;
   /** 플랫폼 작가 계약 제안 스레드인지(창작 트윗이 쌓이면 유입) */
   authorOffer?: boolean;
+  /** momo 청부(킬러) 제의 스레드인지. ui가 수락/거절 버튼을 렌더한다(systems/killer). */
+  momoOffer?: boolean;
   /**
    * '금발의 신사'가 진홍안을 넘겨달라고 제안한 스레드인지(경매에서 진홍안 구매 시 유입).
    * ui는 이 플래그를 보고 넘겨줌/거절 버튼을 렌더하고 resolveEyeDeal을 호출한다.
@@ -492,6 +498,31 @@ export interface AvJob {
    * state.day가 이 값 이하면 아직 아픈 상태. -1이면 건강.
    */
   stdUntilDay: number;
+}
+
+/** 킬러의 현재 주간 임무(없으면 null) */
+export interface KillerAssignment {
+  /** 타겟 id(data/killerTargets.ts) */
+  targetId: string;
+  /** 배정된 일요일 day */
+  assignedDay: number;
+  /** 이 day(다음 일요일)에 미완이면 실패로 판정된다 */
+  deadlineDay: number;
+}
+
+/**
+ * 킬러 직업(momo.com 서적요청 → DM 수락으로 시작). 기존 직업과 독립 트랙.
+ * 매주 일요일 타겟 배정, 토요일까지 [작업하기]로 위치 입력해 처리. 실패 3회 누적 시 게임오버.
+ * 한 번 active면 자발적 사퇴 없음.
+ */
+export interface KillerJob {
+  active: boolean;
+  /** 실패 누적(KILLER_MAX_FAILS 도달 시 본인이 처리됨) */
+  fails: number;
+  /** 완료(성공) 누적 */
+  completed: number;
+  /** 현재 임무. 배정 전/완료 후엔 null */
+  assignment: KillerAssignment | null;
 }
 
 /** 대부업체에서 빌린 빚 */
@@ -874,6 +905,9 @@ export interface GameState {
   /** 마지막으로 EBS '오늘의 무료 강의'를 수강한 날(일차). -1이면 없음. 하루 1편 무료 캡. */
   ebsFreeWatchedDay: number;
 
+  /** 마지막으로 '오늘 회사 얘기' 트윗을 올린 날(일차). -1이면 없음. 하루 1회 캡. */
+  lastWorkTweetDay: number;
+
   /** 새 날 아침 딤팝업 대기 플래그. onNewDay에서 true, 팝업 닫을 때 false */
   dawnPending: boolean;
 
@@ -936,6 +970,10 @@ export interface GameState {
   avJob: AvJob | null;
   /** AV배우 제의 DM을 이미 한 번 보냈는지(중복 제의 방지). 초기 false */
   avOffered: boolean;
+  /** 킬러 직업(없으면 미취직). momo.com 서적요청 → DM 수락으로 생성. 초기 null */
+  killerJob: KillerJob | null;
+  /** momo 서적요청 제의 DM을 보낸 마지막 day(중복 제의 방지). 초기 -1 */
+  momoOfferedDay: number;
   /** 니글니글 이번 '달' 출근 일수(월급날 NIGL_SHIFT_GOAL 미달이면 월급 반감 후 0으로 리셋). 초기 0 */
   niglShifts: number;
   /** 결과 대기 중인 취업 지원(익일 메일 통보). 없으면 null */

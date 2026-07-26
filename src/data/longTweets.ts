@@ -17,6 +17,10 @@ import { long as catLong } from "./categories/cat";
 import { long as animalLong } from "./categories/animal";
 import { long as plantLong } from "./categories/plant";
 import { long as cookingLong } from "./categories/cooking";
+import { long as financeLong } from "./categories/finance";
+import { long as sportsLong } from "./categories/sports";
+import { long as fashionLong } from "./categories/fashion";
+import { long as travelLong } from "./categories/travel";
 import { long as adultLong } from "./categories/adult";
 
 /**
@@ -50,6 +54,10 @@ export const LONG_TWEETS: Record<AttributeId, LongTweet[]> = {
   animal: animalLong,
   plant: plantLong,
   cooking: cookingLong,
+  finance: financeLong,
+  sports: sportsLong,
+  fashion: fashionLong,
+  travel: travelLong,
   adult: adultLong,
 };
 

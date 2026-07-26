@@ -605,6 +605,131 @@ body {
   background: var(--bg-window);
 }
 
+/* ===== momo.com (에로서적·킬러 진입로) — 다크 톤 ===== */
+.momo-site {
+  min-height: 100%;
+  background: #14101a;
+  color: #e8e0ef;
+  padding: 20px 22px 32px;
+}
+.momo-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  border-bottom: 1px solid #3a2f47;
+  padding-bottom: 12px;
+}
+.momo-logo {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #d98cc0;
+  font-style: italic;
+}
+.momo-tag {
+  font-size: 12px;
+  color: #8a7f97;
+}
+.momo-notice {
+  margin: 14px 0 18px;
+  font-size: 13.5px;
+  color: #b6a9c4;
+  font-style: italic;
+}
+.momo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.momo-book {
+  display: flex;
+  gap: 10px;
+  background: #1e1826;
+  border: 1px solid #332a40;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.momo-book__cover {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.momo-book__title {
+  font-weight: 800;
+  font-size: 13.5px;
+  color: #f0e8f6;
+}
+.momo-book__blurb {
+  font-size: 11.5px;
+  color: #9c90aa;
+  margin-top: 3px;
+  line-height: 1.45;
+}
+.momo-foot {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid #3a2f47;
+  text-align: center;
+}
+.momo-foot__desc {
+  font-size: 12.5px;
+  color: #8a7f97;
+  margin-bottom: 10px;
+}
+.momo-request {
+  border: none;
+  border-radius: 999px;
+  padding: 11px 26px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #7a2d63, #b0417d);
+  cursor: pointer;
+}
+.momo-request:hover {
+  filter: brightness(1.1);
+}
+
+/* ===== 킬러 청부(작업하기 모달 + 일 탭 섹션) ===== */
+.killer-dossier {
+  background: #1a1520;
+  border: 1px solid #3a2f47;
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: #e8e0ef;
+}
+.killer-dossier__name { font-weight: 800; font-size: 14px; }
+.killer-dossier__bio { font-size: 12px; color: #9c90aa; margin-top: 2px; }
+.killer-dossier__deadline { font-size: 12px; color: #d98cc0; margin-top: 6px; font-weight: 700; }
+.killer-hint { font-size: 12.5px; color: var(--text-muted); margin: 12px 0 8px; }
+.killer-tweets { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+.killer-tweet {
+  background: var(--bg-panel);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.killer-tweet__at { display: block; font-size: 11px; color: var(--accent); font-weight: 700; margin-bottom: 2px; }
+.killer-input-label { display: block; font-size: 12px; font-weight: 700; margin: 14px 0 6px; }
+.killer-input-row { display: flex; gap: 8px; }
+.killer-input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font: inherit;
+}
+.killer-section {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #3a2f47;
+  border-radius: 10px;
+  background: #1a1520;
+  color: #e8e0ef;
+}
+.killer-section__title { font-weight: 800; font-size: 13.5px; }
+.killer-section__mission { font-size: 12.5px; color: #b6a9c4; margin-top: 6px; }
+
 /* ===== 니글니글 취업 지원(주소창 이스터에그) ===== */
 /* 자체 다크 테마 고정 — 브라우저/포털이 라이트여도 이 랜딩만 시네마틱 다크 */
 .nigl-site {
@@ -5820,6 +5945,84 @@ body {
   transform: translateY(0) scale(0.99);
   box-shadow: 0 3px 8px rgba(29, 155, 240, 0.3),
     inset 0 2px 4px rgba(20, 22, 45, 0.18);
+}
+
+/* 이벤트는 일반 모달(modal-pop)보다 극적으로 등장한다 — '이벤트다움'의 절반은 등장 연출. */
+.modal--event {
+  animation: event-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes event-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.86);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0) scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 상단 리본 — 이 팝업이 '돌발 이벤트'임을 색으로 알린다(이모지 없이). 결과는 파란 톤으로 구분. */
+.event-ribbon {
+  padding: 9px 16px;
+  text-align: center;
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  color: #fff;
+  background: linear-gradient(135deg, #ff8a3d, #ff4d6d);
+}
+.event-ribbon--result {
+  background: linear-gradient(135deg, #2e6fe0, #1d9bf2);
+}
+
+/* 이벤트 장면 이미지(있을 때만) — 미디어 트윗과 달리 선명하게 꽉 채운다. */
+.event-img {
+  width: 100%;
+  background: #0b0e14;
+}
+.event-img img {
+  display: block;
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+}
+
+/* 결과 화면 — 선택 반향 + 서사 + 압축 델타 칩(공용 system-notice와 다른 이벤트 전용 표기). */
+.event-result__choice {
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.event-result__narr {
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 0 0 10px;
+}
+.event-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin: 12px 0 4px;
+}
+.event-chip {
+  font-size: 12px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.event-chip--up {
+  background: rgba(46, 111, 224, 0.14);
+  color: #2e6fe0;
+}
+.event-chip--down {
+  background: rgba(239, 62, 62, 0.14);
+  color: #ef3e3e;
 }
 
 /* ── 새 날 아침 딤팝업(해돋이) ── */

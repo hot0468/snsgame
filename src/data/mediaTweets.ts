@@ -17,6 +17,10 @@ import { media as catMedia } from "./categories/cat";
 import { media as animalMedia } from "./categories/animal";
 import { media as plantMedia } from "./categories/plant";
 import { media as cookingMedia } from "./categories/cooking";
+import { media as financeMedia } from "./categories/finance";
+import { media as sportsMedia } from "./categories/sports";
+import { media as fashionMedia } from "./categories/fashion";
+import { media as travelMedia } from "./categories/travel";
 import { media as adultMedia } from "./categories/adult";
 
 /**
@@ -52,6 +56,10 @@ export const MEDIA_TWEET_SETS: Record<AttributeId, MediaTweetSet[]> = {
   animal: animalMedia,
   plant: plantMedia,
   cooking: cookingMedia,
+  finance: financeMedia,
+  sports: sportsMedia,
+  fashion: fashionMedia,
+  travel: travelMedia,
   adult: adultMedia,
 };
 

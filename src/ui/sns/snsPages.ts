@@ -18,6 +18,7 @@ import { hasAction } from "@/systems/stats";
 import { renderScenarioReaderModal } from "./scenarioReader";
 import { acceptAuthorContract } from "@/systems/author";
 import { acceptAvJob, declineAvJob, switchToAvJob } from "@/systems/avJob";
+import { acceptKillerJob, declineKillerJob } from "@/systems/killer";
 import { currentJobLabel, hasAnyJob } from "@/systems/employment";
 import { confirmPurchase } from "@/ui/confirmModal";
 import { consumeWishLink, isWishTweet, rollWishOptions, spawnWishDM } from "@/systems/wish";
@@ -1085,6 +1086,35 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
         },
       },
       "촬영하러 간다",
+    );
+  }
+  // momo 청부(킬러) 제의 스레드: 수락/거절 버튼(처리 후엔 표시만)
+  if (thread.momoOffer) {
+    return el(
+      "div",
+      { class: "compose-actions", style: "gap:8px" },
+      el(
+        "button",
+        {
+          class: "btn",
+          onclick: () => {
+            ctx.update((s) => acceptKillerJob(s, thread.id));
+            ctx.toast("...돌이킬 수 없는 문을 열었다.");
+          },
+        },
+        "수락한다",
+      ),
+      el(
+        "button",
+        {
+          class: "btn btn--ghost",
+          onclick: () => {
+            ctx.update((s) => declineKillerJob(s, thread.id));
+            ctx.toast("제의를 거절했다.");
+          },
+        },
+        "거절한다",
+      ),
     );
   }
   // AV배우 제의 스레드: 계약/거절 버튼(처리 후엔 표시만)

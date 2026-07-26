@@ -126,6 +126,8 @@ export interface UIState {
   historySiteOpen: boolean;
   /** 괴담 사이트(goedam.kr)가 열려 있는지(hosts 매핑 후 주소창 입력으로 진입, 탭 이동 시 닫힘) */
   goedamSiteOpen: boolean;
+  /** momo.com(에로서적·킬러 진입로)이 열려 있는지(주소창 momo.com 입력, 성인모드 필요) */
+  momoSiteOpen: boolean;
   /** 괴담 사이트에서 열어본 글 id(null이면 목록) */
   goedamStoryId: string | null;
 }
@@ -181,6 +183,7 @@ export function createUIState(): UIState {
     historySiteOpen: false,
     goedamSiteOpen: false,
     goedamStoryId: null,
+    momoSiteOpen: false,
   };
 }
 

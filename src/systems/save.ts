@@ -184,6 +184,9 @@ function sanitize(state: GameState): GameState {
   state.employment ??= null;
   // AV배우 직업은 신규 기능 — 구세이브엔 키가 없다(미계약·미제의가 정답).
   state.avJob ??= null;
+  // 킬러 직업(momo.com)도 신규 필드 — 구세이브엔 미취직·미제의가 정답.
+  state.killerJob ??= null;
+  if (typeof state.momoOfferedDay !== "number") state.momoOfferedDay = -1;
   // 노콘 가산이 영구→월누적으로 바뀌며 필드명이 condomlessThisMonth로 교체됐다.
   // 구세이브(condomlessCount 또는 필드 부재)는 이번 달 0에서 다시 시작한다.
   if (state.avJob) state.avJob.condomlessThisMonth ??= 0;
@@ -285,6 +288,7 @@ function sanitize(state: GameState): GameState {
   state.dawnPending ??= false;
   state.bossJokeDay ??= -1;
   state.ebsFreeWatchedDay ??= -1;
+  state.lastWorkTweetDay ??= -1;
   // 회복 표시 필드는 신규 — 최상위 merge가 구세이브(키 부재)엔 기본 객체를 넣지만,
   // 손상된 non-object가 저장돼 있으면 dawnModal이 .action/.mental에서 터진다(pets와 같은 방어).
   // onNewDay가 매일 덮으므로 값 정확도보단 shape만 보장하면 된다.

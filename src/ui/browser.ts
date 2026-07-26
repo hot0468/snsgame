@@ -42,6 +42,7 @@ import { confirmPurchase } from "./confirmModal";
 import { canBeHiredByNigl, hireNigl } from "@/systems/employment";
 import { renderHistory } from "./history";
 import { renderGoedam } from "./goedam";
+import { renderMomo } from "./momo";
 import { GOEDAM_URL, hostsHasGoedam } from "@/systems/hosts";
 import { pick } from "@/utils/random";
 
@@ -88,6 +89,7 @@ export function closeOverlays(ctx: GameContext): void {
   ctx.ui.historySiteOpen = false;
   ctx.ui.niglSiteOpen = false;
   ctx.ui.goedamSiteOpen = false;
+  ctx.ui.momoSiteOpen = false;
 }
 
 /** 현재 화면이 북마크 대상 사이트인지(없으면 null). 오버레이가 탭보다 우선(위에 덮이므로). */
@@ -544,7 +546,9 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
                 ? "browser://history"
                 : ctx.ui.goedamSiteOpen
                   ? GOEDAM_URL
-                  : activeDef.url;
+                  : ctx.ui.momoSiteOpen
+                    ? "momo.com"
+                    : activeDef.url;
 
   const urlbar = el(
     "div",
@@ -571,6 +575,15 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
             closeOverlays(ctx);
             ctx.ui.goedamSiteOpen = true;
             ctx.ui.goedamStoryId = null;
+            ctx.refresh();
+          } else {
+            ctx.toast("페이지를 찾을 수 없습니다");
+          }
+        } else if (v === "momo.com" || v === "www.momo.com") {
+          // momo.com은 성인 사이트 — 성인모드 ON에서만 내용이 뜬다.
+          if (ctx.store.getState().adultMode) {
+            closeOverlays(ctx);
+            ctx.ui.momoSiteOpen = true;
             ctx.refresh();
           } else {
             ctx.toast("페이지를 찾을 수 없습니다");
@@ -640,6 +653,9 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
   } else if (ctx.ui.goedamSiteOpen) {
     // 괴담 사이트(hosts에 goedam.kr 매핑 후 주소창 입력으로 진입, 탭 이동 시 닫힘).
     content.append(renderGoedam(ctx));
+  } else if (ctx.ui.momoSiteOpen) {
+    // momo.com — 에로서적 사이트(성인모드에서만 진입, 하단 서적요청=킬러 진입로).
+    content.append(renderMomo(ctx));
   } else if (active === "sns") {
     content.append(renderSnsView(ctx));
   } else if (active === "youtube") {

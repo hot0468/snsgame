@@ -20,6 +20,10 @@ import { short as catShort } from "./categories/cat";
 import { short as animalShort } from "./categories/animal";
 import { short as plantShort } from "./categories/plant";
 import { short as cookingShort } from "./categories/cooking";
+import { short as financeShort } from "./categories/finance";
+import { short as sportsShort } from "./categories/sports";
+import { short as fashionShort } from "./categories/fashion";
+import { short as travelShort } from "./categories/travel";
 import { short as adultShort } from "./categories/adult";
 
 /** 트윗 감정 톤 — NPC 타임라인 생성·기사 모드용(플레이어 톤 선택은 성격으로 대체됨). */
@@ -82,6 +86,10 @@ export const TWEET_TEMPLATES: Record<AttributeId, TweetTemplateSet> = {
   animal: animalShort,
   plant: plantShort,
   cooking: cookingShort,
+  finance: financeShort,
+  sports: sportsShort,
+  fashion: fashionShort,
+  travel: travelShort,
   adult: adultShort,
 };
 

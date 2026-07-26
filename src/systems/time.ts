@@ -30,6 +30,7 @@ import { deliverPendingGoods } from "./groupBuy";
 import { maybeSpawnWorkMsg } from "./workMessenger";
 import { checkAchievements } from "./achievements";
 import { checkStatMilestones } from "./milestones";
+import { killerWeeklyTick } from "./killer";
 import { HOUSINGS } from "@/data/housing";
 import { clampAction } from "./stats";
 import { settleGigDeadlines } from "./gig";
@@ -219,6 +220,8 @@ function onNewDay(state: GameState): void {
   checkAchievements(state);
   // 스탯 마일스톤 판정(하루 중 여러 경로로 오른 스킬을 일괄 인정)
   checkStatMilestones(state);
+  // 킬러 주간 사이클(일요일: 지난 임무 실패 판정·게임오버·새 타겟 배정)
+  killerWeeklyTick(state);
   // 오늘 도래한 트친 생일이 있으면 축하 배너/카톡을 세팅(전날 미축하는 무해하게 흘려보낸다)
   processBirthdayDue(state);
 }

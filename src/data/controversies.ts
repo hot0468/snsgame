@@ -8,7 +8,6 @@ import type { GameEvent } from "./events";
 export const CONTROVERSY_EVENTS: GameEvent[] = [
   {
     id: "ctrl_scam_exposed",
-    emoji: "",
     title: "사기 트윗 박제",
     description:
       "예전에 올린 '꿀팁' 트윗이 사기라는 폭로가 캡처와 함께 퍼지고 있다. " +
@@ -34,7 +33,6 @@ export const CONTROVERSY_EVENTS: GameEvent[] = [
   },
   {
     id: "ctrl_sniped",
-    emoji: "",
     title: "저격글 논란",
     description:
       "한 계정이 당신을 콕 집어 저격하는 글을 올렸고, 편이 갈려 타임라인이 설전으로 달아올랐다.",
@@ -59,7 +57,6 @@ export const CONTROVERSY_EVENTS: GameEvent[] = [
   },
   {
     id: "ctrl_old_take",
-    emoji: "",
     title: "과거 발언 재조명",
     description:
       "예전에 올린 아슬아슬한 발언이 다시 발굴돼 도마 위에 올랐다. 지금 기준으론 확실히 위험한 트윗이었다.",
@@ -84,7 +81,6 @@ export const CONTROVERSY_EVENTS: GameEvent[] = [
   },
   {
     id: "ctrl_adult_doxx",
-    emoji: "",
     title: "성인물 신상 유출",
     description:
       "성인 콘텐츠를 올리던 계정의 실명과 얼굴이 특정돼 커뮤니티에 박제됐다. " +
@@ -115,7 +111,6 @@ export const CONTROVERSY_EVENTS: GameEvent[] = [
     // 대형 협찬(first_big_sponsor) 수락 후 낮은 확률로 소환된다(systems/events.ts sponsorDeal).
     // triggers:[]이라 스스로 안 뜨고 pendingControversy로만 등장한다.
     id: "ctrl_paid_promo",
-    emoji: "",
     title: "뒷광고 논란",
     description:
       "협찬 트윗에 '광고' 표기가 빠졌다는 지적이 올라왔다. 캡처가 돌며 '뒷광고 아니냐'는 말이 번지고 있다.",

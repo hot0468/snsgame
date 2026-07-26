@@ -14,7 +14,7 @@ import {
   collectCreature,
 } from "@/systems/offline";
 import { postTweet } from "@/systems/tweetSystem";
-import { outdoorShoot, blackVanOrgy } from "@/systems/events";
+import { outdoorShoot, blackVanOrgy, wallHoleOrgy } from "@/systems/events";
 import { getAdultOfflineEncounter } from "@/data/adultOffline";
 import { resolveAdultOfflineEncounter } from "@/systems/adultOffline";
 import { canNiglWork, quitCurrentJob } from "@/systems/employment";
@@ -34,6 +34,7 @@ import { el, formatNumber } from "@/utils/dom";
 import { icon, ACTIVITY_ICON } from "./icons";
 import { renderJobBoardModal } from "./jobBoardModal";
 import { renderSystemNotice } from "./systemNotice";
+import { renderKillerWorkModal } from "./killerWorkModal";
 
 /** +/- 부호를 붙인 수치 문자열 */
 function signed(n: number): string {
@@ -156,8 +157,11 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           lifeTabBtn("휴식", "rest"),
           lifeTabBtn("공부", "study"),
           lifeTabBtn("자기개발", "growth"),
+          lifeTabBtn("일", "work"),
         ),
         el("div", { class: "offline-grid" }, ...items),
+        // 일 탭: 킬러면 작업하기(청부), 취업 섹션도 이 탭으로 모은다.
+        lifeTab === "work" ? killerWorkSection() : null,
         // 공부 탭: 미술·코딩 등은 EBS로 옮겼다 — 힌트로 안내(네이놈에서 검색해 접속).
         lifeTab === "study"
           ? el(
@@ -199,6 +203,41 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         },
         icon("bed", { size: 18 }),
         "하루 그냥 보내기",
+      ),
+    );
+  }
+
+  /** 킬러 청부 섹션(일 탭): active면 임무 상태 + 작업하기, 아니면 안내(momo.com 유도). */
+  function killerWorkSection(): HTMLElement {
+    const s = ctx.store.getState();
+    const kj = s.killerJob;
+    if (!kj?.active) {
+      return el(
+        "div",
+        { class: "killer-section killer-section--none" },
+        el("p", { class: "compose-hint", style: "margin:12px 0 0" },
+          "부업이 필요하다면... 남모르는 일자리도 있다더라. (성인모드에서 momo.com)"),
+      );
+    }
+    const asg = kj.assignment;
+    return el(
+      "div",
+      { class: "killer-section" },
+      el("div", { class: "killer-section__title" }, `🗡️ 청부 (실패 ${kj.fails}/3 · 완료 ${kj.completed})`),
+      asg
+        ? el("div", { class: "killer-section__mission" }, "이번 주 타겟이 배정됐다. 쪽지의 힌트를 보고 위치를 알아내라.")
+        : el("div", { class: "killer-section__mission" }, "배정된 임무 없음. 일요일에 momo가 연락한다."),
+      el(
+        "button",
+        {
+          class: "btn",
+          style: "width:100%;margin-top:8px",
+          disabled: asg ? undefined : "true",
+          onclick: () => {
+            if (kj.assignment) ctx.openModal(renderKillerWorkModal);
+          },
+        },
+        asg ? "작업하기" : "임무 대기 중",
       ),
     );
   }
@@ -366,7 +405,12 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
   function showResult(act: OfflineActivity, outcome: OfflineOutcome): void {
     // 성인 이벤트(검은 봉고·야외노출·성인 조우)는 스테이터스 안내창과 분리한다(사용자 요청):
     // 먼저 활동 결과(스탯) 안내창을 띄우고, 그 창을 닫으면 그때 성인 이벤트 모달을 연다.
-    if (outcome.blackVanEncounter || outcome.nudeExposure || outcome.adultEncounter) {
+    if (
+      outcome.blackVanEncounter ||
+      outcome.wallHoleEncounter ||
+      outcome.nudeExposure ||
+      outcome.adultEncounter
+    ) {
       showStatusNotice(act, outcome, () => showAdultEncounter(act, outcome));
       return;
     }
@@ -489,6 +533,49 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
               },
             },
             "길을 알려주러 다가간다",
+          ),
+        ),
+      );
+    } else if (outcome.wallHoleEncounter) {
+      // 고음란 산책 — 담벼락 구멍. 몸을 넣으면 끼여서 비합의 루트(봉고 계열).
+      bodyChildren.push(
+        el(
+          "p",
+          { class: "life-result__unlock" },
+          "인적 없는 골목, 낡은 담벼락에 사람이 들어갈 만한 커다란 구멍이 뻥 뚫려 있다. 달아오른 몸이 자꾸 그 안을 넘본다. …몸을 넣어볼까?",
+        ),
+        el(
+          "p",
+          { class: "compose-hint", style: "margin-top:14px" },
+          "그냥 지나치면 아무 일도 없을 것 같다. 넣었다가 끼이면 되돌리기 어려울지도 모른다.",
+        ),
+        el(
+          "div",
+          { class: "compose-actions", style: "gap:10px" },
+          el(
+            "button",
+            {
+              class: "btn btn--ghost",
+              onclick: () => {
+                ctx.closeModal();
+                ctx.afterAction("offline");
+              },
+            },
+            "그냥 지나간다",
+          ),
+          el(
+            "button",
+            {
+              class: "btn",
+              onclick: () => {
+                let msg = "";
+                ctx.update((s) => {
+                  msg = wallHoleOrgy(s);
+                });
+                showEncResult("벽고", msg);
+              },
+            },
+            "구멍에 몸을 넣어본다",
           ),
         ),
       );

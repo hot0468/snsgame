@@ -164,6 +164,10 @@ export const ATTR_ICON: Record<AttributeId, IconName> = {
   animal: "bird",
   plant: "leaf",
   cooking: "pot",
+  finance: "coin",
+  sports: "ticket",
+  fashion: "star",
+  travel: "sun",
   adult: "shield",
 };
 

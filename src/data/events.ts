@@ -58,7 +58,6 @@ export interface EventChoice {
 
 export interface GameEvent {
   id: string;
-  emoji: string;
   title: string;
   description: string;
   /** 이 이벤트가 발생 가능한 트리거들 */
@@ -92,7 +91,6 @@ export const GAME_EVENTS: GameEvent[] = [
   // ── 오프라인 계열 ────────────────────────────────
   {
     id: "street_interview",
-    emoji: "",
     title: "길거리 인터뷰 요청",
     description: "외출 중 방송국 리포터가 즉석 인터뷰를 요청했다. 카메라 앞에 서볼까?",
     triggers: ["offline"],
@@ -111,7 +109,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "lost_wallet",
-    emoji: "",
     title: "길에 떨어진 지갑",
     description: "인도 한복판에 지갑이 떨어져 있다. 주변엔 아무도 없다.",
     triggers: ["offline"],
@@ -130,7 +127,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "gym_trainer",
-    emoji: "",
     title: "헬스 트레이너의 제안",
     description: "체육관에서 트레이너가 무료 자세 교정을 해주겠다고 한다.",
     triggers: ["offline"],
@@ -151,7 +147,6 @@ export const GAME_EVENTS: GameEvent[] = [
   // ── 트윗 계열 ────────────────────────────────
   {
     id: "viral_tweet",
-    emoji: "",
     title: "떡상! 트윗이 터졌다",
     description: "방금 올린 트윗이 알고리즘을 타고 급속도로 퍼지고 있다!",
     triggers: ["tweet"],
@@ -172,7 +167,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "flame_war",
-    emoji: "",
     title: "악플러 등장",
     description: "한 계정이 당신의 트윗에 시비를 걸며 언쟁을 유도하고 있다.",
     triggers: ["tweet"],
@@ -191,7 +185,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "screenshot_leak",
-    emoji: "",
     title: "과거 트윗 박제",
     description: "예전에 올린 아슬아슬한 트윗이 캡처되어 돌아다니기 시작했다.",
     triggers: ["tweet", "explore"],
@@ -213,7 +206,6 @@ export const GAME_EVENTS: GameEvent[] = [
   // ── SNS/탐색·수익화 계열 ────────────────────────────────
   {
     id: "brand_deal",
-    emoji: "",
     title: "협찬 제안 DM",
     description: "한 브랜드에서 제품 홍보 트윗을 조건으로 협찬을 제안했다.",
     triggers: ["explore", "tweet", "day"],
@@ -236,7 +228,6 @@ export const GAME_EVENTS: GameEvent[] = [
     // 수락 시 목돈이 들어오지만 낮은 확률로 뒷광고 논란(ctrl_paid_promo)이 터진다.
     // 논란 굴림은 데이터로 못 하므로 customKey: "sponsorDeal"이 처리한다(돈·팔로워는 선언형).
     id: "first_big_sponsor",
-    emoji: "",
     title: "첫 대형 협찬 제안",
     description:
       "제법 큰 브랜드의 마케팅팀에서 정식 협찬을 제안해왔다. 단가도 지금까지와는 자릿수가 다르다.",
@@ -259,7 +250,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "collab_offer",
-    emoji: "",
     title: "합방 제안",
     description: "비슷한 결의 계정이 함께 콘텐츠를 만들자고 제안해왔다.",
     triggers: ["explore", "day"],
@@ -279,7 +269,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "fake_follower_ad",
-    emoji: "",
     title: "팔로워 구매 광고",
     description: "'팔로워 1만명 즉시 충전!' 이라는 수상한 광고가 떴다.",
     triggers: ["ad", "explore"],
@@ -301,7 +290,6 @@ export const GAME_EVENTS: GameEvent[] = [
   // ── 범용(아무 행동 뒤에나) ────────────────────────────────
   {
     id: "trend_wave",
-    emoji: "",
     title: "실시간 트렌드 발생",
     description:
       "오늘의 인기 카테고리 중 하나가 실시간 트렌드로 떠올랐다. 편승해볼까?\n" +
@@ -322,7 +310,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "burnout",
-    emoji: "",
     title: "번아웃 경고",
     description: "쉬지 않고 달렸더니 손끝이 무겁다. 정신력이 바닥이다.",
     triggers: ["tweet", "explore", "offline"],
@@ -342,7 +329,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "coworker_follow_request",
-    emoji: "",
     title: "동료의 팔로우 요청",
     description:
       "회사 동료가 'SNS 하신다면서요? 계정 좀 알려주세요~' 하며 트위터 계정을 물어왔다.",
@@ -364,7 +350,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "coin_pump",
-    emoji: "",
     title: "급등 종목 제보",
     description:
       "'이 종목 지금 사면 무조건 오릅니다!' 출처 불명의 급등 제보가 돌발로 떴다. 현금의 30%를 태워볼까? (50% 대박, 50% 손실)",
@@ -386,7 +371,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "company_dinner",
-    emoji: "",
     title: "단체 회식",
     description: "부서 전체 회식이 잡혔다. '다들 빠지지 말고 참석하라'는 분위기다. 어떻게 할까?",
     triggers: ["day"],
@@ -407,7 +391,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "account_hack",
-    emoji: "",
     title: "계정 해킹",
     description:
       "누군가 계정을 탈취해 비밀번호를 바꿔버렸다! 해커가 '돈을 보내면 돌려주겠다'며 협박한다.",
@@ -428,7 +411,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "street_casting",
-    emoji: "",
     title: "길거리 캐스팅",
     description:
       "외출 중 한 기획사 관계자가 명함을 건네며 '한번 제대로 키워보고 싶다'고 캐스팅을 제안했다.",
@@ -450,7 +432,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "lottery",
-    emoji: "",
     title: "복권 판매점",
     description:
       "집 앞 복권 판매점을 지난다. '이번 주 1등 이 자리에서!' 현수막이 펄럭인다. 한 장 긁어볼까?",
@@ -472,7 +453,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "injury_illness",
-    emoji: "",
     title: "몸살과 부상",
     description: "무리한 탓인지 몸이 천근만근이다. 열도 나고 삭신이 쑤신다. 어떡하지?",
     triggers: ["offline", "day"],
@@ -498,7 +478,6 @@ export const GAME_EVENTS: GameEvent[] = [
     // 세액은 소지금 비례라(선언형으로 못 함) 두 선택지 모두 customKey가 처리한다.
     // 축소 신고는 낮은 확률로 세무조사에 걸려 가산세까지 추징당하는 도박이다.
     id: "tax_bomb",
-    emoji: "",
     title: "종합소득세 신고 안내",
     description:
       "국세청에서 종합소득세 신고 안내문이 날아왔다. 그동안 쌓인 협찬·후원 수입에 세금이 붙는다. 어떻게 신고할까?",
@@ -522,7 +501,6 @@ export const GAME_EVENTS: GameEvent[] = [
   // ── 현생(offline) 스탯 게이팅 — 키운 스탯이 현실에서 빛을 본다 ────────
   {
     id: "street_snatch",
-    emoji: "",
     title: "날치기 목격",
     description: "길을 걷는데 오토바이를 탄 날치기가 행인의 가방을 낚아채 달아난다!",
     triggers: ["offline"],
@@ -543,7 +521,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "street_debate",
-    emoji: "",
     title: "길거리 토론 배틀",
     description:
       "광장에서 열변을 토하던 사람이 지나가는 당신을 붙잡고 논쟁을 걸어왔다. 구경꾼이 모여든다.",
@@ -565,7 +542,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "instant_network",
-    emoji: "",
     title: "즉석 인맥",
     description: "카페 옆자리 사람과 눈이 마주쳤다. 자연스레 말을 트니 대화가 술술 풀린다.",
     triggers: ["offline"],
@@ -586,7 +562,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "street_busking",
-    emoji: "",
     title: "길거리 버스킹",
     description: "번화가 한켠, 사람들이 모여 있다. 여기서 즉석 개그 한 판 펼쳐볼까?",
     triggers: ["offline"],
@@ -606,7 +581,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "flea_market_stall",
-    emoji: "",
     title: "벼룩시장 좌판",
     description: "주말 벼룩시장이 열렸다. 직접 만든 소품을 들고 좌판을 깔아볼까?",
     triggers: ["offline"],
@@ -626,7 +600,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "arcade_ranking",
-    emoji: "",
     title: "오락실 랭킹 도전",
     description: "동네 오락실 기계에 전국 랭킹 보드가 붙어 있다. 1위 기록에 도전해볼까?",
     triggers: ["offline"],
@@ -647,7 +620,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "kiosk_fix",
-    emoji: "",
     title: "먹통 된 무인점포 키오스크",
     description: "무인 편의점 키오스크가 먹통이 돼 손님들이 발을 동동 구른다. 슬쩍 봐줄까?",
     triggers: ["offline"],
@@ -667,7 +639,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "luxury_splurge",
-    emoji: "",
     title: "명품샵의 유혹",
     description: "백화점 명품관을 지나는데 점원이 '딱 어울리신다'며 은근슬쩍 지갑을 노린다.",
     triggers: ["offline"],
@@ -689,7 +660,6 @@ export const GAME_EVENTS: GameEvent[] = [
   {
     // 도덕성 저점 전용 어두운 이벤트(성인 카테고리로 요청) — lost_wallet '돈만 챙기기'의 심화판.
     id: "mugging_temptation",
-    emoji: "",
     title: "삥뜯기 유혹",
     description: "인적 드문 골목, 앞서 걷던 이가 방심한 채 지갑을 흘릴 듯 걷는다. 어두운 충동이 스친다.",
     triggers: ["offline"],
@@ -711,7 +681,6 @@ export const GAME_EVENTS: GameEvent[] = [
   // ── 좋아요/리트윗 트리거 — 무심코 누른 상호작용이 일을 키운다 ────────
   {
     id: "like_mutual_dm",
-    emoji: "",
     title: "좋아요 알림을 본 상대",
     description: "방금 좋아요를 누른 계정 주인이 알림을 보고 먼저 말을 걸어왔다. 반가운 눈치다.",
     triggers: ["like"],
@@ -732,7 +701,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "rt_misinfo",
-    emoji: "",
     title: "허위정보 리트윗",
     description: "방금 리트윗한 글이 알고 보니 근거 없는 가짜뉴스였다. 지적하는 답글이 달리기 시작한다.",
     triggers: ["retweet"],
@@ -752,7 +720,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "rt_spam_chain",
-    emoji: "",
     title: "스팸 리트윗 체인",
     description: "'이 글을 리트윗하면 추첨을 통해 상품권 증정!' 수상한 이벤트 계정이 참여를 유도한다.",
     triggers: ["retweet"],
@@ -771,7 +738,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "rt_trap_hookup",
-    emoji: "",
     title: "RT 함정 글",
     description:
       "방금 리트윗한 글이 '실종 제보·긴급 구조'처럼 보였는데, 곧 DM이 온다. " +
@@ -807,7 +773,6 @@ export const GAME_EVENTS: GameEvent[] = [
   // ── 성인(계정 성인물 해제 필요) ────────────────────────────────
   {
     id: "adult_awakening",
-    emoji: "",
     title: "성인계로의 첫발",
     description:
       "은근한 수위의 게시글에 반응이 심상치 않다. 이 길로 제대로 발을 들이면 완전히 새로운 판이 열릴 것 같은데...",
@@ -832,7 +797,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "secret_sponsor",
-    emoji: "",
     title: "은밀한 후원 제안 DM",
     description:
       "한 팬이 '개인적으로 은밀한 콘텐츠를 보내주면 두둑이 후원하겠다'며 DM을 보내왔다.",
@@ -853,7 +817,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "nsfw_slip",
-    emoji: "",
     title: "수위 조절 실패",
     description: "실수로 예정보다 훨씬 수위 높은 사진을 올려버렸다. 이미 리트윗이 돌기 시작했다!",
     triggers: ["tweet"],
@@ -873,7 +836,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "live_request",
-    emoji: "",
     title: "즉석 라이브 요청",
     description: "시청자들이 지금 당장 수위 있는 라이브 방송을 켜달라며 후원을 쏟아붓고 있다.",
     triggers: ["explore", "tweet"],
@@ -893,7 +855,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "paid_shoot",
-    emoji: "",
     title: "성인 화보 촬영 섭외",
     description: "한 업체가 성인 화보 촬영을 제안하며 두둑한 섭외비를 불렀다.",
     triggers: ["ad", "day"],
@@ -913,7 +874,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "outdoor_shoot",
-    emoji: "",
     title: "야외 노출 촬영 도전",
     description:
       "인적 드문 골목, 지금이라면 아무도 없다. 아슬아슬한 야외 촬영을 감행해볼까? " +
@@ -935,7 +895,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "worn_clothes_sale",
-    emoji: "",
     title: "중고 착용품 판매 제안",
     description: "한 사람이 '입던 옷을 그대로 팔지 않겠냐'며 웃돈을 얹어 은근한 제안을 보내왔다.",
     triggers: ["explore", "day"],
@@ -955,7 +914,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "swing_party",
-    emoji: "",
     title: "스와핑 파티 초대",
     description:
       "그룹 플레이로 알게 된 지인이 은밀한 스와핑 파티에 초대했다. 파트너를 바꿔가며 즐기는 자리라고 한다.",
@@ -977,7 +935,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "whale_meetup",
-    emoji: "",
     title: "고액 후원자의 만남 요청",
     description:
       "100만원을 후원한 '큰손'이 DM을 보냈다. 얼굴 한번 보고 싶다며, 조용한 주택으로 초대한다. " +
@@ -1001,7 +958,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "paid_channel_open",
-    emoji: "",
     title: "유료 구독 채널 개설 제안",
     description:
       "플랫폼에서 '충성 팬을 위한 유료 구독 채널을 열어보라'고 제안했다. 개설하면 매달 구독료가 정산된다(음란도가 높을수록 수익↑).",
@@ -1022,7 +978,6 @@ export const GAME_EVENTS: GameEvent[] = [
   },
   {
     id: "crew_gang_drill",
-    emoji: "",
     title: "크루 합동 훈련",
     description:
       "크루 단톡에 공지가 떴다. '합동 훈련 — 카메라 OFF, 체력·호흡·교대 감각 점검. 참가 인원만 디엠.' " +

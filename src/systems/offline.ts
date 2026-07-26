@@ -21,7 +21,7 @@ export interface OfflineActivity {
   label: string;
   emoji: string;
   /** 현생 탭 분류: rest(쉬기·산책·외출) / study(교양·미술·코딩) / growth(운동·꾸미기·아르바이트·작업) */
-  group: "rest" | "study" | "growth";
+  group: "rest" | "study" | "growth" | "work";
   /** 성인물 보기(adultMode) ON일 때만 목록에 노출되는 성인 활동(예: 해피타임) */
   adultOnly?: boolean;
   description: string;
@@ -72,6 +72,11 @@ export interface OfflineOutcome {
    */
   blackVanEncounter: boolean;
   /**
+   * 산책 중 '벽고'(벽 구멍에 몸이 끼여 비합의 희롱을 당하는) 조우.
+   * 봉고와 같은 강압/범죄 계열 — adultNoCoercion ON이면 안 뜬다.
+   */
+  wallHoleEncounter: boolean;
+  /**
    * 활동별 성인 조우(클럽·사우나·과외 앱 등).
    * 봉고/야외노출이 안 떴을 때만 후보. 없으면 null.
    */
@@ -95,6 +100,11 @@ export const NUDE_EXPOSURE_CHANCE = 0.4;
 export const BLACK_VAN_LEWD_MIN = 500;
 /** 조건 충족 시 봉고 조우 확률(야외노출보다 우선) */
 export const BLACK_VAN_CHANCE = 0.28;
+
+/** 산책 중 '벽고'(벽 구멍) 비합의 이벤트가 뜨는 최소 음란도 */
+export const WALLHOLE_LEWD_MIN = 600;
+/** 조건 충족 시 벽고 조우 확률(봉고 다음 우선순위). 봉고와 같은 강압/범죄 계열이라 adultNoCoercion으로 함께 가려진다. */
+export const WALLHOLE_CHANCE = 0.28;
 
 /** 아르바이트 기본 일당 */
 export const PART_TIME_BASE = 10_000;
@@ -142,7 +152,7 @@ export const OFFLINE_ACTIVITIES: OfflineActivity[] = [
     action: -20,
     mental: +10,
     skillGains: { sociability: 7 },
-    unlockAttributePool: ["daily", "food", "beauty", "idol", "animal", "cooking"],
+    unlockAttributePool: ["daily", "food", "beauty", "idol", "animal", "cooking", "fashion", "travel"],
     results: [
       "여유있게 시간을 보냈다.",
       "거리를 걷다 보니 기분이 한결 가벼워졌다.",
@@ -231,7 +241,7 @@ export const OFFLINE_ACTIVITIES: OfflineActivity[] = [
     mental: -10,
     skillGains: { vocabulary: 10, knowledge: 10 },
     // 미술·코딩을 EBS로 옮기며 코딩이 갖던 IT계 해금을 교양이 이어받는다(현생 유일 IT계 해금 경로 유지).
-    unlockAttributePool: ["politics", "humor", "info", "plant", "it"],
+    unlockAttributePool: ["politics", "humor", "info", "plant", "it", "finance"],
     results: [
       "책장을 넘기며 머릿속을 정리했다.",
       "조용히 집중하는 시간을 가졌다.",
@@ -291,7 +301,7 @@ export const OFFLINE_ACTIVITIES: OfflineActivity[] = [
     action: -25,
     mental: +5,
     skillGains: { fitness: 10, beauty: 2 },
-    unlockAttributePool: ["fitness"],
+    unlockAttributePool: ["fitness", "sports"],
     results: [
       "땀을 쫙 빼고 나니 상쾌하다.",
       "거울 속 내 모습이 조금 달라 보인다.",
@@ -323,7 +333,7 @@ export const OFFLINE_ACTIVITIES: OfflineActivity[] = [
     id: "parttime",
     label: "아르바이트",
     emoji: "",
-    group: "growth",
+    group: "work",
     description: "잠깐 일하며 생활비를 번다.",
     action: -25,
     mental: -10,
@@ -487,18 +497,26 @@ export function doOfflineActivity(
     }
   }
 
-  // 성인 특수 우선순위: (산책) 봉고 > 심야 야외노출 > 활동별 조우 > 길동물
+  // 성인 특수 우선순위: (산책) 봉고 > 벽고 > 심야 야외노출 > 활동별 조우 > 길동물
   let blackVanEncounter = false;
+  let wallHoleEncounter = false;
   let nudeExposure = false;
   let adultEncounter: AdultOfflineEncounterId | null = null;
   if (activity.petWalk && state.adultMode) {
-    // 검정 봉고 납치(비합의/범죄)는 '강압/범죄 안 보기' 켜면 건너뛴다 → 노출/길동물로 폴백.
+    // 검정 봉고 납치(비합의/범죄)는 '강압/범죄 안 보기' 켜면 건너뛴다 → 벽고/노출/길동물로 폴백.
     if (
       !state.adultNoCoercion &&
       state.skills.lewd >= BLACK_VAN_LEWD_MIN &&
       Math.random() < BLACK_VAN_CHANCE
     ) {
       blackVanEncounter = true;
+    } else if (
+      // 벽고(벽 구멍)도 비합의/범죄 계열 — 강압/범죄 안 보기 켜면 건너뛴다. 음란도 문턱이 봉고보다 높다.
+      !state.adultNoCoercion &&
+      state.skills.lewd >= WALLHOLE_LEWD_MIN &&
+      Math.random() < WALLHOLE_CHANCE
+    ) {
+      wallHoleEncounter = true;
     } else if (
       wasLate &&
       state.skills.lewd >= NUDE_EXPOSURE_LEWD_MIN &&
@@ -507,13 +525,13 @@ export function doOfflineActivity(
       nudeExposure = true;
     }
   }
-  if (!blackVanEncounter && !nudeExposure) {
+  if (!blackVanEncounter && !wallHoleEncounter && !nudeExposure) {
     adultEncounter = rollAdultOfflineEncounter(state, activity.id, wasLate);
   }
 
   // 산책: 성인 특수 이벤트가 안 떴을 때만, 아직 데려오지 않은 종류 중 하나를 낮은 확률로 마주친다.
   let petEncounter: PetKind | null = null;
-  if (activity.petWalk && !blackVanEncounter && !nudeExposure && !adultEncounter) {
+  if (activity.petWalk && !blackVanEncounter && !wallHoleEncounter && !nudeExposure && !adultEncounter) {
     const available = (["dog", "cat"] as PetKind[]).filter((k) => !state.pets[k]);
     if (available.length > 0 && Math.random() < 0.4) {
       petEncounter = pick(available);
@@ -526,6 +544,7 @@ export function doOfflineActivity(
     activity.petWalk &&
     !petEncounter &&
     !blackVanEncounter &&
+    !wallHoleEncounter &&
     !nudeExposure &&
     !adultEncounter
   ) {
@@ -561,6 +580,7 @@ export function doOfflineActivity(
     petEncounter,
     nudeExposure,
     blackVanEncounter,
+    wallHoleEncounter,
     adultEncounter,
     creatureEncounter,
   };

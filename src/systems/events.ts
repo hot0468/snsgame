@@ -321,6 +321,32 @@ function whaleOrgy(state: GameState): string {
  * 검정 봉고 납치 난교(성인) — 산책 중 음란 높을 때.
  * 운전자 포함 3명에게 유린당한 뒤 공터에 버려진다. 그룹 해금.
  */
+/**
+ * 벽고(벽 구멍) — 산책 중 담벼락 구멍에 몸을 넣었다가 끼여 빠지지 못하고 비합의로 당하는 조우.
+ * 봉고와 같은 강압/범죄 계열이라 effect 프로필·해금(groupUnlocked)을 동일하게 맞춘다.
+ */
+export function wallHoleOrgy(state: GameState): string {
+  state.skills.lewd = clampSkill(state.skills.lewd + 55);
+  state.resources.morality = clampResource(state.resources.morality - 16);
+  state.resources.mental = clampResource(state.resources.mental - 14);
+  state.resources.reputation = clampResource(state.resources.reputation - 4);
+  changeFollowers(state, 30);
+  getActiveAccount(state).groupUnlocked = true;
+
+  addSchedule(state, "벽고 — 비합의", "offline");
+
+  return (
+    "인적 없는 골목의 낡은 담벼락에, 사람 하나 들어갈 만한 커다란 구멍이 뻥 뚫려 있었다. " +
+    "호기심 반, 달아오른 몸이 시키는 대로 반쯤 홀린 듯 하반신을 그 안으로 밀어 넣은 순간, 허리가 구멍에 꽉 끼여 앞으로도 뒤로도 빠지지 않았다.\n\n" +
+
+    "버둥거리는 사이 벽 반대편에서 인기척이 다가왔다. 빠져나오려 발버둥 칠수록 몸은 더 깊이 끼였고, 엉덩이만 무방비하게 벽 밖으로 내밀린 꼴이 되었다. 낯선 손들이 치마를 걷어 올리고 팬티를 끌어내리는 게 느껴졌지만, 낀 채로는 돌아볼 수도, 막을 수도 없었다.\n\n" +
+
+    "누군지도 모르는 남자들이 번갈아 뒤에서 몸을 붙여 왔다. 벽에 짓눌린 채 허리를 붙잡히고, 저항 한 번 제대로 못 한 채로 계속 관통당했다. 한 명이 물러나면 곧바로 다음 사람의 차례였고, 벽 이편의 나는 그들의 얼굴조차 보지 못했다.\n\n" +
+
+    "얼마나 지났을까, 인기척이 하나둘 멀어지고 나서야 겨우 몸을 비틀어 구멍에서 빠져나왔다. 옷은 흐트러지고 다리는 후들거렸으며, 원치 않았는데도 끝까지 반응해 버린 몸에 수치심과 쾌감이 뒤섞여 밀려왔다. 비틀거리며 골목을 빠져나오는 내내, 방금 일어난 일이 현실이 맞는지 실감이 나지 않았다."
+  );
+}
+
 export function blackVanOrgy(state: GameState): string {
   state.skills.lewd = clampSkill(state.skills.lewd + 55);
   state.resources.morality = clampResource(state.resources.morality - 16);
