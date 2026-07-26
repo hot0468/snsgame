@@ -63,8 +63,22 @@ export function unlockAttribute(
   account: PlayerAccount,
   attr: AttributeId,
 ): boolean {
+  // 해금 카테고리는 모든 계정이 공유한다(사용자 확정) — 한 계정에서 열면 전 계정에 반영한다.
   if (account.unlockedAttributes.includes(attr)) return false;
-  account.unlockedAttributes.push(attr);
+  for (const acc of state.accounts) {
+    if (!acc.unlockedAttributes.includes(attr)) acc.unlockedAttributes.push(attr);
+  }
   grantAttributeUnlockFloor(state, attr);
   return true;
+}
+
+/**
+ * 모든 계정의 해금 카테고리를 합집합으로 통일한다(계정 간 공유 불변식 복구).
+ * 계정 개설 시(새 계정이 기존 해금분을 물려받도록)·구세이브 로드 시 호출한다.
+ */
+export function syncUnlockedAttributes(state: GameState): void {
+  const union = new Set<AttributeId>();
+  for (const acc of state.accounts) for (const a of acc.unlockedAttributes) union.add(a);
+  const list = [...union];
+  for (const acc of state.accounts) acc.unlockedAttributes = [...list];
 }

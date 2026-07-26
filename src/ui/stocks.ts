@@ -9,6 +9,7 @@ import {
   portfolioValue,
   sellAsset,
 } from "@/systems/market";
+import { getActiveAccount } from "@/core/state";
 import { el, formatNumber } from "@/utils/dom";
 import { icon } from "./icons";
 
@@ -17,11 +18,19 @@ export function renderStocks(ctx: GameContext): HTMLElement {
   const s = ctx.store.getState();
 
   function trade(id: string, shares: number, sell: boolean): void {
+    // 첫 매매 시 재테크계 해금(systems가 처리). 새로 열렸으면 토스트로 알린다.
+    const wasLocked = !getActiveAccount(ctx.store.getState()).unlockedAttributes.includes("finance");
     let done = 0;
     ctx.update((st) => {
       done = sell ? sellAsset(st, id, shares) : buyAsset(st, id, shares);
     });
-    if (!done) ctx.toast(sell ? "보유 수량이 없어요" : "소지금이 부족해요");
+    if (!done) {
+      ctx.toast(sell ? "보유 수량이 없어요" : "소지금이 부족해요");
+      return;
+    }
+    if (wasLocked && getActiveAccount(ctx.store.getState()).unlockedAttributes.includes("finance")) {
+      ctx.toast("📈 재테크계 트윗 속성 해금! 이제 주식 얘기를 쓸 수 있어요", "good");
+    }
   }
 
   function tradeBtn(id: string, shares: number, sell: boolean): HTMLElement {

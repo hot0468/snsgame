@@ -1,6 +1,6 @@
 import type { AttributeId, GameState } from "@/core/types";
 import { createAccount, getActiveAccount } from "@/core/state";
-import { grantAttributeUnlockFloor } from "./attributeUnlock";
+import { grantAttributeUnlockFloor, syncUnlockedAttributes } from "./attributeUnlock";
 import { addSchedule } from "./time";
 
 /** 최대 보유 계정 수 */
@@ -35,6 +35,8 @@ export function createNewAccount(
   //    (gaming 콘셉트 계정은 확률 없이 곧바로 게임계 트윗이 열리는 경로다.)
   grantAttributeUnlockFloor(state, attribute);
   state.accounts.push(account);
+  // 해금 카테고리는 전 계정 공유 — 새 계정이 기존 해금분을 물려받고, 새 콘셉트 속성도 전 계정에 퍼진다.
+  syncUnlockedAttributes(state);
   state.activeAccountId = account.id;
   addSchedule(state, `새 계정 개설: @${safeHandle}`, "system");
 }

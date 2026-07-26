@@ -37,6 +37,8 @@ import { renderLoginScreen } from "./loginScreen";
 import { renderPostSlotModal } from "./postLimitModal";
 import { ACHIEVEMENTS } from "@/data/achievements";
 import { MILESTONE_TITLES } from "@/data/milestones";
+import { missionDef } from "@/data/missions";
+import { describeMissionReward } from "@/systems/missions";
 
 /**
  * 앱 루트. 스토어를 구독해 전체 화면을 (단순하게) 통째로 다시 그린다.
@@ -50,6 +52,7 @@ export function createApp(root: HTMLElement, store: Store): void {
   let achToastScheduled = false;
   // 마일스톤 달성 토스트도 같은 마이크로태스크 가드로 중복 예약을 막는다.
   let mileToastScheduled = false;
+  let missionToastScheduled = false;
   // 예언 실현 토스트 가드.
   let prophecyToastScheduled = false;
   // 트친 성사 토스트도 같은 마이크로태스크 가드로 중복 예약을 막는다.
@@ -264,6 +267,28 @@ export function createApp(root: HTMLElement, store: Store): void {
           labels.length === 1
             ? `🏅 마일스톤 달성: ${labels[0]}`
             : `🏅 마일스톤 달성: ${labels[0]} 외 ${labels.length - 1}개`;
+        ctx.toast(msg, "good");
+      });
+    }
+
+    // 도전과제 완료 토스트. systems가 달성 즉시 보상을 지급하고 pendingMissions에 id를 쌓으면
+    // 여기서 이름·보상을 찾아 알린 뒤 **배열을 비운다**(업적 토스트와 동일 패턴).
+    if (!gameOver && state.pendingMissions?.length && !missionToastScheduled) {
+      missionToastScheduled = true;
+      queueMicrotask(() => {
+        missionToastScheduled = false;
+        const ids = store.getState().pendingMissions;
+        if (!ids?.length) return;
+        const defs = ids.map((id) => missionDef(id)).filter((d): d is NonNullable<typeof d> => !!d);
+        ctx.update((d) => {
+          d.pendingMissions = [];
+        });
+        if (defs.length === 0) return;
+        const first = defs[0];
+        const msg =
+          defs.length === 1
+            ? `📋 도전과제 완료: ${first.label} (${describeMissionReward(first.reward)})`
+            : `📋 도전과제 ${defs.length}개 완료! ${first.label} 외 ${defs.length - 1}개`;
         ctx.toast(msg, "good");
       });
     }

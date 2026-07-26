@@ -64,14 +64,15 @@ describe("remainingPostSlots / consume", () => {
     // 리셋 후 첫 소비는 1개분
     consumePostSlot(s);
     expect(remainingPostSlots(s)).toBe(2);
-    expect(getActiveAccount(s).postSlotsDay).toBe(s.day);
+    // 게시 슬롯 예산은 전 계정 공유(전역 필드).
+    expect(s.postSlotsDay).toBe(s.day);
   });
 
   it("ensurePostSlotDay는 날짜가 같으면 소비량을 보존한다", () => {
     const s = createInitialState();
     consumePostSlot(s);
     ensurePostSlotDay(s);
-    expect(getActiveAccount(s).postSlotsUsed).toBe(1);
+    expect(s.postSlotsUsed).toBe(1);
   });
 });
 
@@ -93,6 +94,6 @@ describe("게시 경로 슬롯 소비", () => {
     const before = remainingPostSlots(s);
     postTweet(s, "daily", "무료 트윗", false, "meetup", 1, { free: true });
     expect(remainingPostSlots(s)).toBe(before);
-    expect(getActiveAccount(s).postSlotsUsed).toBe(0);
+    expect(s.postSlotsUsed).toBe(0);
   });
 });

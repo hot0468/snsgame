@@ -24,10 +24,10 @@ import { renderWorkModal } from "./workModal";
 import { hasCertification } from "@/systems/certification";
 import { isWeekday } from "@/systems/time";
 import { isAuthorPrepMonth } from "@/systems/author";
-import { LATE_SLOT } from "@/core/state";
 import { makeJobPostings, DEV_JOB_IT_REQ } from "@/data/jobs";
 import { SKILL_STATS } from "@/data/stats";
 import { hasAction } from "@/systems/stats";
+import { LATE_SLOT } from "@/core/state";
 import { ATTRIBUTES } from "@/data/attributes";
 import { pick } from "@/utils/random";
 import { el, formatNumber } from "@/utils/dom";
@@ -69,11 +69,13 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
   }
 
   function activityItem(act: OfflineActivity, partTimeCount: number): HTMLElement {
+    // 휴가는 심야엔 떠날 수 없다(낮에만 가능).
+    const nightVacation = !!act.vacation && ctx.store.getState().slot === LATE_SLOT;
     // 휴가는 10만원이 있어야 갈 수 있다 — 소지금 부족이면 비활성.
     const cantAfford = !!act.vacation && !canAffordVacation(ctx.store.getState());
     // 행동력을 쓰는 활동(act.action<0)은 잔여 행동력이 비용보다 적으면 막는다(마이너스 방지).
     const notEnoughAction = act.action < 0 && !hasAction(ctx.store.getState(), -act.action);
-    const blocked = cantAfford || notEnoughAction;
+    const blocked = nightVacation || cantAfford || notEnoughAction;
     return el(
       "button",
       {
@@ -97,11 +99,13 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         el(
           "span",
           { class: "life-item__delta" },
-          cantAfford
-            ? "소지금이 부족해요 (10만원 필요)"
-            : notEnoughAction
-              ? `행동력이 부족해요 (${-act.action} 필요)`
-              : activityDeltas(act, partTimeCount),
+          nightVacation
+            ? "심야에는 휴가를 떠날 수 없어요"
+            : cantAfford
+              ? "소지금이 부족해요 (10만원 필요)"
+              : notEnoughAction
+                ? `행동력이 부족해요 (${-act.action} 필요)`
+                : activityDeltas(act, partTimeCount),
         ),
       ),
     );
@@ -110,10 +114,10 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
   function showChoices(): void {
     const state = ctx.store.getState();
     const partTimeCount = state.partTimeCount;
-    // 작가 원고 작업은 계약 중일 때 노출. 단 준비 기간의 심야엔 숨긴다(아직 작업 시작 전).
+    // 작가 원고 작업은 계약 중일 때 노출. 단 준비 기간(계약한 달) 내내 숨긴다 —
+    // 그 달은 작업량이 요구되지 않고, 미리 채워도 익월 1일에 게이지가 리셋돼 헛일이다(author.settleAuthorMonthly).
     const underContract = state.authorContract != null;
-    const showAuthorWork =
-      underContract && !(isAuthorPrepMonth(state) && state.slot === LATE_SLOT);
+    const showAuthorWork = underContract && !isAuthorPrepMonth(state);
 
     const adultMode = state.adultMode;
     const items = OFFLINE_ACTIVITIES.filter(

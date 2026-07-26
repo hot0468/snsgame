@@ -10,7 +10,8 @@ import {
 import { ATTRIBUTES, getAffinity } from "@/data/attributes";
 import { makeOmenAccount } from "@/data/omenAccount";
 import { makeChilnamAccount } from "@/data/chilnamAccount";
-import { maybeSpawnChilnamDM } from "./killer";
+import { maybeSpawnChilnamDM, assignedTargetTweets, assignedTargetAccount } from "./killer";
+import { targetByHandle } from "@/data/killerTargets";
 import { SPECIAL_ACCOUNT_MAKERS } from "@/data/specialAccounts";
 import { allTemplatesFor } from "@/data/tweets";
 import { chance, pick, randInt, uid } from "@/utils/random";
@@ -68,6 +69,11 @@ export function exploreAccounts(state: GameState): Account[] {
   else if (state.killerJob?.active && chance(0.25)) {
     accounts[randInt(0, 2)] = makeChilnamAccount(state.day);
   }
+  // 임무 중이면 낮은 확률로 배정된 타겟 계정이 계정 탐색에 뜬다(배정 순간 만들어진 계정).
+  if (state.killerJob?.assignment) {
+    const tgt = assignedTargetAccount(state);
+    if (tgt && chance(0.25)) accounts[randInt(0, 2)] = tgt;
+  }
   return accounts;
 }
 
@@ -95,7 +101,28 @@ export function exploreTweets(state: GameState): Tweet[] {
   else if (chance(0.06)) tweets[randInt(0, 2)] = makeHauntTweet(state);
   // 낮은 확률로 오타쿠 굿즈 공구 모집 트윗('공구 참여하기' 버튼)이 섞인다.
   else if (chance(0.06)) tweets[randInt(0, 2)] = makeGoodsGroupBuyTweet(state.day);
+  // 킬러 임무 중이면 낮은 확률로 배정된 타겟의 트윗이 피드에 섞인다(일반 트윗처럼 마주친다).
+  if (state.killerJob?.active && state.killerJob.assignment && chance(0.3)) {
+    const tgt = assignedTargetTweets(state);
+    if (tgt.length) tweets[randInt(0, 2)] = pick(tgt);
+  }
   return tweets;
+}
+
+/**
+ * 트윗 단어 검색 — 질의(단어 또는 @핸들)가 본문·이름·핸들에 포함된 트윗을 돌려준다.
+ * 배정된 킬러 타겟의 트윗을 후보에 포함하므로, 타겟 @핸들이나 그가 흘린 위치 단어로 검색하면
+ * 그 계정 트윗이 뜬다(타겟 발견 경로). 일반 트윗 배치도 섞어 진짜 검색처럼 보이게 한다.
+ */
+export function searchTweetsByWord(state: GameState, query: string): Tweet[] {
+  const norm = (s: string) => s.replace(/\s+/g, "").toLowerCase();
+  const q = norm(query.replace(/^@/, ""));
+  if (!q) return [];
+  const pool: Tweet[] = [...assignedTargetTweets(state)];
+  for (let i = 0; i < 24; i++) pool.push(makeRandomTweet(state.adultMode, state.day));
+  const hit = (t: Tweet) =>
+    norm(t.authorHandle).includes(q) || norm(t.authorName).includes(q) || norm(t.text).includes(q);
+  return pool.filter(hit).slice(0, 20);
 }
 
 /** 검색: 특정 카테고리(성향)의 랜덤 트윗 3개 생성 */
@@ -123,6 +150,11 @@ export function searchTweetsByCategory(state: GameState, attr: AttributeId): Twe
  */
 export function accountForTweet(state: GameState, tweet: Tweet): Account {
   const me = getActiveAccount(state);
+  // 킬러 타겟이면 배정 시 저장된 트윗으로 프로필을 구성한다(피드에서 본 트윗과 프로필이 일치).
+  if (targetByHandle(tweet.authorHandle)) {
+    const acc = assignedTargetAccount(state);
+    if (acc && acc.handle === tweet.authorHandle) return acc;
+  }
   const existing = me.followingAccounts.find((a) => a.handle === tweet.authorHandle);
   if (existing) return { ...existing, followed: true };
   const acc = profileFromAuthor(

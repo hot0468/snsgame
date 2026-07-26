@@ -1,9 +1,11 @@
 /**
- * 일일/주간 도전과제 — 리셋·진행 누적·보상 지급.
+ * 일일/주간 도전과제 — 리셋·진행 누적·보상 자동 지급.
  * 정의·추첨(순수)은 data/missions.ts, UI는 missionsModal이 호출한다.
  *
  * recordMission은 각 행동이 확정되는 systems 지점(postTweet·onLikeTweet·onRetweet·
  * followAccount·doOffline)에서 불린다 — UI가 아니라 규칙 계층에서 세어 세이브 정합을 지킨다.
+ * **달성하는 즉시 보상을 지급하고** id를 state.pendingMissions에 쌓는다(app이 토스트로 알린 뒤 비운다 —
+ * pendingAchievements/pendingMilestones와 동일 패턴). 수동 '받기' 단계는 없다.
  */
 import type { GameState, MissionInstance } from "@/core/types";
 import {
@@ -14,6 +16,7 @@ import {
   type MissionMetric,
   type MissionReward,
 } from "@/data/missions";
+import { SKILL_STATS } from "@/data/stats";
 import { clampAction, clampResource, gainSkill } from "./stats";
 import { changeFollowers } from "./followers";
 
@@ -30,36 +33,8 @@ export function ensureMissions(state: GameState): void {
   }
 }
 
-/** 해당 metric의 미완료 미션 진행도를 n만큼 올린다(일일·주간 동시). goal에서 멈춘다. */
-export function recordMission(state: GameState, metric: MissionMetric, n = 1): void {
-  const bump = (list: MissionInstance[]) => {
-    for (const inst of list) {
-      const def = missionDef(inst.id);
-      if (def && def.metric === metric && inst.progress < def.goal) {
-        inst.progress = Math.min(def.goal, inst.progress + n);
-      }
-    }
-  };
-  bump(state.missions.daily);
-  bump(state.missions.weekly);
-}
-
-/** 미션이 달성됐고 아직 안 받았는지 */
-export function isMissionDone(inst: MissionInstance): boolean {
-  const def = missionDef(inst.id);
-  return !!def && inst.progress >= def.goal;
-}
-
-/**
- * 완료한 미션의 보상을 지급한다(1회). 아직 미완료거나 이미 받았으면 null.
- * @returns 지급한 보상(토스트용) 또는 null
- */
-export function claimMission(state: GameState, id: string): MissionReward | null {
-  const inst = [...state.missions.daily, ...state.missions.weekly].find((i) => i.id === id);
-  const def = inst && missionDef(id);
-  if (!inst || !def || inst.claimed || inst.progress < def.goal) return null;
-  inst.claimed = true;
-  const r = def.reward;
+/** 보상을 상태에 즉시 지급한다. */
+function grantReward(state: GameState, r: MissionReward): void {
   if (r.money) state.money += r.money;
   if (r.action) state.resources.action = clampAction(state, state.resources.action + r.action);
   if (r.mental) state.resources.mental = clampResource(state.resources.mental + r.mental);
@@ -67,12 +42,44 @@ export function claimMission(state: GameState, id: string): MissionReward | null
   if (r.skills) {
     for (const [k, v] of Object.entries(r.skills)) gainSkill(state, k as never, v as number);
   }
-  return r;
 }
 
-/** 받을 수 있는(완료·미수령) 미션 수 — 상태창 뱃지용 */
-export function claimableCount(state: GameState): number {
-  return [...state.missions.daily, ...state.missions.weekly].filter(
-    (i) => !i.claimed && isMissionDone(i),
-  ).length;
+/**
+ * 해당 metric의 미완료 미션 진행도를 n만큼 올린다(일일·주간 동시).
+ * 이번에 목표를 채운 미션은 **즉시 보상 지급 + claimed 표시 + pendingMissions에 큐잉**한다.
+ */
+export function recordMission(state: GameState, metric: MissionMetric, n = 1): void {
+  const advance = (inst: MissionInstance) => {
+    const def = missionDef(inst.id);
+    if (!def || def.metric !== metric || inst.claimed) return;
+    inst.progress = Math.min(def.goal, inst.progress + n);
+    if (inst.progress >= def.goal) {
+      inst.claimed = true;
+      grantReward(state, def.reward);
+      state.pendingMissions.push(inst.id);
+    }
+  };
+  state.missions.daily.forEach(advance);
+  state.missions.weekly.forEach(advance);
+}
+
+/** 미션이 달성됐는지(UI 상태 표시용) */
+export function isMissionDone(inst: MissionInstance): boolean {
+  const def = missionDef(inst.id);
+  return !!def && inst.progress >= def.goal;
+}
+
+/** 보상을 사람이 읽는 문구로(토스트·모달 공용) */
+export function describeMissionReward(r: MissionReward): string {
+  const parts: string[] = [];
+  if (r.money) parts.push(`💰 ${r.money.toLocaleString("ko-KR")}원`);
+  if (r.action) parts.push(`⚡ 행동력 +${r.action}`);
+  if (r.mental) parts.push(`🧠 정신력 +${r.mental}`);
+  if (r.followers) parts.push(`👥 팔로워 +${r.followers.toLocaleString("ko-KR")}`);
+  if (r.skills) {
+    for (const [k, v] of Object.entries(r.skills)) {
+      parts.push(`📈 ${SKILL_STATS[k as keyof typeof SKILL_STATS].label} +${v}`);
+    }
+  }
+  return parts.join(" · ");
 }

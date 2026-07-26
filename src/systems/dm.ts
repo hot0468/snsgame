@@ -467,8 +467,15 @@ function applyToneEffects(state: GameState, tone: DMTone): void {
 
 /** 화면에 보여줄 DM 스레드 — 성인물 보기 OFF면 성인(isAdult) 스레드는 목록에서 숨긴다. */
 export function visibleDms(state: GameState): DMThread[] {
-  const dms = getActiveAccount(state).dms;
-  return state.adultMode ? dms : dms.filter((t) => !t.isAdult);
+  const all = getActiveAccount(state).dms;
+  const dms = state.adultMode ? all : all.filter((t) => !t.isAdult);
+  // 새 내용(안 읽음)이 있는 쪽지를 목록 상단으로, 그다음 최근 메시지 순으로 정렬한다.
+  // state를 건드리지 않도록 사본을 정렬해 반환한다(정렬은 표시 순서일 뿐).
+  const lastDay = (t: DMThread) => t.messages[t.messages.length - 1]?.day ?? 0;
+  return [...dms].sort((a, b) => {
+    if (a.unread !== b.unread) return a.unread ? -1 : 1;
+    return lastDay(b) - lastDay(a);
+  });
 }
 
 /** 활성 계정의 안 읽은 DM 개수(숨긴 성인 스레드는 제외) */

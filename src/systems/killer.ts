@@ -1,10 +1,10 @@
-import type { GameState, DMThread } from "@/core/types";
+import type { GameState, DMThread, Tweet, Account } from "@/core/types";
 import { getActiveAccount } from "@/core/state";
 import { uid } from "@/utils/random";
 import { dateOf } from "./calendar";
 import { MAX_SKILL } from "@/data/stats";
 import { clampResource, gainStamina } from "./stats";
-import { KILLER_TARGETS, targetById } from "@/data/killerTargets";
+import { KILLER_TARGETS, targetById, targetFullTweets } from "@/data/killerTargets";
 
 /** 실패 누적 상한 — 이 횟수만큼 실패하면 본인이 처리된다(게임오버). */
 export const KILLER_MAX_FAILS = 3;
@@ -148,11 +148,84 @@ function assignNextTarget(state: GameState): void {
     targetId: target.id,
     assignedDay: state.day,
     deadlineDay: state.day + KILLER_DEADLINE_DAYS,
+    // 타겟이 결정되는 이 순간에 트윗을 만들어 저장한다(이후 피드·검색·프로필이 재사용).
+    tweets: buildTargetTweets(target, state.day),
   };
   pushMomo(
     state,
-    `이번 달 타겟이다.\n\n@${target.handle}\n${target.hint}\n\n일주일 안에 처리해라. 그자가 어디 있을지는 자기 입으로 흘렸다 — 트윗을 읽어.`,
+    `이번 달 타겟이다.\n\n@${target.handle}\n${target.hint}\n\n일주일 안에 처리해라. 그자가 어디 있을지는 자기 트윗에 흘렸다 — 트윗을 검색하거나 피드에서 찾아 읽어.`,
   );
+  // 칠남 동맹이면 타겟이 배정될 때마다 좁혀주는 힌트를 DM으로 보낸다(정답은 안 알려줌).
+  if (state.chilnamAlly) {
+    const tip = CHILNAM_HINTS[target.id];
+    if (tip) pushChilnam(state, `형님, 이번 타겟 @${target.handle} 제가 좀 알아봤는데요. ${tip} 이 정도면 찾으실 수 있죠?`);
+  }
+}
+
+/** 타겟별 칠남 힌트(정답 위치를 딱 집지 않고 지역/유형만 좁혀준다). */
+const CHILNAM_HINTS: Record<string, string> = {
+  coin_king: "바다 쪽 휴양지로 논다던데. 남쪽 섬이라던가.",
+  pyramid_guru: "무슨 큰 전시장·컨벤션 같은 데서 설명회 연대요. 2호선 근처.",
+  bad_landlord: "서울 근교로 힐링 간대요. 별장 있는 동네.",
+  scam_boss: "남쪽 바닷가 지점 오픈식 간대요.",
+  fake_reporter: "방송가 근처 몰에서 브런치래요. 섬 이름 붙은 동네.",
+  abusive_boss: "강원도 쪽 골프장이래요. 호수 있는 동네.",
+  fake_academy: "지방 광역시 번화가에서 설명회래요. 사과로 유명한 데.",
+  rental_scam: "항구 쪽에서 차 인수한대요. 경기 남부.",
+  stock_manipulator: "동해안 서핑 스팟이래요. 요즘 핫한 해변.",
+  beauty_quack: "남쪽 대도시 전시장에서 학회래요.",
+  jeonse_fraud: "인천 신도시 신축 임장이래요. 국제도시라던가.",
+  used_scam: "충청권 번화가에서 직거래래요.",
+  insurance_broker: "호남 대도시 중심가에서 미팅이래요.",
+  secret_ad: "서울 힙한 동네 팝업이래요. 카페거리.",
+  ghost_writer: "전북 관광지에서 학회 겸 힐링이래요. 한옥 많은 데.",
+  rich_karen: "강남 편집숍 거리에서 쇼핑이래요.",
+  loan_shark2: "대구 큰 재래시장 쪽 수금 돈대요.",
+  chart_rigging: "경기 북부 큰 전시장 시상식이래요.",
+  bully_noremorse: "경주 관광단지로 가족여행이래요.",
+  cult_leader: "충청도 산에서 집회 연대요.",
+};
+
+/** 타겟이 결정될 때 그의 트윗 30개를 Tweet 객체로 만든다(assignment에 저장돼 재사용). */
+function buildTargetTweets(target: { id: string; name: string; handle: string }, day: number): Tweet[] {
+  const full = targetFullTweets(target as (typeof KILLER_TARGETS)[number]);
+  return full.map((text, i) => ({
+    id: `tgt_${target.id}_${i}`,
+    authorName: target.name,
+    authorHandle: target.handle,
+    attribute: "daily" as const,
+    isAdult: false,
+    text,
+    createdDay: day - (i % 5),
+    likes: 20 + ((i * 37) % 400),
+    retweets: 3 + ((i * 11) % 60),
+    gainedFollowers: 0,
+  }));
+}
+
+/** 배정 시 저장된 타겟 트윗(피드·검색 노출용). 배정이 없으면 빈 배열. */
+export function assignedTargetTweets(state: GameState): Tweet[] {
+  return state.killerJob?.assignment?.tweets ?? [];
+}
+
+/** 배정된 타겟의 계정(Account) — 계정 탐색·프로필 노출용. 저장된 트윗을 타임라인으로 쓴다. */
+export function assignedTargetAccount(state: GameState): Account | null {
+  const kj = state.killerJob;
+  if (!kj?.active || !kj.assignment) return null;
+  const target = targetById(kj.assignment.targetId);
+  if (!target) return null;
+  const me = getActiveAccount(state);
+  return {
+    id: `tgt_${target.id}`,
+    name: target.name,
+    handle: target.handle,
+    attribute: "daily",
+    isAdult: false,
+    bio: target.bio,
+    followers: 5000 + (target.id.length * 1234) % 90000,
+    timeline: kj.assignment.tweets,
+    followed: me.followingAccounts.some((a) => a.handle === target.handle),
+  };
 }
 
 /**
@@ -252,6 +325,13 @@ function chilnamThread(state: GameState): DMThread {
   return t;
 }
 
+/** 칠남이 보내는 메시지를 스레드에 추가(unread 표시). */
+function pushChilnam(state: GameState, text: string): void {
+  const t = chilnamThread(state);
+  t.messages.push({ id: uid("dmm"), from: "partner", text, day: state.day });
+  t.unread = true;
+}
+
 /**
  * 칠남을 팔로우하면 그가 먼저 DM으로 말을 건다(킬러일 때만, 1회). 하소연 + 품앗이 동맹 제의.
  * exploreSystem.followAccount에서 호출한다.
@@ -291,7 +371,7 @@ export function acceptChilnamOffer(state: GameState, threadId: string): void {
     {
       id: uid("dmm"),
       from: "partner",
-      text: "감사해요 형님! 이제 타겟 정찰은 저한테 맡기세요. 그 자식이 위치 흘린 트윗, 제가 딱 짚어드릴게요.",
+      text: "감사해요 형님! 이제 타겟 배정될 때마다 제가 발로 뛴 정보를 DM으로 흘려드릴게요. 위치까진 못 짚어도 어느 쪽인지는 알려드릴 수 있어요.",
       day: state.day,
     },
   );
@@ -310,11 +390,3 @@ export function declineChilnamOffer(state: GameState, threadId: string): void {
   );
 }
 
-/** 칠남 동맹이면 이 트윗이 정답 위치를 흘린 트윗인지(작업하기에서 표시용). */
-export function chilnamMarksAnswer(state: GameState, targetId: string, tweet: string): boolean {
-  if (!state.chilnamAlly) return false;
-  const target = targetById(targetId);
-  if (!target) return false;
-  const norm = normalizeLocation(tweet);
-  return target.answers.some((a) => norm.includes(normalizeLocation(a)));
-}

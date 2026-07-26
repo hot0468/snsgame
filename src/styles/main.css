@@ -3045,6 +3045,17 @@ body {
   text-overflow: ellipsis;
 }
 
+.nav-account__total {
+  font-size: 11px;
+  color: var(--accent, #1d9bf0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+.nav-account__total b {
+  font-weight: 800;
+}
 .nav-account__followers b {
   color: var(--text);
 }
@@ -3257,6 +3268,37 @@ body {
 
 .search-box__ph {
   color: var(--text-muted);
+}
+
+/* 실제 단어 검색 입력바 */
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-panel);
+  color: var(--text-muted);
+}
+.search-box__input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+}
+.search-box__clear {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 2px;
 }
 
 /* 가로 스크롤(스와이프)되는 카테고리 탭 줄 */
@@ -9591,10 +9633,14 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
   color: var(--ink-soft);
   margin: 2px 0 6px;
 }
-.mission-row__btn {
+.mission-row__count {
   flex-shrink: 0;
-  padding: 7px 14px;
   font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  padding: 0 6px;
+  min-width: 42px;
+  text-align: right;
 }
 .mission-row__done {
   flex-shrink: 0;
@@ -9602,6 +9648,8 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
   font-weight: 700;
   color: var(--brand, #2f7);
   padding: 0 6px;
+  min-width: 42px;
+  text-align: right;
 }
 .mission-row--claimed {
   opacity: 0.55;

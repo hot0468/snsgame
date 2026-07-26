@@ -20,7 +20,6 @@ import { renderInventoryModal } from "./inventory";
 import { renderAchievementsModal } from "./achievementsModal";
 import { renderCreaturesModal } from "./creaturesModal";
 import { renderMissionsModal } from "./missionsModal";
-import { claimableCount } from "@/systems/missions";
 import { renderAvWorkModal } from "./avWorkModal";
 
 /** 세부 스탯 아이콘 */
@@ -430,19 +429,15 @@ export function renderStatusDock(ctx: GameContext): HTMLElement {
       el(
         "div",
         { class: "life-btn-row" },
-        (() => {
-          const claim = claimableCount(ctx.store.getState());
-          return el(
-            "button",
-            {
-              class: "life-btn life-btn--sub",
-              onclick: () => ctx.openModal(renderMissionsModal),
-            },
-            icon("article", { size: 18 }),
-            "도전과제",
-            claim > 0 ? el("span", { class: "life-btn__badge" }, String(claim)) : null,
-          );
-        })(),
+        el(
+          "button",
+          {
+            class: "life-btn life-btn--sub",
+            onclick: () => ctx.openModal(renderMissionsModal),
+          },
+          icon("article", { size: 18 }),
+          "도전과제",
+        ),
         el(
           "button",
           {

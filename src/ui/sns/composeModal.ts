@@ -6,7 +6,7 @@ import { ATTRIBUTES, getAffinity } from "@/data/attributes";
 import { isTrending } from "@/data/trends";
 import type { TrendTopic } from "@/data/trendTopics";
 import { TREND_MULTIPLIER, rideTrend } from "@/systems/trends";
-import { maxPostSlots } from "@/systems/followers";
+import { currentMaxPostSlots } from "@/systems/followers";
 import { canPostBySlot, remainingPostSlots } from "@/systems/eggs";
 import {
   ADULT_KINDS,
@@ -746,7 +746,8 @@ export function renderComposeModal(
     );
 
     // "오늘 게시 X/Y" 인디케이터 — 상한은 활성 계정 팔로워로 계산(순수 읽기)
-    const slotMax = maxPostSlots(account.followers);
+    // 게시 슬롯은 전 계정 공유 예산 — 상한은 팔로워 합계 기준.
+    const slotMax = currentMaxPostSlots(s);
     const slotUsed = slotMax - remainingPostSlots(s);
     const slotIndicator = el("div", { class: "compose-slots" }, `오늘 게시 ${slotUsed}/${slotMax}`);
 

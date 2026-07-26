@@ -62,6 +62,10 @@ export interface UIState {
   searchCategory: AttributeId | null;
   /** 검색 페이지: 현재 카테고리의 랜덤 트윗들 */
   searchPosts: Tweet[];
+  /** 검색 페이지: 단어 검색어(Enter 확정). 비어 있으면 카테고리 결과를 보여준다. */
+  searchQuery: string;
+  /** 검색 페이지: 단어 검색 결과(searchQuery로 검색한 트윗들) */
+  searchWordPosts: Tweet[];
   /** 트윗 상세 페이지: 단독으로 펼쳐 볼 내 트윗 id(null이면 미선택) */
   tweetDetailId: string | null;
   /** 쪽지 페이지: 선택된 대화 스레드 id */
@@ -154,6 +158,8 @@ export function createUIState(): UIState {
     explorePosts: [],
     searchCategory: null,
     searchPosts: [],
+    searchQuery: "",
+    searchWordPosts: [],
     tweetDetailId: null,
     dmThreadId: null,
     reactedTweetIds: new Set(),

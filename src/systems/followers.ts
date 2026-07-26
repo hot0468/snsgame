@@ -148,7 +148,8 @@ export function changeFollowers(state: GameState, delta: number): void {
   account.followers = Math.max(0, account.followers + delta);
   // 게시 슬롯 상한이 팔로워 티어를 넘어 늘었으면 pending 알림을 세운다. maxPostSlots는 순수 계산이라
   // changeFollowers가 자주 불려도 무해하다. lastMaxPostSlots는 증가·감소 무관하게 항상 동기화한다.
-  const nowMax = maxPostSlots(account.followers);
+  // 게시 슬롯 상한은 전 계정 공유 → 전 계정 팔로워 합계로 판정한다.
+  const nowMax = currentMaxPostSlots(state);
   if (nowMax > state.lastMaxPostSlots) state.postSlotIncreasedTo = nowMax;
   state.lastMaxPostSlots = nowMax;
   // 팔로워 100만 달성 → 스탯에 따른 승리 엔딩(최종 목표). 도달 시 gameOver를 세운다.
@@ -178,7 +179,20 @@ export const POST_SLOT_TIERS: readonly (readonly [followers: number, slots: numb
   [0, 1],
 ];
 
-/** 활성 계정 팔로워 수 → 오늘 최대 게시 슬롯 수(1~MAX_POST_SLOTS). */
+/** 전 계정 팔로워 합계. */
+export function accountsTotalFollowers(state: GameState): number {
+  return state.accounts.reduce((sum, a) => sum + a.followers, 0);
+}
+
+/**
+ * 오늘 하루 최대 게시 슬롯(전 계정 공유 예산의 상한).
+ * 게시 슬롯은 계정별이 아니라 전 계정 통합이므로 **팔로워 합계** 티어로 판정한다.
+ */
+export function currentMaxPostSlots(state: GameState): number {
+  return maxPostSlots(accountsTotalFollowers(state));
+}
+
+/** 팔로워 수 → 오늘 최대 게시 슬롯 수(1~MAX_POST_SLOTS). */
 export function maxPostSlots(followers: number): number {
   const f = Number.isFinite(followers) ? followers : 0;
   for (const [threshold, slots] of POST_SLOT_TIERS) {

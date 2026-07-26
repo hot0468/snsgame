@@ -128,11 +128,9 @@ export function createAccount(
     strikes: 0,
     suspendedUntilDay: 0,
     relationships: {},
-    // 1일 트윗 카운트·게시 슬롯 소비는 계정별로 센다.
+    // 1일 트윗 카운트는 계정별. (게시 슬롯 예산은 전 계정 공유 → GameState로 이관.)
     dailyTweetDay: 1,
     dailyTweetCount: 0,
-    postSlotsDay: 1,
-    postSlotsUsed: 0,
     // 트친(단짝): 상호작용 누적으로 성사. 도달 배율은 systems/tchin이 계산.
     tchins: [],
     tchinNames: {},
@@ -287,6 +285,8 @@ export function createInitialState(): GameState {
     sleepPending: false,
     catPowerPending: false,
     lastMaxPostSlots: 1, // = maxPostSlots(0). 리터럴로 둔다(core→systems 순환 import 방지)
+    postSlotsDay: 1, // 게시 슬롯 예산(전 계정 공유)
+    postSlotsUsed: 0,
     postSlotIncreasedTo: null,
     pendingNews: null,
     pendingBirthday: null,
@@ -306,6 +306,7 @@ export function createInitialState(): GameState {
     statMilestones: [],
     pendingMilestones: [],
     missions: { day: 1, week: currentWeek(1), daily: rollDaily(1), weekly: rollWeekly(currentWeek(1)) },
+    pendingMissions: [],
   };
 }
 

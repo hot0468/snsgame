@@ -212,9 +212,10 @@ export const ALL_ATTRIBUTE_IDS = Object.keys(ATTRIBUTES) as AttributeId[];
 const AFFINITY: Partial<Record<AttributeId, Partial<Record<AttributeId, number>>>> = {
   daily: { daily: 1, politics: -1, adult: -1, food: 1, idol: 1, dog: 1, cat: 1, animal: 1, plant: 1 },
   politics: { politics: 1, daily: -1, humor: -1, adult: -1 },
-  idol: { idol: 1, actor: 1, daily: 1, beauty: 1, politics: -1 },
-  anime: { anime: 1, gaming: 1, humor: 1, daily: 1, politics: -1 },
-  actor: { actor: 1, idol: 1, daily: 1, beauty: 1, politics: -1 },
+  // 덕질 계열(아이돌·애니·배우)은 서로 친화 — 하나의 팬덤 클러스터로 묶는다.
+  idol: { idol: 1, actor: 1, anime: 1, daily: 1, beauty: 1, politics: -1 },
+  anime: { anime: 1, idol: 1, actor: 1, gaming: 1, humor: 1, daily: 1, politics: -1 },
+  actor: { actor: 1, idol: 1, anime: 1, daily: 1, beauty: 1, politics: -1 },
   gaming: { gaming: 1, anime: 1, humor: 1, politics: -1 },
   food: { food: 1, daily: 1, fitness: -1, cooking: 1 },
   fitness: { fitness: 1, beauty: 1, food: -1, adult: -1 },

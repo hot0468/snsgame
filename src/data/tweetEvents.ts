@@ -1,5 +1,5 @@
 import type { AttributeId, EventVariant, TweetEvent } from "@/core/types";
-import { SLOTS_PER_DAY } from "@/core/state";
+import { SLOTS_PER_DAY, MORNING_SLOT } from "@/core/state";
 import { chance, pick, randInt } from "@/utils/random";
 
 /**
@@ -67,7 +67,8 @@ export function maybeEventTweet(
     event: {
       title: tpl.title,
       day: day + randInt(4, 21),
-      slot: randInt(0, SLOTS_PER_DAY - 1),
+      // 코믹콘은 낮 행사라 낮 슬롯 고정(심야에 잡히면 자러 가는 흐름과 충돌). 그 외 행사는 아무 슬롯.
+      slot: tpl.variant === "comiccon" ? MORNING_SLOT : randInt(0, SLOTS_PER_DAY - 1),
       attribute: attr,
       variant: tpl.variant,
       ticketing: tpl.ticketing,

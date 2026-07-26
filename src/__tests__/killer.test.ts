@@ -27,7 +27,7 @@ describe("killer job", () => {
       active: true,
       fails: 0,
       completed: 0,
-      assignment: { targetId: target.id, assignedDay: s.day, deadlineDay: s.day + 7 },
+      assignment: { targetId: target.id, assignedDay: s.day, deadlineDay: s.day + 7, tweets: [] },
     };
     const before = s.money;
     const res = attemptHit(s, "협재");
@@ -44,7 +44,7 @@ describe("killer job", () => {
       active: true,
       fails: 0,
       completed: 0,
-      assignment: { targetId: target.id, assignedDay: s.day, deadlineDay: s.day + 7 },
+      assignment: { targetId: target.id, assignedDay: s.day, deadlineDay: s.day + 7, tweets: [] },
     };
     const res = attemptHit(s, "강남");
     expect(res.ok).toBe(false);
@@ -56,7 +56,7 @@ describe("killer job", () => {
     const s = createInitialState();
     s.killerJob = { active: true, fails: 0, completed: 0, assignment: null };
     for (let i = 0; i < KILLER_MAX_FAILS; i++) {
-      s.killerJob!.assignment = { targetId: KILLER_TARGETS[0].id, assignedDay: 1, deadlineDay: 8 };
+      s.killerJob!.assignment = { targetId: KILLER_TARGETS[0].id, assignedDay: 1, deadlineDay: 8, tweets: [] };
       s.day = 9; // 마감(8) 초과
       killerDailyTick(s);
     }
@@ -89,7 +89,7 @@ describe("killer job", () => {
       active: true,
       fails: 0,
       completed: 0,
-      assignment: { targetId: "bad_landlord", assignedDay: s.day, deadlineDay: s.day + 7 },
+      assignment: { targetId: "bad_landlord", assignedDay: s.day, deadlineDay: s.day + 7, tweets: [] },
     };
     const res = attemptHit(s, "가평"); // bad_landlord 정답
     expect(res.ok).toBe(true);

@@ -1,5 +1,9 @@
 import type { GameState } from "@/core/types";
 import { MARKET_ASSETS } from "@/data/market";
+import { getActiveAccount } from "@/core/state";
+import { ATTRIBUTES } from "@/data/attributes";
+import { unlockAttribute } from "./attributeUnlock";
+import { addSchedule } from "./time";
 
 /**
  * 투자 시장 시스템 — 매일 시세가 랜덤 워크로 출렁이고, 소지금으로 사고팔 수 있다.
@@ -44,6 +48,18 @@ export function portfolioValue(state: GameState): number {
   );
 }
 
+/**
+ * 첫 매매를 하면 재테크계(finance) 트윗 속성을 즉시 해금한다.
+ * 직접 굴려봤으니 이제 주식 얘기를 트윗한다는 흐름 — 교양 랜덤과 별개의 확정 경로.
+ * unlockAttribute가 멱등이라 매 거래마다 불러도 최초 1회만 실제로 열린다.
+ */
+function unlockFinanceOnTrade(state: GameState): void {
+  const account = getActiveAccount(state);
+  if (unlockAttribute(state, account, "finance")) {
+    addSchedule(state, `새 트윗 속성 해금: ${ATTRIBUTES.finance.label}`, "system");
+  }
+}
+
 /** 지정 수량 매수. 잔고가 부족하면 아무것도 하지 않는다. @returns 실제 매수 수량 */
 export function buyAsset(state: GameState, id: string, shares: number): number {
   if (shares <= 0) return 0;
@@ -51,6 +67,7 @@ export function buyAsset(state: GameState, id: string, shares: number): number {
   if (state.money < cost) return 0;
   state.money -= cost;
   state.market.holdings[id] = holdingOf(state, id) + shares;
+  unlockFinanceOnTrade(state);
   return shares;
 }
 
@@ -60,5 +77,6 @@ export function sellAsset(state: GameState, id: string, shares: number): number 
   if (n <= 0) return 0;
   state.money += assetPrice(state, id) * n;
   state.market.holdings[id] = holdingOf(state, id) - n;
+  unlockFinanceOnTrade(state);
   return n;
 }

@@ -202,9 +202,18 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
           { class: "nav-account__info" },
           el("div", { class: "nav-account__name" }, account.name),
           el("div", { class: "nav-account__handle" }, `@${account.handle}`),
+          // 이 계정의 팔로워
           el(
             "div",
             { class: "nav-account__followers" },
+            el("b", {}, formatNumber(account.followers)),
+            " 팔로워",
+          ),
+          // 전 계정 합산 — 100만 목표(승리 조건)는 전체 팔로워 기준이다.
+          el(
+            "div",
+            { class: "nav-account__total" },
+            "전체 ",
             el("b", {}, formatNumber(totalFollowers(s))),
             " 팔로워",
           ),

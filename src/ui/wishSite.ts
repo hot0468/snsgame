@@ -4,8 +4,8 @@ import { el } from "@/utils/dom";
 
 /* ============================================================
  * 소원을 이루어주는 가게 — 까칠한외눈 링크로만 들어오는 수상한 사이트.
- * 소원을 빌면 이뤄지지 않고 대가를 치른다(몽키스포).
- * 탭을 이동하면 닫히고, 다시 들어오려면 트윗에 좋아요를 눌러야 한다.
+ * 소원을 빌면 이뤄지지 않고 대가를 치른다(몽키스포). 대가는 토스트로 알리고 가게는 곧바로 닫힌다.
+ * 탭을 이동해도 닫히며, 다시 들어오려면 트윗에 좋아요를 눌러야 한다.
  * ============================================================ */
 
 function closeSite(ctx: GameContext): void {
@@ -16,23 +16,6 @@ function closeSite(ctx: GameContext): void {
 
 export function renderWishSite(ctx: GameContext): HTMLElement {
   const container = el("div", { class: "wish-site" });
-
-  function showResult(message: string): void {
-    container.replaceChildren(
-      el("div", { class: "wish-site__veil" }),
-      el(
-        "div",
-        { class: "wish-site__card" },
-        el("div", { class: "wish-site__title" }, "🕯 소원의 대가"),
-        el("p", { class: "wish-site__result" }, message),
-        el(
-          "button",
-          { class: "btn", style: "margin-top:16px", onclick: () => closeSite(ctx) },
-          "가게를 나선다",
-        ),
-      ),
-    );
-  }
 
   function showWishes(): void {
     const ids = ctx.ui.wishOptions;
@@ -46,11 +29,13 @@ export function renderWishSite(ctx: GameContext): HTMLElement {
         {
           class: "wish-option",
           onclick: () => {
+            // 소원을 빌면 대가를 치르고 수상한 가게는 곧바로 사라진다(대가는 토스트로 알린다).
             let msg = "";
             ctx.update((s) => {
               msg = grantWish(s, w.id).message;
             });
-            showResult(msg);
+            closeSite(ctx);
+            ctx.toast(msg);
           },
         },
         `"${w.label}"`,

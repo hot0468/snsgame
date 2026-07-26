@@ -510,6 +510,11 @@ export interface KillerAssignment {
   assignedDay: number;
   /** 이 day(다음 일요일)에 미완이면 실패로 판정된다 */
   deadlineDay: number;
+  /**
+   * 타겟이 결정되는 순간(배정 시) 만들어져 저장되는 타겟 트윗들(30개).
+   * SNS 피드·검색·프로필이 이 스냅샷을 그대로 쓴다 — 매번 즉석 생성하지 않는다.
+   */
+  tweets: Tweet[];
 }
 
 /**
@@ -582,10 +587,7 @@ export interface PlayerAccount {
   dailyTweetDay: number;
   /** 오늘 이 계정으로 올린 트윗 수(도배 판정). 계정마다 따로 센다. */
   dailyTweetCount: number;
-  /** 게시 슬롯 소비 기준 날짜(일차) — 계정별. */
-  postSlotsDay: number;
-  /** 오늘 이 계정이 소비한 게시 슬롯 수(트윗 전용 일일 예산). 계정마다 따로 센다. */
-  postSlotsUsed: number;
+  // 게시 슬롯(일일 트윗 예산)은 계정별이 아니라 전 계정 공유다 → GameState.postSlotsDay/Used로 이관.
   /**
    * 트친(단짝) 핸들 목록. 같은 계정과 상호작용(좋아요/RT/인용/DM)을 임계치만큼 쌓으면 성사된다.
    * 트친 수만큼 모든 트윗 팔로워 증가분에 도달 배율이 붙는다. 계정별로 따로 관리.
@@ -938,9 +940,13 @@ export interface GameState {
 
   /**
    * 마지막으로 본 하루 최대 게시 슬롯 상한(maxPostSlots). 팔로워 티어를 넘으면 changeFollowers가 갱신한다.
-   * 전역 필드(계정별 아님) — 활성 계정 팔로워 기준으로 동기화한다.
+   * 전역 필드(계정별 아님) — **전 계정 팔로워 합계** 기준으로 동기화한다.
    */
   lastMaxPostSlots: number;
+  /** 게시 슬롯 소비 기준 날짜(일차) — 전 계정 공유(하루 지나면 리셋). */
+  postSlotsDay: number;
+  /** 오늘 소비한 게시 슬롯 수 — **전 계정 통합** 일일 트윗 예산. */
+  postSlotsUsed: number;
   /**
    * 방금 게시 슬롯 상한이 늘었으면 그 새 값(pending 알림). 없으면 null.
    * changeFollowers가 증가 감지 시 세팅, ui(app.ts)가 안내 모달을 띄운 뒤 null로 클리어한다.
@@ -1175,6 +1181,8 @@ export interface GameState {
 
   /** 일일/주간 도전과제 진행 상태(data/missions.ts + systems/missions.ts) */
   missions: MissionState;
+  /** 방금 달성해 보상까지 지급된 도전과제 id 목록 — app이 토스트 후 비운다(pendingAchievements와 동일 패턴) */
+  pendingMissions: string[];
 }
 
 /** 도전과제 한 건의 진행 상태(정의는 data/missions.ts의 id로 참조) */

@@ -43,6 +43,7 @@ import {
   exploreAccounts,
   exploreTweets,
   searchTweetsByCategory,
+  searchTweetsByWord,
   followAccount,
   accountForTweet,
   reactToTweet,
@@ -742,16 +743,45 @@ export function searchPage(ctx: GameContext): HTMLElement {
   const cats = searchCategories(ctx);
   const active = ctx.ui.searchCategory;
 
-  // 상단: 뒤로가기 + 장식용 검색 입력바(실제 입력은 받지 않음)
+  // 상단: 뒤로가기 + 실제 단어 검색 입력바(@핸들·단어로 트윗 검색)
+  const searchInput = el("input", {
+    class: "search-box__input",
+    placeholder: "트윗 검색 (단어·@핸들)",
+    value: ctx.ui.searchQuery,
+    spellcheck: "false",
+    autocomplete: "off",
+    onkeydown: (e: Event) => {
+      if ((e as KeyboardEvent).key !== "Enter") return;
+      const q = (e.target as HTMLInputElement).value.trim();
+      ctx.ui.searchQuery = q;
+      ctx.ui.searchWordPosts = q ? searchTweetsByWord(ctx.store.getState(), q) : [];
+      ctx.refresh();
+    },
+  }) as HTMLInputElement;
   const head = el(
     "header",
     { class: "search-head" },
     el("button", { class: "page-head__back", title: "뒤로", onclick: () => goHome(ctx) }, "←"),
     el(
       "div",
-      { class: "search-box search-box--fake", title: "카테고리를 선택해 보세요" },
+      { class: "search-box" },
       icon("search", { size: 16 }),
-      el("span", { class: "search-box__ph" }, "검색"),
+      searchInput,
+      ctx.ui.searchQuery
+        ? el(
+            "button",
+            {
+              class: "search-box__clear",
+              title: "검색 지우기",
+              onclick: () => {
+                ctx.ui.searchQuery = "";
+                ctx.ui.searchWordPosts = [];
+                ctx.refresh();
+              },
+            },
+            "✕",
+          )
+        : null,
     ),
   );
 
@@ -777,11 +807,16 @@ export function searchPage(ctx: GameContext): HTMLElement {
   // 마우스 드래그/휠로도 카테고리 탭을 좌우로 스와이프할 수 있게 한다.
   enableDragScroll(tabs);
 
-  const results = ctx.ui.searchPosts.length
-    ? ctx.ui.searchPosts.map((t) => reactableCard(ctx, t))
-    : [el("div", { class: "empty" }, "검색 결과가 없어요")];
+  // 단어 검색 중이면 그 결과를, 아니면 선택한 카테고리 결과를 보여준다.
+  const wording = ctx.ui.searchQuery.trim().length > 0;
+  const posts = wording ? ctx.ui.searchWordPosts : ctx.ui.searchPosts;
+  const results = posts.length
+    ? posts.map((t) => reactableCard(ctx, t))
+    : [el("div", { class: "empty" }, wording ? `'${ctx.ui.searchQuery}' 검색 결과가 없어요` : "검색 결과가 없어요")];
 
-  return el("section", { class: "sns__feed sns__feed--search" }, head, tabs, ...results);
+  // 단어 검색 중엔 카테고리 탭을 숨긴다(검색 결과에 집중).
+  const body = wording ? [head, ...results] : [head, tabs, ...results];
+  return el("section", { class: "sns__feed sns__feed--search" }, ...body);
 }
 
 /* ===================== 트윗 상세 페이지 ===================== */

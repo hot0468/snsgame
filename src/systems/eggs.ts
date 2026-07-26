@@ -2,7 +2,7 @@ import type { GameState, ScheduleEvent, Tweet, Account, SkillStatId } from "@/co
 import { getActiveAccount, LATE_SLOT } from "@/core/state";
 import { MAX_SKILL, SKILL_STATS } from "@/data/stats";
 import { chance, pick, randInt, uid } from "@/utils/random";
-import { changeFollowers, maxPostSlots } from "./followers";
+import { changeFollowers, currentMaxPostSlots } from "./followers";
 import { pushKakao } from "./kakao";
 import { clampSkill } from "./stats";
 import { maybeSpawnGroupRoomInviteDM } from "./groupRoom";
@@ -89,23 +89,22 @@ export function ensureEggDay(state: GameState): void {
  * 필드라 free 게시가 슬롯을 갉지 않는다.
  */
 
-/** 슬롯 날짜가 바뀌었으면 오늘 소비량을 초기화한다(ensureEggDay와 같은 패턴, 계정별). */
+/** 슬롯 날짜가 바뀌었으면 오늘 소비량을 초기화한다(전 계정 공유 예산). */
 export function ensurePostSlotDay(state: GameState): void {
-  const acc = getActiveAccount(state);
-  if (acc.postSlotsDay !== state.day) {
-    acc.postSlotsDay = state.day;
-    acc.postSlotsUsed = 0;
+  if (state.postSlotsDay !== state.day) {
+    state.postSlotsDay = state.day;
+    state.postSlotsUsed = 0;
   }
 }
 
 /**
  * 오늘 남은 게시 슬롯 수(0 이상). **순수 읽기 — 상태를 변형하지 않는다**(렌더 중 UI가 호출).
+ * 게시 슬롯은 전 계정 통합 예산이다 — 상한은 팔로워 합계, 소비량도 전 계정 합산(GameState).
  * 날짜가 지난 소비량은 0으로 간주하므로 하루가 바뀌면 리셋 없이도 만충으로 읽힌다.
  */
 export function remainingPostSlots(state: GameState): number {
-  const acc = getActiveAccount(state);
-  const max = maxPostSlots(acc.followers);
-  const used = acc.postSlotsDay === state.day ? acc.postSlotsUsed : 0;
+  const max = currentMaxPostSlots(state);
+  const used = state.postSlotsDay === state.day ? state.postSlotsUsed : 0;
   return Math.max(0, max - (Number.isFinite(used) ? used : 0));
 }
 
@@ -114,10 +113,10 @@ export function canPostBySlot(state: GameState): boolean {
   return remainingPostSlots(state) > 0;
 }
 
-/** 게시 슬롯 1개 소비(트윗 게시 시). free 게시는 호출하지 않는다. */
+/** 게시 슬롯 1개 소비(트윗 게시 시). free 게시는 호출하지 않는다. 전 계정 공유 카운터. */
 export function consumePostSlot(state: GameState): void {
   ensurePostSlotDay(state);
-  getActiveAccount(state).postSlotsUsed += 1;
+  state.postSlotsUsed += 1;
 }
 
 /* ─────────────────── 좋아요/리트윗 ─────────────────── */

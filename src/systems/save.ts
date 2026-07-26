@@ -8,11 +8,10 @@ import {
   MORNING_SLOT,
   SLOTS_PER_DAY,
 } from "@/core/state";
-import { grantAttributeUnlockFloor } from "./attributeUnlock";
+import { grantAttributeUnlockFloor, syncUnlockedAttributes } from "./attributeUnlock";
 import { backfillClaimedMilestones } from "./milestones";
 import { ensureMissions } from "./missions";
-import { maxPostSlots } from "./followers";
-import { getActiveAccount } from "@/core/state";
+import { currentMaxPostSlots } from "./followers";
 import { initialMarket } from "@/data/market";
 
 // 다계정 구조로 바뀌며 v2로 올림(구 v1 저장본은 무시하고 새로 시작).
@@ -112,11 +111,11 @@ function sanitize(state: GameState): GameState {
     acc.strikes ??= 0;
     acc.suspendedUntilDay ??= 0;
     acc.relationships ??= {};
-    // 1일 트윗 카운트·게시 슬롯 소비를 전역(eggs)→계정별로 옮김. 구세이브엔 계정에 없으니 초기화.
+    // 1일 트윗 카운트는 계정별. (게시 슬롯 예산은 전 계정 공유로 이관 → 계정 잔재 필드는 제거.)
     acc.dailyTweetDay ??= state.day;
     acc.dailyTweetCount ??= 0;
-    acc.postSlotsDay ??= state.day;
-    acc.postSlotsUsed ??= 0;
+    delete (acc as { postSlotsDay?: number }).postSlotsDay;
+    delete (acc as { postSlotsUsed?: number }).postSlotsUsed;
     // 트친(단짝): 구세이브엔 없으므로 초기화.
     if (!Array.isArray(acc.tchins)) acc.tchins = [];
     if (typeof acc.tchinNames !== "object" || acc.tchinNames === null) acc.tchinNames = {};
@@ -157,6 +156,10 @@ function sanitize(state: GameState): GameState {
   if (!Array.isArray(state.kakao)) state.kakao = [];
   if (!Array.isArray(state.workMsgs)) state.workMsgs = [];
   if (!Array.isArray(state.appointments)) state.appointments = [];
+  // 코믹콘은 낮 행사로 바뀌었다 — 구세이브에 심야로 잡힌 코믹콘 약속을 낮 슬롯으로 옮긴다.
+  for (const appt of state.appointments) {
+    if (appt.variant === "comiccon" && appt.slot !== MORNING_SLOT) appt.slot = MORNING_SLOT;
+  }
   if (!Array.isArray(state.pastEmployers)) state.pastEmployers = [];
   if (!Array.isArray(state.jobplanetViewed)) state.jobplanetViewed = [];
   if (!Array.isArray(state.bookmarks)) state.bookmarks = [];
@@ -187,6 +190,10 @@ function sanitize(state: GameState): GameState {
   state.avJob ??= null;
   // 킬러 직업(momo.com)도 신규 필드 — 구세이브엔 미취직·미제의가 정답.
   state.killerJob ??= null;
+  // 배정 트윗은 신규 필드 — 구세이브의 진행 중 임무엔 없을 수 있다(빈 배열로 보정, 다음 배정부터 채워짐).
+  if (state.killerJob?.assignment && !Array.isArray(state.killerJob.assignment.tweets)) {
+    state.killerJob.assignment.tweets = [];
+  }
   if (typeof state.momoOfferedDay !== "number") state.momoOfferedDay = -1;
   state.chilnamAlly ??= false;
   state.chilnamOffered ??= false;
@@ -307,11 +314,18 @@ function sanitize(state: GameState): GameState {
   }
   state.sleepPending ??= false;
   state.catPowerPending ??= false;
+  // 게시 슬롯 예산은 전 계정 공유(전역) — 구세이브엔 전역 필드가 없으니 초기화.
+  state.postSlotsDay ??= state.day;
+  if (typeof state.postSlotsUsed !== "number" || !Number.isFinite(state.postSlotsUsed)) {
+    state.postSlotsUsed = 0;
+  }
+  // 해금 카테고리는 전 계정 공유 — 구세이브의 계정별 차이를 합집합으로 통일한다.
+  syncUnlockedAttributes(state);
   // 게시 슬롯 증가 감지 필드는 신규.
   // ⚠️ lastMaxPostSlots는 초기값 1로 폴백하면 안 된다 — 이미 팔로워 많은 구세이브가 로드 직후
-  //    다음 changeFollowers에서 "슬롯 늘었어요" 오알림을 띄운다. 현 활성 계정 팔로워 기준으로 폴백한다.
+  //    다음 changeFollowers에서 "슬롯 늘었어요" 오알림을 띄운다. 전 계정 팔로워 합계 기준으로 폴백한다.
   if (typeof state.lastMaxPostSlots !== "number" || !Number.isFinite(state.lastMaxPostSlots)) {
-    state.lastMaxPostSlots = maxPostSlots(getActiveAccount(state).followers);
+    state.lastMaxPostSlots = currentMaxPostSlots(state);
   }
   state.postSlotIncreasedTo ??= null;
   state.pendingNews ??= null;
@@ -360,6 +374,7 @@ function sanitize(state: GameState): GameState {
   if (!state.missions || !Array.isArray(state.missions.daily)) {
     state.missions = { day: -1, week: -1, daily: [], weekly: [] };
   }
+  if (!Array.isArray(state.pendingMissions)) state.pendingMissions = [];
   ensureMissions(state);
   return state;
 }

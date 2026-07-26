@@ -1,12 +1,13 @@
 import type { GameContext } from "./context";
 import { el } from "@/utils/dom";
-import { targetById, targetFullTweets } from "@/data/killerTargets";
-import { attemptHit, chilnamMarksAnswer } from "@/systems/killer";
+import { targetById } from "@/data/killerTargets";
+import { attemptHit } from "@/systems/killer";
 import { weekdayLabel } from "@/systems/calendar";
 
 /**
- * [작업하기] 모달 — 이번 타겟의 '정찰 도시어'(주간 트윗)를 보여주고, 그 안에서 찾은
- * 위치를 입력해 처리한다. 정답이면 의뢰비 지급, 틀리면 재시도(임무 유지).
+ * [작업하기] 모달 — 타겟 정보와 마감만 보여주고 위치를 입력받는다.
+ * 타겟 트윗은 이제 SNS 피드/검색에서 읽는다(트윗 검색·둘러보기·프로필). 여기선 처리만.
+ * 정답이면 의뢰비 지급, 틀리면 재시도(임무 유지).
  */
 export function renderKillerWorkModal(ctx: GameContext): HTMLElement {
   const s = ctx.store.getState();
@@ -56,7 +57,7 @@ export function renderKillerWorkModal(ctx: GameContext): HTMLElement {
     el(
       "div",
       { class: "modal__head" },
-      el("span", { class: "modal__head-title" }, "작업 — 타겟 정찰"),
+      el("span", { class: "modal__head-title" }, "작업 — 타겟 처리"),
       el("button", { class: "popup__close", onclick: () => ctx.closeModal() }, "✕"),
     ),
     el(
@@ -73,20 +74,10 @@ export function renderKillerWorkModal(ctx: GameContext): HTMLElement {
           `마감: 일주일 · 남은 시간 ${remain}일 (${weekdayLabel(s.day)}요일)`,
         ),
       ),
-      el("div", { class: "killer-hint" }, "이자의 최근 트윗이다. 위치를 흘린 트윗이 있다 — 잘 읽어라."),
       el(
         "div",
-        { class: "killer-tweets" },
-        ...targetFullTweets(target).map((t) => {
-          const marked = chilnamMarksAnswer(s, target.id, t);
-          return el(
-            "div",
-            { class: "killer-tweet" + (marked ? " killer-tweet--marked" : "") },
-            el("span", { class: "killer-tweet__at" }, `@${target.handle}`),
-            marked ? el("span", { class: "killer-tweet__hint" }, "🔍 칠남: 여기 봐요") : null,
-            t,
-          );
-        }),
+        { class: "killer-hint" },
+        `SNS에서 '@${target.handle}'을 검색하거나 둘러보기 피드에서 그자의 트윗을 찾아, 위치를 흘린 트윗을 읽어라. 그 위치를 아래에 입력한다.`,
       ),
       el("label", { class: "killer-input-label" }, "처리 위치 입력"),
       el(
