@@ -8,7 +8,7 @@ import { unreadDMCount } from "@/systems/dm";
 import { followingFeedTweets, followAccount, isFollowingHandle } from "@/systems/exploreSystem";
 import { profileFromAuthor } from "@/data/accounts";
 import { totalFollowers } from "@/systems/economy";
-import { maxPostSlots } from "@/systems/followers";
+import { currentMaxPostSlots } from "@/systems/followers";
 import { remainingPostSlots } from "@/systems/eggs";
 import { ATTRIBUTES } from "@/data/attributes";
 import { getTrendingCategories } from "@/data/trends";
@@ -210,12 +210,13 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
             " 팔로워",
           ),
           // 전 계정 합산 — 100만 목표(승리 조건)는 전체 팔로워 기준이다.
+          // ⚠️ '팔로워'를 다시 붙이지 마라 — 사이드바 210px에서 info 폭은 90px 남짓이라
+          //    "전체 2,396 팔로워"가 말줄임으로 잘린다(숫자가 잘려 보였다). 바로 윗줄에 단위가 있다.
           el(
             "div",
-            { class: "nav-account__total" },
+            { class: "nav-account__total", title: "전체 팔로워" },
             "전체 ",
             el("b", {}, formatNumber(totalFollowers(s))),
-            " 팔로워",
           ),
           account.tchins.length > 0
             ? el(
@@ -314,7 +315,10 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
       el(
         "div",
         { class: "compose-slots", style: "margin:0" },
-        `오늘 게시 ${maxPostSlots(account.followers) - remainingPostSlots(s)}/${maxPostSlots(account.followers)}`,
+        // ⚠️ 상한은 반드시 currentMaxPostSlots(전 계정 팔로워 **합계** 기준)로 구한다.
+        //    remainingPostSlots가 합계 기준 예산인데 여기서만 활성 계정 팔로워로 상한을 잡으면
+        //    분자가 음수가 된다(계정 2개일 때 "오늘 게시 -3/2"로 표시되던 버그).
+        `오늘 게시 ${currentMaxPostSlots(s) - remainingPostSlots(s)}/${currentMaxPostSlots(s)}`,
       ),
       el(
         "button",

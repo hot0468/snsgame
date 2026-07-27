@@ -6,6 +6,8 @@ import { settleAuthorMonthly } from "./author";
 import { deliverJobResultEmail } from "./employment";
 import { deliverExamResultEmail } from "./certification";
 import { resolveContest } from "./contest";
+import { resolveRace } from "./marathon";
+import { resolveBodyProfile } from "./bodyProfile";
 import { maybeSpawnTuckerDM, maybeStartTuckerLine } from "./lab";
 import {
   maybeOpenConsoleReview,
@@ -222,6 +224,10 @@ function onNewDay(state: GameState): void {
   deliverJobResultEmail(state);
   // 네이놈 대회 결과 메일(신청 1주 뒤) 도착
   resolveContest(state);
+  // 마라톤 대회일(신청 1주 뒤) — 기록 판정 + 결과 메일
+  resolveRace(state);
+  // 바디프로필 도전 마감일(시작 30일 뒤) — 성공이면 자동 트윗 + 팔로워
+  resolveBodyProfile(state);
   // 자격증 시험 결과 메일(응시 3일 뒤) 도착
   deliverExamResultEmail(state);
   // ⚠️ 순서 의존: 국가연금술사 합격은 바로 위 deliverExamResultEmail에서 확정된다.

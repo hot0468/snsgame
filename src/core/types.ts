@@ -86,7 +86,8 @@ export type SkillStatId =
   | "sociability" // 친화력
   | "comedy" // 개그
   | "creativity" // 창작
-  | "lewd" // 음란
+  | "lewd" // 음란 — '얼마나 야한가'(정도). 일반적인 관계까지만 연다.
+  | "pervert" // 변태력 — '어느 방향인가'(취향). 강압·페티쉬 콘텐츠의 별도 게이트.
   | "game" // 게임
   | "it" // IT
   | "otaku"; // 덕질
@@ -1168,6 +1169,18 @@ export interface GameState {
   pets: { dog: boolean; cat: boolean };
   /** 산책 중 조우해 도감에 수집한 크리처 id 목록(data/creatures.ts의 CREATURES 참조) */
   creatures: string[];
+  /** 마켓걸리버에서 완성해 요리 도감에 등록한 레시피 id 목록(data/grocery.ts의 RECIPES 참조) */
+  cookedDishes: string[];
+  /** 결과 대기 중인 마라톤 대회 신청(대회일에 판정, 동시 1건). 없으면 null */
+  pendingRace: { id: string; appliedDay: number } | null;
+  /** 코스별 개인 최고 기록(분 단위, 낮을수록 좋다). 완주한 코스만 키가 있다. */
+  raceBests: Record<string, number>;
+  /**
+   * 진행 중인 바디프로필 도전(없으면 미도전).
+   * 운동으로 gauge를 100까지 채우면 성공, 정신력이 낮을 때 휴식·외출·산책에서
+   * 고칼로리 유혹이 터지면 gauge가 깎이고 binges가 는다. 판정은 startDay + BODY_PROFILE_DAYS.
+   */
+  bodyProfile: { startDay: number; gauge: number; binges: number } | null;
   /** 이스터에그·특수 이벤트 추적 */
   eggs: EggState;
 

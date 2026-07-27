@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createInitialState, getActiveAccount } from "@/core/state";
-import { maxPostSlots, MAX_POST_SLOTS } from "@/systems/followers";
+import { maxPostSlots, currentMaxPostSlots, MAX_POST_SLOTS } from "@/systems/followers";
 import {
   canPostBySlot,
   consumePostSlot,
@@ -66,6 +66,20 @@ describe("remainingPostSlots / consume", () => {
     expect(remainingPostSlots(s)).toBe(2);
     // 게시 슬롯 예산은 전 계정 공유(전역 필드).
     expect(s.postSlotsDay).toBe(s.day);
+  });
+
+  it("'오늘 게시 X/Y' 인디케이터는 계정이 여러 개여도 음수가 안 된다", () => {
+    const s = createInitialState();
+    const me = getActiveAccount(s);
+    me.followers = 20; // 활성 계정만 보면 슬롯 2
+    s.accounts.push({ ...me, id: "acc2", handle: "sub", followers: 5_000 }); // 합계 5,020 → 슬롯 5
+
+    // ⚠️ 상한을 활성 계정 팔로워로 잡으면 잔여(합계 기준)보다 작아져 분자가 음수가 된다("-3/2" 버그).
+    expect(maxPostSlots(me.followers)).toBeLessThan(remainingPostSlots(s));
+    // 합계 기준 상한을 쓰면 사용량은 항상 0 이상.
+    expect(currentMaxPostSlots(s) - remainingPostSlots(s)).toBe(0);
+    consumePostSlot(s);
+    expect(currentMaxPostSlots(s) - remainingPostSlots(s)).toBe(1);
   });
 
   it("ensurePostSlotDay는 날짜가 같으면 소비량을 보존한다", () => {

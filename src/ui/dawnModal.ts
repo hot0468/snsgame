@@ -1,5 +1,6 @@
 import type { GameContext } from "./context";
-import { el } from "@/utils/dom";
+import { el, formatNumber } from "@/utils/dom";
+import { livingCostToday } from "@/systems/economy";
 
 /**
  * 새 날 아침 딤팝업.
@@ -9,6 +10,7 @@ import { el } from "@/utils/dom";
 export function renderDawnModal(ctx: GameContext): HTMLElement {
   const s = ctx.store.getState();
   const gain = s.lastRestGain;
+  const living = livingCostToday(s);
   const restParts: string[] = [];
   if (gain.action > 0) restParts.push(`행동력 +${gain.action}`);
   if (gain.mental > 0) restParts.push(`정신력 +${gain.mental}`);
@@ -26,6 +28,12 @@ export function renderDawnModal(ctx: GameContext): HTMLElement {
       restParts.length
         ? el("p", { class: "dawn__rest" }, `${restParts.join(" · ")} 회복`)
         : null,
+      // 생활비는 onNewDay의 applyDailyCosts에서 이미 차감됐다 — 그 금액을 그대로 보여준다.
+      el(
+        "p",
+        { class: "dawn__rest" },
+        living > 0 ? `생활비 -${formatNumber(living)}원` : "생활비 면제(회사 복지)",
+      ),
       el(
         "div",
         { class: "compose-actions dawn__actions" },

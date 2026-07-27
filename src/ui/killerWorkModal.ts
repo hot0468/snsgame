@@ -2,6 +2,7 @@ import type { GameContext } from "./context";
 import { el } from "@/utils/dom";
 import { targetById } from "@/data/killerTargets";
 import { attemptHit } from "@/systems/killer";
+import { isFollowingHandle } from "@/systems/exploreSystem";
 import { weekdayLabel } from "@/systems/calendar";
 
 /**
@@ -30,6 +31,7 @@ export function renderKillerWorkModal(ctx: GameContext): HTMLElement {
   }
 
   const remain = Math.max(0, asg.deadlineDay - s.day);
+  const found = isFollowingHandle(s, target.handle);
   const errLine = el("p", { class: "killer-err", style: "min-height:18px;color:var(--danger);margin:6px 0 0" }, "");
 
   const input = el("input", {
@@ -66,8 +68,9 @@ export function renderKillerWorkModal(ctx: GameContext): HTMLElement {
       el(
         "div",
         { class: "killer-dossier" },
-        el("div", { class: "killer-dossier__name" }, `${target.name} @${target.handle}`),
-        el("div", { class: "killer-dossier__bio" }, target.bio),
+        // 아직 그 계정을 팔로우하지 않았으면 신원은 가린다 — 계정 특정도 임무의 일부다.
+        el("div", { class: "killer-dossier__name" }, found ? `${target.name} @${target.handle}` : "타겟: 신원 미상"),
+        el("div", { class: "killer-dossier__bio" }, found ? target.bio : target.idHint),
         el(
           "div",
           { class: "killer-dossier__deadline" },
@@ -77,7 +80,9 @@ export function renderKillerWorkModal(ctx: GameContext): HTMLElement {
       el(
         "div",
         { class: "killer-hint" },
-        `SNS에서 '@${target.handle}'을 검색하거나 둘러보기 피드에서 그자의 트윗을 찾아, 위치를 흘린 트윗을 읽어라. 그 위치를 아래에 입력한다.`,
+        found
+          ? "그자의 트윗 중 위치를 흘린 한 줄을 찾아, 그 위치를 아래에 입력한다."
+          : "momo가 준 단서로 SNS에서 트윗을 검색해 계정부터 특정해라. 그자를 팔로우하면 신원이 여기 채워진다.",
       ),
       el("label", { class: "killer-input-label" }, "처리 위치 입력"),
       el(

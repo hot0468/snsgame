@@ -4,11 +4,18 @@ import { EBS_LECTURES } from "@/data/ebs";
 import { SKILL_STATS } from "@/data/stats";
 import { gainSkill, clampAction } from "@/systems/stats";
 import { gainPerformance } from "@/systems/employment";
-import { addSchedule } from "@/systems/time";
+import { addSchedule, advanceTime } from "@/systems/time";
 import { hashInt } from "@/utils/random";
 
-/** 강의 1편 시청 비용(원). */
-export const LECTURE_COST = 3000;
+/**
+ * 강의 1편 시청 비용(원).
+ *
+ * ⚠️ 도서(교양 9,000원 → 지식+25·어휘+10)와 같은 코스트 구조(행동력 8 + 슬롯 1)라 **값으로만 갈린다.**
+ *    3,000원이던 시절엔 스탯 1당 200원으로 도서(257원)보다 싼 데다 **원하는 축을 골라** 올릴 수 있어
+ *    도서를 살 이유가 없었다(만화책 한 권 값). 6,000원이면 스탯 1당 400원 — 정밀 타겟팅 프리미엄.
+ *    ⚠️ 바꾸면 data/dartpin.ts의 `dp_hint_ebs`(플레이어에게 '6천원'이라 말하는 힌트 글·쪽지)도 같이 고쳐라.
+ */
+export const LECTURE_COST = 6000;
 /** 강의 1편 시청에 드는 행동력. */
 export const LECTURE_ACTION_COST = 8;
 
@@ -40,9 +47,12 @@ export function canWatchLecture(state: GameState, lec: EbsLecture): WatchGate {
 }
 
 /**
- * 강의를 시청한다. 게이트를 통과하면 비용(3,000원 + 행동력 8)을 차감하고
- * 스탯을 올린다. 사이트 브라우징이므로 시간(슬롯)은 소모하지 않는다.
- * 단, '오늘의 무료 강의'는 소지금을 받지 않고 하루 1회 무료 수강으로 처리한다.
+ * 강의를 시청한다. 게이트를 통과하면 비용(6,000원 + 행동력 8 + 시간 1슬롯)을 차감하고
+ * 스탯을 올린다. 단, '오늘의 무료 강의'는 소지금을 받지 않고 하루 1회 무료 수강으로 처리한다.
+ *
+ * ⚠️ 슬롯 소모는 여기(systems)가 책임진다 — 예전엔 ui/ebs.ts가 watchLecture 뒤에 advanceTime을
+ *    따로 불렀는데, 규칙이 화면에 얹혀 있어 "EBS는 시간을 안 먹는다"고 오해할 여지가 있었다.
+ *    advanceTime은 취침·새벽 팝업 등 훅을 유발할 수 있다(정상 흐름).
  */
 export function watchLecture(
   state: GameState,
@@ -74,5 +84,6 @@ export function watchLecture(
   }
 
   addSchedule(state, `EBS 강의 수강: ${lec.title}`, "offline");
+  advanceTime(state, 1);
   return { ok: true, label: `${statLabel} ${gained > 0 ? "+" : ""}${gained}` };
 }

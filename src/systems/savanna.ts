@@ -112,6 +112,11 @@ export const SAVANNA_INTRUSION_CHANCE = 0.12;
 export const SAVANNA_SHOW_CHANCE = 0.14;
 /** 난입 시 시청자와 관계로 이어지는 음란도 하한(미만이면 충격받고 종료) */
 export const SAVANNA_INTRUSION_LEWD_MIN = 500;
+/**
+ * 난입 시나리오로 이어지는 변태력 하한 — 집에 쳐들어온 시청자와의 강압 상황이라
+ * 음란도만으로는 열지 않는다. 미달이면 음란도가 낮을 때와 같이 충격 종료로 빠진다.
+ */
+export const SAVANNA_INTRUSION_PERVERT_MIN = 350;
 
 /**
  * 시청자 난입 — 음란도가 낮은 경우(충격받고 방송 급히 종료). 단발 처리.
@@ -207,7 +212,10 @@ export function resolveSavannaIntrusion(state: GameState, choiceIndex: number): 
  */
 export function runSavannaStream(state: GameState): SavannaResult {
   if (chance(SAVANNA_INTRUSION_CHANCE)) {
-    if (state.skills.lewd >= SAVANNA_INTRUSION_LEWD_MIN) {
+    if (
+      state.skills.lewd >= SAVANNA_INTRUSION_LEWD_MIN &&
+      state.skills.pervert >= SAVANNA_INTRUSION_PERVERT_MIN
+    ) {
       // 효과는 시나리오 선택 후 resolveSavannaIntrusion에서 적용한다(여기선 상태 변경 없음).
       return { amount: 0, message: "", scenario: true };
     }

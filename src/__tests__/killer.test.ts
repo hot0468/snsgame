@@ -97,6 +97,74 @@ describe("killer job", () => {
     expect(s.resources.mental).toBeLessThan(100);
   });
 
+  it("momo 배정 DM은 이름·핸들을 흘리지 않는다(계정은 직접 찾아야 함)", () => {
+    const s = createInitialState();
+    s.day = 1;
+    s.killerJob = { active: true, fails: 0, completed: 0, assignment: null };
+    killerDailyTick(s);
+    const target = KILLER_TARGETS[0];
+    const dm = getActiveAccount(s).dms.find((d) => d.partnerHandle === "momo")!;
+    const text = dm.messages.map((m) => m.text).join("\n");
+    expect(text).not.toContain(target.handle);
+    expect(text).not.toContain(target.name);
+    expect(text).toContain(target.idHint);
+  });
+
+  it("칠남 동맹이면 momo보다 자세히 — 닉네임·핸들까지 특정해준다", () => {
+    const s = createInitialState();
+    s.day = 1;
+    s.chilnamAlly = true;
+    s.killerJob = { active: true, fails: 0, completed: 0, assignment: null };
+    killerDailyTick(s);
+    const target = KILLER_TARGETS[0];
+    const dm = getActiveAccount(s).dms.find((d) => d.partnerHandle === "chilnam_7")!;
+    const text = dm.messages.map((m) => m.text).join("\n");
+    expect(text).toContain(target.handle);
+    expect(text).toContain(target.name);
+  });
+
+  it("idHint의 '따옴표 단어'는 이름이나 트윗에 실제로 있어야 검색으로 찾아진다", () => {
+    const norm = (x: string) => x.replace(/\s+/g, "").toLowerCase();
+    for (const t of KILLER_TARGETS) {
+      const haystack = norm([t.name, ...t.tweets].join("|"));
+      for (const [, word] of t.idHint.matchAll(/'([^']+)'/g)) {
+        expect(`${t.id}:${word}:${haystack.includes(norm(word))}`).toBe(`${t.id}:${word}:true`);
+      }
+    }
+  });
+
+  /**
+   * 난이도 불변식 — 예전엔 모든 타겟이 "이번 주 토요일 ○○에서…" 트윗 하나를 갖고 있어서
+   * 30개 중 그 한 줄만 찾으면 끝이었다. 정답은 한 트윗에만 두되, 미끼(취소된 일정·지난 일정)를
+   * 함께 깔아 전부 읽고 교차 대조하게 만든다.
+   */
+  describe("난이도 — 정답은 하나, 미끼는 여럿", () => {
+    const squash = (x: string) => x.replace(/\s+/g, "");
+
+    it("정답 위치는 딱 한 트윗에만 등장한다(못 찾거나 여러 곳에 흩어지면 안 된다)", () => {
+      for (const t of KILLER_TARGETS) {
+        const hits = t.tweets.filter((tw) =>
+          t.answers.some((a) => squash(tw).includes(squash(a))),
+        );
+        expect(`${t.id}:${hits.length}`).toBe(`${t.id}:1`);
+      }
+    });
+
+    it("momo 힌트는 정답 지명을 흘리지 않는다", () => {
+      for (const t of KILLER_TARGETS) {
+        for (const a of t.answers) {
+          expect(`${t.id}:${squash(t.hint).includes(squash(a))}`).toBe(`${t.id}:false`);
+        }
+      }
+    });
+
+    it("타겟마다 미끼 일정이 깔려 있다(고유 트윗 7개 이상)", () => {
+      for (const t of KILLER_TARGETS) {
+        expect(`${t.id}:${t.tweets.length >= 7}`).toBe(`${t.id}:true`);
+      }
+    });
+  });
+
   it("의뢰비는 역량(지식·운동·어휘력·IT·평판)에 비례", () => {
     const low = createInitialState();
     const high = createInitialState();
@@ -106,5 +174,15 @@ describe("killer job", () => {
     high.skills.it = 999;
     high.resources.reputation = 100;
     expect(killerFee(high)).toBeGreaterThan(killerFee(low));
+  });
+
+  it("스킬 0이면 평판이 만점이어도 최저 의뢰비(평판은 가산이 아니라 배수)", () => {
+    const s = createInitialState(); // 스킬 0, 평판 100(초기값)
+    expect(killerFee(s)).toBe(300_000);
+    s.skills.knowledge = 999;
+    s.skills.fitness = 999;
+    s.skills.vocabulary = 999;
+    s.skills.it = 999;
+    expect(killerFee(s)).toBe(2_000_000);
   });
 });

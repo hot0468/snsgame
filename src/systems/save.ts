@@ -203,6 +203,11 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
     state.killerJob.assignment.tweets = [];
   }
   if (typeof state.momoOfferedDay !== "number") state.momoOfferedDay = -1;
+  // 요리 도감·마라톤·바디프로필은 신규 필드 — 구세이브엔 키가 없다(빈 도감·미신청·미도전이 정답).
+  if (!Array.isArray(state.cookedDishes)) state.cookedDishes = [];
+  state.pendingRace ??= null;
+  if (!state.raceBests || typeof state.raceBests !== "object") state.raceBests = {};
+  state.bodyProfile ??= null;
   state.chilnamAlly ??= false;
   state.chilnamOffered ??= false;
   state.pendingProphecy ??= false;

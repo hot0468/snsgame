@@ -11,6 +11,7 @@
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { createInitialState, getActiveAccount } from "@/core/state";
+import { SKILL_STAT_IDS } from "@/data/stats";
 import { loadGame } from "@/systems/save";
 import { checkStatMilestones } from "@/systems/milestones";
 import type { GameState } from "@/core/types";
@@ -40,8 +41,9 @@ function loadOldSave(skill: number): GameState {
 describe("구세이브 마일스톤 백필", () => {
   it("statMilestones 키가 없던 구세이브에 백필이 실제로 돈다", () => {
     const loaded = loadOldSave(650);
-    // 스킬 650 → 스킬 11종 × 문턱 3개(100·300·600) = 33
-    expect(loaded.statMilestones.length).toBe(33);
+    // 스킬 650 → 전 스킬 × 문턱 3개(100·300·600). 스킬 개수는 하드코딩하지 마라 —
+    // 스탯이 하나 늘 때마다(예: 변태력) 이 테스트만 애먼 데서 깨진다.
+    expect(loaded.statMilestones.length).toBe(SKILL_STAT_IDS.length * 3);
   });
 
   it("백필된 세이브는 이후 checkStatMilestones에서 소급 보상을 받지 않는다", () => {

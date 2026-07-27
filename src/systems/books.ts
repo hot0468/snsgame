@@ -61,7 +61,11 @@ export function readBook(
   } else if (category === "adult") {
     // 성인 도서는 음란도를 올린다(성인 활동 계열과 동일 축).
     gainSkill(state, "lewd", 15);
-    extra = "음란";
+    // 변태력의 **진입로**다 — 강압·페티쉬 콘텐츠는 변태력 게이트 뒤에 있어서,
+    // 게이트 밖에서 취향을 넓히는 수단이 없으면 그 축이 영영 0에 묶인다(자물쇠가 열쇠를 가둔다).
+    // 활자는 실행이 아니라 취향 탐색이므로 음란보다 작게 준다.
+    gainSkill(state, "pervert", 8);
+    extra = "음란·변태력";
   } else {
     gainSkill(state, "creativity", 20);
     extra = "창작";
