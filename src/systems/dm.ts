@@ -3,9 +3,10 @@ import { getActiveAccount } from "@/core/state";
 import { makeRandomAccount } from "@/data/accounts";
 import { ATTRIBUTES } from "@/data/attributes";
 import {
-  PARTNER_REPLIES,
-  REPLY_LINES,
+  PARTNER_REPLIES_BY_CTX,
+  REPLY_LINES_BY_CTX,
   randomOpener,
+  type DMContext,
   type DMTone,
 } from "@/data/dmContent";
 import { MAX_SKILL } from "@/data/stats";
@@ -383,13 +384,35 @@ export interface DMReplyResult {
 }
 
 /**
+ * 스레드가 지금 어떤 대화 맥락인지 판정한다.
+ * 답장 풀이 항상 첫인사였던 탓에 "사진을 받고 처음 뵙겠습니다"류의 대화가 나왔다 — 그 교정용.
+ * 이미 한 번이라도 답장했으면(followup) 인사 대신 대화를 잇는 풀을 쓴다.
+ */
+function dmContext(thread: DMThread): DMContext {
+  if (thread.messages.some((m) => m.from === "me")) return "followup";
+  if (thread.genitalSize) return "photo";
+  if (
+    thread.ticketKind ||
+    thread.donation ||
+    thread.motel ||
+    thread.crew ||
+    thread.groupRoom ||
+    thread.savanna
+  ) {
+    return "offer";
+  }
+  return "greet";
+}
+
+/**
  * 특정 스레드에 톤을 골라 답장한다.
  * - 내 메시지 + 상대 자동응답을 추가.
  * - 톤에 따라 스탯/팔로워/도덕성이 소폭 변한다.
  */
 export function replyDM(state: GameState, thread: DMThread, tone: DMTone): DMReplyResult {
-  const myText = pick(REPLY_LINES[tone]);
-  const partnerText = pick(PARTNER_REPLIES[tone]);
+  const ctx = dmContext(thread);
+  const myText = pick(REPLY_LINES_BY_CTX[ctx][tone]);
+  const partnerText = pick(PARTNER_REPLIES_BY_CTX[ctx][tone]);
 
   thread.messages.push({ id: uid("dmm"), from: "me", text: myText, day: state.day });
   thread.messages.push({ id: uid("dmm"), from: "partner", text: partnerText, day: state.day });
@@ -438,12 +461,14 @@ export function replyDM(state: GameState, thread: DMThread, tone: DMTone): DMRep
 
 /** 자유 입력 메시지 전송(간단 응답, 특별 효과 없음) */
 export function sendCustomDM(state: GameState, thread: DMThread, text: string): void {
+  // 상대 반응은 '내 메시지를 넣기 전' 맥락으로 고른다 — 넣고 나면 무조건 followup이 된다.
+  const ctx = dmContext(thread);
   thread.messages.push({ id: uid("dmm"), from: "me", text, day: state.day });
   bumpTchinProgress(state, thread.partnerHandle, thread.partnerName);
   thread.messages.push({
     id: uid("dmm"),
     from: "partner",
-    text: pick(PARTNER_REPLIES.friendly),
+    text: pick(PARTNER_REPLIES_BY_CTX[ctx].friendly),
     day: state.day,
   });
   thread.unread = false;

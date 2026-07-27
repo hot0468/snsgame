@@ -16,6 +16,79 @@ export interface VacationEvent {
   message: string;
 }
 
+/**
+ * 여행 목적지 — '휴가' 활동을 누르면 셋 중 하나를 고른다.
+ * 비쌀수록 회복·스탯이 크고 **시간을 더 먹는다**(slots). 그 기회비용이 선택의 축이다.
+ *
+ * ⚠️ action/mental은 0~100 리소스 스케일이라 ×5 관례를 적용하지 않는다.
+ *    statMult는 VACATION_EVENTS의 amount(0~999 스케일)에 곱해진다.
+ */
+export interface VacationDestination {
+  id: string;
+  name: string;
+  emoji: string;
+  /** 한 줄 소개(선택 카드에 뜬다) */
+  desc: string;
+  /** 여행 비용(원) */
+  cost: number;
+  /** 소요 시간 블록 수(1블록 = 반나절, 하루 2블록) */
+  slots: number;
+  /** 행동력 회복 */
+  action: number;
+  /** 정신력 회복 */
+  mental: number;
+  /** 발생하는 휴가 이벤트 수(각각 스탯이 오른다) */
+  events: number;
+  /** 휴가 이벤트 상승량에 곱하는 배율 */
+  statMult: number;
+}
+
+export const VACATION_DESTINATIONS: VacationDestination[] = [
+  {
+    id: "daytrip",
+    name: "당일치기",
+    emoji: "🚌",
+    desc: "가까운 근교로 훌쩍. 반나절이면 돌아온다.",
+    cost: 30_000,
+    slots: 1,
+    action: 12,
+    mental: 20,
+    events: 1,
+    statMult: 0.6,
+  },
+  {
+    id: "domestic",
+    name: "국내 여행",
+    emoji: "🚄",
+    desc: "1박 2일로 제대로 떠난다. 하루를 통째로 쓴다.",
+    cost: 100_000,
+    slots: 2,
+    action: 30,
+    mental: 45,
+    events: 1,
+    statMult: 1,
+  },
+  {
+    id: "overseas",
+    name: "해외 여행",
+    emoji: "✈️",
+    desc: "비행기를 탄다. 이틀이 사라지지만 돌아온 나는 다른 사람이다.",
+    cost: 400_000,
+    slots: 4,
+    action: 45,
+    mental: 70,
+    events: 2,
+    statMult: 1.8,
+  },
+];
+
+/** 기본 목적지(구 동작과 같은 국내 여행 — 목적지 인자가 없을 때의 폴백) */
+export const DEFAULT_DESTINATION = VACATION_DESTINATIONS[1];
+
+export function destinationById(id: string): VacationDestination | undefined {
+  return VACATION_DESTINATIONS.find((d) => d.id === id);
+}
+
 export const VACATION_EVENTS: VacationEvent[] = [
   // fitness (운동) ×2
   {

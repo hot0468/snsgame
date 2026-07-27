@@ -85,8 +85,14 @@ export interface AdultOfflineEncounter {
   hint: string;
   /** 이 활동들에서만 후보 */
   activities: readonly OfflineActivityId[];
-  /** 최소 음란(0~999) */
+  /** 최소 음란(0~999) — '얼마나 야한가'. 일반 관계 계열은 이것만 넘으면 뜬다. */
   minLewd: number;
+  /**
+   * 최소 변태력(0~999) — '어느 방향인가'. 강압·페티쉬 계열 전용 게이트.
+   * 생략하면 `coercive: true`는 PERVERT_COERCIVE_MIN(systems/adultOffline)을, 일반 조우는 0을 쓴다.
+   * 강압인데 특히 더 깊은 건(감금·집단 등) 여기서 개별로 올려라.
+   */
+  minPervert?: number;
   /** 심야 슬롯에서만 */
   lateOnly?: boolean;
   /** 비합의(강압/범죄) 상황 — '강압/범죄 안 보기'(adultNoCoercion) 켜면 후보에서 제외 */

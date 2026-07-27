@@ -6187,6 +6187,11 @@ body {
   background: rgba(239, 62, 62, 0.14);
   color: #ef3e3e;
 }
+/* 결과 화면에서 내용과 확인 버튼이 붙어 보이던 문제 — 칩이 없는 결과(서술 바로 아래)도 함께 커버 */
+.event-chips + .event-choice,
+.event-result__narr + .event-choice {
+  margin-top: 18px;
+}
 
 /* ── 새 날 아침 딤팝업(해돋이) ── */
 /* 백드롭은 기존 .modal-backdrop 재사용, 여기선 모달 내용만 담백하게 */
@@ -6537,29 +6542,91 @@ body {
   margin: 4px 0 14px;
 }
 
-/* ③⑤ 컨디션(정신력) 배너 — 육성 효율·실패/대성공 확률을 한눈에. 정신력이 육성의 단일 축임을 여기서 학습시킨다. */
-.cond-banner {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  margin: 10px 0 14px;
-  padding: 9px 12px;
-  border-radius: 10px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  font-size: 12.5px;
-  color: var(--text-muted);
+/* ── 미용실 미니게임 ── */
+.salon-gauge {
+  position: relative; height: 26px; margin: 6px 0 4px;
+  border-radius: 999px; background: var(--bg-panel); border: 1px solid var(--border);
+  overflow: hidden;
 }
-.cond-banner__item b {
-  font-weight: 800;
-  color: var(--text);
+.salon-gauge__track { position: absolute; inset: 0; }
+.salon-gauge__fill {
+  height: 100%; background: linear-gradient(90deg, #f5b8c8, #c65b7c);
 }
-.cond-banner__eff--up {
-  color: var(--good);
+/* 완벽 구간(초록 밴드) — fill 위에 얹혀야 눈에 보인다 */
+.salon-gauge__zone {
+  position: absolute; top: 0; bottom: 0;
+  background: rgba(46, 182, 125, 0.5); border-left: 2px solid var(--good); border-right: 2px solid var(--good);
 }
-.cond-banner__eff--down {
-  color: var(--danger);
+.salon-gauge__marker {
+  position: absolute; top: -3px; bottom: -3px; width: 3px; background: var(--text);
 }
+.salon-gauge__readout { font-size: 12.5px; font-weight: 800; color: var(--text-muted); text-align: right; }
+.salon-stop { width: 100%; font-size: 15px; font-weight: 900; letter-spacing: 1px; }
+
+.salon-talk__ask {
+  font-size: 15px; font-weight: 800; color: var(--text); line-height: 1.6; margin: 0 0 14px;
+}
+.salon-talk__options { display: flex; flex-direction: column; gap: 8px; }
+.salon-talk__opt {
+  padding: 11px 14px; text-align: left; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--bg-panel);
+  font-size: 13.5px; color: var(--text);
+}
+.salon-talk__opt:hover { border-color: var(--accent); background: var(--bg); }
+
+.salon-result {
+  display: inline-block; padding: 5px 14px; border-radius: 999px;
+  font-size: 13px; font-weight: 900; margin-bottom: 10px;
+}
+.salon-result--perfect { background: rgba(46, 182, 125, 0.15); color: var(--good); }
+.salon-result--good { background: var(--bg-panel); color: var(--text-muted); }
+.salon-result--bad { background: rgba(226, 74, 74, 0.15); color: var(--danger); }
+.salon-result__msg { font-size: 13.5px; line-height: 1.7; color: var(--text); margin: 0 0 10px; }
+.salon-result__delta { font-size: 12.5px; font-weight: 700; color: var(--text-muted); margin: 0 0 14px; }
+
+/* 장기 목표 섹션(바디프로필 도전·마라톤 대회 — 자기개발 탭 하단) */
+.goal-section {
+  margin-top: 12px; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--bg-panel);
+}
+.goal-section__title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13.5px; font-weight: 800; color: var(--text); margin-bottom: 8px;
+}
+.goal-section__sub { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-left: auto; }
+.goal-section__meta {
+  font-size: 12.5px; color: var(--text-muted); line-height: 1.6; margin: 8px 0 10px;
+}
+.race-list { display: flex; flex-direction: column; gap: 6px; }
+.race-row {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 12px; cursor: pointer; text-align: left;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--bg);
+}
+.race-row:hover { border-color: var(--accent); }
+.race-row--off { opacity: 0.45; cursor: not-allowed; }
+.race-row--off:hover { border-color: var(--border); }
+.race-row__emoji { font-size: 20px; flex: none; }
+.race-row__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.race-row__name { font-size: 13.5px; font-weight: 800; color: var(--text); }
+.race-row__meta { font-size: 12px; color: var(--text-muted); }
+
+/* 여행 목적지 선택 카드(휴가 → 목적지) */
+.trip-list { display: flex; flex-direction: column; gap: 10px; }
+.trip-card {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 12px 14px; cursor: pointer; text-align: left;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--bg-panel);
+}
+.trip-card:hover { border-color: var(--accent); }
+.trip-card--off { opacity: 0.45; cursor: not-allowed; }
+.trip-card--off:hover { border-color: var(--border); }
+.trip-card__emoji { font-size: 26px; flex: none; }
+.trip-card__body { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.trip-card__name { font-size: 14.5px; font-weight: 800; color: var(--text); }
+.trip-card__desc { font-size: 12.5px; color: var(--text-muted); }
+.trip-card__meta { font-size: 12px; font-weight: 700; color: var(--good); }
+.trip-card__poor { font-size: 12px; font-weight: 700; color: var(--danger); flex: none; }
 
 .offline-grid {
   display: grid;
@@ -9000,6 +9067,19 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
 }
 .grocery__logo { font-size: 18px; font-weight: 900; color: #5f0080; letter-spacing: -0.3px; }
 .grocery__money { font-size: 12.5px; color: var(--text-muted); }
+/* 요리 도감 진입 버튼(마스트헤드 가운데) */
+.grocery__dex-btn {
+  font-size: 12.5px; font-weight: 800; color: #5f0080; cursor: pointer;
+  padding: 6px 12px; border-radius: 999px;
+  border: 1px solid #e3cfea; background: #faf3fc;
+}
+.grocery__dex-btn:hover { background: #f2e3f7; }
+/* 주문 결과 팝업의 도감 등록 안내 */
+.grocery-dex__got {
+  margin: 0 0 14px; padding: 9px 12px; border-radius: 8px;
+  background: var(--bg-panel); border: 1px solid var(--border);
+  font-size: 13px; font-weight: 700; color: var(--good);
+}
 .grocery__body { display: grid; grid-template-columns: 1fr minmax(240px, 300px); gap: 16px; flex: 1; min-height: 0; padding: 16px; overflow: auto; }
 .grocery__left { min-width: 0; }
 .grocery__sec-title { font-size: 14px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
@@ -9394,6 +9474,21 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
 .yabam__tab--on { color: #ff2d78; border-bottom-color: #ff2d78; }
 
 .yabam__body { flex: 1; min-height: 0; overflow: auto; padding: 16px 20px; }
+
+/* momo.com 광고배너 — 야밤 상단 낚시 배너(킬러 진입로 유도) */
+.yabam__ad {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  margin: 0 0 14px; padding: 10px 14px;
+  border: 1px solid #3a1b2b; border-radius: 10px;
+  background: linear-gradient(90deg, #24101c, #1a0a14);
+  font-size: 13px; color: #c9a5b7;
+}
+.yabam__ad-tag {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.5px;
+  padding: 2px 6px; border-radius: 4px; background: #3a1b2b; color: #ffb3ce;
+}
+.yabam__ad-text { flex: 1; }
+.yabam__ad-text b { color: #ff2d78; }
 .yabam__sec { display: flex; flex-direction: column; }
 .yabam .compose-hint { color: #a98a99; }
 .yabam__grid {

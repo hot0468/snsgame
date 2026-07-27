@@ -433,10 +433,16 @@ export function boothIncome(creativity: number): number {
 
 /** '노출 심한 코스프레' 선택지가 열리는 음란도 하한 */
 export const COMICCON_LEWD_MIN = 400;
+/** 같은 선택지의 변태력 하한 — 노출 페티쉬 계열이라 2축. 산책 야외노출보다는 가볍다. */
+export const COMICCON_PERVERT_MIN = 200;
 
-/** 노출 코스프레 선택이 가능한지(성인물 해제 + 음란도 충분) */
+/** 노출 코스프레 선택이 가능한지(성인물 해제 + 음란도·변태력 충분) */
 export function canLewdCosplay(state: GameState): boolean {
-  return state.adultMode && state.skills.lewd >= COMICCON_LEWD_MIN;
+  return (
+    state.adultMode &&
+    state.skills.lewd >= COMICCON_LEWD_MIN &&
+    state.skills.pervert >= COMICCON_PERVERT_MIN
+  );
 }
 
 /**

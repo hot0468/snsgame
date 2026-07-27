@@ -13,6 +13,7 @@ import {
   canSpendDay,
   canAffordVacation,
   spendDayResting,
+  type OfflineOffer,
   creatureById,
   collectCreature,
 } from "@/systems/offline";
@@ -29,8 +30,26 @@ import { isWeekday } from "@/systems/time";
 import { isAuthorPrepMonth } from "@/systems/author";
 import { makeJobPostings, DEV_JOB_IT_REQ } from "@/data/jobs";
 import { SKILL_STATS } from "@/data/stats";
-import { hasAction, mentalEfficiency, projectSkillGain } from "@/systems/stats";
-import { activityFailChance, activityGreatChance, declaredSkillAmount } from "@/systems/offline";
+import { hasAction, projectSkillGain } from "@/systems/stats";
+import { declaredSkillAmount } from "@/systems/offline";
+import { VACATION_DESTINATIONS, type VacationDestination } from "@/data/vacation";
+import { RACES, raceById } from "@/data/races";
+import { canVisitSalon, SALON_ACTION, SALON_COST } from "@/systems/hairSalon";
+import { renderHairSalonModal } from "./hairSalonModal";
+import {
+  applyRace,
+  expectedRecord,
+  formatRecord,
+  meetsRaceRequirement,
+  RACE_DELAY_DAYS,
+} from "@/systems/marathon";
+import {
+  BODY_GAUGE_MAX,
+  BODY_PROFILE_DAYS,
+  BODY_PROFILE_FEE,
+  bodyProfileDaysLeft,
+  startBodyProfile,
+} from "@/systems/bodyProfile";
 import { LATE_SLOT } from "@/core/state";
 import { ATTRIBUTES } from "@/data/attributes";
 import { pick } from "@/utils/random";
@@ -52,7 +71,7 @@ function signed(n: number): string {
  * ⚠️ **스킬 줄은 선언값이 아니라 `projectSkillGain` 투영값이다** — 실제 지급은 정신력 배율·
  *    퍼크 배율·상단 감쇠·999 상한을 타므로 선언값 "+10"이 실제 "+1"이 되는 괴리가 있었다.
  *    여기서 배율을 재계산하지 마라(공식이 바뀌면 조용히 어긋난다). 계산은 systems가 한다.
- *    등급(실패/대성공) 배율은 굴림 전이라 곱하지 않는다 — 확률은 conditionBanner가 따로 알린다.
+ *    등급(실패/대성공) 배율은 굴림 전이라 곱하지 않는다 — 확률 수치는 사용자에게 노출하지 않는다.
  *
  * 리소스(행동력·정신력·도덕성·돈)는 배율을 타지 않으므로 선언값 그대로가 맞다.
  */
@@ -62,6 +81,8 @@ function activityDeltaParts(
 ): { text: string; down: boolean }[] {
   const parts: { text: string; down: boolean }[] = [];
   const add = (text: string, n: number) => parts.push({ text, down: n < 0 });
+  // 휴가는 목적지가 비용·회복량을 정한다 — 활동 선언값을 예고치로 보여주면 거짓말이 된다.
+  if (act.vacation) return [{ text: "목적지를 고르면 비용·회복량이 정해져요", down: false }];
   if (act.action) add(`행동력 ${signed(act.action)}`, act.action);
   if (act.mental) add(`정신력 ${signed(act.mental)}`, act.mental);
   if (act.morality) add(`도덕성 ${signed(act.morality)}`, act.morality);
@@ -86,15 +107,12 @@ function activityDeltaParts(
 }
 
 /**
- * 아르바이트 숙련도 힌트("다음 인상까지 N회" / 상한 도달 시 "최고 시급").
- * ⚠️ `partTimeNextRaiseIn`이 `null`을 반환하면 상한 도달이다 — "0회"로 잘못 표시하면
- *    버그로 보인다(계약서 경고). 아르바이트가 아니면 null(표시 안 함).
+ * 아르바이트 숙련도 힌트 — 상한 도달 시 "최고 시급 도달"만 띄운다.
+ * ⚠️ 진행 중일 때 "다음 인상까지 N회"를 붙이지 마라(사용자 확정 제거).
  */
 function partTimeHint(state: GameState, act: OfflineActivity): string | null {
   if (!act.partTime) return null;
-  const count = partTimeCountOf(state, act.id);
-  const nextIn = partTimeNextRaiseIn(count);
-  return nextIn == null ? "최고 시급 도달" : `다음 인상까지 ${nextIn}회`;
+  return partTimeNextRaiseIn(partTimeCountOf(state, act.id)) == null ? "최고 시급 도달" : null;
 }
 
 /**
@@ -167,6 +185,7 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
     // 행동력을 쓰는 활동(act.action<0)은 잔여 행동력이 비용보다 적으면 막는다(마이너스 방지).
     const notEnoughAction = act.action < 0 && !hasAction(state, -act.action);
     const blocked = nightVacation || cantAfford || notEnoughAction;
+    const hint = blocked ? null : partTimeHint(state, act);
     return el(
       "button",
       {
@@ -174,11 +193,12 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         disabled: blocked,
         onclick: () => {
           if (blocked) return;
-          let outcome: OfflineOutcome | undefined;
-          ctx.update((s) => {
-            outcome = doOfflineActivity(s, act);
-          });
-          if (outcome) showResult(act, outcome);
+          // 휴가는 목적지를 먼저 고른다(비용·소요 시간·회복량이 목적지마다 다르다).
+          if (act.vacation) {
+            showDestinations(act);
+            return;
+          }
+          runActivity(act);
         },
       },
       el("span", { class: "life-item__icon" }, icon(ACTIVITY_ICON[act.id] ?? "star", { size: 22 })),
@@ -198,46 +218,82 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
                 ? [`행동력이 부족해요 (${-act.action} 필요)`]
                 : renderDeltaParts(activityDeltaParts(state, act))),
         ),
-        // 아르바이트 숙련도 힌트 — 개별 카운터라 알바마다 다른 값이 뜬다.
-        act.partTime && !blocked
-          ? el("span", { class: "life-item__hint" }, partTimeHint(state, act) ?? "")
-          : null,
+        // 아르바이트 숙련도 힌트 — 시급 상한에 도달한 알바에만 붙는다(없으면 빈 span도 만들지 않음).
+        hint ? el("span", { class: "life-item__hint" }, hint) : null,
       ),
     );
   }
 
+  /** 활동을 실행하고 결과 화면으로 넘긴다(휴가면 고른 목적지를 함께 넘긴다). */
+  function runActivity(act: OfflineActivity, dest?: VacationDestination): void {
+    let outcome: OfflineOutcome | undefined;
+    ctx.update((s) => {
+      outcome = doOfflineActivity(s, act, dest);
+    });
+    if (!outcome) return;
+    // ⚠️ 결과 화면은 **실제로 적용된** 수치를 보여줘야 한다. 휴가는 목적지가 활동 선언값
+    //    (국내 여행 기준)을 덮어쓰므로, 그대로 넘기면 당일치기를 갔는데 "-100,000원 · 행동력 +30"이
+    //    뜬다(실제로 그렇게 렌더됐다). systems가 하는 것과 같은 방식으로 갈아끼워 넘긴다.
+    const shown: OfflineActivity = dest
+      ? { ...act, action: dest.action, mental: dest.mental, money: -dest.cost }
+      : act;
+    showResult(shown, outcome);
+  }
+
   /**
-   * ③⑤ 컨디션(정신력) 배너 — 육성 효율 배율과 실패/대성공 확률을 그대로 보여준다.
-   * 이게 없으면 플레이어는 실패/대성공을 "가끔 손해 보는 랜덤"으로만 인식한다(계약서 필수 항목).
-   * 계산은 systems/stats.ts·systems/offline.ts의 순수 셀렉터를 그대로 쓴다 — UI는 값을 안 만든다.
+   * 여행 목적지 선택 화면 — 휴가를 누르면 활동 실행 전에 먼저 뜬다.
+   * 소지금이 모자란 목적지는 비활성(활동 자체는 가장 싼 목적지 기준으로 열려 있다).
    */
-  function conditionBanner(): HTMLElement {
-    const state = ctx.store.getState();
-    const eff = mentalEfficiency(state);
-    const fail = activityFailChance(state);
-    const great = activityGreatChance(state);
-    // 효율 100% 미만은 손해가 보이게 하락색, 이상은 이득이 보이게 강조색.
-    const effClass = eff < 1 ? "cond-banner__eff--down" : eff > 1 ? "cond-banner__eff--up" : "";
-    return el(
-      "div",
-      { class: "cond-banner" },
+  function showDestinations(act: OfflineActivity): void {
+    const s = ctx.store.getState();
+    container.replaceChildren(
       el(
-        "span",
-        { class: "cond-banner__item" },
-        "육성 효율 ",
-        el("b", { class: effClass }, `${Math.round(eff * 100)}%`),
+        "div",
+        { class: "modal__head" },
+        el("span", { class: "modal__head-title" }, icon("walk", { size: 18 }), "어디로 떠날까?"),
+        closeBtn(),
       ),
       el(
-        "span",
-        { class: "cond-banner__item" },
-        "실패 확률 ",
-        el("b", { class: fail > 0 ? "cond-banner__eff--down" : "" }, `${Math.round(fail * 100)}%`),
-      ),
-      el(
-        "span",
-        { class: "cond-banner__item" },
-        "대성공 확률 ",
-        el("b", { class: great > 0 ? "cond-banner__eff--up" : "" }, `${Math.round(great * 100)}%`),
+        "div",
+        { class: "modal__body" },
+        el(
+          "p",
+          { class: "compose-hint", style: "margin-top:0" },
+          "비쌀수록 더 멀리 가고 더 많이 회복하지만, 그만큼 시간을 잡아먹어요.",
+        ),
+        el(
+          "div",
+          { class: "trip-list" },
+          ...VACATION_DESTINATIONS.map((d) => {
+            const poor = s.money < d.cost;
+            return el(
+              "button",
+              {
+                class: "trip-card" + (poor ? " trip-card--off" : ""),
+                disabled: poor,
+                onclick: () => !poor && runActivity(act, d),
+              },
+              el("span", { class: "trip-card__emoji" }, d.emoji),
+              el(
+                "span",
+                { class: "trip-card__body" },
+                el("span", { class: "trip-card__name" }, `${d.name} · ${formatNumber(d.cost)}원`),
+                el("span", { class: "trip-card__desc" }, d.desc),
+                el(
+                  "span",
+                  { class: "trip-card__meta" },
+                  `시간 ${d.slots}칸 · 행동력 +${d.action} · 정신력 +${d.mental} · 경험 ${d.events}회`,
+                ),
+              ),
+              poor ? el("span", { class: "trip-card__poor" }, "소지금 부족") : null,
+            );
+          }),
+        ),
+        el(
+          "div",
+          { class: "compose-actions", style: "margin-top:14px" },
+          el("button", { class: "btn btn--ghost", onclick: () => showChoices() }, "돌아가기"),
+        ),
       ),
     );
   }
@@ -285,7 +341,6 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           { class: "compose-hint", style: "margin-top:0" },
           "오프라인 활동으로 스탯을 관리하고 새 트윗 소재를 얻으세요. (시간 1칸 소요)",
         ),
-        conditionBanner(),
         el(
           "div",
           { class: "feed__tabs life-tabs" },
@@ -297,6 +352,10 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         el("div", { class: "offline-grid" }, ...items),
         // 일 탭: 킬러면 작업하기(청부), 취업 섹션도 이 탭으로 모은다.
         lifeTab === "work" ? killerWorkSection() : null,
+        // 자기개발 탭: 미용실 → 바디프로필 도전 → 마라톤 대회 순.
+        lifeTab === "growth" ? salonSection() : null,
+        lifeTab === "growth" ? bodyProfileSection() : null,
+        lifeTab === "growth" ? raceSection() : null,
         // 공부 탭: 미술·코딩 등은 EBS로 옮겼다 — 힌트로 안내(네이놈에서 검색해 접속).
         lifeTab === "study"
           ? el(
@@ -308,6 +367,230 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         // 취업 / 하루 그냥 보내기 — 탭 밖 하단, 가로 한 줄(세로 스크롤 방지)
         el("div", { class: "life-foot-row" }, jobSection(), restDaySection()),
       ),
+    );
+  }
+
+  /**
+   * 미용실 섹션(자기개발 탭) — 누르면 미니게임 모달이 열린다.
+   * 비용·행동력·시간은 미니게임 결과를 확정할 때 systems가 한 번에 처리한다.
+   */
+  function salonSection(): HTMLElement {
+    const can = canVisitSalon(ctx.store.getState());
+    return el(
+      "div",
+      { class: "goal-section" },
+      el("div", { class: "goal-section__title" }, "✂️ 미용실"),
+      el(
+        "div",
+        { class: "goal-section__meta" },
+        `${formatNumber(SALON_COST)}원 · 행동력 ${SALON_ACTION} · 시간 1칸. 그날그날 다른 시술이 걸린다 — 잘 되면 인생머리, 망하면 당분간 모자.`,
+      ),
+      el(
+        "button",
+        {
+          class: "life-btn" + (can ? "" : " job-apply-btn--off"),
+          disabled: !can,
+          onclick: () => can && ctx.openModal(renderHairSalonModal),
+        },
+        can ? "미용실 가기" : "소지금 또는 행동력 부족",
+      ),
+    );
+  }
+
+  /**
+   * 바디프로필 도전 섹션(자기개발 탭).
+   * 도전 중이면 게이지·남은 일수·유혹 횟수를, 아니면 시작 버튼(조건 미달이면 사유)을 보여준다.
+   */
+  function bodyProfileSection(): HTMLElement | null {
+    const s = ctx.store.getState();
+    const bp = s.bodyProfile;
+    // 도전 중이 아니면 아무것도 그리지 않는다 — 시작은 운동 중 제안 팝업으로만 열린다.
+    if (bp) {
+      const pct = Math.round((bp.gauge / BODY_GAUGE_MAX) * 100);
+      const left = bodyProfileDaysLeft(s);
+      return el(
+        "div",
+        { class: "goal-section" },
+        el(
+          "div",
+          { class: "goal-section__title" },
+          `📸 바디프로필 도전 · D-${left}`,
+          el("span", { class: "goal-section__sub" }, `유혹에 넘어간 횟수 ${bp.binges}`),
+        ),
+        el(
+          "div",
+          { class: "bar" },
+          el("div", { class: "bar__fill", style: `width:${pct}%` }),
+        ),
+        el(
+          "div",
+          { class: "goal-section__meta" },
+          `바디게이지 ${bp.gauge}/${BODY_GAUGE_MAX} — 운동으로 채우고, 컨디션이 무너지면 깎인다.`,
+        ),
+      );
+    }
+    return null;
+  }
+
+  /**
+   * 마라톤 대회 섹션(자기개발 탭) — **신청 대기 중일 때만** 대회일 카운트다운을 보여준다.
+   * 신청 자체는 운동 중 제안 팝업에서만 열린다(상시 메뉴가 아니다).
+   */
+  function raceSection(): HTMLElement | null {
+    const s = ctx.store.getState();
+    const pending = s.pendingRace;
+    if (!pending) return null;
+    const race = raceById(pending.id);
+    const left = Math.max(0, pending.appliedDay + RACE_DELAY_DAYS - s.day);
+    return el(
+      "div",
+      { class: "goal-section" },
+      el("div", { class: "goal-section__title" }, `🏃 ${race?.name ?? "대회"} · D-${left}`),
+      el(
+        "div",
+        { class: "goal-section__meta" },
+        "대회 당일 기록이 나오면 결과가 메일로 도착한다. 그때까지 운동으로 기록을 당겨두자.",
+      ),
+    );
+  }
+
+  /**
+   * 코스 목록 — 제안 팝업에서 신청할 코스를 고른다.
+   * 예상 기록은 systems가 계산한 값을 그대로 쓴다(UI는 수치를 만들지 않는다).
+   */
+  function raceList(onPicked: () => void): HTMLElement {
+    const s = ctx.store.getState();
+    return el(
+      "div",
+      { class: "race-list" },
+      ...RACES.map((race) => {
+        const weak = !meetsRaceRequirement(s, race);
+        const poor = s.money < race.fee;
+        const off = weak || poor;
+        const best = s.raceBests[race.id];
+        return el(
+          "button",
+          {
+            class: "race-row" + (off ? " race-row--off" : ""),
+            disabled: off,
+            onclick: () => {
+              if (off) return;
+              let r: ReturnType<typeof applyRace> = "ok";
+              ctx.update((st) => {
+                r = applyRace(st, race);
+              });
+              ctx.toast(
+                r === "ok"
+                  ? `${race.name} 신청 완료! ${RACE_DELAY_DAYS}일 뒤 대회다`
+                  : r === "busy"
+                    ? "이미 신청한 대회가 있어요"
+                    : r === "weak"
+                      ? "이 코스를 뛰기엔 운동이 부족해요"
+                      : "참가비가 부족해요",
+              );
+              onPicked();
+              ctx.refresh();
+            },
+          },
+          el("span", { class: "race-row__emoji" }, race.emoji),
+          el(
+            "span",
+            { class: "race-row__body" },
+            el("span", { class: "race-row__name" }, `${race.name} · ${race.km}km`),
+            el(
+              "span",
+              { class: "race-row__meta" },
+              weak
+                ? `운동 ${race.minFitness} 이상 필요 (현재 ${s.skills.fitness})`
+                : poor
+                  ? `참가비 ${formatNumber(race.fee)}원 부족`
+                  : `참가비 ${formatNumber(race.fee)}원 · 제한 ${formatRecord(race.cutoff)} · 예상 ${formatRecord(expectedRecord(s, race))}` +
+                    (best !== undefined ? ` · 최고 ${formatRecord(best)}` : ""),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  /**
+   * 운동 중 들어온 제안 팝업 — 바디프로필 촬영 / 마라톤 대회의 **유일한 진입로**다.
+   * 거절해도 다음 운동에서 다시 올 수 있다(systems/offline의 rollOffer).
+   */
+  function showOffer(offer: OfflineOffer): void {
+    const s = ctx.store.getState();
+    const isBody = offer === "bodyProfile";
+    const body = isBody
+      ? el(
+          "div",
+          { class: "modal__body" },
+          el(
+            "p",
+            { class: "offer__lead" },
+            "운동을 마치고 나오는데 트레이너가 말을 걸었다. “몸 좋아지셨는데… 바디프로필 한번 찍어보실래요? 마침 아는 스튜디오가 있어요.”",
+          ),
+          el(
+            "p",
+            { class: "goal-section__meta" },
+            `예약금 ${formatNumber(BODY_PROFILE_FEE)}원 · ${BODY_PROFILE_DAYS}일 뒤 촬영. ` +
+              "그때까지 운동으로 바디게이지를 100까지 채우면 성공이고, 컨디션이 무너져 고칼로리에 손대면 게이지가 깎인다. 예약금은 실패해도 돌려받지 못한다.",
+          ),
+          el(
+            "div",
+            { class: "compose-actions", style: "gap:10px" },
+            el(
+              "button",
+              { class: "btn btn--ghost", onclick: () => showChoices() },
+              "다음에요",
+            ),
+            el(
+              "button",
+              {
+                class: "btn",
+                onclick: () => {
+                  ctx.update((st) => startBodyProfile(st));
+                  ctx.toast("바디프로필 도전 시작! 오늘부터 한 달이다");
+                  showChoices();
+                  ctx.refresh();
+                },
+              },
+              `예약한다 · ${formatNumber(BODY_PROFILE_FEE)}원`,
+            ),
+          ),
+        )
+      : el(
+          "div",
+          { class: "modal__body" },
+          el(
+            "p",
+            { class: "offer__lead" },
+            `옆 러닝머신에서 뛰던 사람이 명함을 내밀었다. “이 정도 뛰시면 대회 나가셔도 돼요. 신청하면 ${RACE_DELAY_DAYS}일 뒤예요.”`,
+          ),
+          el(
+            "p",
+            { class: "goal-section__meta" },
+            `현재 운동 ${s.skills.fitness} — 코스를 고르면 참가비를 내고 신청한다. 기록은 대회 당일에 나온다.`,
+          ),
+          raceList(() => showChoices()),
+          el(
+            "div",
+            { class: "compose-actions", style: "margin-top:12px" },
+            el("button", { class: "btn btn--ghost", onclick: () => showChoices() }, "관심 없어요"),
+          ),
+        );
+
+    container.replaceChildren(
+      el(
+        "div",
+        { class: "modal__head" },
+        el(
+          "span",
+          { class: "modal__head-title" },
+          isBody ? "📸 바디프로필 제안" : "🏃 대회 나가보실래요?",
+        ),
+        closeBtn(),
+      ),
+      body,
     );
   }
 
@@ -342,18 +625,14 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
     );
   }
 
-  /** 킬러 청부 섹션(일 탭): active면 임무 상태 + 작업하기, 아니면 안내(momo.com 유도). */
-  function killerWorkSection(): HTMLElement {
+  /**
+   * 킬러 청부 섹션(일 탭). 취직 전에는 아무것도 그리지 않는다 —
+   * momo.com 유도는 야밤 사이트 광고배너가 담당한다(여기서 대외비를 흘리지 마라).
+   */
+  function killerWorkSection(): HTMLElement | null {
     const s = ctx.store.getState();
     const kj = s.killerJob;
-    if (!kj?.active) {
-      return el(
-        "div",
-        { class: "killer-section killer-section--none" },
-        el("p", { class: "compose-hint", style: "margin:12px 0 0" },
-          "부업이 필요하다면... 남모르는 일자리도 있다더라. (성인모드에서 momo.com)"),
-      );
-    }
+    if (!kj?.active) return null;
     const asg = kj.assignment;
     return el(
       "div",
@@ -552,6 +831,13 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
     // 펫·크리처 조우(성인 아님)는 기존처럼 결과+선택을 한 모달에 함께 보여준다.
     if (outcome.petEncounter || outcome.creatureEncounter) {
       showPetCreatureResult(act, outcome);
+      return;
+    }
+    // 운동 중 제안(바디프로필·마라톤)도 성인 이벤트와 같은 흐름 — 스탯 안내를 먼저 보이고,
+    // 확인하면 제안 팝업으로 넘긴다. 결과 문구와 제안을 한 창에 섞으면 둘 다 묻힌다.
+    if (outcome.offer) {
+      const offer = outcome.offer;
+      showStatusNotice(act, outcome, () => showOffer(offer));
       return;
     }
     // 그 외 일반 결과는 공용 시스템 알림 카드.

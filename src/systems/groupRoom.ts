@@ -13,6 +13,8 @@ import { scheduleNextGroupNight } from "./appointments";
 export const GROUP_ROOM_DM_CHANCE = 0.35;
 /** 초대가 뜨는 최소 음란 */
 export const GROUP_ROOM_LEWD_MIN = 300;
+/** 초대가 뜨는 최소 변태력 — 그룹 플레이는 '정도'가 아니라 취향의 영역이라 2축으로 잠근다. */
+export const GROUP_ROOM_PERVERT_MIN = 300;
 
 const ROOM_NAMES = [
   "심야 로테이션방",
@@ -42,6 +44,7 @@ export function maybeSpawnGroupRoomInviteDM(state: GameState, tweet: Tweet): boo
   if (state.groupRoomJoined) return false;
   if (!tweet.isAdult) return false;
   if (state.skills.lewd < GROUP_ROOM_LEWD_MIN) return false;
+  if (state.skills.pervert < GROUP_ROOM_PERVERT_MIN) return false;
   const account = getActiveAccount(state);
   if (hasGroupRoomInvite(account)) return false;
   if (!chance(GROUP_ROOM_DM_CHANCE)) return false;

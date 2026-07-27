@@ -11,12 +11,11 @@ import { SKILL_STATS } from "@/data/stats";
 import { el, formatNumber } from "@/utils/dom";
 import { icon } from "./icons";
 import { confirmPurchase } from "./confirmModal";
-import { advanceTime } from "@/systems/time";
 
 /* ============================================================
  * 이비에듀 — 네이놈에 '듄'을 검색하면 열리는 인강 사이트(단발 오버레이).
  * 룩앤필: 클래스101+ 스타일 구독형 강의 플랫폼(썸네일 그리드·Top·크리에이터).
- * 강의를 편당 3,000원 + 행동력 8에 수강하면 스탯이 오른다(수강 확인 팝업 → 시간 1칸 소모).
+ * 강의를 편당 6,000원 + 행동력 8에 수강하면 스탯이 오른다(수강 확인 팝업 → 시간 1칸 소모).
  *
  * ⚠️ 수강 가능 여부·비용 차감·스탯 적용은 전부 systems/ebs가 계산한다.
  * 여기서는 canWatchLecture 결과로 버튼 상태만 그리고 watchLecture를 호출만 한다.
@@ -106,11 +105,9 @@ function lectureCard(ctx: GameContext, lec: EbsLecture, i: number, rank?: number
                   if (canWatchLecture(ctx.store.getState(), lec) !== "ok") return;
                   let label = "";
                   ctx.update((st) => {
+                    // 시간 1칸 소모는 watchLecture(systems)가 처리한다 — 여기서 또 부르면 2칸 먹는다.
                     const res = watchLecture(st, lec);
-                    if (res.ok) {
-                      label = res.label;
-                      advanceTime(st, 1); // 수강은 시간 1칸을 소모한다.
-                    }
+                    if (res.ok) label = res.label;
                   });
                   if (label) ctx.toast(`수강 완료! ${label}`);
                 },

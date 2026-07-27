@@ -1,0 +1,166 @@
+# 미디어 트윗 키워드 이미지 받을 목록 (한 줄에 하나)
+# 파일명이 곧 매칭 키워드다 — 트윗 본문·사진설명에 이 단어가 들어가면 붙는다.
+# 한글 검색이 부실하면 `키워드=english query`로 검색어를 따로 준다.
+# 이미 src/assets/media에 있는 키워드는 스크립트가 알아서 건너뛴다.
+#
+# 아래 목록은 미디어 트윗 783개 중 이미지가 안 붙던 188개에서 뽑았다.
+# (카테고리 풀·성인 풀이 먼저 잡는 idol/anime/actor/gaming/dog/cat/plant/adult는 제외)
+
+# ── 일상 ──
+등산=hiking
+지하철=subway train
+헬스장=gym workout
+바다=beach sea
+도서관=library
+공원=park bench
+반려묘=cat closeup
+자전거=bicycle
+호텔=hotel room
+축구=soccer
+콘서트=concert crowd
+빨래=laundry
+손편지=handwritten letter
+집밥=korean home cooked meal
+다육=succulent plant
+라떼아트=latte art
+제습기=dehumidifier
+장바구니=grocery bag food
+우산=umbrella rain
+바나나우유=banana milk bottle
+첫눈=first snow window
+볶음밥=fried rice
+홈파티=home party table
+분리수거=recycling bags
+계란프라이=fried egg pan
+설거지=dishes sink washing
+귤=tangerines basket
+화분=flower pot plant
+유통기한=expired food fridge
+알람=alarm clock
+양말=socks
+이불=bed sheets bedding
+명세서=bill statement paper
+감기약=cold medicine pills
+유리잔=drinking glass
+
+# ── 정치 ──
+투표=voting ballot box
+집회=protest crowd
+예산=budget documents
+인터뷰=street interview microphone
+지도=map
+그래프=graph chart
+카드뉴스=infographic design
+서명=signature petition
+
+# ── 음식·요리 ──
+밀키트=meal kit box
+디저트=dessert plating
+전통시장=traditional market food
+볶음우동=stir fried udon
+아메리카노=iced americano
+에어프라이어=air fryer kitchen
+
+# ── 운동 ──
+러닝=running track
+데드리프트=deadlift barbell
+홈트=home workout
+닭가슴살=chicken breast meal prep
+중량=weight plates barbell
+폼롤러=foam roller
+바디프로필=fitness photoshoot
+스트레칭=stretching
+식단=diet meal plan
+클라이밍=climbing wall
+스쿼트=squat barbell
+체중=weight scale
+자세=exercise posture
+운동=workout gym
+요가=yoga mat
+필라테스=pilates reformer
+무릎=knee pain ice
+
+# ── 뷰티·패션 ──
+셀카=selfie portrait
+네일=nail art
+메이크업=makeup
+향수=perfume bottle
+헤어=hair styling salon
+스킨케어=skincare routine
+스와치=lipstick swatch
+레드립=red lipstick
+코디=outfit fashion
+하울=shopping haul bags
+모자=hat cap
+핸드크림=hand cream
+썬크림=sunscreen
+하이라이터=highlighter makeup
+스니커즈=sneakers shelf
+옷장=closet clothes
+자켓=jacket mirror
+스카프=scarf
+
+# ── 유머 ──
+밈=funny laughing face
+짤=laughing people
+통장=bank account phone
+월급=salary money
+면접=job interview
+상사=boss office
+다이어트=diet salad
+
+# ── 정보·IT ──
+인포그래픽=infographic
+연말정산=tax documents
+캘린더=calendar
+달력=calendar desk
+앱=smartphone apps
+재테크=saving money
+키보드=mechanical keyboard
+지출=expense tracking
+분리배출=recycling sorting
+안내문=notice sign
+캡처=computer screen data
+코드=programming code screen
+언박싱=unboxing package
+청구서=invoice bill
+셋업=desk setup
+AI=artificial intelligence screen
+에러=error screen code
+테스트=test checklist screen
+브라우저=browser screen
+
+# ── 동물 ──
+유기견=shelter dog
+야생동물=wildlife
+철새=migratory birds flock
+참새=sparrow
+서식지=forest habitat
+전시 동물=zoo cage animal
+
+# ── 금융 ──
+수익률=stock chart phone
+매도=trading screen
+배당=dividend money
+시황=stock market board
+코인=crypto coins
+차트=stock chart
+계좌=bank account screen
+
+# ── 스포츠 ──
+직관=stadium crowd
+전광판=scoreboard
+스코어보드=scoreboard stadium
+응원봉=concert light stick
+결승골=soccer goal
+관중석=stadium seats
+경기=sports match
+홈런=baseball home run
+우승=championship celebration
+티켓=ticket
+은퇴=retirement ceremony sport
+
+# ── 여행 ──
+전망=hotel view window
+공항=airport gate
+기념품=souvenir shop

@@ -28,6 +28,7 @@ export const SKILL_STATS: Record<SkillStatId, StatDef> = {
   comedy: { label: "개그", emoji: "", max: MAX_SKILL },
   creativity: { label: "창작", emoji: "", max: MAX_SKILL },
   lewd: { label: "음란", emoji: "", max: MAX_SKILL },
+  pervert: { label: "변태력", emoji: "", max: MAX_SKILL },
   game: { label: "게임", emoji: "", max: MAX_SKILL },
   it: { label: "IT", emoji: "", max: MAX_SKILL },
   otaku: { label: "덕질", emoji: "", max: MAX_SKILL },

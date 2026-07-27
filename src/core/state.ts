@@ -172,6 +172,7 @@ export function createInitialState(): GameState {
       comedy: 0,
       creativity: 0,
       lewd: 0,
+      pervert: 0,
       game: 0,
       it: 0,
       otaku: 0,
@@ -268,6 +269,10 @@ export function createInitialState(): GameState {
     postedAdultEver: false,
     pets: { dog: false, cat: false },
     creatures: [],
+    cookedDishes: [],
+    pendingRace: null,
+    raceBests: {},
+    bodyProfile: null,
     eggs: {
       lateStreak: 0,
       lastLateDay: -1,

@@ -16,7 +16,14 @@ import { rollAdultOfflineEncounter } from "./adultOffline";
 import type { AdultOfflineEncounterId } from "@/data/adultOffline";
 import { CREATURES } from "@/data/creatures";
 import type { Creature } from "@/data/creatures";
-import { VACATION_EVENTS } from "@/data/vacation";
+import {
+  VACATION_EVENTS,
+  VACATION_DESTINATIONS,
+  DEFAULT_DESTINATION,
+  type VacationDestination,
+} from "@/data/vacation";
+import { gainBodyGauge, rollBinge, canStartBodyProfile, BODY_GAUGE_MAX } from "./bodyProfile";
+import { RACES } from "@/data/races";
 
 export interface OfflineActivity {
   id: string;
@@ -119,7 +126,16 @@ export interface OfflineOutcome {
    * 펫·성인 특수 조우가 안 떴을 때만 낮은 확률로 뜬다.
    */
   creatureEncounter: string | null;
+  /**
+   * 운동 중 들어온 제안(바디프로필 촬영 / 마라톤 대회). 없으면 null.
+   * ui가 결과 팝업을 닫은 뒤 제안 모달을 띄운다 — **이 둘의 유일한 진입로다**
+   * (현생 살기 목록에 상시 노출하지 않는다. 운동을 해야 기회가 온다).
+   */
+  offer: OfflineOffer | null;
 }
+
+/** 운동 중 확률로 들어오는 제안 종류 */
+export type OfflineOffer = "bodyProfile" | "race";
 
 /* ─────────────────── 컨디션 판정(실패/대성공) ─────────────────── */
 
@@ -241,18 +257,27 @@ export const GREAT_RESULTS = [
 /** 펫·성인 조우가 안 뜬 산책 턴에 미수집 크리처를 마주칠 확률 */
 export const CREATURE_ENCOUNTER_CHANCE = 0.1;
 
+/* 산책 성인 조우 3종의 문턱. 전부 **음란도 + 변태력 2축**이다 —
+ * 노출·납치·벽고는 야한 정도가 아니라 취향(페티쉬·강압)의 영역이라, 음란도만 높다고 열리면 안 된다. */
+
 /** 심야 산책 야외노출 이벤트가 뜨는 최소 음란도 */
 export const NUDE_EXPOSURE_LEWD_MIN = 400;
+/** 야외노출(노출 페티쉬)이 뜨는 최소 변태력 */
+export const NUDE_EXPOSURE_PERVERT_MIN = 300;
 /** 조건 충족 시 야외노출 이벤트 발생 확률 */
 export const NUDE_EXPOSURE_CHANCE = 0.4;
 
 /** 산책 중 검정 봉고 납치 이벤트가 뜨는 최소 음란도 */
 export const BLACK_VAN_LEWD_MIN = 500;
+/** 봉고 납치(강압)가 뜨는 최소 변태력 */
+export const BLACK_VAN_PERVERT_MIN = 400;
 /** 조건 충족 시 봉고 조우 확률(야외노출보다 우선) */
 export const BLACK_VAN_CHANCE = 0.28;
 
 /** 산책 중 '벽고'(벽 구멍) 비합의 이벤트가 뜨는 최소 음란도 */
 export const WALLHOLE_LEWD_MIN = 600;
+/** 벽고(강압+페티쉬)가 뜨는 최소 변태력 — 산책 조우 중 가장 깊다. */
+export const WALLHOLE_PERVERT_MIN = 550;
 /** 조건 충족 시 벽고 조우 확률(봉고 다음 우선순위). 봉고와 같은 강압/범죄 계열이라 adultNoCoercion으로 함께 가려진다. */
 export const WALLHOLE_CHANCE = 0.28;
 
@@ -381,12 +406,41 @@ export function partTimeActivities(): OfflineActivity[] {
   return OFFLINE_ACTIVITIES.filter((a) => a.partTime);
 }
 
-/** 휴가 1회 비용 */
-export const VACATION_COST = 100_000;
+/**
+ * 바디프로필 도전 중 고칼로리 유혹이 뜰 수 있는 활동 id들.
+ * "몸을 만드는 중인데 마음이 무너지는" 순간이라 **쉬는 계열에만** 붙는다(운동·알바엔 안 붙는다).
+ */
+export const BINGE_ACTIVITY_IDS = ["rest", "goout", "walk"];
 
-/** 휴가를 갈 수 있는지(소지금이 비용 이상이어야 한다 — UI가 버튼 게이트에 쓴다) */
+/** 운동 1회당 제안(바디프로필·마라톤)이 들어올 확률 */
+export const OFFER_CHANCE = 0.3;
+
+/**
+ * 운동을 마쳤을 때 들어오는 제안을 고른다.
+ * 지금 받을 수 있는 제안만 후보에 넣고(진행 중이면 제외), 둘 다 되면 하나를 랜덤으로 고른다.
+ * 거절해도 다음 운동에서 다시 올 수 있다 — 그래서 놓쳐도 막히지 않는다.
+ */
+export function rollOffer(state: GameState): OfflineOffer | null {
+  if (Math.random() >= OFFER_CHANCE) return null;
+  const candidates: OfflineOffer[] = [];
+  if (canStartBodyProfile(state) === "ok") candidates.push("bodyProfile");
+  // 대회는 '지금 뛸 수 있는 코스가 하나라도 있고, 결과 대기 중이 아닐 때'만 제안한다.
+  if (state.pendingRace === null && RACES.some((r) => state.skills.fitness >= r.minFitness)) {
+    candidates.push("race");
+  }
+  return candidates.length === 0 ? null : pick(candidates);
+}
+
+/** 휴가 1회 비용(목적지 선택 이전의 기준값 — 활동 카드의 미리보기와 폴백에 쓴다) */
+export const VACATION_COST = DEFAULT_DESTINATION.cost;
+
+/**
+ * 휴가를 갈 수 있는지 — **가장 싼 목적지**를 갈 돈이 있으면 열어준다.
+ * 목적지별 가격 판정은 선택 카드가 각자 한다(UI). 여기서 국내 여행값으로 막으면
+ * 3만원짜리 당일치기를 갈 수 있는데도 활동 자체가 비활성이 된다.
+ */
 export function canAffordVacation(state: GameState): boolean {
-  return state.money >= VACATION_COST;
+  return state.money >= Math.min(...VACATION_DESTINATIONS.map((d) => d.cost));
 }
 
 /** 이 친화력(0~999) 미만에서 알바하면 손님 응대 스트레스로 정신력이 추가로 깎인다 */
@@ -481,7 +535,8 @@ export const OFFLINE_ACTIVITIES: OfflineActivity[] = [
     emoji: "",
     group: "rest",
     vacation: true,
-    description: "10만원 들여 훌쩍 떠난다. 행동력·정신력을 크게 회복하고, 뜻밖의 경험으로 능력치도 오른다.",
+    description:
+      "목적지를 골라 떠난다. 당일치기 3만 · 국내 10만 · 해외 40만 — 비쌀수록 회복·경험이 크고 시간을 더 먹는다.",
     action: +30,
     mental: +45,
     money: -VACATION_COST,
@@ -520,6 +575,40 @@ export const OFFLINE_ACTIVITIES: OfflineActivity[] = [
     tweetLines: ["오늘 밤은 좀... 야릇한 기분이네 🫣", "혼자 보내는 밤도 나쁘지 않아. 무슨 상상 했는진 비밀 🤫"],
   },
   {
+    // 변태력 전용 육성 경로. 강압·페티쉬 콘텐츠는 전부 변태력 게이트 뒤에 있으므로
+    // **게이트 밖에서** 그 축을 올릴 수단이 반드시 하나는 있어야 한다(해피타임은 음란 전용).
+    // 수위는 해피타임과 같은 선 — 암시·완곡까지. 노골적 묘사 금지.
+    id: "kinkdig",
+    label: "취향 탐구",
+    emoji: "",
+    group: "rest",
+    adultOnly: true,
+    description: "남들에게는 말 못 할 취향을 조용히 파고든다. 몰랐던 문이 하나씩 열린다.",
+    action: -10,
+    mental: +4,
+    morality: -5,
+    skillGains: { pervert: 12, lewd: 4, sociability: -2 },
+    results: [
+      "검색어를 지우고 다시 쓰기를 몇 번, 결국 끝까지 읽고 창을 닫았다.",
+      "이런 걸 좋아하는 사람이 나만은 아니구나 싶어 묘하게 안심됐다.",
+      "취향의 서랍이 하나 더 열렸다. 아무에게도 보여줄 일은 없겠지만.",
+      "그동안 눈길만 주고 지나쳤던 쪽을 오늘은 끝까지 들여다봤다.",
+    ],
+    failResults: [
+      "괜히 무서워져서 탭을 전부 닫아버렸다.",
+      "내 취향은 아니었다. 서둘러 기록을 지웠다.",
+    ],
+    greatResults: [
+      "몰랐던 문이 한꺼번에 여러 개 열렸다. 돌아가는 길은 없어 보인다.",
+      "밤이 어떻게 갔는지 모르겠다. 확실히 뭔가가 달라졌다.",
+    ],
+    tweetAttr: "adult",
+    tweetLines: [
+      "요즘 취향이 좀 이상한 쪽으로 넓어지는 것 같아 🫠",
+      "남들한테 말 못 할 취향 하나쯤은 다들 있잖아요... 없나?",
+    ],
+  },
+  {
     id: "study",
     label: "교양",
     emoji: "",
@@ -527,7 +616,9 @@ export const OFFLINE_ACTIVITIES: OfflineActivity[] = [
     description: "책상 앞에서 어휘력과 지식을 쌓는다.",
     action: -15,
     mental: -10,
-    skillGains: { vocabulary: 10, knowledge: 10, sociability: -3 },
+    // ⚠️ 무료 활동이라 유료 EBS 강의(6,000원 + 행동력 8 → 단일 스킬 +13~17)보다 **효율이 낮아야** 한다.
+    //    예전 10/10은 행동력 15에 총 +20이라 돈 쓸 이유가 없었다(사용자 확정 하향).
+    skillGains: { vocabulary: 6, knowledge: 6, sociability: -3 },
     // 미술·코딩을 EBS로 옮기며 코딩이 갖던 IT계 해금을 교양이 이어받는다(현생 유일 IT계 해금 경로 유지).
     unlockAttributePool: ["politics", "humor", "info", "plant", "it", "finance"],
     results: [
@@ -836,8 +927,21 @@ export function spendDayResting(state: GameState): { action: number; mental: num
  */
 export function doOfflineActivity(
   state: GameState,
-  activity: OfflineActivity,
+  activityIn: OfflineActivity,
+  /** 휴가일 때 고른 목적지(없으면 국내 여행). 휴가가 아닌 활동에서는 무시된다. */
+  dest?: VacationDestination,
 ): OfflineOutcome {
+  // 휴가는 목적지가 비용·회복량을 덮어쓴다 — 활동 정의를 복사해 갈아끼우면
+  // 아래 로직(스킬·조우·등급)이 목적지를 몰라도 그대로 동작한다.
+  const destination = activityIn.vacation ? (dest ?? DEFAULT_DESTINATION) : null;
+  const activity: OfflineActivity = destination
+    ? {
+        ...activityIn,
+        action: destination.action,
+        mental: destination.mental,
+        money: -destination.cost,
+      }
+    : activityIn;
   // 시간이 진행되기 전 슬롯을 기록(심야 여부 판정용)
   const wasLate = state.slot === LATE_SLOT;
   recordMission(state, "offline"); // 도전과제: 현생 살기 카운트
@@ -846,6 +950,21 @@ export function doOfflineActivity(
   // 활동에 '들어갈 때'의 컨디션이 성패를 가르는 것이 서사적으로 맞고, 순서를 뒤집으면
   // 쉬기(mental +30)가 자기 자신의 판정을 밀어올려 항상 대성공이 되는 자기충족 루프가 생긴다.
   const grade = rollActivityGrade(state);
+
+  // 바디프로필 도전: 운동은 게이지를 채우고, 컨디션이 나쁜 날의 휴식·외출·산책은 고칼로리 유혹을 부른다.
+  // ⚠️ 유혹 판정은 **활동의 정신력 회복을 반영하기 전에** 굴린다(등급 판정과 같은 이유) —
+  //    순서를 뒤집으면 쉬기(정신력 +30)가 자기 자신의 문턱을 넘겨 유혹이 영영 안 뜬다.
+  // 도전 중이 아니면 두 함수 모두 아무 일도 하지 않는다.
+  let bodyGaugeGain = 0;
+  let bingeLine: string | null = null;
+  // 바디프로필 촬영·마라톤 대회 제안은 **운동 중에만** 들어온다(상시 메뉴가 아니다).
+  let offer: OfflineOffer | null = null;
+  if (activity.id === "workout") {
+    bodyGaugeGain = gainBodyGauge(state, applyGradeToGain(1, grade));
+    offer = rollOffer(state);
+  } else if (BINGE_ACTIVITY_IDS.includes(activity.id)) {
+    bingeLine = rollBinge(state);
+  }
 
   // 휴식 활동은 activity.action이 양수 — 상한이 걸리는 지점이라 clampAction이어야 한다.
   state.resources.action = clampAction(state, state.resources.action + activity.action);
@@ -919,12 +1038,20 @@ export function doOfflineActivity(
   //       발생 이벤트의 문구가 결과 메시지를 덮고, 오른 스킬은 randomSkillLabel로 표시한다.
   // ⚠️ 휴가는 10만원을 낸 확정 이벤트라 컨디션 등급 배율을 걸지 않는다(돈 내고 실패하면 부당하다).
   let vacationMessage: string | null = null;
-  if (activity.vacation) {
-    const ev = pick(VACATION_EVENTS);
-    const gained = gainSkill(state, ev.stat, ev.amount);
-    // 휴가는 등급 배율이 없지만 정신력 배율·상단 감쇠·999 상한으로 gained가 0이 될 수 있다.
-    randomSkillLabel = `${SKILL_STATS[ev.stat].label} ${gained > 0 ? "+" : ""}${gained}`;
-    vacationMessage = ev.message;
+  if (destination) {
+    // 목적지가 이벤트 수(1~2회)와 상승 배율을 정한다. 같은 이벤트가 두 번 뽑히지 않게 제외하며 뽑는다.
+    const pool = [...VACATION_EVENTS];
+    const messages: string[] = [];
+    const labels: string[] = [];
+    for (let i = 0; i < destination.events && pool.length > 0; i++) {
+      const ev = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+      const gained = gainSkill(state, ev.stat, Math.round(ev.amount * destination.statMult));
+      // 휴가는 등급 배율이 없지만 정신력 배율·상단 감쇠·999 상한으로 gained가 0이 될 수 있다.
+      labels.push(`${SKILL_STATS[ev.stat].label} ${gained > 0 ? "+" : ""}${gained}`);
+      messages.push(ev.message);
+    }
+    randomSkillLabel = labels.join(" · ");
+    vacationMessage = `[${destination.emoji} ${destination.name}] ${messages.join(" ")}`;
   }
 
   // 활동을 통한 트윗 속성 해금 시도(현재 활성 계정에 적용)
@@ -953,19 +1080,22 @@ export function doOfflineActivity(
     if (
       !state.adultNoCoercion &&
       state.skills.lewd >= BLACK_VAN_LEWD_MIN &&
+      state.skills.pervert >= BLACK_VAN_PERVERT_MIN &&
       Math.random() < BLACK_VAN_CHANCE
     ) {
       blackVanEncounter = true;
     } else if (
-      // 벽고(벽 구멍)도 비합의/범죄 계열 — 강압/범죄 안 보기 켜면 건너뛴다. 음란도 문턱이 봉고보다 높다.
+      // 벽고(벽 구멍)도 비합의/범죄 계열 — 강압/범죄 안 보기 켜면 건너뛴다. 문턱이 봉고보다 높다(음란·변태력 둘 다).
       !state.adultNoCoercion &&
       state.skills.lewd >= WALLHOLE_LEWD_MIN &&
+      state.skills.pervert >= WALLHOLE_PERVERT_MIN &&
       Math.random() < WALLHOLE_CHANCE
     ) {
       wallHoleEncounter = true;
     } else if (
       wasLate &&
       state.skills.lewd >= NUDE_EXPOSURE_LEWD_MIN &&
+      state.skills.pervert >= NUDE_EXPOSURE_PERVERT_MIN &&
       Math.random() < NUDE_EXPOSURE_CHANCE
     ) {
       nudeExposure = true;
@@ -1011,6 +1141,12 @@ export function doOfflineActivity(
   } else if (grade === "great") {
     message = `${pick(activity.greatResults ?? GREAT_RESULTS)} ${message}`;
   }
+  // 바디프로필 게이지 변동을 결과 문구에 얹는다(도전 중일 때만 생긴다).
+  if (bingeLine) {
+    message = `${message} ${bingeLine}`;
+  } else if (bodyGaugeGain > 0 && state.bodyProfile) {
+    message = `${message} (바디게이지 +${bodyGaugeGain} → ${state.bodyProfile.gauge}/${BODY_GAUGE_MAX})`;
+  }
   if (activity.authorWork) {
     const r = doAuthorWork(state);
     if (r) {
@@ -1022,8 +1158,9 @@ export function doOfflineActivity(
   // 꾸미기 활동 직후 에스테틱 정기권 광고 메일 스폰 시도(내부 가드로 중복/재가입/사기중 방지)
   if (activity.id === "grooming") maybeSpawnEstheticAd(state);
 
-  addSchedule(state, `${activity.label}`, "offline");
-  advanceTime(state, 1);
+  addSchedule(state, destination ? `${activity.label} (${destination.name})` : activity.label, "offline");
+  // 여행은 목적지마다 걸리는 시간이 다르다(당일치기 1블록 ~ 해외 4블록 = 이틀).
+  advanceTime(state, destination?.slots ?? 1);
 
   return {
     message,
@@ -1038,6 +1175,7 @@ export function doOfflineActivity(
     wallHoleEncounter,
     adultEncounter,
     creatureEncounter,
+    offer,
   };
 }
 

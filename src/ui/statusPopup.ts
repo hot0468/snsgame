@@ -32,6 +32,8 @@ const SKILL_ICON: Record<SkillStatId, IconName> = {
   comedy: "smile",
   creativity: "pen",
   lewd: "shield",
+  // 변태력 — 음란(shield)과 한눈에 구분돼야 해서 '남들은 안 여는 서랍' 이미지의 drawer.
+  pervert: "drawer",
   game: "gamepad",
   // IT계 속성 아이콘(ATTR_ICON.it)과 같은 grid를 쓴다 — 같은 개념에 다른 그림을 주지 않는다.
   it: "grid",
@@ -367,10 +369,13 @@ function statusInner(ctx: GameContext): HTMLElement[] {
         el(
           "div",
           { class: "detail-grid" },
-          ...SKILL_STAT_IDS.filter((id) => id !== "lewd").map((id) => detailStatRow(s, id)),
+          ...SKILL_STAT_IDS.filter((id) => id !== "lewd" && id !== "pervert").map((id) =>
+            detailStatRow(s, id),
+          ),
         ),
-        // 음란은 그리드에서 빼 별도 행으로 분리하고 빨간색으로 강조한다. 성인물 보기 OFF면 숨긴다.
+        // 음란·변태력은 그리드에서 빼 별도 행으로 분리하고 빨간색으로 강조한다. 성인물 보기 OFF면 숨긴다.
         s.adultMode ? detailStatRow(s, "lewd", "detail-row--lewd") : null,
+        s.adultMode ? detailStatRow(s, "pervert", "detail-row--lewd") : null,
         // ④ 마일스톤 해금 퍼크 — claimed 개수에서 파생 조회(unlockedPerks). 자격증 섹션 위.
         renderPerksSection(s),
         renderCertSection(s),

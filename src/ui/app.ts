@@ -2,7 +2,7 @@ import type { Store } from "@/core/store";
 import type { GameState } from "@/core/types";
 import { createUIState, type GameContext } from "./context";
 import { el } from "@/utils/dom";
-import { renderBrowser } from "./browser";
+import { renderBrowser, closeOverlays } from "./browser";
 import { renderTaskbar } from "./taskbar";
 import { renderStartMenu } from "./startMenu";
 import { renderCalendar } from "./calendar";
@@ -152,6 +152,10 @@ export function createApp(root: HTMLElement, store: Store): void {
       const controversy = state.pendingControversy ? getControversy(state.pendingControversy) : null;
       if (state.dawnPending) {
         // 새 날이 밝으면 보던 화면과 무관하게 SNS 홈 추천탭으로 되돌린다(팝업이 막고 있어 무해).
+        // ⚠️ 단발 오버레이(이비에듀·끄몽·도깨비 상점 등)도 반드시 같이 닫아라 —
+        //    browser의 콘텐츠 분기는 오버레이가 activeTab보다 우선이라, 안 닫으면 탭만 sns로 바뀌고
+        //    화면은 어제 보던 사이트에 그대로 머문다(강의 듣고 하루 넘겼는데 이비에듀에 남아 있던 버그).
+        closeOverlays(ctx);
         ui.activeTab = "sns";
         ui.snsPage = "home";
         ui.homeTab = "recommend";

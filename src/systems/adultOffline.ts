@@ -12,7 +12,30 @@ import {
   type OfflineActivityId,
 } from "@/data/adultOffline";
 import { applyEffect } from "./events";
+import { gainSkill } from "./stats";
 import { addSchedule } from "./time";
+
+/**
+ * 강압(coercive) 조우의 기본 변태력 문턱.
+ * 음란도만 높은 플레이어에게 '당한다' 계열이 굴러오지 않게 하는 게 이 축의 존재 이유다 —
+ * 강압은 야한 정도가 아니라 취향의 문제라 별도 축으로 뗐다(사용자 확정).
+ */
+export const PERVERT_COERCIVE_MIN = 250;
+
+/**
+ * 강압·페티쉬 조우를 '받아들였을' 때 오르는 변태력 = 그 선택의 음란 상승분 × 이 비율.
+ * ⚠️ 이 경로만으로는 첫 게이트(250)를 못 넘는다 — 게이트가 스탯 성장을 막는 자물쇠가 되기 때문이다.
+ *    진입로는 게이트 밖의 전용 육성 수단(성인 도서 감상 · 현생 '취향 탐구')이 담당한다.
+ */
+export const PERVERT_GAIN_RATIO = 0.5;
+
+/**
+ * 이 조우가 요구하는 변태력. 명시된 `minPervert`가 최우선이고,
+ * 없으면 강압 조우는 기본 문턱, 일반 조우는 0(변태력 무관 — 음란도만 보면 된다).
+ */
+function pervertGate(e: { minPervert?: number; coercive?: boolean }): number {
+  return e.minPervert ?? (e.coercive ? PERVERT_COERCIVE_MIN : 0);
+}
 
 /**
  * 현재 상태·활동에 맞는 성인 조우 하나를 확률적으로 고른다.
@@ -27,7 +50,9 @@ export function rollAdultOfflineEncounter(
 
   const candidates = ADULT_OFFLINE_ENCOUNTERS.filter((e) => {
     if (!e.activities.includes(activityId as OfflineActivityId)) return false;
+    // 2축 게이트: 음란(얼마나 야한가)과 변태력(어느 방향인가)을 **둘 다** 넘어야 뜬다.
     if (state.skills.lewd < e.minLewd) return false;
+    if (state.skills.pervert < pervertGate(e)) return false;
     if (e.lateOnly && !wasLate) return false;
     // '강압/범죄 안 보기' 켜면 비합의 조우는 후보에서 제외
     if (e.coercive && state.adultNoCoercion) return false;
@@ -60,6 +85,14 @@ export function resolveAdultOfflineEncounter(
   if (!choice) return "";
 
   const dynamic = applyEffect(state, choice.effect);
+  // 강압·페티쉬 조우에서 '받아들인' 선택을 고르면 변태력도 함께 오른다.
+  // ⚠️ 선택지 순서(0번=진행)로 판정하지 마라 — 그건 규약이 아니다.
+  //    음란이 오르는 선택 = 그 방향을 받아들인 선택이라는 게 데이터에 이미 있는 유일한 신호다
+  //    (거절 선택지는 lewd를 안 올린다). 콘텐츠 20여 개를 손대지 않고도 새 조우에 자동 적용된다.
+  const lewdGain = choice.effect.skills?.lewd ?? 0;
+  if (lewdGain > 0 && pervertGate(enc) > 0) {
+    gainSkill(state, "pervert", Math.round(lewdGain * PERVERT_GAIN_RATIO));
+  }
   if (choice.unlockGroup) {
     getActiveAccount(state).groupUnlocked = true;
   }

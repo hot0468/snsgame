@@ -28,14 +28,18 @@ const FEE_BASE = 300_000;
 const FEE_RANGE = 1_700_000;
 
 /**
- * 킬러 역량(0~1). 트윗에서 위치를 캐내는 추적력·실행력·업계 신용을 합산한다.
- * = (지식+운동+어휘력+IT)/(4×999) 와 평판/100 의 평균.
+ * 킬러 역량(0~1). 추적력·실행력(스킬)이 본체이고, 업계 신용(평판)은 거기 곱해지는 배수다.
+ * = (지식+운동+어휘력+IT)/(4×999) × (0.5 + 0.5×평판/100)
+ *
+ * ⚠️ 평판을 **더하지** 마라 — 평판은 100(만점)에서 시작해 사고를 쳐야만 깎이는 자원이라,
+ *    가산하면 스킬 0인 초짜도 역량이 항상 0.5 이상이 돼서 의뢰비 하한(30만)이 죽는다
+ *    (실제로 첫 의뢰가 123만원 들어왔다). 평판 0이어도 스킬값의 절반은 인정한다.
  */
 export function killerCompetence(state: GameState): number {
   const s = state.skills;
   const skillPart = (s.knowledge + s.fitness + s.vocabulary + s.it) / (4 * MAX_SKILL);
-  const repPart = state.resources.reputation / 100;
-  return Math.min(1, Math.max(0, (skillPart + repPart) / 2));
+  const repMul = 0.5 + 0.5 * (state.resources.reputation / 100);
+  return Math.min(1, Math.max(0, skillPart * repMul));
 }
 
 /** 이번 임무 의뢰비(역량이 높을수록 고액). */
@@ -151,14 +155,20 @@ function assignNextTarget(state: GameState): void {
     // 타겟이 결정되는 이 순간에 트윗을 만들어 저장한다(이후 피드·검색·프로필이 재사용).
     tweets: buildTargetTweets(target, state.day),
   };
+  // ⚠️ 이름·핸들은 절대 넣지 마라 — 계정을 직접 찾아내는 게 이 임무의 절반이다(사용자 확정).
   pushMomo(
     state,
-    `이번 달 타겟이다.\n\n@${target.handle}\n${target.hint}\n\n일주일 안에 처리해라. 그자가 어디 있을지는 자기 트윗에 흘렸다 — 트윗을 검색하거나 피드에서 찾아 읽어.`,
+    `이번 달 타겟이다.\n\n${target.idHint}\n${target.hint}\n\n이름도 계정도 안 알려준다. 그 정도는 직접 찾아 — 트윗을 검색해서 계정부터 특정하고, 그자가 흘린 위치를 읽어라. 일주일 안에 처리해.`,
   );
-  // 칠남 동맹이면 타겟이 배정될 때마다 좁혀주는 힌트를 DM으로 보낸다(정답은 안 알려줌).
+  // 칠남 동맹이면 momo보다 한 단계 자세한 힌트를 DM으로 보낸다(계정은 특정해주되 정답 위치는 안 짚어줌).
   if (state.chilnamAlly) {
     const tip = CHILNAM_HINTS[target.id];
-    if (tip) pushChilnam(state, `형님, 이번 타겟 @${target.handle} 제가 좀 알아봤는데요. ${tip} 이 정도면 찾으실 수 있죠?`);
+    if (tip) {
+      pushChilnam(
+        state,
+        `형님, momo가 말한 그 인간 제가 특정했어요. 닉네임 '${target.name}', 계정은 @${target.handle} 입니다.\n${tip} 위치까진 못 짚어드리니 그 계정 트윗은 형님이 읽어보세요.`,
+      );
+    }
   }
 }
 

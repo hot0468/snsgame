@@ -382,6 +382,25 @@ function productSection(ctx: GameContext): HTMLElement {
 }
 
 /* ── 루트 ── */
+/**
+ * momo.com 광고배너 — 야밤 곳곳에 붙는 낚시 배너 톤.
+ * 링크가 아니라 주소를 알려주기만 한다(주소창에 직접 입력해야 들어간다).
+ */
+function momoAd(): HTMLElement {
+  return el(
+    "div",
+    { class: "yabam__ad" },
+    el("span", { class: "yabam__ad-tag" }, "AD"),
+    el(
+      "span",
+      { class: "yabam__ad-text" },
+      "밤에만 열리는 서재 — 아무도 모르는 에로서적 컬렉션. 주소창에 ",
+      el("b", {}, "momo.com"),
+      " 입력",
+    ),
+  );
+}
+
 export function renderYabam(ctx: GameContext): HTMLElement {
   const section = ctx.ui.yabamSection;
   const body =
@@ -396,6 +415,6 @@ export function renderYabam(ctx: GameContext): HTMLElement {
     { class: "yabam" },
     masthead(ctx),
     sectionTabs(ctx),
-    el("div", { class: "yabam__body" }, body),
+    el("div", { class: "yabam__body" }, momoAd(), body),
   );
 }

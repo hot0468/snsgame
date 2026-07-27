@@ -7,6 +7,8 @@ import {
   matchRecipe,
 } from "@/data/grocery";
 import { postTweet } from "@/systems/tweetSystem";
+import { recordCooking, cookedCount, DISH_TOTAL, type CookingRecord } from "@/systems/cooking";
+import { renderCookingDexModal } from "./cookingDexModal";
 import type { LemonZResult } from "@/systems/eggs";
 import { tryLemonZ } from "@/systems/eggs";
 import { pick } from "@/utils/random";
@@ -100,7 +102,11 @@ function decorFor(id: string, price: number): Decor {
 }
 
 /** 주문 결과 팝업(요리 완성/실패 + 트윗) */
-function openOrderResult(ctx: GameContext, recipe: Recipe | null): void {
+function openOrderResult(
+  ctx: GameContext,
+  recipe: Recipe | null,
+  dexRecord: CookingRecord | null,
+): void {
   ctx.openModal((c) => {
     const success = recipe != null;
     const lines = success ? recipe.tweetLines : failTweetLines();
@@ -132,6 +138,15 @@ function openOrderResult(ctx: GameContext, recipe: Recipe | null): void {
             ? "재료 조합이 딱 맞아떨어졌어요. 완성한 요리를 자랑해볼까요?"
             : "레시피에 없는 조합이라 정체불명의 결과물이 나왔어요... 그래도 트윗은 할 수 있어요.",
         ),
+        // 처음 만든 요리면 도감 등록 안내(재방문 요리는 아무것도 뜨지 않는다).
+        dexRecord &&
+          el(
+            "p",
+            { class: "grocery-dex__got" },
+            `🍳 요리 도감에 『${dexRecord.name}』 등록!` +
+              (dexRecord.creativity > 0 ? ` 창작 +${dexRecord.creativity}` : "") +
+              (dexRecord.completed ? " — 도감 완성! 정신력·창작 보너스" : ""),
+          ),
         el(
           "div",
           { class: "compose-actions", style: "gap:10px" },
@@ -338,14 +353,19 @@ export function renderGrocery(ctx: GameContext): HTMLElement {
               // 대금 지불·장바구니 비우기는 레몬Z든 평범한 요리든 동일하게 수행한다.
               ctx.ui.groceryCart = [];
               const egg: { result: LemonZResult | null } = { result: null };
+              // 도감 등록 결과도 콜백 밖에서 읽어야 해서 같은 래퍼 트릭을 쓴다(TS는 콜백 대입을 추적 못 한다).
+              const dex: { rec: CookingRecord | null } = { rec: null };
+              const recipe = matchRecipe(ids);
               ctx.update((st) => {
                 st.money -= cartTotal(ids);
                 // 레몬Z 판정은 matchRecipe보다 먼저 — {lemon, mandarin}은 어떤 레시피와도
                 // 일치하지 않아 그냥 두면 "요리 실패"로 흘러가 버린다.
                 egg.result = tryLemonZ(st, ids);
+                // 요리 성공만 도감에 오른다(레몬Z·실패 조합은 등록 대상이 아니다).
+                if (!egg.result && recipe) dex.rec = recordCooking(st, recipe);
               });
               if (egg.result) openLemonZResult(ctx, egg.result);
-              else openOrderResult(ctx, matchRecipe(ids));
+              else openOrderResult(ctx, recipe, dex.rec);
             },
           });
         },
@@ -358,6 +378,14 @@ export function renderGrocery(ctx: GameContext): HTMLElement {
         "header",
         { class: "grocery__mast" },
         el("span", { class: "grocery__logo" }, "마켓걸리버"),
+        el(
+          "button",
+          {
+            class: "grocery__dex-btn",
+            onclick: () => ctx.openModal(renderCookingDexModal),
+          },
+          `🍳 요리 도감 ${cookedCount(s)}/${DISH_TOTAL}`,
+        ),
         el("span", { class: "grocery__money" }, `보유금 ${formatNumber(s.money)}원`),
       ),
       el(

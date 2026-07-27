@@ -1,6 +1,6 @@
 import type { SkillStatId } from "@/core/types";
 
-/** EBS(교육방송) 패러디 인터넷 강의 1편. 편당 3,000원 + 행동력 8로 시청(로직은 systems/ebs.ts). */
+/** EBS(교육방송) 패러디 인터넷 강의 1편. 편당 6,000원 + 행동력 8 + 시간 1슬롯(로직은 systems/ebs.ts). */
 export interface EbsLecture {
   id: string;
   title: string;

@@ -188,6 +188,8 @@ export const ACTIVITY_ICON: Record<string, IconName> = {
   coding: "grid",
   workout: "dumbbell",
   youtube: "youtube",
+  // 취향 탐구(변태력 육성) — 남들에겐 잠긴 서랍. 물류(drawer)와 겹치지 않게 lock.
+  kinkdig: "lock",
   // 아르바이트 4종 — 종류별로 아이콘이 달라야 목록에서 구분된다(전부 coin이면 개별 카운터가 안 읽힌다).
   parttime: "coin",
   logistics: "drawer",

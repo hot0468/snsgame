@@ -800,7 +800,7 @@ export const DARTPIN_POSTS: DartpinPost[] = [
      *
      * 코드 대조(2026-07-25):
      * - `ui/portal.ts` searchBar: `if (q === "듄") { ctx.ui.ebsSiteOpen = true; ... }` ✅
-     * - `systems/ebs.ts` — 편당 LECTURE_COST=3000원 + 행동력 8, 스킬(SkillStatId) 또는
+     * - `systems/ebs.ts` — 편당 LECTURE_COST=6000원 + 행동력 8 + 시간 1슬롯, 스킬(SkillStatId) 또는
      *   업무 성과(performance) 상승. 업무 성과 강의는 재직 중일 때만. ✅
      * - `data/ebs.ts` — 9강(it/vocabulary/sociability/knowledge/beauty/creativity/comedy + performance×2). ✅
      *
@@ -814,11 +814,11 @@ export const DARTPIN_POSTS: DartpinPost[] = [
     body:
       "모래벌레 나오는 그 유명한 SF 있잖아. 극장에서 보고 제목이 기억 안 나서 네이놈에 검색해봤는데,\n" +
       "영화는 안 뜨고 웬 교육방송 같은 강의 사이트가 뜨는 거임???\n" +
-      "들어가보니까 강의 하나에 딱 3천원. 보고 나면 진짜 뭔가 느는 느낌임.\n" +
-      "코딩이든 글쓰기든 메이크업이든 골라 들으셈. 3천원이면 개이득.",
+      "들어가보니까 강의 하나에 6천원. 싸진 않은데 보고 나면 진짜 뭔가 느는 느낌임.\n" +
+      "코딩이든 글쓰기든 메이크업이든 골라 들으셈. 원하는 능력치만 콕 집어 올라감.",
     comments: [
       { author: "ㅇㅇ", text: "그거 검색하면 강의사이트가 왜 뜸 ㅋㅋㅋ 버근가" },
-      { author: "ㅇㅇ", text: "3천원이면 밥값인데 개꿀이네 저장함" },
+      { author: "ㅇㅇ", text: "6천원이면 점심 한 끼 값인데 책 사는 것보단 낫지 않나" },
       { author: "ㅇㅇ", text: "영화 제목은 결국 기억 못 한 거임? ㅋㅋㅋㅋ" },
     ],
     views: 130_600,
@@ -826,7 +826,7 @@ export const DARTPIN_POSTS: DartpinPost[] = [
     hint: true,
     /**
      * 쪽지 답장: 정확한 키워드('듄') + 강의비·행동력·대상 스탯·업무 성과 재직 게이트.
-     * ⚠️ 코드 대조(systems/ebs·data/ebs): 3천원+행동력8, 업무 성과 강의는 재직 중만. ✅
+     * ⚠️ 코드 대조(systems/ebs·data/ebs): 6천원+행동력8+슬롯1, 업무 성과 강의는 재직 중만. ✅
      */
     dm: {
       name: "글쓴이 ㅇㅇ",
@@ -835,7 +835,7 @@ export const DARTPIN_POSTS: DartpinPost[] = [
       reply: [
         "ㅋㅋ 사막 행성에 모래벌레 나오는 SF 그거, 제목 딱 한 글자 '듄'.",
         "네이놈 검색창에 듄 치면 이비에듀인가 하는 강의 사이트 뜸.",
-        "강의 하나에 3천원. 대신 볼 때마다 행동력이 좀 드니까 아무거나 막 보진 말고.",
+        "강의 하나에 6천원. 대신 볼 때마다 행동력이랑 시간도 드니까 아무거나 막 보진 말고.",
         "지식 글쓰기 면접 코딩 메이크업 기획 개그… 올리고 싶은 거 골라 들으면 그 능력치가 오름.",
         "아 그리고 회사 다니는 중이면 '업무 성과' 올려주는 강의도 있는데, 그건 재직 중일 때만 볼 수 있더라.",
       ],
