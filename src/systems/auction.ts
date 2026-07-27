@@ -1,6 +1,6 @@
 import type { AuctionItem } from "@/data/auction";
 import type { DMThread, Email, GameState, ScheduleEvent, SkillStatId } from "@/core/types";
-import { getActiveAccount } from "@/core/state";
+import { getActiveAccount, appendSchedule } from "@/core/state";
 import {
   AUCTION_ITEMS,
   AUCTION_MAIL_BODY,
@@ -20,7 +20,7 @@ import { pick, uid } from "@/utils/random";
 import { dateOf } from "./calendar";
 import { hasCertification } from "./certification";
 import { changeFollowers } from "./followers";
-import { clampResource, clampSkill } from "./stats";
+import { clampResource, gainSkill } from "./stats";
 import { GAMING_ATTRIBUTE } from "./steam";
 import { postTweet } from "./tweetSystem";
 
@@ -81,7 +81,7 @@ export const EYE_REWARD_SKILL_GAIN = 250;
 
 /** 스케줄 등록(time.ts를 import하면 time → auction 순환이 생기므로 seasonal.ts처럼 직접 push한다) */
 function pushSchedule(state: GameState, title: string, kind: ScheduleEvent["kind"]): void {
-  state.schedule.push({ id: uid("sch"), day: state.day, title, kind });
+  appendSchedule(state, { id: uid("sch"), day: state.day, title, kind });
 }
 
 /** 오늘이 (1-based month, date)인지 */
@@ -243,10 +243,9 @@ export function resolveEyeDeal(state: GameState, accept: boolean): EyeDealResult
   // 도덕성은 리소스(0~100) — 가득 채운다.
   state.resources.morality = clampResource(100);
 
+  // flat: 진홍안을 넘긴 대가로 약속된 보상(확정 고지·대가 지불). 배율이 걸리면 거래가 손해가 된다.
   const skill = pick(SKILL_STAT_IDS);
-  const before = state.skills[skill];
-  state.skills[skill] = clampSkill(before + EYE_REWARD_SKILL_GAIN);
-  const skillGain = state.skills[skill] - before;
+  const skillGain = gainSkill(state, skill, EYE_REWARD_SKILL_GAIN, { flat: true });
 
   thread?.messages.push({
     id: uid("dmm"),
@@ -331,9 +330,9 @@ export function postConsoleReview(state: GameState, post: boolean): ConsoleRevie
 
   a.consoleReview = "posted";
 
-  const before = state.skills.game;
-  state.skills.game = clampSkill(before + CONSOLE_REVIEW_SKILL_GAIN);
-  const skillGain = state.skills.game - before;
+  // flat: 낙찰받은 게임기를 파고든 결과가 곧 이 리뷰다 — 경매 낙찰금이라는 대가를 이미 치른
+  // 1회성 확정 보상이라 컨디션 배율을 태우지 않는다.
+  const skillGain = gainSkill(state, "game", CONSOLE_REVIEW_SKILL_GAIN, { flat: true });
 
   const { followerDelta } = postTweet(state, GAMING_ATTRIBUTE, CONSOLE_REVIEW_TWEET, false);
 

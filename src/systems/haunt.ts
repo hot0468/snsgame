@@ -1,6 +1,6 @@
 import type { GameState, Tweet } from "@/core/types";
 import { pick, randInt, uid } from "@/utils/random";
-import { clampAction, clampResource, clampSkill } from "./stats";
+import { clampAction, clampResource, gainSkill } from "./stats";
 
 /**
  * '밤에 찾아오는 괴담 계정' — 좋아요를 누르면 그날 심야에 실제로 찾아온다.
@@ -70,7 +70,7 @@ export function resolveHauntVisit(state: GameState): HauntOutcome {
     const lewd = randInt(30, 50);
     const morality = randInt(10, 20);
     const mental = randInt(10, 20);
-    state.skills.lewd = clampSkill(state.skills.lewd + lewd);
+    gainSkill(state, "lewd", lewd);
     state.resources.morality = clampResource(state.resources.morality - morality);
     state.resources.mental = clampResource(state.resources.mental - mental);
     // 성인 공포 서사(호러+에로, 웹소설 수위)

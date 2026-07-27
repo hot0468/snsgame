@@ -1,5 +1,5 @@
 import type { GameState } from "@/core/types";
-import { getActiveAccount } from "@/core/state";
+import { getActiveAccount, appendSchedule } from "@/core/state";
 import { uid } from "@/utils/random";
 import { pushKakao } from "./kakao";
 
@@ -15,7 +15,7 @@ export const STRIKE_BAN_THRESHOLD = 3;
 export const BAN_DAYS = 3;
 
 function pushSchedule(state: GameState, title: string): void {
-  state.schedule.push({ id: uid("sch"), day: state.day, title, kind: "system" });
+  appendSchedule(state, { id: uid("sch"), day: state.day, title, kind: "system" });
 }
 
 /**

@@ -11,7 +11,7 @@ import { getActiveAccount, pushTimeline } from "@/core/state";
 import { randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { salePrice } from "./seasonal";
-import { clampAction, clampResource, clampSkill } from "./stats";
+import { clampAction, clampResource, clampSkill, gainSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 
 /**
@@ -59,7 +59,10 @@ export function buyItem(state: GameState, item: ShopItem): boolean {
   if (!canBuy(state, item)) return false;
   state.money -= effectivePrice(state, item);
   if (item.skill && item.boost) {
-    state.skills[item.skill] = clampSkill(state.skills[item.skill] + item.boost);
+    // flat: 상점에 상승치가 그대로 표기되고(확정 고지) 정가를 이미 지불했다(대가 지불).
+    // 또한 sellOwnedItem이 회수할 때 선언값(boost)을 그대로 빼므로, 지급도 액면이어야
+    // 사고팔기가 대칭이 된다 — 배율이 걸리면 되팔이 때마다 스탯이 순손실된다.
+    gainSkill(state, item.skill, item.boost, { flat: true });
   }
   state.ownedItems.push(item.id);
   return true;

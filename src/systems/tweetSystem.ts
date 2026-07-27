@@ -23,7 +23,7 @@ import { maybeSpawnLingerieDM } from "./lingerie";
 import { maybeSpawnCosplayDM } from "./cosplay";
 import { maybeSpawnPushDM } from "./pushtime";
 import { generateReactions } from "./reactions";
-import { clampAction, clampResource, clampSkill } from "./stats";
+import { clampAction, clampResource, gainSkill } from "./stats";
 import { addStrike } from "./ban";
 import { rollControversy, CONTROVERSY_REP_THRESHOLD } from "./controversy";
 import { gainAffinityFromTweet } from "./relationship";
@@ -39,6 +39,8 @@ export const TWEET_ACTION_COST = 10;
 export const PC_UPGRADE_ACTION_CUT = 1;
 /** 컴퓨터 업그레이드로도 이 밑으로는 안 내려가는 트윗 행동력 하한 */
 export const TWEET_ACTION_MIN = 5;
+/** 아이돌·애니·배우 트윗 1건을 실제로 게시했을 때 선언되는 덕질 획득량(gainSkill 배율 전) */
+export const OTAKU_TWEET_SKILL_GAIN = 3;
 
 /**
  * 지금 이 계정이 트윗 1건 게시에 실제로 쓰는 행동력.
@@ -178,8 +180,10 @@ export function postTweet(
     consumePostSlot(state);
     // 아이돌/애니/배우 트윗을 실제로 게시하면 덕질 스탯이 오른다(무료 게시 제외).
     if (attr === "idol" || attr === "anime" || attr === "actor") {
-      state.skills.otaku = clampSkill(state.skills.otaku + 3);
-      statChanges.push({ label: "덕질", delta: 3 });
+      // ⚠️ statChanges에는 선언값(3)이 아니라 gainSkill이 **실제로 반영한 델타**를 넣는다.
+      //    선언값을 넣으면 컨디션이 나쁠 때 "덕질 +3"으로 예고하고 +1만 오르는 괴리가 생긴다.
+      const otakuDelta = gainSkill(state, "otaku", OTAKU_TWEET_SKILL_GAIN);
+      if (otakuDelta !== 0) statChanges.push({ label: "덕질", delta: otakuDelta });
     }
   }
   changeFollowers(state, followers);
@@ -232,8 +236,9 @@ export function postTweet(
     statChanges.push({ label: "평판", delta: kindEff.reputationDelta });
   }
   if (kindEff.knowledgeDelta !== 0) {
-    state.skills.knowledge = clampSkill(state.skills.knowledge + kindEff.knowledgeDelta);
-    statChanges.push({ label: "지식", delta: kindEff.knowledgeDelta });
+    // 선언값이 아니라 실제 반영 델타를 표시한다(위 덕질과 같은 이유).
+    const knowledgeDelta = gainSkill(state, "knowledge", kindEff.knowledgeDelta);
+    if (knowledgeDelta !== 0) statChanges.push({ label: "지식", delta: knowledgeDelta });
   }
 
   // 평판이 낮거나 성인 트윗은 논란/박제가 터질 수 있다. 자극 성격은 논란 확률이 추가된다.

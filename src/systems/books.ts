@@ -4,7 +4,7 @@ import { BOOK_PRICE_BY_CATEGORY } from "@/data/books";
 import { ATTRIBUTES } from "@/data/attributes";
 import { getActiveAccount } from "@/core/state";
 import { unlockAttribute } from "./attributeUnlock";
-import { clampAction, clampResource, clampSkill } from "./stats";
+import { clampAction, clampResource, gainSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 
 /** 책 한 권 감상에 드는 행동력 */
@@ -42,28 +42,28 @@ export function readBook(
   if (category === "comic" && bookId && !state.seenWorks.includes(bookId)) {
     state.seenWorks.push(bookId);
   }
-  // 공통 상승
-  state.skills.knowledge = clampSkill(state.skills.knowledge + 10);
-  state.skills.vocabulary = clampSkill(state.skills.vocabulary + 10);
+  // 공통 상승 — 반복 육성(독서)이므로 gainSkill 관문을 거쳐 정신력 배율·감쇠를 받는다.
+  gainSkill(state, "knowledge", 10);
+  gainSkill(state, "vocabulary", 10);
   state.resources.mental = clampResource(state.resources.mental + 3);
 
   let extra: string;
   if (category === "culture") {
-    state.skills.knowledge = clampSkill(state.skills.knowledge + 15);
+    gainSkill(state, "knowledge", 15);
     extra = "지식(정보)";
   } else if (category === "novel") {
-    state.skills.vocabulary = clampSkill(state.skills.vocabulary + 15);
+    gainSkill(state, "vocabulary", 15);
     extra = "어휘력";
   } else if (category === "cooking") {
-    state.skills.creativity = clampSkill(state.skills.creativity + 15);
-    state.skills.knowledge = clampSkill(state.skills.knowledge + 5);
+    gainSkill(state, "creativity", 15);
+    gainSkill(state, "knowledge", 5);
     extra = "요리 감각(창작)";
   } else if (category === "adult") {
     // 성인 도서는 음란도를 올린다(성인 활동 계열과 동일 축).
-    state.skills.lewd = clampSkill(state.skills.lewd + 15);
+    gainSkill(state, "lewd", 15);
     extra = "음란";
   } else {
-    state.skills.creativity = clampSkill(state.skills.creativity + 20);
+    gainSkill(state, "creativity", 20);
     extra = "창작";
   }
 

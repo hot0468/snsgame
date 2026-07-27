@@ -1,6 +1,7 @@
 import type { GameContext } from "./context";
 import type { JobPosting } from "@/data/jobs";
-import { submitJobApplication } from "@/systems/employment";
+import { TRACK_LABELS } from "@/data/jobs";
+import { DEFAULT_JOB_TRACK, submitJobApplication } from "@/systems/employment";
 import { dateLabel } from "@/systems/time";
 import { el } from "@/utils/dom";
 import { icon } from "./icons";
@@ -24,6 +25,9 @@ export function renderJobBoardModal(ctx: GameContext, postings: JobPosting[]): H
   }
 
   function renderRow(job: JobPosting): HTMLElement {
+    // 직군 태그 — 어떤 트랙 공고인지 한눈에 보여야 트랙별 역량(운동/뷰티 신설)이 의미를 갖는다.
+    // track 미지정 공고(구 데이터·구세이브)는 기존 동작대로 "office" 취급.
+    const track = job.track ?? DEFAULT_JOB_TRACK;
     return el(
       "div",
       { class: "job-item" },
@@ -34,6 +38,7 @@ export function renderJobBoardModal(ctx: GameContext, postings: JobPosting[]): H
         el(
           "div",
           { class: "job-item__role" },
+          el("span", { class: `job-track job-track--${track}` }, TRACK_LABELS[track]),
           job.role,
           el("span", { class: "job-item__expand" }, "+"),
         ),

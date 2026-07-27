@@ -1,6 +1,6 @@
 import type { GameState, SkillStatId } from "@/core/types";
 import { HOUSINGS, type Housing } from "@/data/housing";
-import { clampSkill } from "./stats";
+import { gainSkill } from "./stats";
 import { addSchedule } from "./time";
 
 /** 현재 주거 */
@@ -31,9 +31,10 @@ export function upgradeHousing(state: GameState): Housing | null {
   state.money -= next.price;
   state.housingTier += 1;
   if (next.permaSkills) {
+    // flat: 집 목록에 영구 상승치가 표기되고(확정 고지) 계약금을 이미 지불했다(대가 지불).
     for (const [skill, amount] of Object.entries(next.permaSkills)) {
       const key = skill as SkillStatId;
-      state.skills[key] = clampSkill(state.skills[key] + (amount ?? 0));
+      gainSkill(state, key, amount ?? 0, { flat: true });
     }
   }
   addSchedule(state, `${next.name} 계약 — 이사 완료`, "system");

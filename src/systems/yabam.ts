@@ -9,7 +9,7 @@ import {
 import { ADULT_KINDS, ADULT_REVIEW_TWEETS } from "@/data/categories/adult";
 import { getActiveAccount } from "@/core/state";
 import { chance, pick } from "@/utils/random";
-import { clampResource, clampSkill } from "./stats";
+import { clampResource, gainSkill } from "./stats";
 import { advanceTime } from "./time";
 import { postTweet } from "./tweetSystem";
 
@@ -32,17 +32,25 @@ export interface YabamVideoResult {
   message: string;
 }
 
+/** 성인영상 1편 감상으로 선언되는 음란도 획득량(실제 지급은 gainSkill 배율·감쇠 후). */
+export const YABAM_VIDEO_LEWD_GAIN = 10;
+
+/** 성인용품 1회 구매로 선언되는 음란도 획득량(플레이버). */
+export const YABAM_PRODUCT_LEWD_GAIN = 5;
+
 /** 성인영상 1편 감상(결제). 음란도·정신력이 오르고 도덕성이 내린다. */
 export function viewYabamVideo(state: GameState, video: YabamVideo): YabamVideoResult | null {
   if (state.money < YABAM_VIDEO_COST) return null;
   state.money -= YABAM_VIDEO_COST;
-  state.skills.lewd = clampSkill(state.skills.lewd + 10);
+  // 반복 감상 육성 — gainSkill 관문(정신력 배율·감쇠)을 거친다.
+  // ⚠️ 문구에는 선언값(10)이 아니라 **실제 반영 델타**를 쓴다.
+  const lewdGain = gainSkill(state, "lewd", YABAM_VIDEO_LEWD_GAIN);
   state.resources.mental = clampResource(state.resources.mental + 5);
   state.resources.morality = clampResource(state.resources.morality - 2);
   // 한 편 감상에 시간 블록 1개를 소모한다(오프라인 활동·근무와 같은 결).
   advanceTime(state, 1);
   return {
-    message: `『${video.title}』을(를) 결제하고 몰래 감상했다. 야밤의 밤은 짧고 뜨겁다. 어느새 시간이 훌쩍 지났다. (음란 +10 · 정신력 +5 · 도덕성 -2)`,
+    message: `『${video.title}』을(를) 결제하고 몰래 감상했다. 야밤의 밤은 짧고 뜨겁다. 어느새 시간이 훌쩍 지났다. (음란 +${lewdGain} · 정신력 +5 · 도덕성 -2)`,
   };
 }
 
@@ -97,9 +105,9 @@ export function buyYabamProduct(state: GameState, product: YabamProduct): YabamB
   if (state.yabamProductsOwned.includes(product.id)) return null;
   state.money -= product.price;
   state.yabamProductsOwned.push(product.id);
-  state.skills.lewd = clampSkill(state.skills.lewd + 5);
+  const lewdGain = gainSkill(state, "lewd", YABAM_PRODUCT_LEWD_GAIN);
   return {
-    message: `『${product.name}』을(를) 은밀하게 주문했다. ${product.effect} (음란 +5)`,
+    message: `『${product.name}』을(를) 은밀하게 주문했다. ${product.effect} (음란 +${lewdGain})`,
   };
 }
 

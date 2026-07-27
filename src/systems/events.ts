@@ -12,7 +12,7 @@ import { getTrendingCategories } from "@/data/trends";
 import { allTemplatesFor } from "@/data/tweets";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { calcTweetOutcome, changeFollowers } from "./followers";
-import { clampAction, clampResource, clampSkill, gainSkill } from "./stats";
+import { clampAction, clampResource, gainSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 import { unlockAttribute } from "./attributeUnlock";
 import { spawnFanDM } from "./dm";
@@ -113,6 +113,19 @@ function counterAttack(state: GameState): string {
   return `괜히 기름을 부었다. 역풍이 거세지며 팔로워가 ${-loss} 빠지고 평판도 더 떨어졌다.`;
 }
 
+/* ─────────────────── 성인 시나리오 확정 지급 음란도 ───────────────────
+ * 아래 세 상수는 서사 규모가 문장으로 이미 확정 고지된 일회성 이벤트의 음란도 지급량이다.
+ * gainSkill에 `{ flat: true }`로 넘겨 정신력 배율·감쇠를 면제한다 — 같은 장면을 읽고도
+ * 컨디션에 따라 +55와 +18로 갈리면 서사와 수치가 어긋나기 때문이다.
+ * (반복 가능한 성인 활동 — 야밤 감상·모텔·야외촬영 등 — 은 면제 대상이 아니다.)
+ */
+/** 고액 후원자 저택 난교(1회성, 이틀 소모) */
+export const WHALE_ORGY_LEWD_GAIN = 45;
+/** 강압/범죄 계열 난교(검정 봉고·벽고) — 두 이벤트가 프로필을 공유한다 */
+export const COERCION_ORGY_LEWD_GAIN = 55;
+/** 크루 합동 훈련(그룹 해금 서사) */
+export const CREW_DRILL_LEWD_GAIN = 40;
+
 /**
  * 야외 노출 촬영 — 적발 리스크가 걸린 도박.
  * 성공하면 아찔한 컷이 터져 팔로워가 크게 늘고, 실패하면 행인에게 걸려 망신·평판 하락.
@@ -133,8 +146,8 @@ export function outdoorShoot(state: GameState): string {
   }
   const gain = Math.round(account.followers * 0.15) + 70;
   changeFollowers(state, gain);
-  state.skills.lewd = clampSkill(state.skills.lewd + 20);
-  state.skills.beauty = clampSkill(state.skills.beauty + 5);
+  gainSkill(state, "lewd", 20);
+  gainSkill(state, "beauty", 5);
   state.resources.morality = clampResource(state.resources.morality - 5);
   return `아무도 없는 틈을 노려 아찔한 컷을 건졌다. 대담한 야외 촬영물이 폭발적으로 퍼지며 팔로워가 +${gain} 늘었다!`;
 }
@@ -161,7 +174,7 @@ function coworkerFollow(state: GameState): string {
       `평판이 크게 떨어졌다.`
     );
   }
-  state.skills.sociability = clampSkill(state.skills.sociability + 20);
+  gainSkill(state, "sociability", 20);
   state.resources.mental = clampResource(state.resources.mental + 3);
   return "동료가 계정을 보고 '오, 잘 관리하시네요' 하며 웃었다. 덕분에 자연스럽게 친해져 친화력이 올랐다.";
 }
@@ -187,7 +200,7 @@ function coinPump(state: GameState): string {
 /** 유료 구독 채널 개설 — 개설 플래그를 켜고 초기 구독자 유입. */
 function openPaidChannel(state: GameState): string {
   state.paidChannelJoined = true;
-  state.skills.lewd = clampSkill(state.skills.lewd + 10);
+  gainSkill(state, "lewd", 10);
   changeFollowers(state, 20);
   addSchedule(state, "유료 구독 채널 개설", "system");
   return "유료 구독 채널을 개설했다. 골수팬들이 하나둘 구독하기 시작했다. 이제 매달 구독 수익이 정산된다.";
@@ -209,7 +222,7 @@ function sponsorDeal(state: GameState): string {
 /** 단체 회식 참석 — 저녁 시간 블록과 정신력을 소모하고 동료와 조금 가까워진다. */
 function companyDinner(state: GameState): string {
   state.resources.mental = clampResource(state.resources.mental - 12);
-  state.skills.sociability = clampSkill(state.skills.sociability + 10);
+  gainSkill(state, "sociability", 10);
   advanceTime(state, 1); // 저녁 시간 블록 소모
   return "억지로 잔을 부딪히다 보니 밤이 깊었다. 시간과 정신력을 쏟았지만 동료들과는 조금 가까워졌다.";
 }
@@ -287,7 +300,9 @@ function taxDodge(state: GameState): string {
  */
 function whaleOrgy(state: GameState): string {
   state.money += 1_000_000;
-  state.skills.lewd = clampSkill(state.skills.lewd + 45);
+  // 시나리오 확정 지급(flat) — 서사가 "이틀간의 난교"라는 규모를 이미 확정 고지했고 대가(도덕·정신·이틀)도
+  // 함께 치렀다. 여기에 정신력 배율이 걸리면 같은 서사를 읽고도 +18만 오르는 괴리가 생긴다.
+  gainSkill(state, "lewd", WHALE_ORGY_LEWD_GAIN, { flat: true });
   state.resources.morality = clampResource(state.resources.morality - 18);
   state.resources.mental = clampResource(state.resources.mental - 8);
   getActiveAccount(state).groupUnlocked = true;
@@ -326,7 +341,8 @@ function whaleOrgy(state: GameState): string {
  * 봉고와 같은 강압/범죄 계열이라 effect 프로필·해금(groupUnlocked)을 동일하게 맞춘다.
  */
 export function wallHoleOrgy(state: GameState): string {
-  state.skills.lewd = clampSkill(state.skills.lewd + 55);
+  // 시나리오 확정 지급(flat) — whaleOrgy와 동일 근거.
+  gainSkill(state, "lewd", COERCION_ORGY_LEWD_GAIN, { flat: true });
   state.resources.morality = clampResource(state.resources.morality - 16);
   state.resources.mental = clampResource(state.resources.mental - 14);
   state.resources.reputation = clampResource(state.resources.reputation - 4);
@@ -348,7 +364,8 @@ export function wallHoleOrgy(state: GameState): string {
 }
 
 export function blackVanOrgy(state: GameState): string {
-  state.skills.lewd = clampSkill(state.skills.lewd + 55);
+  // 시나리오 확정 지급(flat) — wallHoleOrgy와 같은 강압/범죄 계열이라 프로필을 맞춘다.
+  gainSkill(state, "lewd", COERCION_ORGY_LEWD_GAIN, { flat: true });
   state.resources.morality = clampResource(state.resources.morality - 16);
   state.resources.mental = clampResource(state.resources.mental - 14);
   state.resources.reputation = clampResource(state.resources.reputation - 4);
@@ -378,8 +395,9 @@ export function blackVanOrgy(state: GameState): string {
  * 음란·친화 상승, 정신·도덕 소모. 그룹 해금 유지/강화.
  */
 function crewGangDrill(state: GameState): string {
-  state.skills.lewd = clampSkill(state.skills.lewd + 40);
-  state.skills.sociability = clampSkill(state.skills.sociability + 15);
+  // 시나리오 확정 지급(flat) — 그룹 해금이 걸린 일회성 서사 이벤트.
+  gainSkill(state, "lewd", CREW_DRILL_LEWD_GAIN, { flat: true });
+  gainSkill(state, "sociability", 15, { flat: true });
   state.resources.morality = clampResource(state.resources.morality - 12);
   state.resources.mental = clampResource(state.resources.mental - 8);
   changeFollowers(state, 55);

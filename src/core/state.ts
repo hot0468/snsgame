@@ -5,6 +5,7 @@ import type {
   GameState,
   LabState,
   PlayerAccount,
+  ScheduleEvent,
   Tweet,
 } from "./types";
 import { uid } from "@/utils/random";
@@ -182,7 +183,8 @@ export function createInitialState(): GameState {
     cheats: createInitialCheats(),
     schedule: [],
     activeGigs: [],
-    partTimeCount: 0,
+    // 알바별 누적 횟수. 새 게임은 전부 미경험이라 빈 객체(키 부재 = 0회)에서 시작한다.
+    partTimeCounts: {},
     kakao: [],
     workMsgs: [],
     lastRentReminderDay: -1,
@@ -337,6 +339,33 @@ export function pushTimeline(account: PlayerAccount, tweet: Tweet): void {
   account.timeline.unshift(tweet);
   account.postCount++;
   if (account.timeline.length > TIMELINE_MAX) account.timeline.length = TIMELINE_MAX;
+}
+
+/**
+ * 활동 기록(schedule) 보관 상한. 타임라인과 같은 이유의 누적 절벽 방어다.
+ *
+ * schedule은 12개 모듈이 각자 push하는데(순환 import를 피하려 addSchedule을 모듈마다 복제),
+ * 상한이 없어 250일 플레이 기준 **750건·49KB로 세이브의 84%**를 차지했다. 게다가 현재
+ * 이 배열을 **읽는 곳이 없다**(ui·systems 통틀어 조회 0건) — 순수 적재만 되는 상태다.
+ *
+ * 지우지 않고 상한만 두는 이유: '활동 로그' 자체는 나중에 화면에 붙일 여지가 있고,
+ * 필드를 없애면 타입·세이브가 함께 흔들린다. 최신 N건만 남기면 둘 다 피한다.
+ */
+export const SCHEDULE_MAX = 100;
+
+/**
+ * 활동 기록을 추가하고 상한을 넘으면 **가장 오래된 것부터** 잘라낸다.
+ * **새 기록 경로는 반드시 이 헬퍼를 거쳐라** — `state.schedule.push`를 직접 부르면
+ * 상한이 무효가 되어 누적 절벽이 되살아난다(`pushTimeline`과 같은 규칙).
+ *
+ * ⚠️ core에 두는 이유: systems 12곳이 전부 import해야 하는데 `time.ts`에 두면 순환 import가 난다.
+ *    그래서 각 모듈이 addSchedule을 복제하고 있었고, 그게 상한을 한 곳에 걸 수 없던 원인이다.
+ */
+export function appendSchedule(state: GameState, ev: ScheduleEvent): void {
+  state.schedule.push(ev);
+  if (state.schedule.length > SCHEDULE_MAX) {
+    state.schedule.splice(0, state.schedule.length - SCHEDULE_MAX);
+  }
 }
 
 /**

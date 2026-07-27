@@ -380,6 +380,23 @@ body {
   margin-top: 2px;
 }
 
+/* 아르바이트 숙련도 힌트("다음 인상까지 N회" / "최고 시급 도달") — 델타와 구분되는 보조 정보라 무채색 */
+.life-item__hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/**
+ * 감소분(반대급부·비용)은 하락색으로 구분한다.
+ * ⚠️ 이게 없으면 `.life-item__delta`/`.life-result__delta`의 초록이 줄 전체를 덮어
+ *    `지식 -2`가 `정신력 +12`와 같은 색으로 보인다 — 플레이어가 감소를 이득으로 오인한다.
+ */
+.life-item__delta .delta--down,
+.life-result__delta .delta--down {
+  color: var(--danger);
+}
+
 /* 현생살기 결과 화면 */
 .life-result__flavor {
   font-size: 16px;
@@ -407,6 +424,35 @@ body {
   color: var(--accent);
   font-weight: 700;
   margin: 8px 0 0;
+}
+
+/* ⑤ 컨디션 판정 배지(펫·크리처 조우 결과 화면 전용) — sys-notice__grade와 같은 톤 규칙. */
+.life-result__grade {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.life-result__grade--fail {
+  background: rgba(224, 36, 94, 0.12);
+  color: var(--danger);
+}
+.life-result__grade--fail::before {
+  content: "▼";
+  font-size: 10px;
+}
+.life-result__grade--great {
+  background: rgba(255, 179, 0, 0.16);
+  color: #b5860a;
+}
+.life-result__grade--great::before {
+  content: "★";
+  font-size: 11px;
 }
 
 /* 돈·스탯 하락 시 2초 빨간 플래시. 노드가 매 렌더 새로 생성되므로 클래스만 붙으면 재생된다. */
@@ -5622,6 +5668,10 @@ body {
 .bar__fill--skill {
   background: var(--accent-grad-soft);
 }
+/* 반대급부 스탯 감소(음수 skillDeltas) — 스킬 바라도 하락색으로 구분해 "조용히 깎임"을 눈에 띄게 한다 */
+.bar__fill--skilldown {
+  background: var(--danger);
+}
 
 /* ---- 스테이터스 도킹 패널 ---- */
 .status-dock {
@@ -5786,15 +5836,38 @@ body {
 }
 
 /* 스탯 마일스톤 칭호 배지. 2열 확대 그리드에서 칭호 전문이 보이도록 안 줄인다(bar가 대신 줄어듦). */
+/**
+ * 마일스톤 등급 배지(B/A/S/SS).
+ * 긴 칭호 대신 짧은 등급을 담으므로 **고정폭 칩**으로 만들어 스탯끼리 세로로 각이 맞게 한다
+ * (가변폭이면 등급마다 너비가 달라 목록이 들쭉날쭉해진다).
+ */
 .detail-row__badge {
   flex-shrink: 0;
   white-space: nowrap;
-  padding: 1px 6px;
+  min-width: 22px;
+  padding: 1px 5px;
   font-size: 10px;
-  font-weight: 700;
-  border-radius: 8px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-align: center;
+  border-radius: 6px;
   background: var(--accent-grad);
   color: #fff;
+}
+
+/* 등급이 올라갈수록 눈에 띄게 — B(무채색) → A(파랑) → S(보라) → SS(금색) */
+.detail-row__badge--tier0 {
+  background: #8899a6;
+}
+.detail-row__badge--tier1 {
+  background: var(--accent);
+}
+.detail-row__badge--tier2 {
+  background: linear-gradient(135deg, #7856ff, #b14aed);
+}
+.detail-row__badge--tier3 {
+  background: linear-gradient(135deg, #f7b733, #fc7b1e);
+  box-shadow: 0 0 6px rgba(247, 183, 51, 0.55);
 }
 
 /* 음란(lewd)은 3열 그리드에서 빼 별도 전폭 행으로 분리하고 빨간색으로 강조한다 */
@@ -6257,6 +6330,38 @@ body {
   font-weight: 600;
   color: var(--sys);
 }
+/* ⑤ 컨디션 판정 배지(fail/great) — 문구는 message가 이미 담당, 여기선 색·아이콘 연출만. */
+.sys-notice__grade {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 10px;
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.sys-notice__grade--fail {
+  background: rgba(224, 36, 94, 0.12);
+  color: var(--danger);
+}
+.sys-notice__grade--fail::before {
+  content: "▼";
+  font-size: 10px;
+}
+.sys-notice__grade--great {
+  background: rgba(255, 179, 0, 0.16);
+  color: #b5860a;
+}
+.sys-notice__grade--great::before {
+  content: "★";
+  font-size: 11px;
+}
+/* 대성공 카드는 살짝 금빛 테두리로 강조(톤 자체는 good/bad 유지 — 배지가 등급을 담당) */
+.modal.sys-notice--grade-great {
+  box-shadow: 0 0 0 3px rgba(255, 195, 0, 0.55), 0 16px 44px rgba(0, 0, 0, 0.3);
+}
 /* 프메식 스탯바 묶음 — 변화한 핵심 스탯을 도크 바와 같은 색으로 보여준다 */
 .sys-notice__stats {
   margin: 14px 0 2px;
@@ -6430,6 +6535,30 @@ body {
 .life-tabs {
   border-bottom: 1px solid var(--border);
   margin: 4px 0 14px;
+}
+
+/* ③⑤ 컨디션(정신력) 배너 — 육성 효율·실패/대성공 확률을 한눈에. 정신력이 육성의 단일 축임을 여기서 학습시킨다. */
+.cond-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 10px 0 14px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.cond-banner__item b {
+  font-weight: 800;
+  color: var(--text);
+}
+.cond-banner__eff--up {
+  color: var(--good);
+}
+.cond-banner__eff--down {
+  color: var(--danger);
 }
 
 .offline-grid {
@@ -7344,6 +7473,25 @@ body {
   background: #f59e0b;
 }
 
+/* 직군(트랙) 태그 — job-tier와 같은 알약 배지 패턴, 색은 트랙 3종을 구분만 하면 되므로 별도 팔레트. */
+.job-track {
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  color: #fff;
+}
+.job-track--office {
+  background: #64748b;
+}
+.job-track--fitness {
+  background: #16a34a;
+}
+.job-track--beauty {
+  background: #ec4899;
+}
+
 .job-item__role {
   font-size: 13px;
   color: var(--text-muted);
@@ -7554,7 +7702,23 @@ body {
 .jobplanet-info__view { padding: 7px 14px; font-size: 12.5px; }
 .jobplanet-info__revealed { font-size: 13px; line-height: 1.6; }
 .jobplanet-info__revealed b { color: var(--accent); }
-.jobplanet-info__stats { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; }
+/* 트랙별(사무/운동/뷰티) 내 역량·합격 확률 3줄 — 회사 디렉터리는 트랙을 모르므로 3개를 나란히 보여준다. */
+.jobplanet-info__tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 6px;
+}
+.jobplanet-info__track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.jobplanet-info__track b {
+  color: var(--accent);
+}
 
 /* 직플래닛 브라우저 오버레이 사이트(잡플래닛 스타일) */
 .jp-site {

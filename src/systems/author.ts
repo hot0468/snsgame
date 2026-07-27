@@ -1,5 +1,5 @@
 import type { AuthorContract, DMThread, GameState, PlayerAccount, ScheduleEvent } from "@/core/types";
-import { getActiveAccount } from "@/core/state";
+import { getActiveAccount, appendSchedule } from "@/core/state";
 import { chance, pick, uid } from "@/utils/random";
 import { dateOfMonth, monthKey } from "./calendar";
 import { totalFollowers } from "./economy";
@@ -28,7 +28,7 @@ export const AUTHOR_FOLLOWER_RATE = 1;
 export const AUTHOR_MAX_MISS = 3;
 
 function pushSchedule(state: GameState, title: string, kind: ScheduleEvent["kind"]): void {
-  state.schedule.push({ id: uid("sch"), day: state.day, title, kind });
+  appendSchedule(state, { id: uid("sch"), day: state.day, title, kind });
 }
 
 function won(n: number): string {

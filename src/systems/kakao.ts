@@ -27,7 +27,34 @@ export function pushKakao(
     reply: opts.reply,
   };
   state.kakao.push(thread);
+  trimKakao(state);
   return thread;
+}
+
+/**
+ * 카톡 보관 상한. schedule·timeline과 같은 이유의 누적 절벽 방어다
+ * (상한이 없을 때 250일 플레이 기준 250스레드·40KB까지 자랐다).
+ */
+export const KAKAO_MAX = 60;
+
+/**
+ * 상한을 넘으면 **오래된 것부터** 잘라낸다.
+ *
+ * ⚠️ **안 읽은(unread) 스레드와 토스트 대기(toastPending) 중인 스레드는 지우지 않는다.**
+ *    플레이어가 아직 보지 못한 알림을 조용히 날리면 월세 독촉·이벤트 제안 같은 게
+ *    통째로 사라져 진행이 막힌다. 읽은 것부터 오래된 순으로만 지운다.
+ *    (전부 미읽음이면 상한을 넘겨서라도 남긴다 — 유실보다 낫다.)
+ */
+function trimKakao(state: GameState): void {
+  let over = state.kakao.length - KAKAO_MAX;
+  if (over <= 0) return;
+  state.kakao = state.kakao.filter((t) => {
+    if (over > 0 && !t.unread && !t.toastPending) {
+      over--;
+      return false;
+    }
+    return true;
+  });
 }
 
 /** 안 읽은 카톡 수 */

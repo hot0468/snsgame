@@ -2,7 +2,7 @@ import type { GameState, SkillStatId, Tweet } from "@/core/types";
 import { getActiveAccount } from "@/core/state";
 import { SKILL_STATS } from "@/data/stats";
 import { chance, pick, randInt, uid } from "@/utils/random";
-import { clampSkill } from "./stats";
+import { gainSkill } from "./stats";
 
 /**
  * '불법 스탯 부스트상' — 좋아요를 누르면 DM으로 링크가 오고, 뒷거래로 스탯을 사려다
@@ -94,8 +94,10 @@ export interface BoostResult {
 export function resolveBoostDeal(state: GameState, stat: SkillStatId): BoostResult {
   state.money -= BOOST_COST;
   if (chance(BOOST_SUCCESS_CHANCE)) {
-    const gain = randInt(150, 250);
-    state.skills[stat] = clampSkill(state.skills[stat] + gain);
+    // flat: 30만원을 이미 지불했고 "확 올려드립니다"라는 확정 지급 거래다. 노력 없는 지름길이라
+    // 컨디션(정신력)과 무관하다는 것이 이 뒷거래의 성격이기도 하다.
+    // ⚠️ 문구에는 선언값이 아니라 실제 반영 델타를 쓴다(999 상한에 잘린 만큼도 반영된다).
+    const gain = gainSkill(state, stat, randInt(150, 250), { flat: true });
     // 성공 서사
     return {
       message: `거래 성공! 다음 날 아침, 정말로 ${SKILL_STATS[stat].label}이(가) ${gain}이나 뛰어 있었다. 어떻게 한 건지는 묻지 않기로 했다.`,

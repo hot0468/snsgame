@@ -7,8 +7,8 @@ import { avSalaryOf, canWorkAvNow, AV_MONTHLY_QUOTA } from "@/systems/avJob";
 import { certById } from "@/systems/certification";
 import { actionMax } from "@/systems/stats";
 import type { SkillStatId } from "@/core/types";
-import { highestMilestoneTier } from "@/systems/milestones";
-import { MILESTONE_TITLES } from "@/data/milestones";
+import { highestMilestoneTier, unlockedPerks, MILESTONE_PERKS } from "@/systems/milestones";
+import { MILESTONE_TITLES, milestoneGrade } from "@/data/milestones";
 import { SLOT_LABELS } from "@/core/state";
 import { dateLabel, weekdayLabel } from "@/systems/time";
 import { el, formatNumber } from "@/utils/dom";
@@ -232,6 +232,53 @@ function renderCertSection(s: import("@/core/types").GameState): HTMLElement {
   );
 }
 
+/**
+ * ④ 마일스톤 해금 퍼크 섹션 — 세부 스탯 팝오버 하단(자격증 위)에 둔다.
+ * 퍼크는 state에 별도 필드가 없다(statMilestones 개수에서 파생 — milestones.ts 주석 참조).
+ * 그래서 여기서도 저장된 값을 읽지 않고 매번 unlockedPerks(state)로 조회한다.
+ */
+function renderPerksSection(s: import("@/core/types").GameState): HTMLElement {
+  const unlocked = unlockedPerks(s);
+  const n = s.statMilestones.length;
+  const next = MILESTONE_PERKS.find((p) => p.at > n);
+
+  return el(
+    "div",
+    { class: "detail-cert" },
+    el(
+      "div",
+      { class: "detail-cert__head" },
+      el("span", { class: "detail-stats__title" }, "육성 퍼크"),
+      el("span", { class: "detail-cert__count" }, `마일스톤 ${n}개 달성`),
+    ),
+    unlocked.length === 0
+      ? el("div", { class: "detail-cert__empty" }, "아직 해금한 퍼크가 없습니다")
+      : el(
+          "div",
+          { class: "detail-cert__list" },
+          ...unlocked.map((p) =>
+            el(
+              "div",
+              { class: "detail-cert__item", title: p.desc },
+              el("span", { class: "detail-cert__dot" }),
+              el(
+                "span",
+                { class: "detail-cert__name" },
+                `${p.label} — ${p.desc}`,
+              ),
+            ),
+          ),
+        ),
+    next
+      ? el(
+          "div",
+          { class: "detail-cert__empty" },
+          `다음 퍼크까지 마일스톤 ${next.at - n}개 (${next.label})`,
+        )
+      : null,
+  );
+}
+
 /** 세부 스탯 한 줄(아이콘·라벨·바·수치). extraClass로 음란 행을 빨갛게 강조한다. */
 function detailStatRow(
   s: import("@/core/types").GameState,
@@ -256,14 +303,25 @@ function detailStatRow(
   );
 }
 
-/** 해당 스킬의 최고 칭호 배지(없으면 빈 배열). */
+/**
+ * 해당 스킬의 최고 등급 배지(없으면 빈 배열).
+ * 목록에서 스탯끼리 한눈에 비교돼야 하므로 서사 칭호가 아니라 **등급 기호**를 쓴다
+ * (칭호는 달성 토스트가 담당 — `MILESTONE_GRADES` 주석 참조).
+ */
 function milestoneBadge(
   s: import("@/core/types").GameState,
   id: SkillStatId,
 ): HTMLElement[] {
   const tier = highestMilestoneTier(s, id);
-  if (tier < 0) return [];
-  return [el("span", { class: "detail-row__badge" }, MILESTONE_TITLES[id][tier])];
+  const grade = milestoneGrade(tier);
+  if (!grade) return [];
+  return [
+    el(
+      "span",
+      { class: `detail-row__badge detail-row__badge--tier${tier}`, title: MILESTONE_TITLES[id][tier] },
+      grade,
+    ),
+  ];
 }
 
 /** 스테이터스 내용(제목 + 본문) — 팝업/도킹 패널이 공유한다. */
@@ -313,6 +371,8 @@ function statusInner(ctx: GameContext): HTMLElement[] {
         ),
         // 음란은 그리드에서 빼 별도 행으로 분리하고 빨간색으로 강조한다. 성인물 보기 OFF면 숨긴다.
         s.adultMode ? detailStatRow(s, "lewd", "detail-row--lewd") : null,
+        // ④ 마일스톤 해금 퍼크 — claimed 개수에서 파생 조회(unlockedPerks). 자격증 섹션 위.
+        renderPerksSection(s),
         renderCertSection(s),
       )
     : null;

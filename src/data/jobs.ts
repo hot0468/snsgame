@@ -1,4 +1,4 @@
-import type { CompanyTier } from "@/core/types";
+import type { CompanyTier, JobTrack } from "@/core/types";
 import { pick, randInt, sample, uid } from "@/utils/random";
 
 /** 회사 등급별 표시 정보 */
@@ -38,12 +38,29 @@ export const TIERS: Record<CompanyTier, TierDef> = {
 /** 등급 순서(약→강) */
 export const TIER_ORDER: CompanyTier[] = ["micro", "small", "medium", "large"];
 
+/**
+ * 직군(트랙) 표시 라벨. UI가 공고 태그를 그릴 때 쓴다.
+ * ⚠️ `JobTrack`(core/types)에 값을 추가하면 여기와 systems/employment의 `TRACK_WEIGHTS`를
+ *    **반드시 함께** 채워라. 둘 다 `Record<JobTrack, ...>`이라 typecheck가 누락을 잡는다.
+ */
+export const TRACK_LABELS: Record<JobTrack, string> = {
+  office: "사무",
+  fitness: "운동",
+  beauty: "뷰티",
+};
+
 /** 하나의 채용공고 */
 export interface JobPosting {
   id: string;
   company: string;
   tier: CompanyTier;
   role: string;
+  /**
+   * 직군. 합격 판정 스탯이 이 값으로 갈린다(systems/employment.competence).
+   * **선택 필드**인 건 의도다 — 생략 시 `"office"`(기존 사무직 공식)로 취급된다.
+   * 덕분에 기존 공고 데이터·구세이브·외부 호출부가 손대지 않아도 종전 동작을 유지한다.
+   */
+  track?: JobTrack;
   /** 근무요일 */
   workDays: string;
   /** 근무시간 */
@@ -67,36 +84,61 @@ const NAME_B: Record<CompanyTier, string[]> = {
   large: ["그룹", "전자", "물산", "바이오", "인터내셔널"],
 };
 
-const ROLES: Record<CompanyTier, string[]> = {
+/**
+ * 공고 원형. `track` 생략 시 사무직 취급(JobPosting.track 주석과 동일 규칙) — 기존 사무 공고
+ * 20개는 문자열에서 `{ role }`로 감싸기만 했을 뿐 의미 변화가 없다.
+ */
+interface RoleDef {
+  role: string;
+  track?: JobTrack;
+}
+
+const ROLES: Record<CompanyTier, RoleDef[]> = {
   micro: [
-    "닭·오리 가공 성실하게 하실 분 급구 (당일 현금지급)",
-    "편의점 야간 파트타이머 모집 (초보 환영, 경력무관)",
-    "물류센터 상하차 단기 알바 모집합니다",
-    "카페 주말 홀서빙 구해요 (성실하신 분)",
-    "전단지 배포·부착 도우미 (일당 지급)",
-    "포장·검수 단순 작업 도와주실 분 구합니다",
+    { role: "닭·오리 가공 성실하게 하실 분 급구 (당일 현금지급)" },
+    { role: "편의점 야간 파트타이머 모집 (초보 환영, 경력무관)" },
+    { role: "물류센터 상하차 단기 알바 모집합니다" },
+    { role: "카페 주말 홀서빙 구해요 (성실하신 분)" },
+    { role: "전단지 배포·부착 도우미 (일당 지급)" },
+    { role: "포장·검수 단순 작업 도와주실 분 구합니다" },
+    { role: "동네 헬스장 카운터 겸 청소 알바 구함 (PT 배우고 싶은 분 우대)", track: "fitness" },
+    { role: "수영장 안전요원 단기 알바 모집 (구조자격증 없어도 지원 가능)", track: "fitness" },
+    { role: "동네 미용실 스태프 구함 (샴푸·청소부터 배웁니다)", track: "beauty" },
+    { role: "네일샵 데스크 겸 보조 모집 (손 야무진 분 급구)", track: "beauty" },
   ],
   small: [
-    "고객지원(CS) 사원 채용 (정규직 전환 가능)",
-    "온라인 쇼핑몰 운영·CS 사원 모집",
-    "홈인테리어 설치/배송 전문가 양성 2기 모집",
-    "SNS 마케팅 어시스턴트 채용 (신입 가능)",
-    "사무보조·경리 직원 채용합니다",
-    "물류·재고 관리 운영 사원 모집",
+    { role: "고객지원(CS) 사원 채용 (정규직 전환 가능)" },
+    { role: "온라인 쇼핑몰 운영·CS 사원 모집" },
+    { role: "홈인테리어 설치/배송 전문가 양성 2기 모집" },
+    { role: "SNS 마케팅 어시스턴트 채용 (신입 가능)" },
+    { role: "사무보조·경리 직원 채용합니다" },
+    { role: "물류·재고 관리 운영 사원 모집" },
+    { role: "필라테스 강사 채용 (자격증 소지자 우대, 무경력 교육 가능)", track: "fitness" },
+    { role: "동네 헬스클럽 PT 트레이너 모집 (회원 유치 인센티브 지급)", track: "fitness" },
+    { role: "피부관리샵 에스테티션 채용 (신입 교육 후 배치)", track: "beauty" },
+    { role: "메이크업숍 디자이너 채용 (웨딩·촬영 메이크업 위주)", track: "beauty" },
   ],
   medium: [
-    "콘텐츠 마케팅 매니저 채용 (경력 2년↑)",
-    "영업관리 대리급 채용 (인센티브 별도 지급)",
-    "데이터 운영 담당자 채용 (경력직 우대)",
-    "온라인 MD·상품기획 담당자 채용",
-    "고객경험(CX) 기획 담당자 모집",
+    { role: "콘텐츠 마케팅 매니저 채용 (경력 2년↑)" },
+    { role: "영업관리 대리급 채용 (인센티브 별도 지급)" },
+    { role: "데이터 운영 담당자 채용 (경력직 우대)" },
+    { role: "온라인 MD·상품기획 담당자 채용" },
+    { role: "고객경험(CX) 기획 담당자 모집" },
+    { role: "프랜차이즈 스포츠센터 수영강사 채용 (자격증 필수)", track: "fitness" },
+    { role: "종합피트니스 트레이닝팀 팀장급 채용 (회원관리 경력 우대)", track: "fitness" },
+    { role: "체인 에스테틱 브랜드 수석 매니저 채용 (VIP 고객 전담)", track: "beauty" },
+    { role: "뷰티 브랜드 헤어디자이너 채용 (경력 3년↑, 지도 가능자 우대)", track: "beauty" },
   ],
   large: [
-    "2026 상반기 신입 공채 — 전략기획 부문",
-    "브랜드 마케터 신입사원 채용",
-    "R&D 연구개발 신입사원 모집 (석·박사 우대)",
-    "경영지원 신입 공채 (인사/재무)",
-    "글로벌 영업 신입 공채",
+    { role: "2026 상반기 신입 공채 — 전략기획 부문" },
+    { role: "브랜드 마케터 신입사원 채용" },
+    { role: "R&D 연구개발 신입사원 모집 (석·박사 우대)" },
+    { role: "경영지원 신입 공채 (인사/재무)" },
+    { role: "글로벌 영업 신입 공채" },
+    { role: "프랜차이즈 피트니스 본사 트레이닝팀 정규직 채용 (전국 지점 교육 총괄)", track: "fitness" },
+    { role: "글로벌 스포츠 브랜드 앰버서더 트레이너 채용 (모델 겸 강사)", track: "fitness" },
+    { role: "글로벌 뷰티 브랜드 본사 아티스트 채용 (신제품 메이크업 총괄)", track: "beauty" },
+    { role: "대형 프랜차이즈 헤어그룹 수석 디렉터 채용 (전국 매장 트렌드 총괄)", track: "beauty" },
   ],
 };
 
@@ -117,11 +159,13 @@ function makeSalary(): SalaryInfo {
 function makePosting(tier: CompanyTier, currentDay: number): JobPosting {
   const company = `${pick(NAME_A)}${pick(NAME_B[tier])}`;
   const salary = makeSalary();
+  const roleDef = pick(ROLES[tier]);
   return {
     id: uid("job"),
     company,
     tier,
-    role: pick(ROLES[tier]),
+    role: roleDef.role,
+    track: roleDef.track,
     workDays: "월~금",
     workHours: "09:00~18:00",
     salaryType: salary.salaryType,

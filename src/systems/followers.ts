@@ -17,8 +17,14 @@ import { checkWin } from "./winEnding";
  *   전환율에 스킬 곱하던 시절 — 스킬 0: 5985일 / 300: 1193일 / 999: 103일 (격차 58배).
  *   스킬을 skillMul에만 남긴 뒤(격차 8배) + 오목곡선(SKILL_CURVE_EXP=0.6) 적용 현재값:
  *     스킬 0: ~1230일 / 300: ~270일 / 600: ~190일 / 999: ~145일 (기본집).
- *     좋은 집(행동력 회복 보너스)이면 600 기준 ~130일. 행동력(트윗당 10·일 회복 30)이 병목이라
- *     지속 ~3트윗/일이다. 실전은 육성·생활에 행동력을 나눠 써 더 느리되, 스킬 성장·트렌드·
+ *   ⚠️ 위 수치는 **모든 연계 스탯이 같은 값**인 균형형 기준이다. 최고 스탯 가중
+ *      (SKILL_MAX_WEIGHT=0.7 · SKILL_MUL_SPAN 2.2→1.9 보정) 도입 후 균형형은 +12~14% 느려지고
+ *      특화형은 그대로다 — 프로필별 실측 표는 SKILL_MUL_SPAN 주석에 있다.
+ *     좋은 집(행동력 회복 보너스)이면 600 기준 ~130일. 행동력(트윗당 10)이 병목이다.
+ *     ⚠️ 위 도달일 추정은 **일 회복 30이던 시절(지속 ~3트윗/일)** 기준이다.
+ *        이후 `SLEEP_ACTION_RECOVER`가 45로 올라(슬롯당 평균 22.5) 이론상 ~4.5트윗/일이 되므로
+ *        상한 속도는 그만큼 빨라진다 — 회복량을 다시 조정하면 이 표도 함께 재측정하라.
+ *     실전은 육성·생활에 행동력을 나눠 써 더 느리되, 스킬 성장·트렌드·
  *     이벤트 보너스가 중반을 당긴다 → 집중 육성 시 체감 4~8개월(150~250 게임일).
  * 스킬은 skillMul에만 남는다. 그래야 집·평판·궁합·트렌드가 의미를 갖는다.
  */
@@ -33,6 +39,64 @@ export const TWEET_CONV_RATE = 0.32;
  * 만렙까지의 체감 시간이 짧아진다. 진행 속도가 빠르다 싶으면 이 값을 1쪽으로.
  */
 export const SKILL_CURVE_EXP = 0.6;
+
+/**
+ * 연계 스탯 점수에서 **최고 스탯**이 차지하는 비중(나머지는 평균).
+ * `skillScore = max * SKILL_MAX_WEIGHT + avg * (1 - SKILL_MAX_WEIGHT)`
+ *
+ * ⚠️ 예전엔 순수 평균이었다. 그래서 `daily`(친화력+어휘력)에 친화력만 999를 찍으면
+ * skillAvg가 499.5로 반토막 나 **특화가 오히려 손해**였다 — 육성게임에서 배분을 고민할
+ * 이유를 없애는 구조적 결함이었다. 최고 스탯에 가중을 실어 "한 우물을 파도 보상받는다"로 뒤집는다.
+ *   0 = 옛 순수 평균 · 1 = 최고 스탯만(부스탯이 완전히 무의미해짐).
+ * 0.7은 부스탯을 30%만 남겨 "주력을 밀되 부스탯도 버리진 않는" 배분을 유도한다.
+ *
+ * ⚠️ 이 값을 올리면 특화 유저의 skillScore 입력값이 통째로 올라가므로
+ *    **SKILL_MUL_SPAN을 함께 낮춰 진행 속도를 상쇄해야 한다**(아래 주석의 실측 표 참조).
+ */
+export const SKILL_MAX_WEIGHT = 0.7;
+
+/**
+ * skillMul의 진폭(스킬 0 → SKILL_MUL_BASE배, 999 → BASE+SPAN배).
+ *
+ * **SKILL_MAX_WEIGHT 도입에 따른 속도 보정치.** 옛 순수 평균 시절엔 2.2였으나,
+ * 최고 스탯 가중이 특화 유저의 skillScore를 크게 밀어올려 게임이 짧아지므로 1.9로 낮췄다.
+ *
+ * 측정(궁합최적·평판100·지속 3트윗/일 = TWEET_CONV_RATE 주석과 동일 조건, 100만 도달일).
+ * `avg/2.2`(구) → `max0.7+avg0.3 / 1.9`(신):
+ *   현실 특화형 주력450·부200 — 286 → 280일 (-2%)
+ *   현실 특화형 주력800·부350 — 216 → 213일 (-1%)
+ *   초반       주력150·부70  — 456 → 457일 (+0%)
+ *   균형형     350/350       — 271 → 306일 (+13%)
+ *   균형형     600/600       — 210 → 236일 (+12%)
+ *   균형 만렙  999/999       — 161 → 183일 (+14%)
+ *   극단 특화  999/0         — 233 → 196일 (-16%)
+ * 즉 **특화 유저의 총 진행 속도는 그대로 두고**(±2%), 만능형이 상대적으로 느려지는 것으로만
+ * 특화의 이점을 표현한다. 부스탯을 완전히 버린 999/0은 자연 플레이에서 나오지 않는 극단값이다.
+ * 계수를 1.8까지 낮추면 특화형도 함께 느려져(+2%) '속도 유지'가 깨진다 — 낮추지 마라.
+ */
+export const SKILL_MUL_SPAN = 1.9;
+
+/** skillMul의 하한(스킬 0일 때의 배율). 최고 스탯 가중과 무관한 고정 바닥. */
+export const SKILL_MUL_BASE = 0.3;
+
+/**
+ * 트윗 연계 스탯 점수(0~999). 최고 스탯에 SKILL_MAX_WEIGHT만큼 가중을 싣는다.
+ * 순수 평균이 아니라 이 함수를 쓰는 이유는 SKILL_MAX_WEIGHT 주석 참조.
+ * UI가 "이 트윗에 내 어떤 스탯이 얼마나 먹히는지" 표시할 때도 이 함수를 써야 계산과 일치한다.
+ */
+export function relatedSkillScore(state: GameState, attr: AttributeId): number {
+  const rel = ATTRIBUTES[attr].relatedSkills;
+  if (rel.length === 0) return 0;
+  let sum = 0;
+  let max = 0;
+  for (const s of rel) {
+    const v = state.skills[s];
+    sum += v;
+    if (v > max) max = v;
+  }
+  const avg = sum / rel.length;
+  return max * SKILL_MAX_WEIGHT + avg * (1 - SKILL_MAX_WEIGHT);
+}
 
 export interface TweetOutcome {
   likes: number;
@@ -86,22 +150,21 @@ export function calcTweetOutcome(
   kind: TweetKind = "plain",
 ): TweetOutcome {
   const eff = TWEET_KIND_EFFECTS[kind];
-  const def = ATTRIBUTES[attr];
-  const skillAvg =
-    def.relatedSkills.reduce((sum, s) => sum + state.skills[s], 0) /
-    Math.max(1, def.relatedSkills.length);
+  // 연계 스탯 점수 — 순수 평균이 아니라 최고 스탯 가중(특화 보상). relatedSkillScore 참조.
+  const skillScore = relatedSkillScore(state, attr);
 
   const account = getActiveAccount(state);
   const affinity = getAffinity(account.attribute, attr); // -1..1
   const affinityMul = 1 + affinity * 0.4; // 0.6 ~ 1.4
 
   // 연계 스탯 정도(0~1). 초반 육성이 눈에 보이도록 오목 가중(SKILL_CURVE_EXP<1).
-  const skill01 = Math.min(1, Math.max(0, skillAvg) / MAX_SKILL);
+  const skill01 = Math.min(1, Math.max(0, skillScore) / MAX_SKILL);
   const skillWeight = Math.pow(skill01, SKILL_CURVE_EXP); // 0 → 0, 500 → 0.66, 999 → 1
 
   // 기본 도달: 팔로워의 일정 비율 + 최소 노출
   const reach = 20 + account.followers * 0.05;
-  const skillMul = 0.3 + skillWeight * 2.2; // 스킬 0 → 0.3배, 500 → 1.75배, 999 → 2.5배
+  // 스킬점수 0 → 0.3배, 500 → 1.55배, 999 → 2.2배 (SPAN은 최고스탯 가중의 속도 보정치)
+  const skillMul = SKILL_MUL_BASE + skillWeight * SKILL_MUL_SPAN;
 
   // 오늘의 인기 카테고리면 도달·성과가 크게 상승
   const trendMul = isTrending(state.day, attr) ? TRENDING_MULTIPLIER : 1;

@@ -1,4 +1,5 @@
 import type { ActiveGig, GameState } from "@/core/types";
+import { appendSchedule } from "@/core/state";
 import type { GigJob } from "@/data/gig";
 import { GIG_JOBS } from "@/data/gig";
 import { uid } from "@/utils/random";
@@ -38,7 +39,7 @@ export function canAcceptGig(state: GameState, job: GigJob): "ok" | "already" {
 /** 외주 수주 — activeGigs에 진행 건을 추가하고 스케줄에 기록 */
 export function acceptGig(state: GameState, job: GigJob): void {
   state.activeGigs.push({ id: job.id, progress: 0, dueDay: state.day + job.deadlineDays });
-  state.schedule.push({
+  appendSchedule(state, {
     id: uid("sch"),
     day: state.day,
     title: `외주 수주: ${job.title}`,
@@ -82,7 +83,7 @@ export function workGig(
     state.money += job.reward;
     state.resources.reputation = clampResource(state.resources.reputation + job.reputation);
     state.activeGigs = state.activeGigs.filter((g) => g !== active);
-    state.schedule.push({
+    appendSchedule(state, {
       id: uid("sch"),
       day: state.day,
       title: `외주 완료 +${job.reward.toLocaleString()}원 (${job.title})`,
@@ -112,7 +113,7 @@ export function settleGigDeadlines(state: GameState): void {
     const penalty = job?.penalty ?? 0;
     state.money -= penalty;
     state.resources.reputation = clampResource(state.resources.reputation - REP_FAIL);
-    state.schedule.push({
+    appendSchedule(state, {
       id: uid("sch"),
       day: state.day,
       title: `외주 마감 초과! 위약금 -${penalty.toLocaleString()}원 (${job?.title ?? g.id})`,

@@ -1,5 +1,5 @@
 import type { Email, GameState, ScheduleEvent, Tweet } from "@/core/types";
-import { getActiveAccount, pushTimeline } from "@/core/state";
+import { getActiveAccount, pushTimeline, appendSchedule } from "@/core/state";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { clampResource } from "./stats";
@@ -97,7 +97,7 @@ export function spawnSpamEmails(state: GameState, count: number): void {
 }
 
 function pushSchedule(state: GameState, title: string, kind: ScheduleEvent["kind"]): void {
-  state.schedule.push({ id: uid("sch"), day: state.day, title, kind });
+  appendSchedule(state, { id: uid("sch"), day: state.day, title, kind });
 }
 
 const HACK_TWEETS = [

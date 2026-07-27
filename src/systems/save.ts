@@ -12,6 +12,7 @@ import { grantAttributeUnlockFloor, syncUnlockedAttributes } from "./attributeUn
 import { backfillClaimedMilestones } from "./milestones";
 import { ensureMissions } from "./missions";
 import { currentMaxPostSlots } from "./followers";
+import { PART_TIME_LEGACY_ID } from "./offline";
 import { initialMarket } from "@/data/market";
 
 // 다계정 구조로 바뀌며 v2로 올림(구 v1 저장본은 무시하고 새로 시작).
@@ -82,15 +83,21 @@ export function loadGame(): GameState | null {
       }
       merged.version = 3;
     }
-    return sanitize(merged);
+    return sanitize(merged, parsed);
   } catch (e) {
     console.error("불러오기 실패", e);
     return null;
   }
 }
 
-/** 로드된 상태의 필수 불변식을 보정한다. */
-function sanitize(state: GameState): GameState {
+/**
+ * 로드된 상태의 필수 불변식을 보정한다.
+ *
+ * @param state  createInitialState()와 병합된 상태(키 부재를 판정할 수 없다 — 초기값으로 이미 덮여 있다).
+ * @param parsed 세이브 원본. **'키가 없던 구세이브'는 반드시 이쪽으로 판정한다** —
+ *               loadGame의 youtubeUnlocked·adultMode·loggedIn과 같은 이유다(죽은 폴백 방지).
+ */
+function sanitize(state: GameState, parsed: Partial<GameState> = state): GameState {
   if (!Array.isArray(state.accounts) || state.accounts.length === 0) {
     return createInitialState();
   }
@@ -152,6 +159,7 @@ function sanitize(state: GameState): GameState {
     state.stamina = 200;
   }
   state.sickPending ??= false;
+  migratePartTimeCounts(state, parsed);
   // 신규 필드 보강(구버전 저장본 대비)
   if (!Array.isArray(state.kakao)) state.kakao = [];
   if (!Array.isArray(state.workMsgs)) state.workMsgs = [];
@@ -206,6 +214,16 @@ function sanitize(state: GameState): GameState {
   state.avOffered ??= false;
   state.niglShifts ??= 0;
   state.pendingJobApp ??= null;
+  // ★직군(JobPosting.track) 폴백은 **일부러 두지 않았다** — 죽은 코드가 되기 때문이다.
+  //   JobPosting은 세이브에 들어가지 않는다: 공고는 채용공고 모달을 열 때 makeJobPostings로
+  //   그때그때 생성돼 메모리에만 살고, 세이브로 넘어가는 건 company/tier/role뿐인
+  //   pendingJobApp·email.jobOffer·employment 셋이다(전부 track 무관 — tier가 급여·야근·적발률을
+  //   전부 결정한다). 합격 여부(hired)도 지원 시점에 확정돼 저장되므로 결과 통보 단계에서
+  //   트랙을 다시 볼 일이 없다. 게다가 JobPosting.track은 선택 필드라 부재 시
+  //   employment.DEFAULT_JOB_TRACK("office")로 해석된다 — 구 동작과 동일.
+  //   ⚠️ 훗날 JobApplication/Employment에 track을 **저장**하게 되면 그때는 폴백이 필요하다.
+  //      그 경우 반드시 loadGame의 parsed 원본에서 키 부재를 판정하라(merged는 초기값으로
+  //      덮여 있어 부재를 구분 못 한다 — 위 youtubeUnlocked 주석 참고).
   // 네이놈 대회는 신규 기능 — 구세이브엔 키가 없다(대기 없음이 정답).
   state.pendingContest ??= null;
   // 자격증은 신규 기능이라 구세이브엔 키 자체가 없다 — 미취득/대기 없음으로 시작.
@@ -365,7 +383,13 @@ function sanitize(state: GameState): GameState {
   if (!Array.isArray(state.pendingAchievements)) state.pendingAchievements = [];
   // 마일스톤은 신규 필드. statMilestones 키가 없으면 구세이브 → 현재 스킬 기준으로
   // 칭호만 소급(claimed 백필)하고 일회성·퍼크는 지급하지 않는다(소급 보상 방지).
-  if (!Array.isArray(state.statMilestones)) {
+  //
+  // ⚠️ 판정은 반드시 **parsed 원본**으로 한다. merged.statMilestones는 createInitialState()의
+  //    []로 이미 덮여 있어 `!Array.isArray(state.…)`가 절대 참이 되지 않는다(죽은 폴백).
+  //    이 게이트가 죽으면 백필이 안 돌고, 구세이브 플레이어는 다음 onNewDay의
+  //    checkStatMilestones에서 밀린 마일스톤을 **전부 신규 달성으로** 받는다 —
+  //    스킬 650 세이브 기준 소급 550만원·팔로워 11만·행동력 상한 +33·토스트 33개.
+  if (!Array.isArray(parsed.statMilestones)) {
     state.statMilestones = [];
     backfillClaimedMilestones(state);
   }
@@ -377,6 +401,49 @@ function sanitize(state: GameState): GameState {
   if (!Array.isArray(state.pendingMissions)) state.pendingMissions = [];
   ensureMissions(state);
   return state;
+}
+
+/**
+ * ★마이그레이션: 아르바이트 누적이 `partTimeCount: number`(전체 합산 하나) →
+ * `partTimeCounts: Partial<Record<알바id, number>>`(종류별)로 바뀌었다.
+ *
+ * ⚠️ **판정은 반드시 parsed 원본으로 한다.** merged.partTimeCounts는 createInitialState()의 `{}`로
+ *    이미 덮여 있어, merged를 보고 `Object.keys(...).length === 0`으로 게이트하면
+ *    "알바를 한 번도 안 한 신규 세이브"와 "구세이브"를 구분하지 못한다. 게이트 자체는 참이 되지만
+ *    (둘 다 빈 객체) 정작 값을 **구세이브의 partTimeCount에서 가져와야** 하므로 parsed가 필수다.
+ *    loadGame의 youtubeUnlocked·adultMode·loggedIn, sanitize의 statMilestones와 같은 함정이다.
+ *
+ * ── 배분 근거: 구 카운트 전량을 `PART_TIME_LEGACY_ID`(기존 활동 id "parttime")에 **몰아준다.** ──
+ *   ① 구세이브 플레이어가 실제로 한 알바는 '아르바이트' 하나뿐이다. 4종에 나누면
+ *      그가 해본 적 없는 알바 3종의 일당까지 올려주는 소급 보상이 된다.
+ *   ② 나누면 **오히려 손해다.** 신곡선은 20회 분기라, 60회를 4등분하면 각 15회 → 전부 0단계
+ *      (일당 3만)로 **숙련이 통째로 증발한다.** 몰아주면 60회 = 3단계(일당 6.6만)로 보존된다.
+ *      "그동안 쌓은 숙련이 0이 되면 기존 플레이어가 손해"라는 요구를 만족하는 유일한 배분이다.
+ *   ③ 분기가 3회 → 20회로 늘었지만 **횟수를 환산하지 않는다**(예: ×6.7). 구 60회는 구곡선에서
+ *      일당 11만이었으나 신곡선 상한이 7.8만이라 어차피 재현 불가능하고, 환산하면 대부분의
+ *      구세이브가 즉시 상한에 붙어 앞으로의 성장이 사라진다. 원 횟수 보존이 곡선 개편의 취지
+ *      (후반 과잉 억제)와도 일치한다 — 구 60회 플레이어는 신곡선 3단계에서 계속 오른다.
+ *
+ * 신규 게임은 createInitialState 경로라 이 함수를 타지 않는다.
+ */
+function migratePartTimeCounts(state: GameState, parsed: Partial<GameState>): void {
+  // 손상값 방어: 객체가 아니면(구세이브의 number 포함) 빈 객체로 되돌린다.
+  if (!state.partTimeCounts || typeof state.partTimeCounts !== "object") {
+    state.partTimeCounts = {};
+  }
+  // 구세이브 판정 — parsed 원본에 신필드가 **없고** 구필드(number)가 있으면 마이그레이션 대상.
+  const legacy = (parsed as { partTimeCount?: unknown }).partTimeCount;
+  const alreadyMigrated =
+    !!parsed.partTimeCounts && typeof parsed.partTimeCounts === "object";
+  if (!alreadyMigrated && typeof legacy === "number" && Number.isFinite(legacy) && legacy > 0) {
+    state.partTimeCounts[PART_TIME_LEGACY_ID] = Math.floor(legacy);
+  }
+  // 값 위생: NaN/음수/비숫자 키를 걷어낸다(NaN이 partTimePay를 타면 소지금이 NaN으로 오염된다).
+  for (const [id, v] of Object.entries(state.partTimeCounts)) {
+    if (typeof v !== "number" || !Number.isFinite(v) || v < 0) delete state.partTimeCounts[id];
+  }
+  // 구 필드는 타입에서 사라졌으므로 잔재를 지운다(남아도 무해하지만 세이브가 계속 커진다).
+  delete (state as { partTimeCount?: unknown }).partTimeCount;
 }
 
 export function deleteSave(): void {

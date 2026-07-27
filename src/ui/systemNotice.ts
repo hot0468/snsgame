@@ -1,7 +1,8 @@
 import type { GameContext } from "./context";
 import type { SkillStatId } from "@/core/types";
 import { el, formatNumber } from "@/utils/dom";
-import { RESOURCE_STATS, SKILL_STATS, MAX_SKILL } from "@/data/stats";
+// SKILL_STATS는 더 이상 필요 없다 — skillDeltas가 label을 직접 실어 오므로(SkillDeltaEntry) 조회가 사라졌다.
+import { RESOURCE_STATS, MAX_SKILL } from "@/data/stats";
 import posIcon from "@/assets/system/systempop_pos.svg";
 import negIcon from "@/assets/system/systempop_neg.svg";
 
@@ -18,16 +19,34 @@ export interface NoticeDeltas {
   followers?: number;
 }
 
+/** 실제 반영된 스킬 델타 1건(음수 포함 — offline.ts의 OfflineOutcome.skillDeltas와 동일 shape). */
+export interface SkillDeltaEntry {
+  skill: SkillStatId;
+  label: string;
+  delta: number;
+}
+
+/** ⑤ 컨디션 판정 등급 — 있으면 결과 카드에 등급 배지(색·아이콘·헤더 문구)를 얹는다. */
+export type NoticeGrade = "fail" | "normal" | "great";
+
 export interface SystemNoticeOpts {
   title?: string;
   message: string;
   deltas?: NoticeDeltas;
-  /** 스킬 증감(어휘력·지식 등). 있으면 자원 바 아래에 스킬 바로 렌더한다(0~999 스케일). */
-  skillDeltas?: Partial<Record<SkillStatId, number>>;
+  /**
+   * 실제로 반영된 스킬 델타 목록(음수=반대급부 포함, 0은 이미 제외됨).
+   * offline.ts가 등급 배율·감쇠·정신력 배율을 전부 반영해 넘기므로 그대로 쓴다 — 재계산 금지.
+   */
+  skillDeltas?: SkillDeltaEntry[];
   /** 델타로 표현 못 하는 추가 획득(스킬/새 소재/일당 등). 델타 줄과 같은 테마색으로 아래에 붙는다. */
   extraLines?: string[];
   /** 명시 override. 없으면 deltas 부호로 자동, deltas도 없으면 "good". */
   tone?: "good" | "bad";
+  /**
+   * ⑤ 컨디션 판정 등급. fail/great이면 헤더 위에 배지를 얹는다.
+   * ⚠️ 실패/대성공 문구는 이미 message 앞에 합성돼 있다 — 여기선 연출(배지)만 추가한다.
+   */
+  grade?: NoticeGrade;
   confirmLabel?: string;
   /** 기본 closeModal. */
   onConfirm?: () => void;
@@ -115,15 +134,36 @@ export function renderSystemNotice(ctx: GameContext, opts: SystemNoticeOpts): HT
         )
       : []),
     ...(opts.skillDeltas
-      ? (Object.entries(opts.skillDeltas) as [SkillStatId, number][])
-          .filter(([, v]) => v)
-          .map(([id, v]) => deltaBar(SKILL_STATS[id].label, state.skills[id], v, MAX_SKILL, "bar__fill--skill"))
+      ? opts.skillDeltas
+          .filter((d) => d.delta)
+          .map((d) =>
+            deltaBar(
+              d.label,
+              state.skills[d.skill],
+              d.delta,
+              MAX_SKILL,
+              // 반대급부 감소(음수)는 스킬 바여도 하락색으로 — "조용히 깎였다"를 색으로 바로 읽히게 한다.
+              d.delta < 0 ? "bar__fill--skilldown" : "bar__fill--skill",
+            ),
+          )
       : []),
   ];
 
+  // ⑤ 컨디션 판정 배지 — fail/great일 때만 헤더 위에 얹는다. 문구는 message가 이미 담당하므로 라벨만.
+  const gradeBadge =
+    opts.grade && opts.grade !== "normal"
+      ? el(
+          "div",
+          { class: `sys-notice__grade sys-notice__grade--${opts.grade}` },
+          opts.grade === "fail" ? "판정: 실패" : "판정: 대성공",
+        )
+      : null;
+
+  const gradeClass = opts.grade && opts.grade !== "normal" ? ` sys-notice--grade-${opts.grade}` : "";
+
   return el(
     "div",
-    { class: `modal sys-notice sys-notice--${tone}` },
+    { class: `modal sys-notice sys-notice--${tone}${gradeClass}` },
     el("div", { class: "sys-notice__header" }, opts.title ?? "시스템 알림"),
     el(
       "div",
@@ -133,6 +173,7 @@ export function renderSystemNotice(ctx: GameContext, opts: SystemNoticeOpts): HT
     el(
       "div",
       { class: "sys-notice__box" },
+      gradeBadge,
       el("p", { class: "sys-notice__msg" }, opts.message),
       statBars.length ? el("div", { class: "sys-notice__stats" }, ...statBars) : null,
       line ? el("p", { class: "sys-notice__delta" }, line) : null,

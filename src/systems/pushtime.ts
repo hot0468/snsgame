@@ -3,7 +3,7 @@ import type { PushWork } from "@/data/pushtime";
 import { PUSH_VIEW_COST } from "@/data/pushtime";
 import { getActiveAccount } from "@/core/state";
 import { chance, pick, uid } from "@/utils/random";
-import { clampResource, clampSkill } from "./stats";
+import { clampResource, gainSkill } from "./stats";
 
 /**
  * 푸시타임 해금 DM / 콘텐츠 감상 로직.
@@ -67,14 +67,18 @@ export interface PushViewResult {
   message: string;
 }
 
+/** 작품 1편 감상으로 선언되는 음란도 획득량(실제 지급은 gainSkill 배율·감쇠 후). */
+export const PUSH_VIEW_LEWD_GAIN = 10;
+
 /** 작품 1편 감상(결제). 음란도·정신력이 오르고 도덕성이 내린다. */
 export function viewPushWork(state: GameState, work: PushWork): PushViewResult | null {
   if (state.money < PUSH_VIEW_COST) return null;
   state.money -= PUSH_VIEW_COST;
-  state.skills.lewd = clampSkill(state.skills.lewd + 10);
+  // 반복 감상 육성 — gainSkill 관문을 거치고, 문구에는 실제 반영 델타를 쓴다.
+  const lewdGain = gainSkill(state, "lewd", PUSH_VIEW_LEWD_GAIN);
   state.resources.mental = clampResource(state.resources.mental + 5);
   state.resources.morality = clampResource(state.resources.morality - 2);
   return {
-    message: `『${work.title}』을(를) 결제하고 몰래 감상했다. 은밀한 만족감에 밤이 짧게 느껴진다. (음란 +10 · 정신력 +5 · 도덕성 -2)`,
+    message: `『${work.title}』을(를) 결제하고 몰래 감상했다. 은밀한 만족감에 밤이 짧게 느껴진다. (음란 +${lewdGain} · 정신력 +5 · 도덕성 -2)`,
   };
 }

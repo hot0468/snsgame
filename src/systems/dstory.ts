@@ -1,7 +1,7 @@
 import type { GameState, Tweet } from "@/core/types";
 import { DSTORY_POSTS, DSTORY_TWEET_TEMPLATES, type DstoryPost } from "@/data/dstory";
 import { pick, randInt, uid } from "@/utils/random";
-import { clampSkill } from "./stats";
+import { gainSkill } from "./stats";
 
 /**
  * 'd스토리' — 개인 기술 블로그(티스토리 패러디)의 비밀번호 퍼즐.
@@ -98,7 +98,8 @@ export function tryUnlockDstoryPost(state: GameState, postId: string, input: str
   if (!ok) return false;
 
   state.dstoryUnlockedPosts.push(postId);
-  state.skills.it = clampSkill(state.skills.it + DSTORY_IT_GAIN);
+  // 해킹 게시글 해독 = IT 실력 성장. 반복 육성이므로 gainSkill 관문을 거친다.
+  gainSkill(state, "it", DSTORY_IT_GAIN);
   return true;
 }
 

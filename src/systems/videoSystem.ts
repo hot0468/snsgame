@@ -4,7 +4,7 @@ import { getActiveAccount } from "@/core/state";
 import { ATTRIBUTES } from "@/data/attributes";
 import { pick } from "@/utils/random";
 import { isOwned } from "./shop";
-import { clampResource, clampSkill } from "./stats";
+import { clampResource, gainSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 import { unlockAttribute } from "./attributeUnlock";
 
@@ -102,7 +102,8 @@ export function watchVideo(state: GameState, video: Video): VideoOutcome {
   state.resources.mental = clampResource(state.resources.mental + WATCH_MENTAL * hiddenMul);
   const rel = RELATED_SKILL[video.attribute];
   const amount = watchSkillAmount(state, rel.amount) * hiddenMul;
-  state.skills[rel.skill] = clampSkill(state.skills[rel.skill] + amount);
+  // 영상 시청은 반복 육성 — gainSkill 관문으로 정신력 배율·상단 감쇠를 받는다.
+  gainSkill(state, rel.skill, amount);
 
   // 애니 영상이면 그 작품을 '봤던 작품'으로 기록(2차창작 대상이 된다)
   if (video.workId && !state.seenWorks.includes(video.workId)) {

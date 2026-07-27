@@ -171,7 +171,13 @@ export const ATTR_ICON: Record<AttributeId, IconName> = {
   adult: "shield",
 };
 
-/** 오프라인 활동 id → 아이콘 매핑 */
+/**
+ * 오프라인 활동 id → 아이콘 매핑.
+ *
+ * ⚠️ `Record<string, IconName>`이라 **키가 빠져도 typecheck를 통과한다** — 누락되면 조용히
+ *    `?? "star"` 폴백으로 떨어져 서로 다른 활동이 전부 같은 별 아이콘으로 렌더된다.
+ *    `OFFLINE_ACTIVITIES`에 활동을 추가하면 여기도 반드시 채워라(알바 4종 분할 때 실제로 누락됐다).
+ */
 export const ACTIVITY_ICON: Record<string, IconName> = {
   goout: "walk",
   walk: "paw",
@@ -182,5 +188,9 @@ export const ACTIVITY_ICON: Record<string, IconName> = {
   coding: "grid",
   workout: "dumbbell",
   youtube: "youtube",
+  // 아르바이트 4종 — 종류별로 아이콘이 달라야 목록에서 구분된다(전부 coin이면 개별 카운터가 안 읽힌다).
   parttime: "coin",
+  logistics: "drawer",
+  cafe_serving: "coffee",
+  tutoring: "book",
 };

@@ -1,4 +1,5 @@
 import type { GameState, ScheduleEvent } from "@/core/types";
+import { appendSchedule } from "@/core/state";
 import { AIRCON_ID, HEATPAD_ID } from "@/data/shop";
 import {
   COLDWAVE_MENTAL,
@@ -66,7 +67,7 @@ export function salePrice(day: number, price: number): number {
 /* ─────────────────── 연말 이벤트 ─────────────────── */
 
 function pushSchedule(state: GameState, title: string, kind: ScheduleEvent["kind"]): void {
-  state.schedule.push({ id: uid("sch"), day: state.day, title, kind });
+  appendSchedule(state, { id: uid("sch"), day: state.day, title, kind });
 }
 function won(n: number): string {
   return n.toLocaleString("ko-KR");

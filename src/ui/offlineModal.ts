@@ -1,4 +1,5 @@
 import type { GameContext } from "./context";
+import type { GameState, SkillStatId } from "@/core/types";
 import {
   OFFLINE_ACTIVITIES,
   type OfflineActivity,
@@ -6,6 +7,8 @@ import {
   adoptPet,
   doOfflineActivity,
   partTimePay,
+  partTimeCountOf,
+  partTimeNextRaiseIn,
   petLabel,
   canSpendDay,
   canAffordVacation,
@@ -26,7 +29,8 @@ import { isWeekday } from "@/systems/time";
 import { isAuthorPrepMonth } from "@/systems/author";
 import { makeJobPostings, DEV_JOB_IT_REQ } from "@/data/jobs";
 import { SKILL_STATS } from "@/data/stats";
-import { hasAction } from "@/systems/stats";
+import { hasAction, mentalEfficiency, projectSkillGain } from "@/systems/stats";
+import { activityFailChance, activityGreatChance, declaredSkillAmount } from "@/systems/offline";
 import { LATE_SLOT } from "@/core/state";
 import { ATTRIBUTES } from "@/data/attributes";
 import { pick } from "@/utils/random";
@@ -41,18 +45,103 @@ function signed(n: number): string {
   return n > 0 ? `+${n}` : `${n}`;
 }
 
-/** 활동의 스탯 변화 요약 한 줄. 아르바이트면 현재 일당도 함께 표시. */
-function activityDeltas(act: OfflineActivity, partTimeCount: number): string {
-  const parts: string[] = [];
-  if (act.action) parts.push(`행동력 ${signed(act.action)}`);
-  if (act.mental) parts.push(`정신력 ${signed(act.mental)}`);
-  if (act.morality) parts.push(`도덕성 ${signed(act.morality)}`);
-  if (act.money) parts.push(`${signed(act.money)}원`);
+/**
+ * 활동의 스탯 변화 요약 한 줄(선택 화면 미리보기 전용 — 확정 전 예고치).
+ * 아르바이트면 현재 일당도 함께 표시.
+ *
+ * ⚠️ **스킬 줄은 선언값이 아니라 `projectSkillGain` 투영값이다** — 실제 지급은 정신력 배율·
+ *    퍼크 배율·상단 감쇠·999 상한을 타므로 선언값 "+10"이 실제 "+1"이 되는 괴리가 있었다.
+ *    여기서 배율을 재계산하지 마라(공식이 바뀌면 조용히 어긋난다). 계산은 systems가 한다.
+ *    등급(실패/대성공) 배율은 굴림 전이라 곱하지 않는다 — 확률은 conditionBanner가 따로 알린다.
+ *
+ * 리소스(행동력·정신력·도덕성·돈)는 배율을 타지 않으므로 선언값 그대로가 맞다.
+ */
+function activityDeltaParts(
+  state: GameState,
+  act: OfflineActivity,
+): { text: string; down: boolean }[] {
+  const parts: { text: string; down: boolean }[] = [];
+  const add = (text: string, n: number) => parts.push({ text, down: n < 0 });
+  if (act.action) add(`행동력 ${signed(act.action)}`, act.action);
+  if (act.mental) add(`정신력 ${signed(act.mental)}`, act.mental);
+  if (act.morality) add(`도덕성 ${signed(act.morality)}`, act.morality);
+  if (act.money) add(`${signed(act.money)}원`, act.money);
   for (const [skill, amount] of Object.entries(act.skillGains ?? {})) {
-    parts.push(`${SKILL_STATS[skill as keyof typeof SKILL_STATS].label} +${amount}`);
+    const key = skill as SkillStatId;
+    // 활동 고유 보정(에스테틱 등)을 실지급과 동일하게 먼저 태운 뒤 투영한다.
+    const declared = declaredSkillAmount(state, act, key, amount ?? 0);
+    const delta = projectSkillGain(state, key, declared);
+    // ⚠️ 델타 0은 표시하지 않는다. 이미 0인 스탯에 반대급부(-3)가 걸리면 clamp돼 0이 되는데,
+    //    "미용 0"으로 뜨면 고장으로 보인다(실제로 그렇게 렌더됐다).
+    //    결과 팝업(outcome.skillDeltas)도 0인 항목을 안 담으므로 두 화면의 규칙이 같아진다.
+    if (delta === 0) continue;
+    add(`${SKILL_STATS[key].label} ${signed(delta)}`, delta);
   }
-  if (act.partTime) parts.push(`일당 ${formatNumber(partTimePay(partTimeCount))}원`);
-  return parts.join(" · ");
+  // 일당은 수입이라 항상 이득(음수가 될 수 없다).
+  // ⚠️ 카운터는 **알바 종류별**이라 일당도 알바마다 다르다 — 하나로 뭉뚱그리면 개별 카운터가 무의미해진다.
+  if (act.partTime) {
+    add(`일당 ${formatNumber(partTimePay(partTimeCountOf(state, act.id)))}원`, 1);
+  }
+  return parts;
+}
+
+/**
+ * 아르바이트 숙련도 힌트("다음 인상까지 N회" / 상한 도달 시 "최고 시급").
+ * ⚠️ `partTimeNextRaiseIn`이 `null`을 반환하면 상한 도달이다 — "0회"로 잘못 표시하면
+ *    버그로 보인다(계약서 경고). 아르바이트가 아니면 null(표시 안 함).
+ */
+function partTimeHint(state: GameState, act: OfflineActivity): string | null {
+  if (!act.partTime) return null;
+  const count = partTimeCountOf(state, act.id);
+  const nextIn = partTimeNextRaiseIn(count);
+  return nextIn == null ? "최고 시급 도달" : `다음 인상까지 ${nextIn}회`;
+}
+
+/**
+ * 델타 파트를 ` · ` 구분자로 잇되 **감소분만 하락색**으로 렌더한다.
+ *
+ * ⚠️ 한 문자열로 합쳐 넘기면 안 된다 — `.life-item__delta`가 전체를 `var(--good)`(초록)으로
+ *    칠해서 `지식 -2`가 `정신력 +12`와 같은 색으로 보인다. 실제로 그렇게 렌더되고 있었고,
+ *    반대급부 감소를 플레이어가 '이득'으로 오인하는 원인이었다(계약서: "모르고 깎이면 버그로 오인된다").
+ */
+function renderDeltaParts(parts: { text: string; down: boolean }[]): (Node | string)[] {
+  const out: (Node | string)[] = [];
+  parts.forEach((p, i) => {
+    if (i > 0) out.push(" · ");
+    out.push(p.down ? el("span", { class: "delta--down" }, p.text) : p.text);
+  });
+  return out;
+}
+
+/**
+ * 결과 화면의 델타 파트(리소스 + 실제 반영 스킬 델타 + 랜덤 스탯).
+ * 미리보기와 같은 `renderDeltaParts`로 그려 **감소분만 하락색**이 되게 한다.
+ *
+ * 스킬 델타는 여기서 재계산하지 않는다 — systems가 등급 배율·감쇠·정신력 배율을 이미 반영해 넘긴다.
+ */
+function resultDeltaParts(
+  act: OfflineActivity,
+  outcome: OfflineOutcome,
+): { text: string; down: boolean }[] {
+  const parts: { text: string; down: boolean }[] = [];
+  const add = (text: string, n: number) => parts.push({ text, down: n < 0 });
+  if (act.action) add(`행동력 ${signed(act.action)}`, act.action);
+  if (act.mental) add(`정신력 ${signed(act.mental)}`, act.mental);
+  if (act.morality) add(`도덕성 ${signed(act.morality)}`, act.morality);
+  if (act.money) add(`${signed(act.money)}원`, act.money);
+  // 실제 반영된 스킬 델타(음수=반대급부). 여기서 재계산하지 않는다 — systems가 넘긴 값 그대로다.
+  for (const d of outcome.skillDeltas) add(`${d.label} ${signed(d.delta)}`, d.delta);
+  if (outcome.randomSkillLabel) {
+    add(outcome.randomSkillLabel, outcome.randomSkillLabel.includes("-") ? -1 : 1);
+  }
+  return parts;
+}
+
+/** ⑤ 컨디션 판정 등급 한글 라벨(결과 화면 배지용). normal이면 null. */
+function gradeLabel(grade: OfflineOutcome["grade"]): string | null {
+  if (grade === "fail") return "판정: 실패";
+  if (grade === "great") return "판정: 대성공";
+  return null;
 }
 
 /**
@@ -68,13 +157,15 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
     return el("button", { class: "popup__close", onclick: () => ctx.closeModal() }, "✕");
   }
 
-  function activityItem(act: OfflineActivity, partTimeCount: number): HTMLElement {
+  function activityItem(act: OfflineActivity): HTMLElement {
+    // 미리보기 한 벌은 같은 스냅샷으로 계산한다(스킬 투영이 현재 정신력·스킬에 의존).
+    const state = ctx.store.getState();
     // 휴가는 심야엔 떠날 수 없다(낮에만 가능).
-    const nightVacation = !!act.vacation && ctx.store.getState().slot === LATE_SLOT;
+    const nightVacation = !!act.vacation && state.slot === LATE_SLOT;
     // 휴가는 10만원이 있어야 갈 수 있다 — 소지금 부족이면 비활성.
-    const cantAfford = !!act.vacation && !canAffordVacation(ctx.store.getState());
+    const cantAfford = !!act.vacation && !canAffordVacation(state);
     // 행동력을 쓰는 활동(act.action<0)은 잔여 행동력이 비용보다 적으면 막는다(마이너스 방지).
-    const notEnoughAction = act.action < 0 && !hasAction(ctx.store.getState(), -act.action);
+    const notEnoughAction = act.action < 0 && !hasAction(state, -act.action);
     const blocked = nightVacation || cantAfford || notEnoughAction;
     return el(
       "button",
@@ -99,21 +190,60 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         el(
           "span",
           { class: "life-item__delta" },
-          nightVacation
-            ? "심야에는 휴가를 떠날 수 없어요"
+          ...(nightVacation
+            ? ["심야에는 휴가를 떠날 수 없어요"]
             : cantAfford
-              ? "소지금이 부족해요 (10만원 필요)"
+              ? ["소지금이 부족해요 (10만원 필요)"]
               : notEnoughAction
-                ? `행동력이 부족해요 (${-act.action} 필요)`
-                : activityDeltas(act, partTimeCount),
+                ? [`행동력이 부족해요 (${-act.action} 필요)`]
+                : renderDeltaParts(activityDeltaParts(state, act))),
         ),
+        // 아르바이트 숙련도 힌트 — 개별 카운터라 알바마다 다른 값이 뜬다.
+        act.partTime && !blocked
+          ? el("span", { class: "life-item__hint" }, partTimeHint(state, act) ?? "")
+          : null,
+      ),
+    );
+  }
+
+  /**
+   * ③⑤ 컨디션(정신력) 배너 — 육성 효율 배율과 실패/대성공 확률을 그대로 보여준다.
+   * 이게 없으면 플레이어는 실패/대성공을 "가끔 손해 보는 랜덤"으로만 인식한다(계약서 필수 항목).
+   * 계산은 systems/stats.ts·systems/offline.ts의 순수 셀렉터를 그대로 쓴다 — UI는 값을 안 만든다.
+   */
+  function conditionBanner(): HTMLElement {
+    const state = ctx.store.getState();
+    const eff = mentalEfficiency(state);
+    const fail = activityFailChance(state);
+    const great = activityGreatChance(state);
+    // 효율 100% 미만은 손해가 보이게 하락색, 이상은 이득이 보이게 강조색.
+    const effClass = eff < 1 ? "cond-banner__eff--down" : eff > 1 ? "cond-banner__eff--up" : "";
+    return el(
+      "div",
+      { class: "cond-banner" },
+      el(
+        "span",
+        { class: "cond-banner__item" },
+        "육성 효율 ",
+        el("b", { class: effClass }, `${Math.round(eff * 100)}%`),
+      ),
+      el(
+        "span",
+        { class: "cond-banner__item" },
+        "실패 확률 ",
+        el("b", { class: fail > 0 ? "cond-banner__eff--down" : "" }, `${Math.round(fail * 100)}%`),
+      ),
+      el(
+        "span",
+        { class: "cond-banner__item" },
+        "대성공 확률 ",
+        el("b", { class: great > 0 ? "cond-banner__eff--up" : "" }, `${Math.round(great * 100)}%`),
       ),
     );
   }
 
   function showChoices(): void {
     const state = ctx.store.getState();
-    const partTimeCount = state.partTimeCount;
     // 작가 원고 작업은 계약 중일 때 노출. 단 준비 기간(계약한 달) 내내 숨긴다 —
     // 그 달은 작업량이 요구되지 않고, 미리 채워도 익월 1일에 게이지가 리셋돼 헛일이다(author.settleAuthorMonthly).
     const underContract = state.authorContract != null;
@@ -125,7 +255,7 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         act.group === lifeTab &&
         (!act.authorWork || showAuthorWork) &&
         (!act.adultOnly || adultMode), // 해피타임 등 성인 활동은 성인물 보기 ON일 때만
-    ).map((act) => activityItem(act, partTimeCount));
+    ).map((act) => activityItem(act));
 
     const lifeTabBtn = (label: string, group: OfflineActivity["group"]) =>
       el(
@@ -155,6 +285,7 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           { class: "compose-hint", style: "margin-top:0" },
           "오프라인 활동으로 스탯을 관리하고 새 트윗 소재를 얻으세요. (시간 1칸 소요)",
         ),
+        conditionBanner(),
         el(
           "div",
           { class: "feed__tabs life-tabs" },
@@ -453,7 +584,9 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           morality: act.morality,
           money: outcome.earnedMoney ?? act.money,
         },
-        skillDeltas: act.skillGains,
+        // 실제 반영된 최종 델타(등급 배율·감쇠·정신력 배율 반영, 음수=반대급부 포함) — act.skillGains(선언값) 아님.
+        skillDeltas: outcome.skillDeltas,
+        grade: outcome.grade,
         extraLines,
         confirmLabel: "계속",
         onConfirm: onNext,
@@ -678,20 +811,24 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
    * 펫·크리처 조우 결과(성인 아님) — 결과 flavor·델타와 선택을 한 모달에 함께 보여준다(기존 동작).
    */
   function showPetCreatureResult(act: OfflineActivity, outcome: OfflineOutcome): void {
-    // 아르바이트 급여는 별도 줄로 표시하므로 델타 요약에선 뺀다.
-    const deltaParts = [activityDeltas({ ...act, partTime: false }, 0), outcome.randomSkillLabel]
-      .filter(Boolean)
-      .join(" · ");
+    // 리소스(행동력/정신력/도덕성/돈)와 실제 반영된 스킬 델타(음수=반대급부 포함)를 분리해 보여준다.
+    const deltaParts = resultDeltaParts(act, outcome);
     const earnedMsg =
       outcome.earnedMoney != null ? `일당 ${formatNumber(outcome.earnedMoney)}원을 받았다!` : null;
     const unlockMsg = outcome.unlockedAttribute
       ? `새 트윗 소재를 얻었다! (${ATTRIBUTES[outcome.unlockedAttribute].label.replace(/계$/, "")})`
       : null;
+    const grade = gradeLabel(outcome.grade);
 
     const bodyChildren: (HTMLElement | null)[] = [
+      grade
+        ? el("p", { class: `life-result__grade life-result__grade--${outcome.grade}` }, grade)
+        : null,
       el("p", { class: "life-result__flavor" }, outcome.message),
       earnedMsg ? el("p", { class: "life-result__earn" }, earnedMsg) : null,
-      deltaParts ? el("p", { class: "life-result__delta" }, deltaParts) : null,
+      deltaParts.length
+        ? el("p", { class: "life-result__delta" }, ...renderDeltaParts(deltaParts))
+        : null,
       unlockMsg ? el("p", { class: "life-result__unlock" }, unlockMsg) : null,
     ];
 
@@ -856,7 +993,9 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           // 아르바이트 급여(earnedMoney)가 있으면 그 값을, 아니면 활동 고정 보상을.
           money: outcome.earnedMoney ?? act.money,
         },
-        skillDeltas: act.skillGains,
+        // 실제 반영된 최종 델타(등급 배율·감쇠·정신력 배율 반영, 음수=반대급부 포함) — act.skillGains(선언값) 아님.
+        skillDeltas: outcome.skillDeltas,
+        grade: outcome.grade,
         extraLines,
         extraActions: [skipBtn, tweetBtn],
       }),

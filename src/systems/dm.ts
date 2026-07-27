@@ -12,7 +12,7 @@ import { MAX_SKILL } from "@/data/stats";
 import { pick, randInt, uid, chance } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { bumpTchinProgress } from "./tchin";
-import { clampResource, clampSkill } from "./stats";
+import { clampResource, gainSkill } from "./stats";
 
 /**
  * 팬이 DM을 보내올 확률(팔로워를 얻은 행동 직후 호출).
@@ -453,13 +453,13 @@ export function sendCustomDM(state: GameState, thread: DMThread, text: string): 
 function applyToneEffects(state: GameState, tone: DMTone): void {
   switch (tone) {
     case "friendly":
-      state.skills.sociability = clampSkill(state.skills.sociability + 5);
+      gainSkill(state, "sociability", 5);
       break;
     case "cool":
       state.resources.mental = clampResource(state.resources.mental + 1);
       break;
     case "bold":
-      state.skills.lewd = clampSkill(state.skills.lewd + 5);
+      gainSkill(state, "lewd", 5);
       state.resources.morality = clampResource(state.resources.morality - 1);
       break;
   }

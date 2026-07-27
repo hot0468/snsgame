@@ -1,4 +1,5 @@
 import type { GameState, ScheduleEvent, Tweet } from "@/core/types";
+import { appendSchedule } from "@/core/state";
 import { GOODS_ITEMS, GOODS_GROUP_BUY_LINES, GOODS_GROUP_BUY_AUTHORS } from "@/data/goods";
 import { pick, randInt, uid } from "@/utils/random";
 import { gainSkill } from "./stats";
@@ -21,7 +22,7 @@ export const GROUP_BUY_OTAKU_GAIN = 8;
 
 /** 스케줄 로그 기록(time.ts와의 순환 참조를 피해 인라인). */
 function addSchedule(state: GameState, title: string, kind: ScheduleEvent["kind"]): void {
-  state.schedule.push({ id: uid("sch"), day: state.day, title, kind });
+  appendSchedule(state, { id: uid("sch"), day: state.day, title, kind });
 }
 
 /** 이 트윗의 공구에 지금 참여할 수 있는지(공구 트윗 · 미참여 · 잔고 충분) */

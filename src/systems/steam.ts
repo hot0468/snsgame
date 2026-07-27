@@ -3,7 +3,7 @@ import { STEAM_GAMES, GAME_REVIEW_TWEETS, type SteamGame } from "@/data/steam";
 import { getActiveAccount } from "@/core/state";
 import { pick } from "@/utils/random";
 import { unlockAttribute } from "./attributeUnlock";
-import { clampSkill } from "./stats";
+import { gainSkill } from "./stats";
 import { postTweet } from "./tweetSystem";
 
 export { STEAM_GAMES };
@@ -88,9 +88,11 @@ export function buyGame(state: GameState, game: SteamGame): boolean {
   state.ownedGames.push(game.id);
   // 게임을 사서 해봤으니 '게임' 스킬이 오른다(게임당 1회 — 재구매 불가라 반복 파밍 없음).
   // ⚠️ 아래 unlockAttribute(해금 기준선)보다 **먼저** 올린다. 순서를 뒤집으면 기준선 35가
-  //    먼저 깔린 뒤 구매분 35가 더해져 첫 구매가 70이 된다(과지급). 이 순서면 구매분이
-  //    이미 GAME_UNLOCK_FLOOR 이상이라 기준선이 항상 무동작(no-op)이다.
-  state.skills.game = clampSkill(state.skills.game + GAME_BUY_SKILL_GAIN);
+  //    먼저 깔린 뒤 구매분 35가 더해져 첫 구매가 70이 된다(과지급).
+  // 게임을 파고드는 성장이므로 gainSkill 관문(정신력 배율·감쇠)을 거친다. 그 결과 컨디션이
+  // 나쁘면 구매분이 GAME_UNLOCK_FLOOR에 못 미칠 수 있지만, 기준선은 floor(덮어쓰기)라
+  // 그때 35까지 채워질 뿐 합산되지 않는다 — 과지급은 여전히 불가능하다.
+  gainSkill(state, "game", GAME_BUY_SKILL_GAIN);
 
   // 첫 구매면 게임 카테고리 해금.
   if (isFirstGame) {
@@ -144,7 +146,7 @@ export function reviewGame(state: GameState, game: SteamGame): GameReviewResult 
   state.reviewedGames.push(game.id);
   // 리뷰를 쓸 만큼 파고들었으니 '게임' 스킬이 오른다(게임당 1회).
   // ⚠️ postTweet 이후에 올린다 — 먼저 올리면 이 리뷰 트윗이 제 성과를 스스로 끌어올린다.
-  state.skills.game = clampSkill(state.skills.game + GAME_REVIEW_SKILL_GAIN);
+  gainSkill(state, "game", GAME_REVIEW_SKILL_GAIN);
 
   return {
     message: `『${game.title}』 리뷰 트윗을 올렸다! (+${followerDelta} 팔로워)`,

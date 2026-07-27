@@ -1,8 +1,9 @@
 import type { GameContext } from "./context";
+import type { JobTrack } from "@/core/types";
 import { JOBPLANET_COMPANIES } from "@/data/jobplanet";
-import { TIERS } from "@/data/jobs";
+import { TIERS, TRACK_LABELS } from "@/data/jobs";
 import {
-  competence,
+  competenceByTrack,
   successChance,
   writeJobplanetReview,
   payForJobplanetInfo,
@@ -10,6 +11,9 @@ import {
 } from "@/systems/employment";
 import { el, formatNumber } from "@/utils/dom";
 import { icon } from "./icons";
+
+/** 잡플래닛 카드에 트랙 3종을 표시할 고정 순서(사무·운동·뷰티). */
+const JOBPLANET_TRACKS: JobTrack[] = ["office", "fitness", "beauty"];
 
 /* ============================================================
  * 직플래닛(잡플래닛 패러디) — 브라우저 영역 오버레이 사이트.
@@ -33,7 +37,9 @@ function closeSite(ctx: GameContext): void {
 
 export function renderJobplanet(ctx: GameContext): HTMLElement {
   const s = ctx.store.getState();
-  const myComp = competence(s);
+  // 직플래닛 기업 디렉터리는 회사별 트랙 정보가 없다(등급만 있음) — 트랙 3종 역량을 나란히 보여준다.
+  // 단일 숫자였던 예전 "내 역량"이 사무직 고정값만 보여주던 문제를 함께 해결한다.
+  const myComp = competenceByTrack(s);
   const credits = s.jobplanetCredits;
   const query = ctx.ui.jobplanetQuery.trim();
 
@@ -123,10 +129,27 @@ export function renderJobplanet(ctx: GameContext): HTMLElement {
               {},
               `합격 필요 역량 `,
               el("b", {}, `${req} 이상`),
-              ` · 내 역량 ${myComp} · 합격 확률 `,
-              el("b", {}, `${Math.round(successChance(s, co.tier) * 100)}%`),
             ),
-            el("div", { class: "jobplanet-info__stats" }, "핵심 스탯: 어휘력 · 친화력 · 미용"),
+            // 이 회사가 어느 트랙을 뽑는지는 디렉터리에 없다(등급만 존재) — 3트랙 역량·합격 확률을
+            // 나란히 보여줘 "내가 어느 쪽으로 지원해야 유리한지"가 읽히게 한다.
+            el(
+              "div",
+              { class: "jobplanet-info__tracks" },
+              ...JOBPLANET_TRACKS.map((track) =>
+                el(
+                  "div",
+                  { class: "jobplanet-info__track" },
+                  el("span", { class: `job-track job-track--${track}` }, TRACK_LABELS[track]),
+                  el("span", {}, `내 역량 ${myComp[track]}`),
+                  el(
+                    "span",
+                    {},
+                    "합격 확률 ",
+                    el("b", {}, `${Math.round(successChance(s, co.tier, track) * 100)}%`),
+                  ),
+                ),
+              ),
+            ),
           )
         : null,
     );

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { createInitialState } from "@/core/state";
 import { DSTORY_POSTS, HOSTS_LINES, HOSTS_PW, IPCONFIG_LINES, LOCAL_IPV4 } from "@/data/dstory";
 import { DSTORY_IT_GAIN, isDstoryDone, tryUnlockDstoryPost } from "@/systems/dstory";
+import { projectSkillGain } from "@/systems/stats";
 
 /**
  * d스토리 비밀번호 퍼즐 회귀 테스트.
@@ -10,17 +11,26 @@ import { DSTORY_IT_GAIN, isDstoryDone, tryUnlockDstoryPost } from "@/systems/dst
  * 1. **정답 소스 일치** — 정답은 게임 안 다른 화면이 출력한다. 그 화면과 게시글이 어긋나면
  *    퍼즐이 **풀 수 없게 되는데, typecheck도 build도 이걸 잡지 못한다.** 조용히 죽는다.
  * 2. **보상 중복 수령 방지** — 같은 글을 두 번 풀어도 IT는 한 번만 오른다.
+ *
+ * ⚠️ IT 보상은 `gainSkill` 관문을 타므로 **선언값 DSTORY_IT_GAIN이 그대로 들어가지 않는다**
+ *    (정신력 배율·퍼크·상단 감쇠). 기대치는 하드코딩하지 말고 `projectSkillGain`으로 뽑는다 —
+ *    배율 상수를 튜닝해도 이 테스트가 같이 따라오게 하기 위함이다.
  */
 
 /** 글1 = F12(개발자 도구 Console), 글2 = IPv4(cmd ipconfig), 글3 = hosts(메모장) */
 const [post1, post2, post3] = DSTORY_POSTS;
 
+/** 초기 상태에서 IT 보상 1회가 실제로 반영하는 델타 */
+function expectedItGain() {
+  return projectSkillGain(createInitialState(), "it", DSTORY_IT_GAIN);
+}
+
 describe("tryUnlockDstoryPost", () => {
-  it("정답이면 true — 목록에 id가 추가되고 IT가 +80 된다", () => {
+  it("정답이면 true — 목록에 id가 추가되고 IT가 오른다", () => {
     const s = createInitialState();
     expect(tryUnlockDstoryPost(s, post1.id, post1.password)).toBe(true);
     expect(s.dstoryUnlockedPosts).toContain(post1.id);
-    expect(s.skills.it).toBe(DSTORY_IT_GAIN);
+    expect(s.skills.it).toBe(expectedItGain());
   });
 
   it("오답이면 false — 상태가 전혀 바뀌지 않는다", () => {
@@ -35,7 +45,7 @@ describe("tryUnlockDstoryPost", () => {
     tryUnlockDstoryPost(s, post1.id, post1.password);
     // 이미 푼 글은 잠김 화면으로 되돌아가지 않아야 하므로 true를 유지한다.
     expect(tryUnlockDstoryPost(s, post1.id, post1.password)).toBe(true);
-    expect(s.skills.it).toBe(DSTORY_IT_GAIN);
+    expect(s.skills.it).toBe(expectedItGain());
     expect(s.dstoryUnlockedPosts).toEqual([post1.id]);
   });
 
@@ -43,7 +53,7 @@ describe("tryUnlockDstoryPost", () => {
     const s = createInitialState();
     const sloppy = `  ${post1.password.toUpperCase()} `;
     expect(tryUnlockDstoryPost(s, post1.id, sloppy)).toBe(true);
-    expect(s.skills.it).toBe(DSTORY_IT_GAIN);
+    expect(s.skills.it).toBe(expectedItGain());
   });
 
   it("IT 보상은 스킬 스케일(999)에서 클램프된다 — 100에서 막히면 안 된다", () => {

@@ -1,5 +1,5 @@
 import type { GameState, ScheduleEvent } from "@/core/types";
-import { SLOTS_PER_DAY, SLOT_LABELS, LATE_SLOT } from "@/core/state";
+import { SLOTS_PER_DAY, SLOT_LABELS, LATE_SLOT, appendSchedule } from "@/core/state";
 import { pick, uid } from "@/utils/random";
 import { applyDailyCosts, daysUntilRent, settleMonthlyIncome } from "./economy";
 import { settleAuthorMonthly } from "./author";
@@ -30,11 +30,11 @@ import { deliverPendingGoods } from "./groupBuy";
 import { maybeSpawnWorkMsg } from "./workMessenger";
 import { checkAchievements } from "./achievements";
 import { ensureMissions } from "./missions";
-import { checkStatMilestones } from "./milestones";
+import { checkStatMilestones, perkMentalRecovery } from "./milestones";
 import { killerDailyTick } from "./killer";
 import { resolveProphecy } from "./prophecy";
 import { HOUSINGS } from "@/data/housing";
-import { clampAction } from "./stats";
+import { clampAction, staminaActionBonus } from "./stats";
 import { settleGigDeadlines } from "./gig";
 // 달력/요일 헬퍼는 calendar.ts에 있다(순환 참조 방지). 내부에서 dateLabel을 쓰고, 나머지는 재노출한다.
 import {
@@ -75,6 +75,34 @@ export function timeLabel(state: GameState): string {
   return `${dateLabel(state.day)}(${weekdayLabel(state.day)}) ${SLOT_LABELS[state.slot] ?? ""}`;
 }
 
+/**
+ * 아침 기상 시 행동력 회복량(숙면 기준). **밸런스 튜닝의 핵심 지점.**
+ *
+ * 하루는 2슬롯인데 주요 활동이 1회에 15~32를 먹는다(트윗 10 · 근무 15 · 교양 15 · 외출 20 ·
+ * 알바 24~32 · 운동 25). 회복이 30이던 시절엔 **슬롯당 평균 15**밖에 못 써서
+ * "슬롯은 남았는데 행동력이 없어 아무것도 못 하는 날"이 자주 생겼다 —
+ * 특히 알바 행동력을 올린 뒤로는 물류(32)를 하루 회복분으로 1회도 못 채웠다.
+ *
+ * 35로 올려 슬롯당 평균 17.5를 확보한다(30이던 시절엔 15).
+ *
+ * ⚠️ **이 값만으로 여유를 다 주면 안 된다** — 나머지는 체력(`staminaActionBonus`)이 채운다.
+ *    회복량을 45까지 올렸더니 시작부터 대부분의 조합이 가능해져 **운동을 100회 해도
+ *    얻는 게 없어졌다**(체력 육성이 무의미). 기본은 '숨통이 트이는' 선에서 멈추고,
+ *    그 위는 운동으로 벌게 하는 게 육성게임의 성장 곡선이다:
+ *      운동 0회 → 하루 35 · 25회 → 40 · 50회 → 45 · 100회 → 55(상한)
+ *
+ * ⚠️ 이 값을 올리면 행동력이 병목이던 설계 전제가 함께 흔들린다:
+ *    트윗(10)을 하루에 몇 번 쓸 수 있는지가 곧 팔로워 성장 속도라
+ *    `systems/followers.ts`의 도달일 추정(주석의 실측표)이 같이 움직인다. 함께 보라.
+ */
+export const SLEEP_ACTION_RECOVER = 35;
+
+/**
+ * 심야 트윗을 써서 밤을 샜을 때의 행동력 회복량(수면 부족).
+ * 숙면 대비 확실히 손해여야 '밤샘 트윗'이 공짜 이득이 되지 않는다(숙면의 약 1/3 유지).
+ */
+export const LATE_ACTION_RECOVER = 12;
+
 /** 3일 이상 트윗을 안 올린 계정의 팔로워 소폭 감소 */
 const INACTIVE_DAYS = 3;
 function applyInactivityDecay(state: GameState): void {
@@ -99,7 +127,7 @@ export function addSchedule(
   title: string,
   kind: ScheduleEvent["kind"],
 ): void {
-  state.schedule.push({ id: uid("sch"), day: state.day, title, kind });
+  appendSchedule(state, { id: uid("sch"), day: state.day, title, kind });
 }
 
 /**
@@ -164,11 +192,19 @@ function onNewDay(state: GameState): void {
   const mentalBefore = state.resources.mental;
   // ⚠️ 행동력 상한은 가변(치트로 +20)이라 100을 하드코딩하면 안 된다 — clampAction이 상한을 안다.
   //    정신력은 상한이 고정 100이므로 아래 줄은 그대로 둔다.
+  // 체력 한계치(운동으로 성장)가 아침 행동력 회복을 늘린다 — "수련해서 더 많이 행동한다"(staminaActionBonus).
   state.resources.action = clampAction(
     state,
-    state.resources.action + (rested ? 30 : 10) + home.actionBonus,
+    state.resources.action +
+      (rested ? SLEEP_ACTION_RECOVER : LATE_ACTION_RECOVER) +
+      home.actionBonus +
+      staminaActionBonus(state),
   );
-  state.resources.mental = Math.min(100, state.resources.mental + (rested ? 20 : 8) + home.mentalBonus);
+  // ④ 마일스톤 퍼크 'stamina'가 하루 정신력 회복을 +5 해준다(해금 전 0).
+  state.resources.mental = Math.min(
+    100,
+    state.resources.mental + (rested ? 20 : 8) + home.mentalBonus + perkMentalRecovery(state),
+  );
   state.lastRestGain = {
     action: state.resources.action - actionBefore,
     mental: state.resources.mental - mentalBefore,

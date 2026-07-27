@@ -1,7 +1,7 @@
 import type { GameState, SkillStatId } from "@/core/types";
 import type { GoblinItem } from "@/data/goblin";
 import { monthKey } from "./calendar";
-import { clampSkill } from "./stats";
+import { gainSkill } from "./stats";
 import { addSchedule } from "./time";
 
 /**
@@ -35,9 +35,11 @@ export function canBuyGoblin(state: GameState, item: GoblinItem): boolean {
 export function buyGoblinItem(state: GameState, item: GoblinItem): boolean {
   if (!canBuyGoblin(state, item)) return false;
   state.money -= item.price;
+  // flat: 상점 표기로 확정 고지되고 값을 이미 치렀다(shop.buyItem과 동일 근거).
+  // sellOwnedItem의 회수도 선언값 기준이라 액면 지급이어야 대칭이 유지된다.
   for (const [skill, amount] of Object.entries(item.boosts)) {
     const key = skill as SkillStatId;
-    state.skills[key] = clampSkill(state.skills[key] + (amount ?? 0));
+    gainSkill(state, key, amount ?? 0, { flat: true });
   }
   state.ownedItems.push(item.id);
   addSchedule(state, `도깨비 상점: ${item.name} 구매`, "system");

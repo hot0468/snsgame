@@ -6,7 +6,7 @@ import { applyEffect } from "./events";
 import { CREW_MILESTONES, GROUP_NIGHT_MILESTONES, type MeetMilestone } from "@/data/regularMeetEvents";
 import { pushKakao } from "./kakao";
 import { ownedCount } from "./shop";
-import { clampAction, clampResource, clampSkill, gainSkill, skillTo100 } from "./stats";
+import { clampAction, clampResource, gainSkill, skillTo100 } from "./stats";
 import {
   addSchedule,
   advanceTime,
@@ -375,7 +375,7 @@ function resolveFriendMeet(state: GameState, appt: Appointment, go: boolean): st
   }
   state.resources.action = clampAction(state, state.resources.action - 10);
   state.resources.mental = clampResource(state.resources.mental + 8);
-  state.skills.sociability = clampSkill(state.skills.sociability + 20);
+  gainSkill(state, "sociability", 20);
   const delta = randInt(4, 12);
   changeFollowers(state, delta);
   addSchedule(state, `${name}와 만나서 놀기`, "offline");
@@ -402,7 +402,7 @@ function resolveEventVisit(state: GameState, appt: Appointment, go: boolean): st
   }
   state.resources.action = clampAction(state, state.resources.action - 10);
   state.resources.mental = clampResource(state.resources.mental + 10);
-  state.skills.sociability = clampSkill(state.skills.sociability + 10);
+  gainSkill(state, "sociability", 10);
   const delta = randInt(15, 40);
   changeFollowers(state, delta);
   addSchedule(state, `${appt.title} 참여`, "offline");
@@ -454,8 +454,8 @@ export function resolveComiccon(
 
   if (mode === "booth") {
     state.resources.action = clampAction(state, state.resources.action - 15);
-    state.skills.creativity = clampSkill(state.skills.creativity + 15);
-    state.skills.sociability = clampSkill(state.skills.sociability + 10);
+    gainSkill(state, "creativity", 15);
+    gainSkill(state, "sociability", 10);
     const followers = randInt(10, 30);
     changeFollowers(state, followers);
     const earned = boothIncome(state.skills.creativity);
@@ -484,9 +484,9 @@ export function resolveComiccon(
 
   if (mode === "cosplayLewd") {
     state.resources.action = clampAction(state, state.resources.action - 12);
-    state.skills.beauty = clampSkill(state.skills.beauty + 10);
-    state.skills.sociability = clampSkill(state.skills.sociability + 15);
-    state.skills.lewd = clampSkill(state.skills.lewd + 20);
+    gainSkill(state, "beauty", 10);
+    gainSkill(state, "sociability", 15);
+    gainSkill(state, "lewd", 20);
     state.resources.morality = clampResource(state.resources.morality - 6);
     const followers = randInt(55, 95);
     changeFollowers(state, followers);
@@ -513,8 +513,8 @@ export function resolveComiccon(
   if (mode === "cosplay") {
     state.resources.action = clampAction(state, state.resources.action - 12);
     state.resources.mental = clampResource(state.resources.mental + 8);
-    state.skills.beauty = clampSkill(state.skills.beauty + 15);
-    state.skills.sociability = clampSkill(state.skills.sociability + 15);
+    gainSkill(state, "beauty", 15);
+    gainSkill(state, "sociability", 15);
     const followers = randInt(25, 55);
     changeFollowers(state, followers);
     addSchedule(state, "코믹콘 코스프레 참가", "offline");
@@ -534,7 +534,7 @@ export function resolveComiccon(
   // visitor
   state.resources.action = clampAction(state, state.resources.action - 8);
   state.resources.mental = clampResource(state.resources.mental + 10);
-  state.skills.sociability = clampSkill(state.skills.sociability + 15);
+  gainSkill(state, "sociability", 15);
   const followers = randInt(12, 28);
   changeFollowers(state, followers);
   addSchedule(state, "코믹콘 참관", "offline");

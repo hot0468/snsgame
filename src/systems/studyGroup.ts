@@ -5,7 +5,7 @@ import { pick, randInt, uid } from "@/utils/random";
 import { postTweet, type PostTweetResult } from "./tweetSystem";
 import { scheduleNextStudy } from "./appointments";
 import { addSchedule, advanceTime } from "./time";
-import { clampAction, clampResource, clampSkill } from "./stats";
+import { clampAction, clampResource, gainSkill } from "./stats";
 
 /**
  * 취업스터디 모임 흐름.
@@ -111,9 +111,10 @@ export function joinStudy(state: GameState, thread: DMThread): void {
 export function resolveStudy(state: GameState): string {
   // 정기 일정이므로 다음 주를 먼저 다시 잡는다(resolveCrewRun과 동일 순서).
   scheduleNextStudy(state);
-  state.skills.sociability = clampSkill(state.skills.sociability + randInt(8, 12));
-  state.skills.vocabulary = clampSkill(state.skills.vocabulary + randInt(8, 12));
-  state.skills.knowledge = clampSkill(state.skills.knowledge + randInt(8, 12));
+  // 정기 육성 활동 — gainSkill 관문으로 정신력 배율·상단 감쇠를 받는다.
+  gainSkill(state, "sociability", randInt(8, 12));
+  gainSkill(state, "vocabulary", randInt(8, 12));
+  gainSkill(state, "knowledge", randInt(8, 12));
   state.resources.action = clampAction(state, state.resources.action - STUDY_ACTION_COST);
   state.resources.mental = clampResource(state.resources.mental + 4);
   addSchedule(state, "취업스터디 모임", "offline");

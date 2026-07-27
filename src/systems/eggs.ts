@@ -1,5 +1,5 @@
 import type { GameState, ScheduleEvent, Tweet, Account, SkillStatId } from "@/core/types";
-import { getActiveAccount, LATE_SLOT } from "@/core/state";
+import { getActiveAccount, LATE_SLOT, appendSchedule } from "@/core/state";
 import { MAX_SKILL, SKILL_STATS } from "@/data/stats";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { changeFollowers, currentMaxPostSlots } from "./followers";
@@ -35,7 +35,7 @@ const LEMONZ_CART = ["lemon", "mandarin"] as const;
 
 /** 스케줄 로그 기록(time.ts와의 순환 참조를 피해 인라인). */
 function addSchedule(state: GameState, title: string, kind: ScheduleEvent["kind"]): void {
-  state.schedule.push({ id: uid("sch"), day: state.day, title, kind });
+  appendSchedule(state, { id: uid("sch"), day: state.day, title, kind });
 }
 
 /** 1회성 이벤트를 처음 발동할 때만 true. 이미 발동했으면 false. */

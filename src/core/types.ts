@@ -462,6 +462,19 @@ export interface Appointment {
 /** 회사 규모(뒤로 갈수록 야근 확률↑, 복지↑) */
 export type CompanyTier = "micro" | "small" | "medium" | "large";
 
+/**
+ * 채용 직군(트랙) — 합격 판정에 쓰이는 스탯 조합이 이 값으로 갈린다.
+ * - `office` 사무직: 어휘력·친화력·미용 (기존 단일 공식. **기본값**)
+ * - `fitness` 운동직: 운동·친화력 (트레이너·필라테스·수영강사 등)
+ * - `beauty` 뷰티직: 미용·친화력 (헤어·네일·피부관리 등)
+ *
+ * ⚠️ 값을 추가하면 `systems/employment.TRACK_WEIGHTS`와 `data/jobs.TRACK_LABELS`
+ *    (둘 다 `Record<JobTrack, ...>`)를 함께 채워야 한다 — typecheck가 누락을 잡는다.
+ * ⚠️ 트랙별 가중치 합은 반드시 1.0이어야 한다. 합이 1이 아니면 0~100 환산이 어긋나
+ *    `TIERS[].requirement`(8/28/52/78)와 스케일이 안 맞는다(전원 합격/전원 불합격).
+ */
+export type JobTrack = "office" | "fitness" | "beauty";
+
 /** 재직 정보('사람' 단위 — 계정과 무관) */
 export interface Employment {
   /** 회사 이름 */
@@ -850,8 +863,15 @@ export interface GameState {
   /** 진행 중인 재능마켓 외주(수주 후 데드라인 안에 작업량을 채워야 하는 건들) */
   activeGigs: ActiveGig[];
 
-  /** 아르바이트 누적 횟수(할수록 급여 상승) */
-  partTimeCount: number;
+  /**
+   * 아르바이트 **종류별** 누적 횟수(할수록 그 알바의 일당 상승).
+   * 키는 `OfflineActivity.partTime`에 선언된 알바 id(= 해당 활동의 `id`).
+   *
+   * ⚠️ 구세이브엔 `partTimeCount: number`(전 알바 합산 하나)였다 — 마이그레이션은 `systems/save.ts`.
+   * ⚠️ 부분 Record다(`Partial`) — 아직 안 해본 알바는 키 자체가 없다. 읽을 땐 반드시
+   *    `partTimeCountOf(state, id)` 셀렉터를 써라(`?? 0` 직접 쓰기 금지 — 셀렉터가 NaN 방어를 겸한다).
+   */
+  partTimeCounts: Partial<Record<string, number>>;
 
   /** 카카오톡 수신함(발신자별 대화) */
   kakao: KakaoThread[];

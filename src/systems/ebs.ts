@@ -61,14 +61,18 @@ export function watchLecture(
   );
 
   let statLabel: string;
+  // ⚠️ 실제 반영치를 보고한다 — gainSkill이 정신력 배율(0.4~1.25)·상단 감쇠를 걸므로
+  //    선언값 lec.amount를 그대로 쓰면 돈을 내고 "+20"이라 듣고 +8을 받는 불일치가 생긴다.
+  let gained: number;
   if (lec.stat === "performance") {
     gainPerformance(state, lec.amount);
     statLabel = "업무 성과";
+    gained = lec.amount;
   } else {
-    gainSkill(state, lec.stat, lec.amount);
+    gained = gainSkill(state, lec.stat, lec.amount);
     statLabel = SKILL_STATS[lec.stat].label;
   }
 
   addSchedule(state, `EBS 강의 수강: ${lec.title}`, "offline");
-  return { ok: true, label: `${statLabel} +${lec.amount}` };
+  return { ok: true, label: `${statLabel} ${gained > 0 ? "+" : ""}${gained}` };
 }

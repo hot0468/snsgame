@@ -1,4 +1,5 @@
 import type { Employment, GameState, ScheduleEvent } from "@/core/types";
+import { appendSchedule } from "@/core/state";
 import { uid } from "@/utils/random";
 import { HOUSINGS } from "@/data/housing";
 import { TIERS } from "@/data/jobs";
@@ -72,7 +73,7 @@ export function monthlySubscriptionIncome(state: GameState): number {
 }
 
 function pushSchedule(state: GameState, title: string, kind: ScheduleEvent["kind"]): void {
-  state.schedule.push({ id: uid("sch"), day: state.day, title, kind });
+  appendSchedule(state, { id: uid("sch"), day: state.day, title, kind });
 }
 
 /** 이번 달 월세 납부일(마지막 날)까지 남은 일수(오늘이 마지막날이면 0) */

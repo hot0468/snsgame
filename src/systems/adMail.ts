@@ -4,7 +4,7 @@ import { AD_MAIL_TEMPLATES } from "@/data/adMail";
 import { cosmeticById, monthlyNewCosmetics } from "@/data/cosmetics";
 import { SHOP_ITEMS } from "@/data/shop";
 import { chance, pick, uid } from "@/utils/random";
-import { clampSkill } from "./stats";
+import { gainSkill } from "./stats";
 import { salePrice } from "./seasonal";
 // monthKey는 calendar.ts에서 직접 가져온다(time.ts가 이 파일을 import하므로 순환 참조 방지).
 import { monthKey } from "./calendar";
@@ -126,7 +126,8 @@ export function buyFromAdOffer(state: GameState, emailId: string): boolean {
 
   state.money -= adOfferPrice(state, offer, item);
   if (item.skill && item.boost) {
-    state.skills[item.skill] = clampSkill(state.skills[item.skill] + item.boost);
+    // shop.buyItem과 같은 결과여야 한다(가격 산정만 다르다) — 확정 고지·대가 지불이므로 flat.
+    gainSkill(state, item.skill, item.boost, { flat: true });
   }
   state.ownedItems.push(item.id);
   offer.used = true;

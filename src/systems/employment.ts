@@ -1,4 +1,4 @@
-import type { Email, GameState } from "@/core/types";
+import type { Email, GameState, JobTrack, SkillStatId } from "@/core/types";
 import type { JobPosting } from "@/data/jobs";
 import { MORNING_SLOT } from "@/core/state";
 import { TIERS } from "@/data/jobs";
@@ -29,23 +29,99 @@ const PERF_GAIN = 7;
 export const PERF_LEVELUP_AT = 100;
 
 /**
- * 취업 역량 점수(0~100). 어휘력·친화력·미용에 좌우된다.
+ * 직군(트랙)별 역량 가중치.
+ *
+ * ⚠️ **각 트랙의 가중치 합은 반드시 1.0이어야 한다.** 스킬(0~999)에 가중평균을 걸고
+ *    `skillTo100`으로 나누는 구조라, 합이 1이 아니면 0~100 스케일이 깨져
+ *    `TIERS[].requirement`(8/28/52/78)와 어긋난다(전원 합격 또는 전원 불합격).
+ *    `__tests__/jobTracks.test.ts`가 합=1.0을 강제한다.
+ *
+ * - `office`: **기존 단일 공식 그대로**(어휘 0.45 + 친화 0.35 + 미용 0.2).
+ *   한 자리도 바꾸지 마라 — 사무직 합격률 회귀가 이 값에 걸려 있다.
+ * - `fitness`/`beauty`: 주 스탯 0.65 + 친화력 0.35.
+ *   친화력 비중을 office(0.35)와 **똑같이** 맞춘 건 의도다 — 어떤 트랙을 타든
+ *   '사람 상대하는 직업'이라는 공통 축을 남겨, 친화력만 키운 플레이어가 트랙 전환으로
+ *   손해 보지 않게 한다. 나머지 0.65를 주 스탯 하나에 몰아준 덕에
+ *   "운동만 판 플레이어도 취업 경로가 생긴다"는 목적이 성립한다
+ *   (office는 남은 0.65가 어휘 0.45 + 미용 0.2로 쪼개져 있어 단일 스탯 몰빵이 불가능하다).
+ */
+export const TRACK_WEIGHTS: Record<JobTrack, Partial<Record<SkillStatId, number>>> = {
+  office: { vocabulary: 0.45, sociability: 0.35, beauty: 0.2 },
+  fitness: { fitness: 0.65, sociability: 0.35 },
+  beauty: { beauty: 0.65, sociability: 0.35 },
+};
+
+/** 트랙 미지정(구 공고·구세이브·기본 호출) 시 적용되는 트랙 */
+export const DEFAULT_JOB_TRACK: JobTrack = "office";
+
+/**
+ * 취업 역량 점수(0~100). **직군(track)에 따라 판정 스탯이 갈린다**(TRACK_WEIGHTS).
  * 스킬은 0~999 스케일이므로 100점 만점으로 환산한다
  * (스킬 만렙 → 100점. 공고별 requirement는 계속 0~100 기준).
+ *
+ * @param track 생략 시 `"office"` — 기존 호출부·구 데이터의 동작을 그대로 보존한다.
  */
-export function competence(state: GameState): number {
-  const { vocabulary, sociability, beauty } = state.skills;
-  const weighted = vocabulary * 0.45 + sociability * 0.35 + beauty * 0.2;
+export function competence(state: GameState, track: JobTrack = DEFAULT_JOB_TRACK): number {
+  const weights = TRACK_WEIGHTS[track] ?? TRACK_WEIGHTS[DEFAULT_JOB_TRACK];
+  let weighted = 0;
+  for (const [skill, w] of Object.entries(weights)) {
+    weighted += (state.skills[skill as SkillStatId] ?? 0) * (w ?? 0);
+  }
   return Math.round(skillTo100(weighted));
 }
 
 /**
- * 특정 등급 공고의 합격 확률(0~1).
- * 보유 자격증의 보너스가 더해지지만, 클램프(0.05~0.95)는 그대로라 상한을 뚫지 못한다.
+ * 트랙별 역량 점수를 한 번에 계산한다 — UI가 "내 역량"을 트랙별로 늘어놓을 때 쓴다.
+ * (`ui/jobplanet`은 공고와 무관한 기업 디렉터리라 단일 숫자로는 트랙을 표현할 수 없다.
+ *  어떤 표현을 고를지는 ui의 몫이고, systems는 값만 제공한다.)
  */
-export function successChance(state: GameState, tier: JobPosting["tier"]): number {
+export function competenceByTrack(state: GameState): Record<JobTrack, number> {
+  return {
+    office: competence(state, "office"),
+    fitness: competence(state, "fitness"),
+    beauty: competence(state, "beauty"),
+  };
+}
+
+/**
+ * 플레이어에게 가장 유리한 트랙과 그 점수 — UI가 단일 숫자 자리에 "내 최고 역량"을
+ * 보여주고 싶을 때 쓰라고 둔 셀렉터. 동점이면 office > fitness > beauty 순으로 고른다.
+ */
+export function bestTrack(state: GameState): { track: JobTrack; score: number } {
+  const scores = competenceByTrack(state);
+  let best: JobTrack = DEFAULT_JOB_TRACK;
+  for (const t of ["office", "fitness", "beauty"] as JobTrack[]) {
+    if (scores[t] > scores[best]) best = t;
+  }
+  return { track: best, score: scores[best] };
+}
+
+/**
+ * 특정 등급·직군 공고의 합격 확률(0~1).
+ * 보유 자격증의 보너스가 더해지지만, 클램프(0.05~0.95)는 그대로라 상한을 뚫지 못한다.
+ *
+ * @param track 생략 시 `"office"`(기존 동작 보존).
+ *
+ * ── 자격증 보너스(certJobBonus)를 **트랙 무관으로 유지한 판단** ──
+ * "헤어 자격증이 사무직 합격률을 올리는 게 맞나"는 지적은 타당하지만, 유지가 낫다고 봤다:
+ *  1) `Certification.jobBonus`는 난이도·응시료와 **단조 증가**하도록 짜인 값이다(0.02~0.3).
+ *     즉 도메인 적합도가 아니라 '들인 노력'을 값으로 표현한 축이다. 여기에 트랙 필터를 걸면
+ *     자격증 25종 대부분이 3트랙 중 2트랙에서 가치가 0이 되어, data/certifications가
+ *     명시한 "fee·requirement·jobBonus는 서로 정합적으로" 규약이 통째로 깨진다.
+ *  2) 트랙 분화는 이미 competence 쪽에서 충분한 차별화를 만든다. 자격증에까지 트랙 게이트를
+ *     이중으로 걸면 운동·뷰티 신규 트랙이 초반에 지나치게 좁아진다(신설 트랙의 목적과 역행).
+ *  3) 게임 내적으로도 "자격증을 여러 개 딴 사람"은 어느 직군에서든 서류가 통과하는 게
+ *     자연스럽다 — 스펙 인플레 개그가 이 게임의 톤이기도 하다.
+ * 트랙별 자격증 가중을 넣고 싶다면 `Certification`에 `tracks?: JobTrack[]`를 새로 두고
+ * 미지정=전 트랙으로 하는 게 맞다(기존 값 재조정이 필요하므로 별도 밸런스 작업으로 다뤄라).
+ */
+export function successChance(
+  state: GameState,
+  tier: JobPosting["tier"],
+  track: JobTrack = DEFAULT_JOB_TRACK,
+): number {
   const req = TIERS[tier].requirement;
-  const gap = competence(state) - req;
+  const gap = competence(state, track) - req;
   return Math.max(0.05, Math.min(0.95, 0.5 + gap / 80 + certJobBonus(state)));
 }
 
@@ -73,8 +149,13 @@ export function canOpenJobBoard(state: GameState): boolean {
  * 합격 여부만 확정해 두었다가 익일에 피메일로 통보된다.
  */
 export function submitJobApplication(state: GameState, posting: JobPosting): void {
-  const p = successChance(state, posting.tier);
+  // 트랙 미지정 공고는 사무직으로 판정한다(기존 공고·구 데이터 호환).
+  const track = posting.track ?? DEFAULT_JOB_TRACK;
+  const p = successChance(state, posting.tier, track);
   const hired = chance(p);
+  // ⚠️ pendingJobApp에 track을 넣지 않는 건 의도다 — 합격 여부(hired)가 **지원 시점에 이미
+  //    확정**되므로 결과 통보(deliverJobResultEmail)는 트랙을 다시 볼 일이 없다.
+  //    필드를 늘리지 않은 덕에 구세이브의 진행 중 지원도 폴백 없이 그대로 처리된다.
   state.pendingJobApp = {
     company: posting.company,
     tier: posting.tier,
