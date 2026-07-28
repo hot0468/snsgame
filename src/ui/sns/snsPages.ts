@@ -5,7 +5,13 @@ import { getActiveAccount, visibleTimeline } from "@/core/state";
 import { ALL_ATTRIBUTE_IDS, ATTRIBUTES } from "@/data/attributes";
 import type { DMTone } from "@/data/dmContent";
 import { DICK_SIZE_LABELS } from "@/data/dmContent";
-import { canUseBoldTone, claimDonation, replyDM, sendCustomDM, visibleDms } from "@/systems/dm";
+import {
+  claimDonation,
+  dmReplyOptions,
+  replyDM,
+  sendCustomDM,
+  visibleDms,
+} from "@/systems/dm";
 import { canMeet, MEETING_ACTION_COST } from "@/systems/meeting";
 import { joinCrew } from "@/systems/crew";
 import { joinGroupRoom } from "@/systems/groupRoom";
@@ -17,8 +23,15 @@ import { resolveCosplayGeneral, pickCosplayAdultScenario, resolveCosplayAdult, C
 import { hasAction } from "@/systems/stats";
 import { renderScenarioReaderModal } from "./scenarioReader";
 import { acceptAuthorContract } from "@/systems/author";
+import { openPenNameModal } from "../penNameModal";
 import { acceptAvJob, declineAvJob, switchToAvJob } from "@/systems/avJob";
-import { acceptKillerJob, declineKillerJob, acceptChilnamOffer, declineChilnamOffer } from "@/systems/killer";
+import {
+  acceptKillerJob,
+  declineKillerJob,
+  acceptChilnamOffer,
+  declineChilnamOffer,
+  isDoctorThread,
+} from "@/systems/killer";
 import { currentJobLabel, hasAnyJob } from "@/systems/employment";
 import { confirmPurchase } from "@/ui/confirmModal";
 import { consumeWishLink, isWishTweet, rollWishOptions, spawnWishDM } from "@/systems/wish";
@@ -49,6 +62,7 @@ import {
   reactToTweet,
   retweetTweet,
 } from "@/systems/exploreSystem";
+import { unriddenTrendFor } from "@/systems/trends";
 import { canWatchAd, watchAd } from "@/systems/ads";
 import { el, enableDragScroll, formatNumber } from "@/utils/dom";
 import { tweetCard } from "@/ui/components";
@@ -181,14 +195,21 @@ function doRetweet(ctx: GameContext, tweet: Tweet): void {
     return;
   }
   let delta: number | null = 0;
+  // 실검 편승 여부는 리트윗 '전'에 봐야 한다(retweetTweet이 rideTrend로 소진해버린다).
+  let rode: string | null = null;
   ctx.update((s) => {
+    rode = unriddenTrendFor(s, tweet.attribute)?.keyword ?? null;
     delta = retweetTweet(s, tweet);
   });
   if (delta === null) {
     ctx.toast("이미 리트윗한 트윗이에요");
     return;
   }
-  ctx.toast(delta >= 0 ? `리트윗! 내 탐라에 등록 · 팔로워 +${delta}` : `리트윗... 상충 ${delta}`);
+  if (delta > 0 && rode) {
+    ctx.toast(`🔥 실검 「${rode}」 편승! 리트윗 · 팔로워 +${delta}`);
+  } else {
+    ctx.toast(delta >= 0 ? `리트윗! 내 탐라에 등록 · 팔로워 +${delta}` : `리트윗... 상충 ${delta}`);
+  }
   ctx.afterAction("retweet");
 }
 
@@ -848,10 +869,14 @@ export function tweetDetailPage(ctx: GameContext): HTMLElement {
 
 /* ===================== 쪽지(DM) 페이지 ===================== */
 
+/**
+ * 답장 버튼의 톤 꼬리표. 버튼 본문은 실제로 보낼 문장이고, 이건 그 문장이 어떤 톤인지만 알린다
+ * (문장만 놓으면 어느 게 '대담'인지 몰라 도덕성·음란도 변화가 뒤통수를 친다).
+ */
 const TONE_LABELS: Record<DMTone, string> = {
-  friendly: "친절하게",
-  cool: "무심하게",
-  bold: "대담하게",
+  friendly: "친절",
+  cool: "무심",
+  bold: "대담",
 };
 
 function markRead(state: GameState, threadId: string): void {
@@ -1043,16 +1068,26 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
     if (ctx.store.getState().authorContract) {
       return el("span", { class: "chip", style: "opacity:.6" }, "계약함");
     }
+    // 계약 전에 필명을 먼저 받는다 — 데뷔명은 되돌릴 수 없으므로 확인 절차를 겸한다.
     const sign = (adult: boolean) => {
-      ctx.update((s) => {
-        const t = getActiveAccount(s).dms.find((x) => x.id === thread.id);
-        if (t) acceptAuthorContract(s, t, adult);
+      openPenNameModal(ctx, {
+        adult,
+        onConfirm: (penName) => {
+          let pen = "";
+          ctx.update((s) => {
+            const t = getActiveAccount(s).dms.find((x) => x.id === thread.id);
+            if (t) {
+              acceptAuthorContract(s, t, adult, penName);
+              pen = s.authorContract?.penName ?? "";
+            }
+          });
+          ctx.toast(
+            adult
+              ? `성인물 작가 '${pen}' 데뷔! 음란도도 작업 성과에 반영돼요 🔞`
+              : `작가 '${pen}' 데뷔! 필명으로 SNS를 검색해보세요 ✍️`,
+          );
+        },
       });
-      ctx.toast(
-        adult
-          ? "성인물 작가 계약! 음란도도 작업 성과에 반영돼요 🔞"
-          : "작가 계약 체결! 다음 달부터 매월 월급이 들어와요 ✍️",
-      );
     };
     // 성인물 보기가 켜졌으면 작품 유형(전연령/성인물)을 고르게 한다.
     if (ctx.store.getState().adultMode) {
@@ -1133,8 +1168,10 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
       "촬영하러 간다",
     );
   }
-  // momo 청부(킬러) 제의 스레드: 수락/거절 버튼(처리 후엔 표시만)
+  // 청부(킬러) 제의 스레드: 수락/거절 버튼(처리 후엔 표시만).
+  // momo(성인 경로)와 의사(전연령 경로)가 같은 플래그를 쓰고, 토스트 문구만 톤을 맞춘다.
   if (thread.momoOffer) {
+    const byDoctor = isDoctorThread(thread.partnerHandle);
     return el(
       "div",
       { class: "compose-actions", style: "gap:8px" },
@@ -1144,10 +1181,12 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
           class: "btn",
           onclick: () => {
             ctx.update((s) => acceptKillerJob(s, thread.id));
-            ctx.toast("...돌이킬 수 없는 문을 열었다.");
+            ctx.toast(
+              byDoctor ? "수술에 들어가기로 했다." : "...돌이킬 수 없는 문을 열었다.",
+            );
           },
         },
-        "수락한다",
+        byDoctor ? "참여한다" : "수락한다",
       ),
       el(
         "button",
@@ -1155,10 +1194,10 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
           class: "btn btn--ghost",
           onclick: () => {
             ctx.update((s) => declineKillerJob(s, thread.id));
-            ctx.toast("제의를 거절했다.");
+            ctx.toast(byDoctor ? "정중히 사양했다." : "제의를 거절했다.");
           },
         },
-        "거절한다",
+        byDoctor ? "사양한다" : "거절한다",
       ),
     );
   }
@@ -1495,24 +1534,24 @@ function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement 
     );
   });
 
-  const tones: DMTone[] = ["friendly", "cool"];
-  if (canUseBoldTone(ctx.store.getState())) tones.push("bold");
-
-  const toneButtons = tones.map((tone) =>
+  // 톤 이름이 아니라 '실제로 보낼 문장'을 버튼에 깐다. 후보는 스레드 상태로 고정돼 있어
+  // 재렌더에도 흔들리지 않는다(systems/dm.ts dmReplyOptions).
+  const toneButtons = dmReplyOptions(ctx.store.getState(), thread).map((opt) =>
     el(
       "button",
       {
-        class: "chip",
+        class: "chip dm__reply-choice",
         onclick: () => {
           let delta = 0;
           ctx.update((s) => {
             const t = getActiveAccount(s).dms.find((x) => x.id === thread.id);
-            if (t) delta = replyDM(s, t, tone).followerDelta;
+            if (t) delta = replyDM(s, t, opt.tone).followerDelta;
           });
           if (delta > 0) ctx.toast(`훈훈한 대화! 팔로워 +${delta}`);
         },
       },
-      TONE_LABELS[tone],
+      el("span", { class: "dm__reply-tone" }, TONE_LABELS[opt.tone]),
+      el("span", { class: "dm__reply-text" }, opt.me),
     ),
   );
 
@@ -1619,7 +1658,7 @@ function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement 
       : el(
         "div",
         { class: "dm__replies" },
-        el("div", { class: "chip-row", style: "margin:0 0 8px" }, ...toneButtons),
+        el("div", { class: "dm__choices" }, ...toneButtons),
         el(
           "div",
           { class: "dm__send" },

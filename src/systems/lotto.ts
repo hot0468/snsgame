@@ -58,8 +58,16 @@ export interface LottoDraw {
   prize: number;
 }
 
-/** 추첨 결과를 확인한다(추첨일 이후에만 유효). 결과 확인 시 복권은 소멸. */
+/**
+ * 추첨 결과를 확인한다(추첨일 이후에만 유효). 결과 확인 시 복권은 소멸.
+ *
+ * ⚠️ 티켓·추첨일 판정을 **여기서도** 한다. UI가 lottoStatus로 버튼을 가리지만,
+ * 전체 재렌더 모델 특성상 낡은 모달에 '결과 확인' 버튼이 살아남을 수 있고
+ * 그대로 호출되면 티켓 없이 20억이 지급된다(실측: 티켓 없이 2000회 → 6회 당첨).
+ * 조건 미달이면 아무 상태도 바꾸지 않고 낙첨으로 반환한다.
+ */
 export function drawLotto(state: GameState): LottoDraw {
+  if (!state.lotto || state.day < state.lotto.drawDay) return { won: false, prize: 0 };
   const won = Math.random() < LOTTO_WIN_CHANCE;
   state.lotto = null;
   if (won) {

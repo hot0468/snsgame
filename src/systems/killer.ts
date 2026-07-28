@@ -5,6 +5,16 @@ import { dateOf } from "./calendar";
 import { MAX_SKILL } from "@/data/stats";
 import { clampResource, gainStamina } from "./stats";
 import { KILLER_TARGETS, targetById, targetFullTweets } from "@/data/killerTargets";
+import {
+  DOCTOR_ACCEPT_REPLY,
+  DOCTOR_ALREADY,
+  DOCTOR_ASSIGN_PREFIX,
+  DOCTOR_ASSIGN_SUFFIX,
+  DOCTOR_DECLINE_REPLY,
+  DOCTOR_FAIL,
+  DOCTOR_FAIL_FINAL,
+  DOCTOR_OFFER,
+} from "@/data/hospital";
 
 /** 실패 누적 상한 — 이 횟수만큼 실패하면 본인이 처리된다(게임오버). */
 export const KILLER_MAX_FAILS = 3;
@@ -22,6 +32,24 @@ export const KILLER_LEGEND_REASON =
 
 const MOMO_HANDLE = "momo";
 const MOMO_NAME = "momo";
+
+/** 전연령 진입로의 연락책(병원 원장). momo와 같은 일을 하지만 말투가 정반대다. */
+const DOCTOR_HANDLE = "doctor";
+const DOCTOR_NAME = "의사";
+
+/** 이 스레드가 의사(전연령 진입로) 스레드인지 — ui가 버튼 문구 톤을 고를 때 쓴다. */
+export function isDoctorThread(partnerHandle: string): boolean {
+  return partnerHandle === DOCTOR_HANDLE;
+}
+
+/**
+ * 지금 나를 부리는 연락책. 구세이브(recruiter 없음)는 momo로 본다.
+ * ⚠️ 이 판정을 여러 군데로 흩지 마라 — 배정·실패·게임오버 DM이 서로 다른 사람에게서
+ *    오면 그 순간 전연령 각색이 무너진다(momo가 수술 얘기를 하거나 그 반대가 된다).
+ */
+function recruiterOf(state: GameState): "momo" | "doctor" {
+  return state.killerJob?.recruiter ?? "momo";
+}
 
 /** 의뢰비 하한/역량 가산폭. 역량 0 → 30만, 역량 1 → 200만. */
 const FEE_BASE = 300_000;
@@ -60,13 +88,23 @@ export function normalizeLocation(s: string): string {
 
 /** momo 대화 스레드를 찾거나 새로 만든다(활성 계정 기준, 고정 핸들). */
 function momoThread(state: GameState): DMThread {
+  return handlerThread(state, MOMO_HANDLE, MOMO_NAME);
+}
+
+/** 의사 대화 스레드를 찾거나 새로 만든다. */
+function doctorThread(state: GameState): DMThread {
+  return handlerThread(state, DOCTOR_HANDLE, DOCTOR_NAME);
+}
+
+/** 연락책 스레드를 찾거나 새로 만든다(활성 계정 기준, 고정 핸들). */
+function handlerThread(state: GameState, handle: string, name: string): DMThread {
   const acc = getActiveAccount(state);
-  let t = acc.dms.find((d) => d.partnerHandle === MOMO_HANDLE);
+  let t = acc.dms.find((d) => d.partnerHandle === handle);
   if (!t) {
     t = {
       id: uid("dm"),
-      partnerName: MOMO_NAME,
-      partnerHandle: MOMO_HANDLE,
+      partnerName: name,
+      partnerHandle: handle,
       attribute: "daily",
       isAdult: false,
       messages: [],
@@ -84,6 +122,22 @@ function pushMomo(state: GameState, text: string): void {
   const t = momoThread(state);
   t.messages.push({ id: uid("dmm"), from: "partner", text, day: state.day });
   t.unread = true;
+}
+
+/** 의사가 보내는 메시지를 스레드에 추가(unread 표시). */
+function pushDoctor(state: GameState, text: string): void {
+  const t = doctorThread(state);
+  t.messages.push({ id: uid("dmm"), from: "partner", text, day: state.day });
+  t.unread = true;
+}
+
+/**
+ * 업무 연락을 **나를 고용한 연락책 이름으로** 보낸다. 같은 사건을 두 화법으로 쓴다.
+ * 정보량은 반드시 같아야 한다 — 한쪽이 더 친절하면 진입로 선택이 난이도 선택이 돼버린다.
+ */
+function pushHandler(state: GameState, momoText: string, doctorText: string): void {
+  if (recruiterOf(state) === "doctor") pushDoctor(state, doctorText);
+  else pushMomo(state, momoText);
 }
 
 /**
@@ -107,18 +161,35 @@ export function requestBook(state: GameState): void {
   t.unread = true;
 }
 
-/** 청부 제의 수락 — 킬러가 된다. 첫 타겟은 다가오는 일요일 배정. */
+/**
+ * 청부 제의 수락 — 킬러가 된다. 첫 타겟은 다음 달 1일 배정(killerDailyTick).
+ * **제의가 온 스레드가 곧 연락책**이다 — 의사 스레드에서 수락하면 이후 업무 연락도 의사가 한다.
+ */
 export function acceptKillerJob(state: GameState, threadId: string): void {
   const acc = getActiveAccount(state);
   const t = acc.dms.find((d) => d.id === threadId);
   if (!t) return;
+  const byDoctor = isDoctorThread(t.partnerHandle);
   t.momoOffer = false;
-  state.killerJob = { active: true, fails: 0, completed: 0, assignment: null };
-  t.messages.push({ id: uid("dmm"), from: "me", text: "...하지.", day: state.day });
+  state.killerJob = {
+    active: true,
+    fails: 0,
+    completed: 0,
+    assignment: null,
+    recruiter: byDoctor ? "doctor" : "momo",
+  };
+  t.messages.push({
+    id: uid("dmm"),
+    from: "me",
+    text: byDoctor ? "...하겠습니다." : "...하지.",
+    day: state.day,
+  });
   t.messages.push({
     id: uid("dmm"),
     from: "partner",
-    text: "현명해. 첫 타겟은 다음 달 1일에 보낸다. 명심해 — 한번 시작하면 스스로 그만두는 건 없어.",
+    text: byDoctor
+      ? DOCTOR_ACCEPT_REPLY
+      : "현명해. 첫 타겟은 다음 달 1일에 보낸다. 명심해 — 한번 시작하면 스스로 그만두는 건 없어.",
     day: state.day,
   });
   t.unread = true;
@@ -129,14 +200,37 @@ export function declineKillerJob(state: GameState, threadId: string): void {
   const acc = getActiveAccount(state);
   const t = acc.dms.find((d) => d.id === threadId);
   if (!t) return;
+  const byDoctor = isDoctorThread(t.partnerHandle);
   t.momoOffer = false;
-  t.messages.push({ id: uid("dmm"), from: "me", text: "...관심 없어.", day: state.day });
+  t.messages.push({
+    id: uid("dmm"),
+    from: "me",
+    text: byDoctor ? "...죄송합니다. 그만두겠습니다." : "...관심 없어.",
+    day: state.day,
+  });
   t.messages.push({
     id: uid("dmm"),
     from: "partner",
-    text: "그래. 마음이 바뀌면 다시 서적을 요청하든가.",
+    text: byDoctor ? DOCTOR_DECLINE_REPLY : "그래. 마음이 바뀌면 다시 서적을 요청하든가.",
     day: state.day,
   });
+}
+
+/**
+ * 병원 사이트 [진료예약] — 의사에게서 집도 제의 DM이 온다(전연령 진입로).
+ * momo의 [서적요청]과 완전히 같은 자리에 서는 함수다. 다른 건 말투뿐이고,
+ * 수락하면 같은 `state.killerJob`이 켜진다.
+ */
+export function requestAppointment(state: GameState): void {
+  const t = doctorThread(state);
+  if (state.killerJob?.active) {
+    pushDoctor(state, DOCTOR_ALREADY);
+    return;
+  }
+  state.momoOfferedDay = state.day;
+  t.messages.push({ id: uid("dmm"), from: "partner", text: DOCTOR_OFFER, day: state.day });
+  t.momoOffer = true; // 수락/거절 버튼을 띄우는 공용 플래그(momo와 같은 UI를 그대로 쓴다)
+  t.unread = true;
 }
 
 /** 임무 마감까지의 기간(일). 배정 후 이 안에 처리해야 한다. */
@@ -156,9 +250,12 @@ function assignNextTarget(state: GameState): void {
     tweets: buildTargetTweets(target, state.day),
   };
   // ⚠️ 이름·핸들은 절대 넣지 마라 — 계정을 직접 찾아내는 게 이 임무의 절반이다(사용자 확정).
-  pushMomo(
+  //    두 화법 모두 힌트 본문(idHint·hint)은 **똑같이** 넣는다(정보량 동일).
+  const body = `${target.idHint}\n${target.hint}`;
+  pushHandler(
     state,
-    `이번 달 타겟이다.\n\n${target.idHint}\n${target.hint}\n\n이름도 계정도 안 알려준다. 그 정도는 직접 찾아 — 트윗을 검색해서 계정부터 특정하고, 그자가 흘린 위치를 읽어라. 일주일 안에 처리해.`,
+    `이번 달 타겟이다.\n\n${body}\n\n이름도 계정도 안 알려준다. 그 정도는 직접 찾아 — 트윗을 검색해서 계정부터 특정하고, 그자가 흘린 위치를 읽어라. 일주일 안에 처리해.`,
+    `${DOCTOR_ASSIGN_PREFIX}${body}${DOCTOR_ASSIGN_SUFFIX}`,
   );
   // 칠남 동맹이면 momo보다 한 단계 자세한 힌트를 DM으로 보낸다(계정은 특정해주되 정답 위치는 안 짚어줌).
   if (state.chilnamAlly) {
@@ -249,10 +346,14 @@ export function killerDailyTick(state: GameState): void {
   // 1) 마감 지난 미완 임무 실패
   if (kj.assignment && state.day > kj.assignment.deadlineDay) {
     kj.fails += 1;
-    pushMomo(state, `마감이 지났다. 이번 건 실패야. (실패 ${kj.fails}/${KILLER_MAX_FAILS})`);
+    pushHandler(
+      state,
+      `마감이 지났다. 이번 건 실패야. (실패 ${kj.fails}/${KILLER_MAX_FAILS})`,
+      DOCTOR_FAIL(kj.fails, KILLER_MAX_FAILS),
+    );
     kj.assignment = null;
     if (kj.fails >= KILLER_MAX_FAILS) {
-      pushMomo(state, "세 번이나 놓쳤군. 실망이야. 정리해야겠어.");
+      pushHandler(state, "세 번이나 놓쳤군. 실망이야. 정리해야겠어.", DOCTOR_FAIL_FINAL);
       state.gameOver = KILLER_DEAD_REASON;
       return;
     }

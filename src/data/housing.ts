@@ -4,6 +4,11 @@ import type { SkillStatId } from "@/core/types";
  * 주거(집) 단계 데이터 — '남의방'에서 계약(구매)한다.
  * 단계가 오를수록 월세가 비싸지지만, 잠에서 깰 때 회복하는 행동력·정신력이 늘어난다.
  * 아파트(구축) 이상부터는 계약 시 세부 스탯이 영구히 오르는 효과가 붙는다.
+ *
+ * ⚠️ 혜택의 귀속 방식이 두 가지로 갈린다:
+ *    - `actionBonus`/`mentalBonus` — **현재 집에 귀속**. 이사하면 새 집 값으로 바뀐다
+ *      (상태에 저장되지 않고 `systems/time.ts`가 매 기상마다 현재 단계를 직접 읽는다).
+ *    - `permaSkills` — **계약 즉시 영구 상승**. 다른 집으로 옮겨도 빠지지 않는다.
  */
 export interface Housing {
   id: string;
@@ -18,7 +23,7 @@ export interface Housing {
   actionBonus: number;
   /** 잠에서 깰 때 추가로 회복하는 정신력 */
   mentalBonus: number;
-  /** 아파트 이상: 계약 시 1회 영구 스탯 상승 */
+  /** 아파트 이상: 계약 시 1회 영구 스탯 상승(이사해도 빠지지 않는다) */
   permaSkills?: Partial<Record<SkillStatId, number>>;
 }
 

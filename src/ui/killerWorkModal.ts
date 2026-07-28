@@ -16,6 +16,10 @@ export function renderKillerWorkModal(ctx: GameContext): HTMLElement {
   const target = asg ? targetById(asg.targetId) : undefined;
 
   const container = el("div", { class: "modal modal--killer" });
+  // 연락책은 진입로에 따라 다르다(momo=성인 경로 / 의사=전연령 경로).
+  // ⚠️ 여기서 이름을 고정하면 반대편 플레이어에게 거짓말이 된다.
+  const byDoctor = ctx.store.getState().killerJob?.recruiter === "doctor";
+  const handler = byDoctor ? "의사" : "momo";
 
   if (!asg || !target) {
     container.replaceChildren(
@@ -23,7 +27,7 @@ export function renderKillerWorkModal(ctx: GameContext): HTMLElement {
       el(
         "div",
         { class: "modal__body" },
-        el("p", {}, "지금은 배정된 임무가 없다. 매달 1일에 momo가 다음 타겟을 보낸다."),
+        el("p", {}, `지금은 배정된 임무가 없다. 매달 1일에 ${handler}가 다음 ${byDoctor ? "차트를" : "타겟을"} 보낸다.`),
         el("button", { class: "btn btn--ghost", onclick: () => ctx.closeModal() }, "닫기"),
       ),
     );
@@ -82,7 +86,7 @@ export function renderKillerWorkModal(ctx: GameContext): HTMLElement {
         { class: "killer-hint" },
         found
           ? "그자의 트윗 중 위치를 흘린 한 줄을 찾아, 그 위치를 아래에 입력한다."
-          : "momo가 준 단서로 SNS에서 트윗을 검색해 계정부터 특정해라. 그자를 팔로우하면 신원이 여기 채워진다.",
+          : `${handler}가 준 단서로 SNS에서 트윗을 검색해 계정부터 특정해라. 그자를 팔로우하면 신원이 여기 채워진다.`,
       ),
       el("label", { class: "killer-input-label" }, "처리 위치 입력"),
       el(

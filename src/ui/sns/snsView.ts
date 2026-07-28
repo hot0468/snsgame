@@ -20,6 +20,7 @@ import { openComposeModal } from "@/ui/postLimitModal";
 import { renderAccountModal } from "./accountModal";
 import { renderMediaModal } from "@/ui/mediaModal";
 import { renderAdultWarnModal } from "@/ui/adultWarnModal";
+import { renderPremiumModal } from "@/ui/premiumModal";
 import { sendBirthdayTweet } from "@/systems/tchin";
 import {
   adPage,
@@ -120,6 +121,10 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
       navItem("megaphone", adAvailable ? "광고 보기" : "광고 (내일)", {
         active: page === "ad",
         onclick: () => enterAd(ctx),
+      }),
+      // 프리미엄은 페이지가 아니라 모달이라 active 상태가 없다 — 대신 라벨로 구독 여부를 알린다.
+      navItem("star", s.premium ? "프리미엄 ON" : "프리미엄", {
+        onclick: () => ctx.openModal(renderPremiumModal),
       }),
       el(
         "button",

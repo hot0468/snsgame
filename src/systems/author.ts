@@ -1,6 +1,8 @@
-import type { AuthorContract, DMThread, GameState, PlayerAccount, ScheduleEvent } from "@/core/types";
+import type { AuthorContract, DMThread, GameState, PlayerAccount, ScheduleEvent, Tweet } from "@/core/types";
 import { getActiveAccount, appendSchedule } from "@/core/state";
-import { chance, pick, uid } from "@/utils/random";
+import { randomName } from "@/data/accounts";
+import { WEBTOON_BUZZ, WEBTOON_BUZZ_ADULT, type BuzzTier } from "@/data/webtoonBuzz";
+import { chance, pick, randInt, uid } from "@/utils/random";
 import { dateOfMonth, monthKey } from "./calendar";
 import { totalFollowers } from "./economy";
 import { skillTo100 } from "./stats";
@@ -65,8 +67,63 @@ function authorPopularityLine(full: number): string {
   return "이번 달 완전 역대급이에요!! 플랫폼 메인에 걸리고 화제작 소리 듣고 있어요 😱";
 }
 
-/** 작가 계약을 체결한다(제안 DM 수락 시 호출). adult=성인물 계약 여부. */
-export function signAuthorContract(state: GameState, adult = false): void {
+/**
+ * 인기 구간(0~3). authorPopularityLine과 **같은 경계**를 쓴다 —
+ * 편집자 코멘트와 SNS 반응이 어긋나면 세계가 깨진다.
+ */
+export function authorBuzzTier(state: GameState): BuzzTier {
+  const c = state.authorContract;
+  if (!c) return 0;
+  const full = authorMonthlySalary(state, c.monthsWorked);
+  if (full < 300_000) return 0;
+  if (full < 600_000) return 1;
+  if (full < 1_200_000) return 2;
+  return 3;
+}
+
+/**
+ * 필명 검색 결과로 뜨는 독자 반응 트윗.
+ * 계약 중이 아니거나 필명이 검색어와 다르면 빈 배열 — 호출부(exploreSystem)가 그냥 이어붙이면 된다.
+ *
+ * 인기 구간이 높을수록 더 많이 뜬다(0~3 → 1~4개). 랭킹·화제성이 곧 트윗 수라는 직관과 맞다.
+ */
+export function webtoonBuzzTweets(state: GameState, query: string): Tweet[] {
+  const c = state.authorContract;
+  if (!c) return [];
+  const norm = (s: string) => s.replace(/\s+/g, "").toLowerCase();
+  const q = norm(query.replace(/^@/, ""));
+  if (!q || norm(c.penName) !== q) return [];
+
+  const tier = authorBuzzTier(state);
+  const pool = c.adult ? WEBTOON_BUZZ_ADULT[tier] : WEBTOON_BUZZ[tier];
+  const count = Math.min(tier + 1, pool.length);
+  // 같은 문구가 겹치지 않게 섞어서 앞에서 count개.
+  const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, count);
+
+  return shuffled.map((line) => {
+    const reader = randomName();
+    return {
+      id: uid("wbuzz"),
+      authorName: reader.name,
+      authorHandle: reader.handle,
+      attribute: "anime" as const,
+      isAdult: c.adult,
+      text: line.replaceAll("{pen}", c.penName),
+      createdDay: state.day,
+      // 인기 구간이 높을수록 반응 수치도 커진다(조용한 작품에 1만 좋아요가 붙으면 거짓말이 된다).
+      likes: randInt(2, 60) * (tier + 1) * (tier + 1),
+      retweets: randInt(0, 15) * (tier + 1),
+      gainedFollowers: 0,
+    };
+  });
+}
+
+/**
+ * 작가 계약을 체결한다(제안 DM 수락 시 호출).
+ * @param adult 성인물 계약 여부
+ * @param penName 데뷔 필명. 빈 값이면 활성 계정명을 쓴다(검색 대상이 없어지지 않게).
+ */
+export function signAuthorContract(state: GameState, adult = false, penName = ""): void {
   state.authorContract = {
     signedDay: state.day,
     monthsWorked: 0,
@@ -74,8 +131,10 @@ export function signAuthorContract(state: GameState, adult = false): void {
     missCount: 0,
     lastSettledMonth: monthKey(state.day),
     adult,
+    penName: penName.trim() || getActiveAccount(state).name,
   };
   pushSchedule(state, adult ? "성인물 작가 계약 체결" : "작가 계약 체결", "system");
+  pushSchedule(state, `작가 필명 결정: ${state.authorContract.penName}`, "system");
 }
 
 /* ─────────────────── 작가 계약 제안 DM ─────────────────── */
@@ -122,8 +181,13 @@ export function maybeSpawnAuthorDM(state: GameState): boolean {
 }
 
 /** 제안 DM에서 작가 계약을 수락한다(담당자가 환영 메시지를 남긴다). adult=성인물 계약 여부. */
-export function acceptAuthorContract(state: GameState, thread: DMThread, adult = false): void {
-  signAuthorContract(state, adult);
+export function acceptAuthorContract(
+  state: GameState,
+  thread: DMThread,
+  adult = false,
+  penName = "",
+): void {
+  signAuthorContract(state, adult, penName);
   thread.messages.push({
     id: uid("dmm"),
     from: "partner",
@@ -131,6 +195,7 @@ export function acceptAuthorContract(state: GameState, thread: DMThread, adult =
       (adult
         ? "성인물 연재로 계약 감사합니다! 🔞 수위 높은 작품인 만큼 음란도도 작업 성과에 반영돼요. "
         : "계약 감사합니다! 🎉 ") +
+      `필명은 '${state.authorContract!.penName}'(으)로 등록했어요. 독자 반응이 궁금하면 SNS에 필명을 검색해보세요! ` +
       "이번 달은 준비 기간이에요. 다음 달부터 '현생 살기 → 작업'으로 작업량을 채우시면, 그다음 달 1일에 첫 월급이 정산됩니다!",
     day: state.day,
   });

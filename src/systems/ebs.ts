@@ -1,6 +1,9 @@
-import type { GameState } from "@/core/types";
+import type { AttributeId, GameState } from "@/core/types";
 import type { EbsLecture } from "@/data/ebs";
 import { EBS_LECTURES } from "@/data/ebs";
+import { ATTRIBUTES } from "@/data/attributes";
+import { getActiveAccount } from "@/core/state";
+import { unlockAttribute } from "./attributeUnlock";
 import { SKILL_STATS } from "@/data/stats";
 import { gainSkill, clampAction } from "@/systems/stats";
 import { gainPerformance } from "@/systems/employment";
@@ -57,7 +60,7 @@ export function canWatchLecture(state: GameState, lec: EbsLecture): WatchGate {
 export function watchLecture(
   state: GameState,
   lec: EbsLecture,
-): { ok: boolean; label: string } {
+): { ok: boolean; label: string; unlockedAttr?: AttributeId } {
   if (canWatchLecture(state, lec) !== "ok") return { ok: false, label: "" };
 
   if (isFreeLectureToday(state, lec)) {
@@ -83,7 +86,23 @@ export function watchLecture(
     statLabel = SKILL_STATS[lec.stat].label;
   }
 
+  // 배운 걸 트윗한다 — 도서 감상·너튜브 시청과 같은 결의 해금 경로.
+  // 해금은 반드시 unlockAttribute를 거친다(attributeUnlock.ts의 기준선 보장).
+  const unlockedNew =
+    lec.unlockAttr != null && unlockAttribute(state, getActiveAccount(state), lec.unlockAttr);
+  if (unlockedNew) {
+    addSchedule(
+      state,
+      `새 트윗 속성 해금: ${ATTRIBUTES[lec.unlockAttr!].label}`,
+      "system",
+    );
+  }
+
   addSchedule(state, `EBS 강의 수강: ${lec.title}`, "offline");
   advanceTime(state, 1);
-  return { ok: true, label: `${statLabel} ${gained > 0 ? "+" : ""}${gained}` };
+  return {
+    ok: true,
+    label: `${statLabel} ${gained > 0 ? "+" : ""}${gained}`,
+    unlockedAttr: unlockedNew ? lec.unlockAttr : undefined,
+  };
 }

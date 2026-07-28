@@ -42,7 +42,7 @@ npm run dev      # 백그라운드로. http://localhost:5173/
 
 ## ★ 이 게임을 몰면 반드시 걸리는 것들
 
-이 4개를 모르면 드라이버가 조용히 헛돈다. 전부 실제로 겪은 것이다.
+이 7개를 모르면 드라이버가 조용히 헛돈다. 전부 실제로 겪은 것이다.
 
 ### 1. 로그인 화면이 모든 것을 가로막는다
 첫 화면이 로그인이다(`loggedIn: false`). **저장본이 있으면 로그인을 건너뛴다** — 그래서 깨끗한 상태로 보려면 반드시:
@@ -65,7 +65,32 @@ await page.$eval(".modal", (el) => el.innerText);
 ### 3. "게시하기" 버튼은 두 개다
 좌측 네비에 하나, 타임라인 컴포저에 하나. `find`로 잡으면 네비 것이 걸린다. 둘 다 작성 모달을 열지만, 특정 버튼을 노려야 하면 컨테이너로 좁혀라.
 
-### 4. 초기 계정은 카테고리가 `일상` 하나뿐이다
+### 4. 세이브를 직접 심을 땐 탭을 죽이고 새로 열어라
+DM 스레드·소지금처럼 **정상 플레이로 만들려면 오래 걸리는 상태**는 localStorage에 직접 넣는 게 빠르다. 알아야 할 것:
+
+- 키는 `snsgame:save:v2`, `state.accounts`는 **배열**이다(`accounts[0]`가 활성 계정. `activeAccountId`로 찾지 마라 — 배열이라 인덱스 접근이 맞다).
+- **살아 있는 탭에서 주입하고 `reload()`하면 날아간다.** 앱이 언로드 시 자기 메모리 상태를 되받아 저장하기 때문이다. 반드시:
+
+```js
+await page.evaluate((k) => { /* localStorage.setItem(k, ...) */ }, "snsgame:save:v2");
+await page.close({ runBeforeUnload: false });   // unload 핸들러 없이 죽인다
+page = await browser.newPage();                  // 새 탭에서 다시 연다
+await page.goto(URL, { waitUntil: "networkidle2" });
+```
+
+주입이 살았는지는 `JSON.parse(localStorage.getItem(K)).accounts[0].dms.length`로 확인하면 즉시 안다. (이 함정으로 드라이버를 5번 다시 돌린 전적이 있다.)
+
+### 5. 네비 라벨에 안읽음 배지가 붙는다
+DM이 있으면 좌측 네비 버튼이 `쪽지`가 아니라 **`쪽지1`**이다. `textContent.trim() === "쪽지"` 정확일치는 빗나간다 — `startsWith("쪽지")`를 써라. 저장본이 있으면 시작 화면 구성도 달라지니, 버튼을 못 찾으면 먼저 `[...document.querySelectorAll("button")].map(b=>b.textContent.trim())`을 찍어 실제 라벨을 봐라.
+
+DM 스레드 목록의 항목은 `.dm__thread` 버튼이고, 대화창은 `.dm__convo`, 말풍선은 `.dm__bubble`(`--me`면 내 말)이다.
+
+### 6. esbuild 헤드리스가 안 되는 모듈이 있다
+"순수 로직은 esbuild로"가 기본이지만, `data/media.ts` 계열은 Vite 전용 `import.meta.glob`을 써서 node 실행이 `(intermediate value).glob is not a function`으로 죽는다. `data/accounts.ts`·`systems/exploreSystem.ts`처럼 거기 의존하는 것도 같이 죽는다.
+
+**이 경우 헤드리스 대신 vitest에 임시 테스트로 넣어 측정하라**(vitest는 Vite 위에서 돌아 그대로 통과한다). 확률·분포 측정이면 아예 회귀 테스트로 남기는 게 낫다.
+
+### 7. 초기 계정은 카테고리가 `일상` 하나뿐이다
 `unlockedAttributes`가 `["daily"]`로 시작한다. 작성 모달 1단계에 칩이 하나만 뜬다 — 버그가 아니다. 성인 카테고리를 보려면 좌측 "성인물 보기" 토글을 켜야 한다(`state.adultMode`, 유저 전역).
 
 ## 화면까지 가는 경로

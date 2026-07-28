@@ -16,6 +16,7 @@ SNS로 팔로워 100만명을 모으는 TypeScript + Vite 텍스트 브라우저
 - 트윗 카테고리별 콘텐츠 → `data/categories/*.ts` (트윗 본체는 `data/tweets.ts`)
 - 관계 캐릭터 → `data/relChars/*.ts`, 궁합표 → `data/attributes.ts`
 - 이벤트 효과: `data/events.ts`가 `EventEffect`를 **선언만**, 적용 로직은 `systems/events.ts`의 `CUSTOM_EFFECTS` 단일 지점 (`customKey` 유니온 + 로직 둘 다 추가해야 함)
+- 단, 스토리 DM(`data/dmStory.ts`)의 `effect`는 `systems/dmStory.ts`가 **선언형 필드만** 직접 적용(순환 import 회피) — `customKey`·`unlockAttribute`는 조용히 무시된다
 - 인벤토리 `ownedItems`: id만 담긴 평면 `string[]`에 shape 2종(`ShopItem.boost`/`GoblinItem.boosts`)이 섞임 → 새 아이템 출처는 반드시 `resolveItem` 리졸버에 등록(안 하면 typecheck 통과해도 조용히 사라짐)
 - 회귀 테스트 → `src/__tests__/*.test.ts` (`npm test`)
 
@@ -42,12 +43,18 @@ SNS로 팔로워 100만명을 모으는 TypeScript + Vite 텍스트 브라우저
 ## 토큰 수칙 (모든 에이전트 공통)
 
 - **대용량 파일 통째 Read 금지.** `styles/main.css`(약 1.2만 줄)·`data/meetings.ts`(약 4천 줄)·`ui/sns/snsPages.ts`·`core/types.ts`(각 1천 줄+)는 통째로 읽으면 한 번에 수만 토큰이다. **Grep으로 위치를 좁힌 뒤 Read의 offset/limit로 그 구간만** 읽어라. 500줄 넘는 파일은 전부 이 방식.
+- **단, 500줄 미만이면 나눠 읽지 말고 한 번에 읽어라.** 분할 Read는 위 임계값(500줄)을 넘는 파일에만 적용한다. 400줄짜리를 offset/limit로 다섯 번 나눠 읽으면 겹치는 구간 때문에 통째 Read보다 더 쓴다(`dmContent.ts` 385줄을 5회 분할 Read한 뒤 결국 전체를 Write한 전적).
+- **한국어 소스 일괄 치환에 PowerShell을 쓰지 마라.** `Get-Content`는 **읽을 때** ANSI 코드페이지를 기본으로 써서, `-Encoding utf8`로 써도 한글이 전부 깨진다(`Set-Content` 쪽만 맞춰선 소용없다). 심볼 rename은 **Edit의 `replace_all`**을 쓰고, 여러 파일이면 파일마다 한 번씩 호출하라. 깨뜨리면 되돌리는 비용보다 **깨진 파일이 통째로 컨텍스트에 덤프되는 비용**이 더 크다.
 - **CSS는 grep-우선.** 새 클래스를 만들기 전 유사 클래스명을 Grep으로 찾고, 그 정의 ±30줄만 읽는다.
 - **스크린샷은 검증 대상 화면만 최소 장수.** 이미지는 텍스트보다 훨씬 비싸다.
 - 이미 이 대화에서 확인한 사실을 서브에이전트에 재발견시키지 말고, 프롬프트에 요약해 넘겨라.
 - **vitest는 `npx vitest run --pool=forks`로 실행하라.** 기본 pool은 간헐적으로 `Cannot read ... 'config'` 오탐을 낸다 — 그 에러로 "테스트 깨졌다" 단정 금지, forks로 재실행해 실제 숫자를 봐라.
+- **작업 중엔 파일을 지정해 돌리고(`npx vitest run --pool=forks src/__tests__/foo.test.ts`), 전체 스위트는 마무리 1회만.** 한 파일 고치고 47파일을 다시 돌리는 걸 반복하면 그것만으로 샌다.
+- **기존 계약을 먼저 확인하고 데이터를 늘려라.** 같은 종류의 데이터(고정 계정 문구·스탯·아이템)를 추가하기 전에 `src/__tests__/`에 그걸 감시하는 테스트가 있는지 본다 — 문구 30줄 하한 같은 계약을 모르고 14줄만 써서 실패-수정을 한 바퀴 더 돈 전적이 있다.
 
 **변경 이력:** 전문은 [docs/harness-changelog.md](docs/harness-changelog.md)에 있다(하네스를 수정하면 **그 파일 맨 위에** 기록하라). 최근 요약:
+- 2026-07-29 신규 도메인 계약 스킬 고정 — DM 대사 짝 구조·고정 계정 30줄 하한·스토리 그래프 무결성(콘텐츠), 노출 확률=파이프라인(시스템)
+- 2026-07-29 토큰 누수 감사 반영 — game-run 세이브 주입·셀렉터 함정, PowerShell 인코딩 금지, 500줄 미만 분할 Read 금지, 테스트 지정 실행
 - 2026-07-22 토큰 감사 반영 — 팀 운영 수칙(산출물 소유권·스텁 금지·검증 단일화·game-run 단일화), 비용 게이트 규모 조건, vitest `--pool=forks`
 - 2026-07-22 계획서 작업 수칙(체크박스 즉시 갱신·이어하기 솔로 예외)
 - 2026-07-22 비용 게이트(솔로 기본·모델 티어링·파일 지도), 누적 배열 상한(`pushTimeline`), 전체 재렌더 규칙, 토큰 수칙 — 이번 주 하네스 대정비

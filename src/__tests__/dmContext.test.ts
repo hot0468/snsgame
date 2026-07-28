@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { createInitialState } from "@/core/state";
 import { getActiveAccount } from "@/core/state";
 import type { DMThread, GameState } from "@/core/types";
-import { PARTNER_REPLIES_BY_CTX, REPLY_LINES_BY_CTX } from "@/data/dmContent";
+import { DM_TOPICS, PARTNER_REPLIES_BY_CTX, REPLY_LINES_BY_CTX } from "@/data/dmContent";
 import { replyDM, sendCustomDM } from "@/systems/dm";
 
 /**
@@ -51,7 +51,7 @@ describe("DM 답장 맥락", () => {
     expect(PARTNER_REPLIES_BY_CTX.offer.cool).toContain(partnerText);
   });
 
-  it("일반 팬 스레드의 첫 답장은 첫인사 풀, 두 번째부터는 이어가기 풀", () => {
+  it("일반 팬 스레드의 첫 답장은 첫인사 풀, 두 번째부터는 상대가 던진 화제의 대답 풀", () => {
     const s = createInitialState();
     const t = threadOn(s, { fan: true });
 
@@ -59,9 +59,14 @@ describe("DM 답장 맥락", () => {
     const first = t.messages.find((m) => m.from === "me")?.text ?? "";
     expect(REPLY_LINES_BY_CTX.greet.cool).toContain(first);
 
+    // 첫 답장 뒤 상대가 화제를 던지므로, 두 번째 답장은 그 화제의 대답에서 나온다
+    // (범용 followup 풀을 쓰면 "듣고 보니 그러네요" 같은 헛다리 답장이 나온다).
+    const topic = DM_TOPICS.find((x) => x.id === t.dmTopic);
+    expect(topic, "첫 답장 뒤엔 화제가 붙어 있어야 한다").toBeDefined();
+
     replyDM(s, t, "cool");
     const second = t.messages.filter((m) => m.from === "me")[1]?.text ?? "";
-    expect(REPLY_LINES_BY_CTX.followup.cool).toContain(second);
+    expect(topic!.replies.cool.map((e) => e.me)).toContain(second);
     expect(REPLY_LINES_BY_CTX.greet.cool).not.toContain(second);
   });
 

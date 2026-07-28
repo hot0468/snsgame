@@ -3,15 +3,25 @@ import type { MarketAsset } from "@/data/market";
 import { MARKET_ASSETS } from "@/data/market";
 import {
   assetPrice,
+  assetProfit,
+  avgCostOf,
   buyAsset,
   dayChangePct,
   holdingOf,
   portfolioValue,
   sellAsset,
+  totalProfit,
 } from "@/systems/market";
 import { getActiveAccount } from "@/core/state";
 import { el, formatNumber } from "@/utils/dom";
 import { icon } from "./icons";
+
+/** 종목 종류 배지 라벨. MarketAsset.kind가 늘면 여기도 채워야 컴파일된다. */
+const KIND_LABELS: Record<MarketAsset["kind"], string> = {
+  stock: "주식",
+  coin: "코인",
+  asset: "실물",
+};
 
 /** 증권/코인 투자 탭. 매일 시세가 바뀌며 소지금으로 매매한다. */
 export function renderStocks(ctx: GameContext): HTMLElement {
@@ -44,6 +54,28 @@ export function renderStocks(ctx: GameContext): HTMLElement {
     );
   }
 
+  /** 부호 있는 금액 문자열(+1,000원 / -1,000원). 0은 부호 없이. */
+  function signedWon(n: number): string {
+    const r = Math.round(n);
+    return `${r > 0 ? "+" : r < 0 ? "-" : ""}${formatNumber(Math.abs(r))}원`;
+  }
+
+  /** 종목 한 줄의 평가손익 표시(평가액 · 손익 · 수익률). 색은 손익 부호를 따른다. */
+  function profitLine(id: string): HTMLElement {
+    const { value, profit, pct } = assetProfit(s, id);
+    const dir = profit > 0 ? "up" : profit < 0 ? "down" : "flat";
+    return el(
+      "div",
+      { class: "stock-row__pl" },
+      el("span", { class: "stock-row__pl-value" }, `평가 ${formatNumber(Math.round(value))}원`),
+      el(
+        "span",
+        { class: `stock-row__pl-delta stock-row__pl-delta--${dir}` },
+        `${signedWon(profit)} (${pct > 0 ? "+" : pct < 0 ? "-" : ""}${Math.abs(pct).toFixed(1)}%)`,
+      ),
+    );
+  }
+
   function assetRow(a: MarketAsset): HTMLElement {
     const price = assetPrice(s, a.id);
     const change = dayChangePct(s, a.id);
@@ -66,13 +98,17 @@ export function renderStocks(ctx: GameContext): HTMLElement {
             "div",
             { class: "stock-row__name-line" },
             el("span", { class: "stock-row__name" }, a.name),
-            el("span", { class: `stock-row__tag stock-row__tag--${a.kind}` }, a.kind === "coin" ? "코인" : "주식"),
+            el("span", { class: `stock-row__tag stock-row__tag--${a.kind}` }, KIND_LABELS[a.kind]),
           ),
-          el(
-            "div",
-            { class: "stock-row__hold" },
-            held > 0 ? `보유 ${formatNumber(held)}주 · ${formatNumber(held * price)}원` : "미보유",
-          ),
+          held > 0
+            ? el(
+                "div",
+                { class: "stock-row__hold" },
+                `보유 ${formatNumber(held)}주 · 평단 ${formatNumber(Math.round(avgCostOf(s, a.id)))}원`,
+              )
+            : el("div", { class: "stock-row__hold" }, "미보유"),
+          // 평가손익은 보유 중일 때만. 원가 대비 금액과 수익률을 함께 보여준다.
+          held > 0 ? profitLine(a.id) : null,
         ),
         el(
           "div",
@@ -93,6 +129,7 @@ export function renderStocks(ctx: GameContext): HTMLElement {
   }
 
   const total = s.money + portfolioValue(s);
+  const totalPl = totalProfit(s);
 
   return el(
     "div",
@@ -115,6 +152,18 @@ export function renderStocks(ctx: GameContext): HTMLElement {
         el("span", { class: "stocks__hero-dot" }, "·"),
         el("span", {}, `평가 자산 ${formatNumber(portfolioValue(s))}원`),
       ),
+      // 전 종목 합산 손익 — 보유가 있을 때만.
+      totalPl.value > 0
+        ? el(
+            "div",
+            {
+              class:
+                "stocks__hero-pl stocks__hero-pl--" +
+                (totalPl.profit > 0 ? "up" : totalPl.profit < 0 ? "down" : "flat"),
+            },
+            `총 평가손익 ${signedWon(totalPl.profit)} (${totalPl.pct > 0 ? "+" : totalPl.pct < 0 ? "-" : ""}${Math.abs(totalPl.pct).toFixed(1)}%)`,
+          )
+        : null,
     ),
     el("div", { class: "stocks__hint" }, "시세는 매일 바뀌어요. 싸게 사서 비싸게 파세요. (원금 손실 주의)"),
     el("div", { class: "stocks__list" }, ...MARKET_ASSETS.map(assetRow)),

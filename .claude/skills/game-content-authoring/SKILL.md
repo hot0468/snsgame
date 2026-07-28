@@ -52,7 +52,9 @@ snsgame의 콘텐츠는 `src/data/`에 **선언형 데이터**로 산다. 규칙
 | 트윗 문구 템플릿 | `data/tweets.ts`, `data/longTweets.ts`, `data/tweetSets.ts` | 속성별 문구 |
 | 이벤트(선택지) | `data/events.ts` | `GameEvent` / `EventChoice` / `EventEffect` |
 | 만남 시나리오(웹소설) | `data/meetings.ts` (**4천 줄+ — 통째 Read 금지.** Grep으로 유사 시나리오 위치를 찾아 그 구간만 offset/limit로 읽어라) | `MeetingScenario` (pages + choices) |
-| 랜덤 계정·트윗 생성 | `data/accounts.ts` | 계정 페르소나 |
+| 랜덤 계정·트윗 생성 | `data/accounts.ts` | 계정 페르소나 · 고정 계정 전용 문구 풀 |
+| DM 대화(잡담) | `data/dmContent.ts` | `DMExchange`(짝) / `DMTopic`(화제) |
+| DM 스토리(분기) | `data/dmStory.ts` | `DmStory` (노드 그래프) |
 | 속성·궁합표 | `data/attributes.ts` | `AttributeId` 매핑 |
 | 스탯 정의 | `data/stats.ts` | `StatId` 라벨 |
 
@@ -101,3 +103,6 @@ interface EventEffect {
 - **새 `AttributeId`/`SkillStatId`를 data에서 임의로 쓰지 말 것.** 그 값은 `core/types.ts`의 유니온 + 여러 `Record` 매핑(라벨·궁합·초기값)에 등록돼야 한다. 타입 확장이 필요하면 systems-engineer에게 위임하고, data 값은 그 후에 채운다.
 - **`id` 중복/오탈자.** 파일 내 유일해야 하고, systems가 id로 콘텐츠를 참조하는 경우 철자가 정확히 일치해야 한다.
 - **스키마 필수 필드 누락.** `?`가 없는 필드는 반드시 채운다.
+- **DM 대사는 반드시 짝으로 쓴다.** `dmContent.ts`의 `DMExchange`는 `partner`가 바로 위 `me`에 대한 **대답**이어야 한다 — 소리 내어 읽어보고 넣어라(따로 뽑던 시절 "사진 받고 첫인사"가 나왔다). 화제(`DMTopic`)·범용 followup 풀은 **문맥 중립**: 상대가 무슨 말을 했든 어긋나지 않는 문장만("듣고 보니 그러네요"처럼 상대가 정보를 줬다고 전제하는 문장 금지).
+- **고정 계정 전용 문구는 계정당 30줄 이상 + `lines` 필수.** `fixedAuthors.test.ts`가 하한을 감시한다(14줄로 넣었다가 실패한 전적). `lines`가 비면 그 계정만 공용 문구로 말해 캐릭터가 죽고 노출률 계약(`FIXED_AUTHOR_TWEET_CHANCE`)도 조용히 미달한다.
+- **스토리 DM(`dmStory.ts`)의 `next`는 실재하는 노드 id여야 한다.** 오타·고아 노드·사이클은 `dmStory.test.ts`의 그래프 무결성 테스트가 잡는다 — 노드를 추가했으면 그 테스트부터 돌려라. `effect`는 `EventEffect`의 **선언형 필드만** 먹는다(`customKey`·`unlockAttribute`는 조용히 무시 — 필요하면 systems-engineer에게 `systems/dmStory.ts` 확장을 위임).

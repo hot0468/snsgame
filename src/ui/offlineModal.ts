@@ -579,6 +579,10 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           ),
         );
 
+    // 이 팝업은 스탯 안내창('계속')에서 넘어온다 — 그 시점의 ui.modal은 안내창이라
+    // container를 고쳐도 화면엔 안 나온다. 현생 모달을 다시 열린 모달로 지정해야 보인다.
+    // (성인 이벤트가 showAdultEncounter에서 openModal로 교체하는 것과 같은 이유.)
+    ctx.openModal(() => container);
     container.replaceChildren(
       el(
         "div",

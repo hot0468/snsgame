@@ -104,6 +104,8 @@ export interface UIState {
   ebsSiteOpen: boolean;
   /** 재능마켓(외주) 사이트가 열려 있는지(네이놈 '외주' 검색으로 진입, 탭 이동 시 닫힘) */
   gigSiteOpen: boolean;
+  /** 세이신내과의원 사이트가 열려 있는지(네이놈 '내과'/'순환기내과' 검색으로 진입, 탭 이동 시 닫힘) */
+  hospitalSiteOpen: boolean;
   /** 직플래닛(기업정보) 사이트가 열려 있는지(채용공고 '직플래닛' 버튼으로 진입, 탭 이동 시 닫힘) */
   jobplanetSiteOpen: boolean;
   /** 직플래닛 업체명 검색어(엔터/버튼으로 확정, 재렌더 넘어 유지). 빈 문자열이면 전체. */
@@ -178,6 +180,7 @@ export function createUIState(): UIState {
     onetSiteOpen: false,
     ebsSiteOpen: false,
     gigSiteOpen: false,
+    hospitalSiteOpen: false,
     jobplanetSiteOpen: false,
     jobplanetQuery: "",
     auctionSiteOpen: false,

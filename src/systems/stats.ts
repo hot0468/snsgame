@@ -179,7 +179,8 @@ export function mentalEfficiency(state: GameState): number {
  *     (상점 표기가 곧 고지, 정가 지불이 곧 대가. **되팔이 대칭**도 여기 걸려 있다:
  *      `shop.sellOwnedItem`이 선언값 `boost`를 그대로 회수하므로 지급이 액면이 아니면
  *      사고팔 때마다 스탯이 순손실된다.)
- *   - 주거 영구 스탯 — `housing.upgradeHousing`(집 목록 표기 + 계약금 지불)
+ *   - 주거 영구 스탯 — `housing.moveToHousing`(집 목록 표기 + 계약금 지불).
+ *     계약한 집의 `permaSkills`만 1회 지급하며, 이사해도 회수하지 않는다(영구).
  *   - 뒷거래 스탯 부스트 — `statBoost.resolveBoostDeal`(30만원 선지불 + "확 올려드립니다")
  *   - 1회성 확정 보상 — `auction`의 진홍안 양도·게임기 리뷰
  *   - 성인 시나리오 확정 지급 — `events.ts`의 난교 계열(서사가 규모를 이미 확정 고지)
