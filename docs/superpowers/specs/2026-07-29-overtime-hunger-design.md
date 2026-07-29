@@ -53,7 +53,7 @@ overtimeStreak: number;
 ### 감소량 — 제곱 곡선
 
 ```
-damage = min(36, (streak - 1)^2)
+damage = streak <= 1 ? 0 : min(36, streak^2)
 ```
 
 | 연속 | 체력 감소 |

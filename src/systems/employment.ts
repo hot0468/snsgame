@@ -6,6 +6,7 @@ import { NIGL_COMPANY, NIGL_REQ_IT, NIGL_REQ_KNOWLEDGE } from "@/data/niglnigl";
 import { chance, uid } from "@/utils/random";
 import { isLastDayOfMonth, isWeekday } from "./calendar";
 import { certJobBonus } from "./certification";
+import { markOvertime } from "./health";
 import { currentSalary } from "./economy";
 import { clampAction, clampResource, skillTo100 } from "./stats";
 import { addSchedule, advanceTime } from "./time";
@@ -366,7 +367,11 @@ export function canNiglWork(state: GameState): boolean {
 function rollOvertime(state: GameState): void {
   const emp = state.employment;
   if (!emp) return;
-  if (chance(TIERS[emp.tier].overtimeRate)) emp.overtimeDay = state.day;
+  if (chance(TIERS[emp.tier].overtimeRate)) {
+    emp.overtimeDay = state.day;
+    // 야근 연속 페널티 집계(너아무튼온 업무 요청과 같은 관문 — systems/health.ts).
+    markOvertime(state);
+  }
 }
 
 /** 성과를 올리고 레벨업을 처리한다. @returns 레벨업했으면 true */

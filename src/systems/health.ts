@@ -71,3 +71,89 @@ export function resolveSickDay(state: GameState): void {
   state.sickPending = false;
   state.sleepPending = false;
 }
+
+/* ═══════════════ 야근 연속 페널티 · 굶주림 ═══════════════
+ *
+ * 두 개의 독립적인 체력 압박이다. 같은 날 겹칠 수 있다(야근하며 굶으면 둘 다 맞는다 — 의도).
+ * 설계서: docs/superpowers/specs/2026-07-29-overtime-hunger-design.md
+ */
+
+/** 야근 연속 감소량의 상한. 장기 연속에서 한 번에 100씩 깎이는 파탄을 막는다. */
+export const OVERTIME_STRAIN_CAP = 36;
+/** 굶주림 하루 감소량 계수(3 × 연속일) */
+export const HUNGER_DAMAGE_PER_DAY = 3;
+/** 굶주림 감소량의 상한 */
+export const HUNGER_DAMAGE_CAP = 20;
+/**
+ * 굶주림이 깎을 수 있는 체력의 하한.
+ * ⚠️ 굶주림 **단독으로는 게임오버가 되지 않는다** — 무일푼은 플레이어가 하루아침에
+ *    벗어날 수 없는 상태라서다(야근은 안 하면 그만이므로 바닥이 없다).
+ *    대신 체력이 바닥이면 rollDisease가 계속 떠서 실질적으로는 충분히 위험하다.
+ */
+export const HUNGER_STAMINA_FLOOR = 1;
+
+/**
+ * 야근 연속일수에 따른 체력 감소량 — **제곱 곡선**.
+ * 1일차는 공짜고, 2일차부터 연속일수의 제곱만큼 깎이며 상한(36 = 6일차)에서 멈춘다.
+ *   1일 0 · 2일 -4 · 3일 -9 · 4일 -16 · 5일 -25 · 6일+ -36
+ * 시작 체력 200 기준 6일 연속이면 누적 -90으로 질병 문턱(100) 아래로 떨어진다.
+ */
+export function overtimeStrainDamage(streak: number): number {
+  if (streak <= 1) return 0;
+  return Math.min(OVERTIME_STRAIN_CAP, streak ** 2);
+}
+
+/**
+ * 굶은 연속일수에 따른 체력 감소량 — 선형, 상한 20.
+ * 야근과 달리 **첫날부터** 깎인다(굶는 건 첫날부터 아프다). 대신 곡선이 완만하다.
+ */
+export function hungerDamage(streak: number): number {
+  if (streak <= 0) return 0;
+  return Math.min(HUNGER_DAMAGE_CAP, HUNGER_DAMAGE_PER_DAY * streak);
+}
+
+/**
+ * 오늘 야근했다고 표시한다.
+ * 회사 야근 판정(employment)과 너아무튼온 업무 요청 수락(workMessenger) 둘 다 이걸 부른다.
+ * ⚠️ 같은 날 여러 번 불려도 연속일수는 1만 오른다(정산이 플래그 하나만 본다).
+ */
+export function markOvertime(state: GameState): void {
+  state.overtimeToday = true;
+}
+
+/**
+ * 야근 연속을 정산한다(하루 넘김 1회).
+ * 야근한 날이면 연속을 올리고 제곱 곡선만큼 체력을 깎는다.
+ * 야근 없는 하루가 지나면 연속이 0으로 끊긴다 — 플레이어가 '오늘은 쉬자'로 조절할 수 있어야 한다.
+ */
+export function settleOvertimeStrain(state: GameState): void {
+  if (!state.overtimeToday) {
+    state.overtimeStreak = 0;
+    return;
+  }
+  state.overtimeToday = false;
+  state.overtimeStreak += 1;
+
+  const damage = overtimeStrainDamage(state.overtimeStreak);
+  if (damage <= 0) return; // 1일차는 공짜 — 로그도 남기지 않는다
+  gainStamina(state, -damage);
+  addSchedule(state, `야근 ${state.overtimeStreak}일 연속 — 체력 -${damage}`, "system");
+}
+
+/**
+ * 굶주림을 정산한다(하루 넘김 1회).
+ * 연속일수는 economy.applyDailyCosts가 이미 갱신했다 — 여기선 체력만 깎는다.
+ * ⚠️ 체력을 HUNGER_STAMINA_FLOOR 아래로 깎지 않는다.
+ */
+export function settleHunger(state: GameState): void {
+  const damage = hungerDamage(state.hungerStreak);
+  if (damage <= 0) return;
+
+  // 바닥까지 남은 여유만큼만 깎는다(이미 바닥 이하면 0).
+  const room = Math.max(0, state.stamina - HUNGER_STAMINA_FLOOR);
+  const actual = Math.min(damage, room);
+  if (actual <= 0) return;
+
+  gainStamina(state, -actual);
+  addSchedule(state, `굶주림 ${state.hungerStreak}일차 — 체력 -${actual}`, "system");
+}

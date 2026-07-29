@@ -944,6 +944,21 @@ export interface GameState {
   sickPending: boolean;
 
   /**
+   * 오늘 야근을 했는지. 회사 야근 판정(employment.rollOvertime)과
+   * 너아무튼온 업무 요청 수락(workMessenger.acceptWorkMsg) **둘 다** 이 플래그를 세운다.
+   * ⚠️ 하루에 둘 다 해도 야근 1일이다(횟수가 아니라 연속일수를 센다).
+   * onNewDay의 settleOvertimeStrain이 정산하며 false로 되돌린다.
+   */
+  overtimeToday: boolean;
+  /** 야근 연속일수. 야근 없는 하루가 지나면 0으로 끊긴다 */
+  overtimeStreak: number;
+  /**
+   * 굶은 연속일수. 생활비를 못 낸 날 오르고, 낸 날 0으로 리셋된다.
+   * ⚠️ 굶주림은 체력을 HUNGER_STAMINA_FLOOR(1) 아래로 깎지 않는다 — 단독 게임오버는 없다.
+   */
+  hungerStreak: number;
+
+  /**
    * 자고 일어날 때 실제 회복된 행동력/정신력(클램프 후 델타, 상한이면 0).
    * onNewDay가 매일 갱신하고, dawnModal이 "행동력 +N · 정신력 +N 회복" 표시에 읽는다.
    */

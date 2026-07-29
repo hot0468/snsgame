@@ -215,11 +215,21 @@ export function applyDailyCosts(state: GameState): void {
   maybeAvPayday(state);
   maybeAvMonthReset(state);
 
-  // 생활비
+  // 생활비. 소지금이 모자라면 굶은 것으로 친다(차감 자체는 그대로 — 빚을 만드는 자동 차감이다).
+  // ⚠️ 굶주림 연속일수만 여기서 갱신하고, 체력 감소는 health.settleHunger가 한다.
   const living = livingCostToday(state);
   if (living > 0) {
+    if (state.money < living) {
+      state.hungerStreak += 1;
+      pushSchedule(state, `생활비를 못 냈다 — 굶주림 ${state.hungerStreak}일차`, "system");
+    } else {
+      state.hungerStreak = 0;
+    }
     state.money -= living;
     pushSchedule(state, `생활비 -${fmt(living)}원`, "system");
+  } else {
+    // 생활비가 면제된 날(중견·대기업 재직 평일)은 회사가 먹여준다 — 굶지 않는다.
+    state.hungerStreak = 0;
   }
 
   // 월세(매월 마지막 날 청구). 수입 정산은 매월 1일 settleMonthlyIncome에서 별도로 처리한다.

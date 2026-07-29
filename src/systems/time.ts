@@ -22,7 +22,7 @@ import { maybeSpawnAdEmail } from "./adMail";
 import { checkEstheticScam } from "./esthetic";
 import { spawnDailyAdTweets } from "./adTweets";
 import { applySeasonalEvents } from "./seasonal";
-import { rollDisease } from "./health";
+import { rollDisease, settleHunger, settleOvertimeStrain } from "./health";
 import { pushKakao, sendLandlordOverdue, sendLandlordRentReminder } from "./kakao";
 import { BIRTHDAY_KAKAO_LINES } from "@/data/birthday";
 import { updateMarket } from "./market";
@@ -250,6 +250,11 @@ function onNewDay(state: GameState): void {
   spawnDailyAdTweets(state);
   // 계절/연말 이벤트(크리스마스·새해·연말정산 + 폭염/한파 체력 피해)
   applySeasonalEvents(state);
+  // 야근 연속 페널티(제곱 곡선)·굶주림(생활비 미납) 정산.
+  // ⚠️ 순서 의존 2가지: applyDailyCosts(위)가 굶주림 연속일수를 정하므로 그 뒤여야 하고,
+  //    rollDisease(아래)가 오늘 깎인 체력을 보려면 그 앞이어야 한다.
+  settleOvertimeStrain(state);
+  settleHunger(state);
   // 체력이 바닥이면 확률적으로 병에 걸린다(폭염/한파 피해 뒤에 판정 — 그날 깎인 체력을 반영).
   rollDisease(state);
   // 월세 납부 하루 전이면 집주인이 카톡으로 리마인드

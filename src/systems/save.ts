@@ -159,6 +159,10 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
     state.stamina = 200;
   }
   state.sickPending ??= false;
+  // 야근 연속·굶주림은 신규 필드 — 구세이브엔 키가 없다(0에서 시작하는 게 정답).
+  state.overtimeToday ??= false;
+  state.overtimeStreak ??= 0;
+  state.hungerStreak ??= 0;
   migratePartTimeCounts(state, parsed);
   // 신규 필드 보강(구버전 저장본 대비)
   if (!Array.isArray(state.kakao)) state.kakao = [];

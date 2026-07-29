@@ -4,6 +4,7 @@ import { WORK_MSG_POOL } from "@/data/workMessages";
 import { chance, pick, uid } from "@/utils/random";
 import { dayOfWeek } from "./calendar";
 import { gainPerformance } from "./employment";
+import { markOvertime } from "./health";
 import { clampAction, clampResource } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 
@@ -98,6 +99,9 @@ export function acceptWorkMsg(state: GameState, id: string): boolean {
   state.resources.action = clampAction(state, state.resources.action - WORK_MSG_ACTION);
   advanceTime(state, 1); // 블록 소모(심야 전환 시 취침 팝업 등 자연 발생)
   m.resolved = true;
+  // 야근 연속 페널티 집계(회사 야근 판정과 같은 관문 — systems/health.ts).
+  // 같은 날 회사 야근까지 겹쳐도 연속일수는 1만 오른다.
+  markOvertime(state);
   addSchedule(state, "야근: 업무 요청 처리", "system");
   return true;
 }
