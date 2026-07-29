@@ -4,6 +4,13 @@ import { ATTRIBUTES, getAffinity } from "@/data/attributes";
 import { NIGL_COMPANY } from "@/data/niglnigl";
 import { MAX_SKILL } from "@/data/stats";
 import { isTrending, TRENDING_MULTIPLIER } from "@/data/trends";
+import {
+  SLOT_TIMING_MULTIPLIERS,
+  TIMING_TIERS,
+  WEEKDAY_TIMING_MULTIPLIERS,
+  type TimingTier,
+} from "@/data/timing";
+import { dayOfWeek } from "./calendar";
 import { checkWin } from "./winEnding";
 
 /**
@@ -144,6 +151,22 @@ export function reputationFactor(state: GameState): number {
  * - 내 계정 주 성향과 트윗 성향의 궁합이 성과 배율에 반영된다.
  * - 팔로워 규모에 비례한 기본 도달도 존재.
  */
+/**
+ * 게시 타이밍(슬롯 × 요일) 도달 배율.
+ * 최저 월요일 낮 0.85 ~ 최고 토요일 심야 1.5 — 약 1.75배 차이다.
+ * ⚠️ 표에 없는 슬롯/요일은 1로 떨어뜨린다(SLOTS_PER_DAY가 늘어도 크래시하지 않게).
+ */
+export function timingMultiplier(day: number, slot: number): number {
+  const slotMul = SLOT_TIMING_MULTIPLIERS[slot] ?? 1;
+  const dayMul = WEEKDAY_TIMING_MULTIPLIERS[dayOfWeek(day)] ?? 1;
+  return slotMul * dayMul;
+}
+
+/** 타이밍 배율에 해당하는 등급(숫자 대신 문구로 보여주기 위함) */
+export function timingTier(mul: number): TimingTier {
+  return TIMING_TIERS.find((t) => mul >= t.min) ?? TIMING_TIERS[TIMING_TIERS.length - 1];
+}
+
 export function calcTweetOutcome(
   state: GameState,
   attr: AttributeId,
@@ -169,8 +192,13 @@ export function calcTweetOutcome(
   // 오늘의 인기 카테고리면 도달·성과가 크게 상승
   const trendMul = isTrending(state.day, attr) ? TRENDING_MULTIPLIER : 1;
 
+  // 게시 시간대(슬롯×요일) 배율 — 심야·주말이 유리하다.
+  // ⚠️ 반드시 base에 곱한다(likes 계산 앞). 팔로워에만 곱하면 "반응은 그대론데
+  //    팔로워만 다른" 이상한 결과가 된다.
+  const timingMul = timingMultiplier(state.day, state.slot);
+
   // 성격별 도달 배율(자극↑·정보↓·감성↑)과 분산(자극은 대박/폭망이 갈림)을 반영한다.
-  const base = reach * skillMul * affinityMul * trendMul * eff.reachMul;
+  const base = reach * skillMul * affinityMul * trendMul * timingMul * eff.reachMul;
   const likes = Math.round(base * (eff.varLow + Math.random() * eff.varRange));
   const retweets = Math.round(likes * (0.15 + Math.random() * 0.2));
 

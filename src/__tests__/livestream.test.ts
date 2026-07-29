@@ -24,6 +24,7 @@ import {
   CHAT_INTERVAL_MAX,
   STREAM_MENTAL_COST,
 } from "@/systems/livestream";
+import { ACHIEVEMENTS } from "@/data/achievements";
 
 /**
  * 너튜브 인방 회귀 테스트.
@@ -261,5 +262,89 @@ describe("방송 시작·종료", () => {
     evenHuger.skills.game = 0;
     finishStream(evenHuger, streamTypeById("game")!, 100_000_000);
     expect(evenHuger.skills.game).toBe(huge.skills.game);
+  });
+});
+
+describe("최고 시청자 기록", () => {
+  it("첫 방송이 기록을 세우고 신기록으로 표시된다", () => {
+    const s = createInitialState();
+    const r = finishStream(s, streamTypeById("game")!, 500);
+    expect(r.isBest).toBe(true);
+    expect(r.best).toBe(500);
+    expect(s.streamBests.game).toBe(500);
+  });
+
+  it("더 낮은 시청자로 끝내면 기록이 안 깎인다", () => {
+    const s = createInitialState();
+    finishStream(s, streamTypeById("game")!, 800);
+    const r = finishStream(s, streamTypeById("game")!, 300);
+    expect(r.isBest).toBe(false);
+    expect(r.best).toBe(800);
+    expect(s.streamBests.game).toBe(800);
+  });
+
+  it("기록을 넘기면 갱신된다", () => {
+    const s = createInitialState();
+    finishStream(s, streamTypeById("talk")!, 100);
+    const r = finishStream(s, streamTypeById("talk")!, 250);
+    expect(r.isBest).toBe(true);
+    expect(s.streamBests.talk).toBe(250);
+  });
+
+  it("타입별 기록이 서로 독립이다", () => {
+    const s = createInitialState();
+    finishStream(s, streamTypeById("game")!, 900);
+    finishStream(s, streamTypeById("vtuber")!, 40);
+    expect(s.streamBests.game).toBe(900);
+    expect(s.streamBests.vtuber).toBe(40);
+    expect(s.streamBests.talk).toBeUndefined();
+  });
+});
+
+describe("방송 업적", () => {
+  const byId = (id: string) => ACHIEVEMENTS.find((a) => a.id === id)!;
+
+  it("첫 방송 업적은 1회부터 달성된다", () => {
+    const s = createInitialState();
+    expect(byId("stream_first").condition(s)).toBe(false);
+    s.streamCount = 1;
+    expect(byId("stream_first").condition(s)).toBe(true);
+  });
+
+  it("10회 업적은 10회부터 달성된다", () => {
+    const s = createInitialState();
+    s.streamCount = 9;
+    expect(byId("stream_10").condition(s)).toBe(false);
+    s.streamCount = 10;
+    expect(byId("stream_10").condition(s)).toBe(true);
+  });
+
+  it("동접 네 자리는 어느 타입이든 1,000 이상이면 달성된다", () => {
+    const s = createInitialState();
+    expect(byId("stream_1k").condition(s)).toBe(false);
+    s.streamBests.vtuber = 999;
+    expect(byId("stream_1k").condition(s)).toBe(false);
+    s.streamBests.vtuber = 1_000;
+    expect(byId("stream_1k").condition(s)).toBe(true);
+  });
+
+  it("만능 스트리머는 세 타입 전부 기록이 있어야 달성된다", () => {
+    const s = createInitialState();
+    expect(byId("stream_all_types").condition(s)).toBe(false);
+    for (const t of STREAM_TYPES) {
+      s.streamBests[t.id] = 10;
+    }
+    expect(byId("stream_all_types").condition(s)).toBe(true);
+  });
+
+  it("업적 판정은 상태를 변형하지 않는다", () => {
+    const s = createInitialState();
+    s.streamCount = 5;
+    s.streamBests.game = 100;
+    const snapshot = JSON.stringify({ c: s.streamCount, b: s.streamBests });
+    for (const id of ["stream_first", "stream_10", "stream_1k", "stream_all_types"]) {
+      byId(id).condition(s);
+    }
+    expect(JSON.stringify({ c: s.streamCount, b: s.streamBests })).toBe(snapshot);
   });
 });

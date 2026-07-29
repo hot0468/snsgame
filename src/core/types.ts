@@ -1188,6 +1188,12 @@ export interface GameState {
   cookedDishes: string[];
   /** 누적 인방(라이브 방송) 횟수. 방송 진행 상태는 모달 지역 변수라 여기 없다 */
   streamCount: number;
+  /**
+   * 방송 타입별 최고 시청자 기록(data/livestream.ts의 STREAM_TYPES id가 키).
+   * raceBests(마라톤)와 같은 패턴 — 기록한 타입만 키가 있다.
+   * ⚠️ peak가 아니라 **최종 시청자**로 잡는다(peak는 모달 지역 변수라 systems가 모른다).
+   */
+  streamBests: Record<string, number>;
   /** 오락실 인형뽑기로 도감에 등록한 인형 id 목록(data/arcade.ts의 DOLLS 참조) */
   dolls: string[];
   /**

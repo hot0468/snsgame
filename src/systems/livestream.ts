@@ -153,6 +153,10 @@ export interface StreamResult {
   skillGain: number;
   /** 오른 스탯 id */
   skillId: StreamType["gainSkill"];
+  /** 이 방송이 그 타입의 최고 시청자 기록을 갈아치웠는지 */
+  isBest: boolean;
+  /** 갱신 후의 그 타입 최고 기록 */
+  best: number;
 }
 
 /**
@@ -175,13 +179,22 @@ export function finishStream(
   const skillGain = gainSkill(state, type.gainSkill, skillAmount);
   state.resources.mental = clampResource(state.resources.mental - STREAM_MENTAL_COST);
 
+  // 최고 시청자 기록 갱신(raceBests 패턴 — 기록한 타입만 키가 생긴다)
+  const prevBest = state.streamBests[type.id] ?? 0;
+  const isBest = viewers > prevBest;
+  if (isBest) state.streamBests[type.id] = viewers;
+  const best = state.streamBests[type.id] ?? prevBest;
+
   addSchedule(
     state,
     `인방 종료: 시청자 ${viewers.toLocaleString()}명 · 팔로워 +${followers} · 후원 ${donation.toLocaleString()}원`,
     "system",
   );
+  if (isBest) {
+    addSchedule(state, `🏆 ${type.label} 최고 시청자 신기록: ${viewers.toLocaleString()}명`, "system");
+  }
 
-  return { viewers, followers, donation, skillGain, skillId: type.gainSkill };
+  return { viewers, followers, donation, skillGain, skillId: type.gainSkill, isBest, best };
 }
 
 export { streamTypeById };

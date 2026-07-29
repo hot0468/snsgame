@@ -1,12 +1,14 @@
 import type { GameContext } from "@/ui/context";
-import type { AdultKind, AttributeId, TweetKind, TweetMedia } from "@/core/types";
+import type { AdultKind, AttributeId, GameState, TweetKind, TweetMedia } from "@/core/types";
+import { SLOT_LABELS } from "@/core/state";
+import { weekdayLabel } from "@/systems/time";
 import { mediaSetFor } from "@/data/mediaTweets";
 import { canWriteScam, getActiveAccount, isMentalLow, isSuspended } from "@/core/state";
 import { ATTRIBUTES, getAffinity } from "@/data/attributes";
 import { isTrending } from "@/data/trends";
 import type { TrendTopic } from "@/data/trendTopics";
 import { TREND_MULTIPLIER, rideTrend } from "@/systems/trends";
-import { currentMaxPostSlots } from "@/systems/followers";
+import { currentMaxPostSlots, timingMultiplier, timingTier } from "@/systems/followers";
 import { canPostBySlot, remainingPostSlots } from "@/systems/eggs";
 import {
   ADULT_KINDS,
@@ -61,6 +63,21 @@ const KIND_META: Record<TweetKind, { label: string; hint: string; warn?: boolean
 };
 
 /** "일상계" → "일상" 처럼 카테고리 라벨의 '계' 접미사를 뗀다. */
+/**
+ * 지금 게시하면 반응이 어떨지 알리는 타이밍 배지(슬롯×요일 도달 배율).
+ * ⚠️ 배율 숫자를 그대로 보여주지 않는다 — 게임이 계산기가 되지 않게 등급 문구만 쓴다.
+ */
+function timingBadge(s: GameState): HTMLElement {
+  const mul = timingMultiplier(s.day, s.slot);
+  const tier = timingTier(mul);
+  return el(
+    "div",
+    { class: `compose-timing compose-timing--${tier.kind}` },
+    el("span", {}, tier.label),
+    el("span", { class: "compose-timing__when" }, `${weekdayLabel(s.day)}요일 ${SLOT_LABELS[s.slot] ?? ""}`),
+  );
+}
+
 function categoryLabel(id: AttributeId): string {
   return ATTRIBUTES[id].label.replace(/계$/, "");
 }
@@ -459,6 +476,7 @@ export function renderComposeModal(
       "div",
       { class: "modal__body compose-step" },
       stepTitle("어떤 글을 쓸까?"),
+      timingBadge(s),
       attrChips,
       !hasAction
         ? el("div", { class: "compose-hint" }, `행동력이 부족해 트윗할 수 없어요 (게시에 ${tweetActionCost(s)} 필요).`)

@@ -11,6 +11,7 @@
  */
 import type { GameState } from "@/core/types";
 import { getActiveAccount } from "@/core/state";
+import { STREAM_TYPES } from "./livestream";
 
 export interface Achievement {
   id: string;
@@ -221,5 +222,35 @@ export const ACHIEVEMENTS: Achievement[] = [
     emoji: "🚨",
     hidden: true,
     condition: (s) => s.loanDefaultStreak >= 1,
+  },
+
+  // ── 인방(라이브 방송) ─────────────────────────────
+  {
+    id: "stream_first",
+    name: "첫 방송 켰다",
+    desc: "인방을 한 번 진행했다. 시작이 반이다.",
+    emoji: "🔴",
+    condition: (s) => s.streamCount >= 1,
+  },
+  {
+    id: "stream_10",
+    name: "고정 시청자",
+    desc: "방송을 10회 진행했다. 이제 기다려주는 사람이 생겼다.",
+    emoji: "📺",
+    condition: (s) => s.streamCount >= 10,
+  },
+  {
+    id: "stream_1k",
+    name: "동접 네 자리",
+    desc: "한 방송에서 시청자 1,000명을 찍었다.",
+    emoji: "🎯",
+    condition: (s) => Object.values(s.streamBests ?? {}).some((v) => v >= 1_000),
+  },
+  {
+    id: "stream_all_types",
+    name: "만능 스트리머",
+    desc: "게임·수다·버튜버 방송을 모두 경험했다.",
+    emoji: "🎭",
+    condition: (s) => STREAM_TYPES.every((t) => (s.streamBests?.[t.id] ?? 0) > 0),
   },
 ];

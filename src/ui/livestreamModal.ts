@@ -279,11 +279,15 @@ export function renderLivestreamModal(ctx: GameContext, type: StreamType): HTMLE
         "div",
         { class: "live-result" },
         el("div", { class: "live-result__title" }, "📊 방송 결과"),
+        r.isBest
+          ? el("div", { class: "live-result__best" }, `🏆 ${type.label} 신기록!`)
+          : null,
         el(
           "div",
           { class: "live-result__rows" },
           resultRow("최종 시청자", `${formatNumber(r.viewers)}명`),
-          resultRow("최고 시청자", `${formatNumber(peak)}명`),
+          resultRow("이번 방송 최고", `${formatNumber(peak)}명`),
+          resultRow("역대 최고 기록", `${formatNumber(r.best)}명`),
           resultRow("팔로워", `+${formatNumber(r.followers)}`),
           resultRow("후원금", `+${formatNumber(r.donation)}원`),
           resultRow(SKILL_STATS[r.skillId].label, `+${r.skillGain}`),
