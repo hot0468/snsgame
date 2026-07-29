@@ -1,5 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { DOLLS, dollById } from "@/data/arcade";
+import { createInitialState } from "@/core/state";
+import { loadGame } from "@/systems/save";
 
 /**
  * 오락실 인형뽑기 회귀 테스트.
@@ -45,5 +47,54 @@ describe("인형 카탈로그", () => {
   it("dollById가 id로 인형을 찾는다", () => {
     expect(dollById(DOLLS[0].id)?.name).toBe(DOLLS[0].name);
     expect(dollById("doll_nonexistent")).toBeUndefined();
+  });
+});
+
+/* ── 구세이브 로드 하네스(save.test.ts와 같은 방식) ── */
+const KEY = "snsgame:save:v2";
+const store: Record<string, string> = {};
+
+beforeEach(() => {
+  for (const k of Object.keys(store)) delete store[k];
+  (globalThis as any).localStorage = {
+    getItem: (k: string) => store[k] ?? null,
+    setItem: (k: string, v: string) => void (store[k] = v),
+    removeItem: (k: string) => void delete store[k],
+  };
+});
+
+function loadLegacy(mutate: (o: any) => void) {
+  const legacy: any = createInitialState();
+  mutate(legacy);
+  store[KEY] = JSON.stringify(legacy);
+  const loaded = loadGame();
+  expect(loaded, "구세이브 로드가 null을 반환하면 안 된다").toBeTruthy();
+  return loaded!;
+}
+
+describe("인형 상태 필드", () => {
+  it("초기 상태에 빈 도감과 빈 재고가 있다", () => {
+    const s = createInitialState();
+    expect(s.dolls).toEqual([]);
+    expect(s.dollStock).toEqual({});
+  });
+
+  it("구세이브에 기본값을 주입한다", () => {
+    const s = loadLegacy((o) => {
+      delete o.dolls;
+      delete o.dollStock;
+    });
+    expect(s.dolls).toEqual([]);
+    expect(s.dollStock).toEqual({});
+  });
+
+  it("기존 도감·재고는 로드해도 보존된다", () => {
+    const id = DOLLS[0].id;
+    const s = loadLegacy((o) => {
+      o.dolls = [id];
+      o.dollStock = { [id]: 2 };
+    });
+    expect(s.dolls).toEqual([id]);
+    expect(s.dollStock[id]).toBe(2);
   });
 });

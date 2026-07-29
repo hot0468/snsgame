@@ -1171,6 +1171,13 @@ export interface GameState {
   creatures: string[];
   /** 마켓걸리버에서 완성해 요리 도감에 등록한 레시피 id 목록(data/grocery.ts의 RECIPES 참조) */
   cookedDishes: string[];
+  /** 오락실 인형뽑기로 도감에 등록한 인형 id 목록(data/arcade.ts의 DOLLS 참조) */
+  dolls: string[];
+  /**
+   * 도감 1호기를 제외한 여분 재고(중복 뽑기분). 피망마켓 판매 대상.
+   * ⚠️ 판매는 이 재고만 차감한다 — dolls(도감)는 절대 비우지 않는다.
+   */
+  dollStock: Record<string, number>;
   /** 결과 대기 중인 마라톤 대회 신청(대회일에 판정, 동시 1건). 없으면 null */
   pendingRace: { id: string; appliedDay: number } | null;
   /** 코스별 개인 최고 기록(분 단위, 낮을수록 좋다). 완주한 코스만 키가 있다. */

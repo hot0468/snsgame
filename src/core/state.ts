@@ -270,6 +270,8 @@ export function createInitialState(): GameState {
     pets: { dog: false, cat: false },
     creatures: [],
     cookedDishes: [],
+    dolls: [],
+    dollStock: {},
     pendingRace: null,
     raceBests: {},
     bodyProfile: null,
