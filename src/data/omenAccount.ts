@@ -72,19 +72,19 @@ export const OMEN_TWEETS: string[] = [
 ];
 
 /**
- * 예언 계정의 Account 객체를 만든다(전용 트윗 풀에서 서로 다른 3개를 뽑아 타임라인 구성).
+ * 예언 계정의 Account 객체를 만든다(전용 트윗을 **전부** 프로필 타임라인에 깐다 — 한 줄 = 한 트윗).
  * followed는 systems가 팔로잉 목록으로 덮는다.
  */
 export function makeOmenAccount(day: number): Account {
-  const texts = pickDistinct(OMEN_TWEETS, 3);
-  const timeline: Tweet[] = texts.map((text, i) => ({
+  const timeline: Tweet[] = OMEN_TWEETS.map((text, i) => ({
     id: uid("omen"),
     authorName: OMEN_IDENTITY.name,
     authorHandle: OMEN_IDENTITY.handle,
     attribute: "daily",
     isAdult: false,
     text,
-    createdDay: day - i,
+    createdDay: Math.max(1, day - i), // 문구 수만큼 거슬러 올라가므로 초반엔 1일로 바닥을 깐다
+
     likes: randInt(333, 1333),
     retweets: randInt(44, 444),
     gainedFollowers: 0,
@@ -100,18 +100,4 @@ export function makeOmenAccount(day: number): Account {
     timeline,
     followed: false,
   };
-}
-
-/** 풀에서 서로 다른 n개를 뽑는다(풀이 작으면 있는 만큼). */
-function pickDistinct(pool: string[], n: number): string[] {
-  const out: string[] = [];
-  const used = new Set<number>();
-  const count = Math.min(n, pool.length);
-  while (out.length < count) {
-    const i = randInt(0, pool.length - 1);
-    if (used.has(i)) continue;
-    used.add(i);
-    out.push(pool[i]);
-  }
-  return out;
 }

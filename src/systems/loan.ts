@@ -99,6 +99,8 @@ export function applyCapturePenalty(state: GameState): CaptureResult {
   }
   state.loan = null;
   state.loanOffered = false;
+  // 잡혀간 사흘 사이 계좌까지 털린다 — 소지금은 0(마이너스였어도 0으로 정리).
+  state.money = 0;
   state.loanDefaultStreak += 1;
 
   let endingReason: string | null = null;

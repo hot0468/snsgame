@@ -112,30 +112,17 @@ const SPECIAL_ACCOUNTS: SpecialAccountDef[] = [
   },
 ];
 
-/** 풀에서 서로 다른 n개를 뽑는다(풀이 작으면 있는 만큼). */
-function pickDistinct(pool: string[], n: number): string[] {
-  const out: string[] = [];
-  const used = new Set<number>();
-  const count = Math.min(n, pool.length);
-  while (out.length < count) {
-    const i = randInt(0, pool.length - 1);
-    if (used.has(i)) continue;
-    used.add(i);
-    out.push(pool[i]);
-  }
-  return out;
-}
-
-/** 고정 NPC 계정 객체를 만든다(전용 풀에서 서로 다른 3개를 뽑아 타임라인 구성). */
+/** 고정 NPC 계정 객체를 만든다(전용 트윗을 **전부** 프로필 타임라인에 깐다 — 한 줄 = 한 트윗). */
 function makeSpecialAccount(def: SpecialAccountDef, day: number): Account {
-  const timeline: Tweet[] = pickDistinct(def.tweets, 3).map((text, i) => ({
+  const timeline: Tweet[] = def.tweets.map((text, i) => ({
     id: uid("special"),
     authorName: def.name,
     authorHandle: def.handle,
     attribute: def.attribute,
     isAdult: false,
     text,
-    createdDay: day - i,
+    createdDay: Math.max(1, day - i), // 문구 수만큼 거슬러 올라가므로 초반엔 1일로 바닥을 깐다
+
     likes: randInt(120, 2_400),
     retweets: randInt(20, 600),
     gainedFollowers: 0,

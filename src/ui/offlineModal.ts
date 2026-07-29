@@ -283,7 +283,7 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         ),
         el(
           "div",
-          { class: "trip-list" },
+          { class: "trip-list trip-list--2col" },
           // 돌아다니기 — 발견·조우가 열리는 유일한 선택지
           el(
             "button",

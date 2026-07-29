@@ -37,7 +37,6 @@ let activeView: MailView = "inbox";
 let activeTab: MailTab = "primary";
 let searchQuery = "";
 const starredIds = new Set<string>();
-const checkedIds = new Set<string>();
 
 /**
  * 게임 메일 → 카테고리 탭 분류. adOffer·esthetic→프로모션, jobOffer→업데이트, 그 외→기본.
@@ -92,22 +91,6 @@ function markRead(ctx: GameContext, id: string): void {
 function emailRow(ctx: GameContext, mail: Email): HTMLElement {
   const selected = ctx.ui.mailSelectedId === mail.id;
   const isStarred = starredIds.has(mail.id);
-  const isChecked = checkedIds.has(mail.id);
-
-  const check = el(
-    "span",
-    {
-      class: "mail-row__check" + (isChecked ? " mail-row__check--on" : ""),
-      title: "선택",
-      onclick: (e: Event) => {
-        e.stopPropagation();
-        if (checkedIds.has(mail.id)) checkedIds.delete(mail.id);
-        else checkedIds.add(mail.id);
-        ctx.refresh();
-      },
-    },
-    isChecked ? "✓" : "",
-  );
 
   const star = el(
     "span",
@@ -130,7 +113,6 @@ function emailRow(ctx: GameContext, mail: Email): HTMLElement {
       class:
         "mail-row" +
         (selected ? " mail-row--on" : "") +
-        (isChecked ? " mail-row--checked" : "") +
         (mail.read ? "" : " mail-row--unread"),
       role: "button",
       onclick: () => {
@@ -153,7 +135,6 @@ function emailRow(ctx: GameContext, mail: Email): HTMLElement {
         ctx.refresh();
       },
     },
-    check,
     star,
     el(
       "span",
@@ -575,39 +556,27 @@ export function renderMail(ctx: GameContext): HTMLElement {
     },
   });
 
-  // ----- 선택(체크) 액션바 — 체크된 메일이 있으면 리스트 위에 표출 -----
-  // '읽음으로 표시'는 열람(openSpamEmail)을 거치지 않으므로 스팸 해킹 위험 없이
-  // 안 읽은 표시(메일 탭 빨간 점)를 없앨 수 있다.
-  const actionBar = checkedIds.size
+  // ----- 액션바 — 안 읽은 메일이 있을 때만 '모두 읽음 표시' 버튼 하나 -----
+  // 열람(openSpamEmail)을 거치지 않으므로 스팸 해킹 위험 없이 안 읽은 표시(메일 탭 빨간 점)를 없앤다.
+  const unreadCount = emails.filter((m) => !m.read).length;
+  const actionBar = unreadCount
     ? el(
         "div",
         { class: "mail__actionbar" },
-        el("span", { class: "mail__actionbar-count" }, `${checkedIds.size}개 선택됨`),
+        el("span", { class: "mail__actionbar-count" }, `안 읽은 메일 ${unreadCount}개`),
         el(
           "button",
           {
             class: "mail__actionbar-btn",
             onclick: () => {
               ctx.update((s) => {
-                for (const m of s.emails) if (checkedIds.has(m.id)) m.read = true;
+                for (const m of s.emails) m.read = true;
               });
-              checkedIds.clear();
-              ctx.toast("선택한 메일을 읽음으로 표시했어요");
+              ctx.toast("모든 메일을 읽음으로 표시했어요");
               ctx.refresh();
             },
           },
-          "읽음으로 표시",
-        ),
-        el(
-          "button",
-          {
-            class: "mail__actionbar-btn mail__actionbar-btn--ghost",
-            onclick: () => {
-              checkedIds.clear();
-              ctx.refresh();
-            },
-          },
-          "선택 해제",
+          "모두 읽음 표시",
         ),
       )
     : null;

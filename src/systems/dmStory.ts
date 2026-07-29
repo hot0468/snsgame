@@ -2,10 +2,14 @@ import type { DMThread, GameState, SkillStatId } from "@/core/types";
 import { getActiveAccount } from "@/core/state";
 import type { EventEffect } from "@/data/events";
 import {
+  BAKYURA_STORY,
+  COLLECTOR_STORY,
   DM_STORIES,
+  chaptersFor,
   KANRA_STORY,
   NOCOLOR_STORY,
   SAIKA_STORY,
+  SETTON_STORY,
   TARO_STORY,
   dmStoryById,
   dmStoryNode,
@@ -53,6 +57,15 @@ export function storyChoices(thread: DMThread): DmStoryChoice[] | null {
   const story = dmStoryById(thread.story?.id);
   if (!story || !thread.story) return null;
   return dmStoryNode(story, thread.story.node)?.choices ?? null;
+}
+
+/**
+ * 스토리가 끝난 스레드인가 — 끝났으면 **답장 자체를 막는다**(선택지·직접 입력 모두).
+ * 스토리 상대가 잡담 풀로 떨어지면 서사가 끝난 캐릭터가 "오늘 뭐 했어요?"를 되뇌어 결말이 망가진다.
+ * 판정 근거는 `thread.story`가 지워졌는데 상대가 스토리 계정인 것 — 새 필드·세이브 변경이 필요 없다.
+ */
+export function isStoryOver(thread: DMThread): boolean {
+  return !thread.story && isStoryHandle(thread.partnerHandle);
 }
 
 /** 상대가 노드에 들어오며 하는 말들을 스레드에 넣는다. */
@@ -118,42 +131,83 @@ export function spawnDmStory(state: GameState, story: DmStory): boolean {
   return true;
 }
 
-/** 칸라칸라 스토리를 연다(그의 소문 트윗에 **좋아요**를 눌렀을 때). */
-export function spawnKanraStory(state: GameState): boolean {
-  return spawnDmStory(state, KANRA_STORY);
-}
-
-/** 무색의 무리 스토리를 연다(그들의 트윗을 **리트윗**했을 때 — 퍼뜨려야 눈에 띈다). */
-export function spawnNocolorStory(state: GameState): boolean {
-  return spawnDmStory(state, NOCOLOR_STORY);
-}
-
-/** 이름없는 타로 스토리를 연다(그를 **팔로우**했을 때 — 소심한 쪽이 그제야 용기를 낸다). */
-export function spawnTaroStory(state: GameState): boolean {
-  return spawnDmStory(state, TARO_STORY);
-}
-
 /** 사이카사이카에게 반응을 몇 번 쌓으면 그쪽이 알아보는지(좋아요+리트윗 합산) */
 export const SAIKA_ENGAGE_TRIGGER = 3;
 
 /**
- * 사이카사이카 스토리를 연다(반응 **누적** — 동사 하나가 아니라 횟수가 조건이다).
- * 앞의 셋이 좋아요·리트윗·팔로우를 하나씩 가져가 남은 동사가 없어, 조건 자체를 바꿨다.
- * 찐친 이스터에그(5회)보다 먼저 걸리도록 임계값을 낮게 둔다.
+ * 이 계정의 **다음 회차**를 연다(1회차면 새 스레드, 2회차부터는 같은 스레드에 이어 붙인다).
+ *
+ * 회차 해금 규칙:
+ * - 아직 안 본 회차 중 가장 앞선 것 하나만 연다(`eggs.done`이 회차별로 잠근다).
+ * - **앞 회차를 끝내야** 다음이 열린다(스레드에 진행 중인 story가 있으면 아무 일도 없다).
+ *   → 트리거를 연타해도 회차가 한꺼번에 소진되지 않는다. 날짜 간격은 따로 두지 않는다:
+ *     한 회차를 끝까지 걸어야 하는 것 자체가 이미 충분한 간격이다.
+ * - 마지막 회차까지 다 봤으면 null(그 계정 DM은 `isStoryOver`로 영영 닫힌다).
+ *
+ * @returns 새로 연 스토리(활동 기록 문구에 쓴다). 열 게 없으면 null.
  */
-export function spawnSaikaStory(state: GameState): boolean {
-  return spawnDmStory(state, SAIKA_STORY);
+export function spawnStoryFor(state: GameState, handle: string): DmStory | null {
+  const chapters = chaptersFor(handle);
+  if (!chapters.length) return null;
+  const next = chapters.find((s) => !state.eggs.done[`dmStory_${s.id}`]);
+  if (!next) return null;
+
+  const thread = getActiveAccount(state).dms.find((t) => t.partnerHandle === handle);
+  if (!thread) return spawnDmStory(state, next) ? next : null;
+  if (thread.story) return null; // 진행 중인 회차가 있다 — 끝내야 다음이 열린다
+
+  // 2회차부터는 스레드를 새로 만들지 않는다. 같은 상대가 며칠 뒤 다시 말을 거는 모양이라
+  // 대화 이력이 이어지고, 쪽지함에 같은 사람이 두 줄로 뜨지도 않는다.
+  state.eggs.done[`dmStory_${next.id}`] = true;
+  thread.story = { id: next.id, node: next.startNode };
+  pushIntro(state, thread, next, next.startNode);
+  return next;
+}
+
+/** 스토리 트리거 동사 — 계정끼리 겹쳐도 된다(판정이 핸들 단위라 같이 열리지 않는다). */
+type StoryTrigger = "like" | "retweet" | "follow" | "engage";
+
+const STORY_TRIGGERS: Record<string, StoryTrigger> = {
+  [KANRA_STORY.partnerHandle]: "like",
+  [SETTON_STORY.partnerHandle]: "like",
+  [NOCOLOR_STORY.partnerHandle]: "retweet",
+  [BAKYURA_STORY.partnerHandle]: "retweet",
+  [TARO_STORY.partnerHandle]: "follow",
+  [COLLECTOR_STORY.partnerHandle]: "follow",
+  [SAIKA_STORY.partnerHandle]: "engage",
+};
+
+/**
+ * 그 동사가 이 계정의 트리거면 다음 회차를 연다(`systems/eggs.ts`의 훅들이 부른다).
+ * 계정마다 동사가 하나씩 정해져 있어, 좋아요로 리트윗 계정이 열리는 일은 없다.
+ */
+export function maybeSpawnStoryFor(
+  state: GameState,
+  handle: string,
+  trigger: StoryTrigger,
+): DmStory | null {
+  if (STORY_TRIGGERS[handle] !== trigger) return null;
+  return spawnStoryFor(state, handle);
+}
+
+/** 활동 기록에 남길 문구(스토리가 선언한 게 없으면 상대 이름으로 만든다). */
+export function storyArrivalTitle(story: DmStory): string {
+  return story.arrivalTitle ?? `${story.partnerName}의 DM`;
 }
 
 /**
  * 트리거 판정용 핸들 — `data/accounts.ts`의 RUMOR_AUTHORS와 철자가 같아야 한다.
- * ⚠️ 스토리 3종은 트리거 동사를 일부러 갈라 뒀다: 칸라=좋아요 / 무색=리트윗 / 타로=팔로우.
- *    새 스토리를 붙일 때도 겹치지 않는 동사를 골라라 — 겹치면 한 번의 행동으로 둘이 동시에 열린다.
+ * ⚠️ 트리거 **동사**는 계정끼리 겹쳐도 된다(좋아요=칸라·셋톤 / 리트윗=무색·바큐라 / 팔로우=타로·수집가).
+ *    판정이 **핸들 단위**라 한 번의 행동으로 둘이 같이 열리지 않기 때문이다.
+ *    새 스토리를 붙일 땐 동사가 아니라 **핸들이 겹치지 않는지**를 확인하라.
  */
 export const KANRA_HANDLE = KANRA_STORY.partnerHandle;
 export const NOCOLOR_HANDLE = NOCOLOR_STORY.partnerHandle;
 export const TARO_HANDLE = TARO_STORY.partnerHandle;
 export const SAIKA_HANDLE = SAIKA_STORY.partnerHandle;
+export const SETTON_HANDLE = SETTON_STORY.partnerHandle;
+export const BAKYURA_HANDLE = BAKYURA_STORY.partnerHandle;
+export const COLLECTOR_HANDLE = COLLECTOR_STORY.partnerHandle;
 
 /**
  * 이 핸들이 스토리 계정인가.

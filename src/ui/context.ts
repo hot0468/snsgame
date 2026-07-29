@@ -82,6 +82,10 @@ export interface UIState {
   medibooksFilter: "book" | "comic";
   /** 팔로잉 탭에 표시 중인 랜덤 트윗들 */
   followingFeed: Tweet[];
+  /** 추천 탭에 표시 중인 남의 트윗들(하루치 조합). 날짜가 바뀌면 재생성한다. */
+  homeFeed: Tweet[];
+  /** 현재 homeFeed가 생성된 게임 날짜(day) */
+  homeFeedDay?: number;
   /** 네이놈 포털에서 열어본 기사 id(null이면 목록) */
   portalArticleId: string | null;
   /** 너튜브 탭에 표시 중인 랜덤 영상 목록 */
@@ -170,6 +174,7 @@ export function createUIState(): UIState {
     medibooksTab: "home",
     medibooksFilter: "book",
     followingFeed: [],
+    homeFeed: [],
     portalArticleId: null,
     youtubeVideos: [],
     youtubeSearch: "",

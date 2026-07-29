@@ -24,7 +24,7 @@ import {
   BIRTHDAY_BONUS_MAX,
   BIRTHDAY_TWEET_LINES,
 } from "@/data/birthday";
-import { makeRandomAccount } from "@/data/accounts";
+import { FIXED_AUTHOR_HANDLES, makeRandomAccount } from "@/data/accounts";
 import { changeFollowers } from "./followers";
 import { consumePostSlot } from "./eggs";
 import { clampAction } from "./stats";
@@ -85,10 +85,13 @@ export function applyTchinReach(state: GameState, gain: number): number {
  */
 export function maybeSpawnTchinBoost(state: GameState): void {
   const account = getActiveAccount(state);
-  if (account.tchins.length === 0) return;
+  // 전용 문구 고정 계정(칸라칸라·무색의 무리 등)은 제외한다 — 자기 톤이 정해진 캐릭터 계정이
+  // "오늘도 화이팅!" 같은 범용 응원 카톡을 보내면 그 계정의 화법이 깨진다.
+  const pool = account.tchins.filter((h) => !FIXED_AUTHOR_HANDLES.includes(h));
+  if (pool.length === 0) return;
   if (!chance(TCHIN_BOOST_CHANCE)) return;
 
-  const handle = pick(account.tchins);
+  const handle = pick(pool);
   const bonus = randInt(TCHIN_BOOST_MIN, TCHIN_BOOST_MAX);
   changeFollowers(state, bonus);
   // 표시는 계정명으로(없는 구세이브만 @핸들 폴백). 응원 카톡은 자연스러운 대화 한 세트로 연다.

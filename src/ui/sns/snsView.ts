@@ -1,11 +1,20 @@
 import type { GameContext } from "@/ui/context";
-import { FEED_PAGE } from "@/ui/context";
 import type { AttributeId, Tweet } from "@/core/types";
 import { FOLLOWER_GOAL, getActiveAccount, isMentalLow, isSuspended, visibleTimeline } from "@/core/state";
 import { canWatchAd } from "@/systems/ads";
-import { claimAdReward, ensureAdTweetsSeeded, unlockAppTab } from "@/systems/adTweets";
+import {
+  claimAdReward,
+  DAILY_AD_TWEET_COUNT,
+  ensureAdTweetsSeeded,
+  unlockAppTab,
+} from "@/systems/adTweets";
 import { unreadDMCount } from "@/systems/dm";
-import { followingFeedTweets, followAccount, isFollowingHandle } from "@/systems/exploreSystem";
+import {
+  followingFeedTweets,
+  followAccount,
+  homeFeedTweets,
+  isFollowingHandle,
+} from "@/systems/exploreSystem";
 import { profileFromAuthor } from "@/data/accounts";
 import { totalFollowers } from "@/systems/economy";
 import { currentMaxPostSlots } from "@/systems/followers";
@@ -34,6 +43,7 @@ import {
   explorePage,
   goHome,
   mePage,
+  openTweetAuthor,
   postsPage,
   reactableCard,
   renderAccountProfilePage,
@@ -374,43 +384,34 @@ export function renderSnsView(ctx: GameContext): HTMLElement {
       if (s.adTweets.length === 0) {
         ctx.update((st) => ensureAdTweetsSeeded(st));
       }
-      const adCards = s.adTweets.map((t) => adTweetCard(ctx, t));
-      // 성인물 보기 OFF면 내가 쓴 성인 트윗은 타임라인에서 가린다.
-      const myTimeline = visibleTimeline(s);
-      if (myTimeline.length === 0) {
-        // 타임라인이 비었으면(첫날) 안내 문구를 그대로 맨 위에 두고, 광고는 그 아래에.
-        body = [el("div", { class: "empty" }, "아직 트윗이 없어요. 첫 트윗을 등록해보세요!"), ...adCards];
-      } else {
-        // 윈도잉: 긴 타임라인을 전량 렌더하면 전체 재렌더마다 카드 수백 개를 다시 그려 렉이 낀다.
-        // 최신 feedShown개만 그리고, 남으면 '더 보기'로 늘린다(최신이 앞이라 새 트윗은 항상 보인다).
-        const shown = myTimeline.slice(0, ctx.ui.feedShown);
-        const timelineCards = shown.map((t) =>
+      // 광고는 하루치 2개만 노출한다. 이미 적립한 광고는 빼므로, 어제 안 누른 광고는
+      // 자리가 남는 동안 계속 뜬다(적립 기회가 하루 만에 사라지지 않게).
+      const adCards = s.adTweets
+        .filter((t) => !t.adPromo?.claimed)
+        .slice(0, DAILY_AD_TWEET_COUNT)
+        .map((t) => adTweetCard(ctx, t));
+      // 남의 트윗은 하루 1회만 굴린다(랜덤 5 + 전용 계정 2 + 이스터에그 1).
+      // homeFeedTweets는 순수 생성기라 렌더 중 호출해도 상태를 건드리지 않는다.
+      if (ctx.ui.homeFeedDay !== s.day || ctx.ui.homeFeed.length === 0) {
+        ctx.ui.homeFeedDay = s.day;
+        ctx.ui.homeFeed = homeFeedTweets(s);
+      }
+      // 오늘 올린 내 트윗만 홈에 남는다(하루가 지나면 아래 조합으로 갈린다 — 전체 이력은 프로필 게시물 탭).
+      const myToday = visibleTimeline(s).filter((t) => t.createdDay === s.day);
+      const cards: HTMLElement[] = [
+        ...myToday.map((t) =>
           tweetCard(t, {
             showGain: true,
             ctx,
             onMedia: (mt) => ctx.openModal((c) => renderMediaModal(c, mt)),
             onOpen: () => enterTweetDetail(ctx, t.id),
+            onAuthorClick: () => openTweetAuthor(ctx, t),
           }),
-        );
-        // 내 트윗 사이사이에 광고를 규칙적으로 끼운다(첫 카드는 항상 내 최신 트윗).
-        // 남는 광고는 피드 끝에. 배치 규칙·간격 근거는 feedLayout.ts 참고.
-        body = interleaveFeed<HTMLElement>(timelineCards, adCards);
-        if (myTimeline.length > ctx.ui.feedShown) {
-          body.push(
-            el(
-              "button",
-              {
-                class: "btn btn--ghost feed__more",
-                onclick: () => {
-                  ctx.ui.feedShown += FEED_PAGE;
-                  ctx.refresh();
-                },
-              },
-              `더 보기 (${formatNumber(myTimeline.length - ctx.ui.feedShown)}개 더)`,
-            ),
-          );
-        }
-      }
+        ),
+        ...ctx.ui.homeFeed.map((t) => reactableCard(ctx, t)),
+      ];
+      // 트윗 사이사이에 광고를 규칙적으로 끼운다. 배치 규칙·간격 근거는 feedLayout.ts 참고.
+      body = interleaveFeed<HTMLElement>(cards, adCards);
     }
 
     const suspended = isSuspended(account, s.day);
