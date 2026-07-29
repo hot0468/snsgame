@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { DOLLS, dollById } from "@/data/arcade";
 import { createInitialState } from "@/core/state";
 import { loadGame } from "@/systems/save";
+import { OFFLINE_ACTIVITIES, ARCADE_ENCOUNTER_CHANCE } from "@/systems/offline";
 import {
   laneAt,
   playClaw,
@@ -264,5 +265,16 @@ describe("인형 판매", () => {
     const before = s.money;
     expect(sellDoll(s, DOLLS[0].id)).toBe(0);
     expect(s.money).toBe(before);
+  });
+});
+
+describe("오락실 조우", () => {
+  it("확률 상수가 0과 1 사이다", () => {
+    expect(ARCADE_ENCOUNTER_CHANCE).toBeGreaterThan(0);
+    expect(ARCADE_ENCOUNTER_CHANCE).toBeLessThan(1);
+  });
+
+  it("외출 활동이 존재한다(조우가 붙는 자리)", () => {
+    expect(OFFLINE_ACTIVITIES.find((a) => a.id === "goout")).toBeDefined();
   });
 });

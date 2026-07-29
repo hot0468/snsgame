@@ -127,6 +127,11 @@ export interface OfflineOutcome {
    */
   creatureEncounter: string | null;
   /**
+   * 외출 중 오락실을 만났는지. 펫·크리처·성인 조우와 배타(한 턴에 이벤트는 하나).
+   * ui가 결과 팝업을 닫은 뒤 인형뽑기 모달을 띄운다.
+   */
+  arcadeEncounter: boolean;
+  /**
    * 운동 중 들어온 제안(바디프로필 촬영 / 마라톤 대회). 없으면 null.
    * ui가 결과 팝업을 닫은 뒤 제안 모달을 띄운다 — **이 둘의 유일한 진입로다**
    * (현생 살기 목록에 상시 노출하지 않는다. 운동을 해야 기회가 온다).
@@ -256,6 +261,13 @@ export const GREAT_RESULTS = [
 
 /** 펫·성인 조우가 안 뜬 산책 턴에 미수집 크리처를 마주칠 확률 */
 export const CREATURE_ENCOUNTER_CHANCE = 0.1;
+
+/**
+ * 외출 중 오락실을 만날 확률.
+ * ⚠️ 한 방문에 인형 1개 상한이 있어 이 확률이 곧 인형 수집 속도다.
+ *    올리면 12종 도감이 순식간에 끝난다.
+ */
+export const ARCADE_ENCOUNTER_CHANCE = 0.25;
 
 /* 산책 성인 조우 3종의 문턱. 전부 **음란도 + 변태력 2축**이다 —
  * 노출·납치·벽고는 야한 정도가 아니라 취향(페티쉬·강압)의 영역이라, 음란도만 높다고 열리면 안 된다. */
@@ -1130,6 +1142,22 @@ export function doOfflineActivity(
     }
   }
 
+  // 오락실: 외출(goout) 전용. 다른 조우가 하나도 안 떴을 때만 낮은 확률로 만난다.
+  // (산책은 펫·크리처 담당이라 activity.id로 갈라 서로 겹치지 않게 한다.)
+  let arcadeEncounter = false;
+  if (
+    activity.id === "goout" &&
+    !petEncounter &&
+    !creatureEncounter &&
+    !blackVanEncounter &&
+    !wallHoleEncounter &&
+    !nudeExposure &&
+    !adultEncounter &&
+    Math.random() < ARCADE_ENCOUNTER_CHANCE
+  ) {
+    arcadeEncounter = true;
+  }
+
   // 작가 원고 작업: 작업량 게이지를 채운다
   // (휴가면 발생한 이벤트 문구가 우선한다)
   let message =
@@ -1175,6 +1203,7 @@ export function doOfflineActivity(
     wallHoleEncounter,
     adultEncounter,
     creatureEncounter,
+    arcadeEncounter,
     offer,
   };
 }
