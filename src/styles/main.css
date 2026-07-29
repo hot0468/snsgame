@@ -13607,3 +13607,50 @@ button.np-menu__item:hover {
   color: var(--text-muted);
   white-space: pre-wrap;
 }
+
+/* ── 오락실 인형뽑기 레일 (ui/arcadeModal.ts) ── */
+.claw__rail {
+  position: relative;
+  height: 36px;
+  margin: 14px 0 10px;
+  border-radius: 8px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+/* 존 폭은 systems/arcade.ts의 밴드 상수와 맞춘다.
+   COMMON_BAND=0.18 → 좌우 합 36% · RARE_BAND=0.06 → 좌우 합 12% */
+.claw__zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.claw__zone--common {
+  width: 36%;
+  background: rgba(96, 165, 250, 0.22);
+}
+.claw__zone--rare {
+  width: 12%;
+  background: rgba(251, 191, 36, 0.38);
+}
+
+.claw__marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  margin-left: -1.5px;
+  background: var(--text);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.55);
+}
+
+.claw__status {
+  margin: 10px 0 14px;
+  min-height: 3.2em;
+  font-size: 13.5px;
+  line-height: 1.65;
+}
