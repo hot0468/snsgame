@@ -15,6 +15,7 @@ import { perkFailMult } from "./milestones";
 import { rollAdultOfflineEncounter } from "./adultOffline";
 import type { AdultOfflineEncounterId } from "@/data/adultOffline";
 import { CREATURES } from "@/data/creatures";
+import { WALK_PLACES, walkPlaceById } from "@/data/walkPlaces";
 import type { Creature } from "@/data/creatures";
 import {
   VACATION_EVENTS,
@@ -131,6 +132,11 @@ export interface OfflineOutcome {
    * ui가 결과 팝업을 닫은 뒤 인형뽑기 모달을 띄운다.
    */
   arcadeEncounter: boolean;
+  /**
+   * 이번 산책에서 새로 발견한 장소 id(없으면 null).
+   * 이미 state.walkPlaces에 등록까지 끝났다 — ui는 알리기만 하면 된다.
+   */
+  discoveredPlace: string | null;
   /**
    * 운동 중 들어온 제안(바디프로필 촬영 / 마라톤 대회). 없으면 null.
    * ui가 결과 팝업을 닫은 뒤 제안 모달을 띄운다 — **이 둘의 유일한 진입로다**
@@ -261,6 +267,12 @@ export const GREAT_RESULTS = [
 
 /** 펫·성인 조우가 안 뜬 산책 턴에 미수집 크리처를 마주칠 확률 */
 export const CREATURE_ENCOUNTER_CHANCE = 0.1;
+
+/**
+ * 다른 조우가 안 뜬 '돌아다니기'에서 새 장소를 발견할 확률.
+ * ⚠️ 장소를 지정한 산책에선 아예 굴리지 않는다(탐험↔효율 트레이드오프의 핵심).
+ */
+export const PLACE_DISCOVERY_CHANCE = 0.3;
 
 /**
  * 외출 중 오락실을 만날 확률.
@@ -942,10 +954,14 @@ export function doOfflineActivity(
   activityIn: OfflineActivity,
   /** 휴가일 때 고른 목적지(없으면 국내 여행). 휴가가 아닌 활동에서는 무시된다. */
   dest?: VacationDestination,
+  /** 산책일 때 고른 장소(없으면 '정처 없이 돌아다니기'). 산책이 아닌 활동에서는 무시된다. */
+  placeId?: string,
 ): OfflineOutcome {
   // 휴가는 목적지가 비용·회복량을 덮어쓴다 — 활동 정의를 복사해 갈아끼우면
   // 아래 로직(스킬·조우·등급)이 목적지를 몰라도 그대로 동작한다.
   const destination = activityIn.vacation ? (dest ?? DEFAULT_DESTINATION) : null;
+  // 산책 장소도 같은 방식 — 스킬·정신력만 갈아끼운다(행동력·시간은 산책과 동일하게 둔다).
+  const place = activityIn.petWalk && placeId ? (walkPlaceById(placeId) ?? null) : null;
   const activity: OfflineActivity = destination
     ? {
         ...activityIn,
@@ -953,7 +969,14 @@ export function doOfflineActivity(
         mental: destination.mental,
         money: -destination.cost,
       }
-    : activityIn;
+    : place
+      ? {
+          ...activityIn,
+          mental: place.mental,
+          skillGains: place.skillGains,
+          results: place.visitResults,
+        }
+      : activityIn;
   // 시간이 진행되기 전 슬롯을 기록(심야 여부 판정용)
   const wasLate = state.slot === LATE_SLOT;
   recordMission(state, "offline"); // 도전과제: 현생 살기 카운트
@@ -1118,8 +1141,10 @@ export function doOfflineActivity(
   }
 
   // 산책: 성인 특수 이벤트가 안 떴을 때만, 아직 데려오지 않은 종류 중 하나를 낮은 확률로 마주친다.
+  // ⚠️ 특정 장소를 방문한 산책(place)에서는 조우가 일어나지 않는다 —
+  //    "돌아다니면 만나고, 장소를 가면 확실한 스탯을 얻는다"는 이 기능의 트레이드오프다.
   let petEncounter: PetKind | null = null;
-  if (activity.petWalk && !blackVanEncounter && !wallHoleEncounter && !nudeExposure && !adultEncounter) {
+  if (activity.petWalk && !place && !blackVanEncounter && !wallHoleEncounter && !nudeExposure && !adultEncounter) {
     const available = (["dog", "cat"] as PetKind[]).filter((k) => !state.pets[k]);
     if (available.length > 0 && Math.random() < 0.4) {
       petEncounter = pick(available);
@@ -1130,6 +1155,7 @@ export function doOfflineActivity(
   let creatureEncounter: string | null = null;
   if (
     activity.petWalk &&
+    !place &&
     !petEncounter &&
     !blackVanEncounter &&
     !wallHoleEncounter &&
@@ -1139,6 +1165,29 @@ export function doOfflineActivity(
     const uncollected = CREATURES.filter((c) => !state.creatures.includes(c.id));
     if (uncollected.length > 0 && Math.random() < CREATURE_ENCOUNTER_CHANCE) {
       creatureEncounter = pick(uncollected).id;
+    }
+  }
+
+  // 장소 발견: 조우 체인의 맨 끝. 다른 게 하나도 안 뜬 '돌아다니기'에서만 새 장소를 알게 된다.
+  // ⚠️ 발견은 **즉시 등록**된다(길동물·크리처처럼 "데려갈까?"를 묻지 않는다) —
+  //    장소는 데려가는 게 아니라 알게 되는 것이라 선택지가 어색하다.
+  let discoveredPlace: string | null = null;
+  if (
+    activity.petWalk &&
+    !place &&
+    !petEncounter &&
+    !creatureEncounter &&
+    !blackVanEncounter &&
+    !wallHoleEncounter &&
+    !nudeExposure &&
+    !adultEncounter
+  ) {
+    const undiscovered = WALK_PLACES.filter((p) => !state.walkPlaces.includes(p.id));
+    if (undiscovered.length > 0 && Math.random() < PLACE_DISCOVERY_CHANCE) {
+      const found = pick(undiscovered);
+      state.walkPlaces.push(found.id);
+      discoveredPlace = found.id;
+      addSchedule(state, `새 산책 장소 발견: ${found.name}`, "system");
     }
   }
 
@@ -1204,6 +1253,7 @@ export function doOfflineActivity(
     adultEncounter,
     creatureEncounter,
     arcadeEncounter,
+    discoveredPlace,
     offer,
   };
 }

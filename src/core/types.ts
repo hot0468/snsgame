@@ -1184,6 +1184,11 @@ export interface GameState {
   pets: { dog: boolean; cat: boolean };
   /** 산책 중 조우해 도감에 수집한 크리처 id 목록(data/creatures.ts의 CREATURES 참조) */
   creatures: string[];
+  /**
+   * 산책 중 발견해 다음 산책부터 갈 수 있는 장소 id 목록(data/walkPlaces.ts 참조).
+   * ⚠️ 발견은 '정처 없이 돌아다니기'에서만 일어난다 — 특정 장소를 방문한 산책에선 안 뜬다.
+   */
+  walkPlaces: string[];
   /** 마켓걸리버에서 완성해 요리 도감에 등록한 레시피 id 목록(data/grocery.ts의 RECIPES 참조) */
   cookedDishes: string[];
   /** 누적 인방(라이브 방송) 횟수. 방송 진행 상태는 모달 지역 변수라 여기 없다 */

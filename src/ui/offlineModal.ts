@@ -34,6 +34,7 @@ import { SKILL_STATS } from "@/data/stats";
 import { hasAction, projectSkillGain } from "@/systems/stats";
 import { declaredSkillAmount } from "@/systems/offline";
 import { VACATION_DESTINATIONS, type VacationDestination } from "@/data/vacation";
+import { WALK_PLACES, walkPlaceById } from "@/data/walkPlaces";
 import { RACES, raceById } from "@/data/races";
 import { canVisitSalon, SALON_ACTION, SALON_COST } from "@/systems/hairSalon";
 import { renderHairSalonModal } from "./hairSalonModal";
@@ -199,6 +200,12 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
             showDestinations(act);
             return;
           }
+          // 산책은 **발견한 장소가 있을 때만** 선택 화면을 거친다.
+          // 아직 아무것도 발견 전이면 지금처럼 바로 실행한다(불필요한 클릭을 안 만든다).
+          if (act.petWalk && state.walkPlaces.length > 0) {
+            showWalkPlaces(act);
+            return;
+          }
           runActivity(act);
         },
       },
@@ -226,19 +233,109 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
   }
 
   /** 활동을 실행하고 결과 화면으로 넘긴다(휴가면 고른 목적지를 함께 넘긴다). */
-  function runActivity(act: OfflineActivity, dest?: VacationDestination): void {
+  function runActivity(act: OfflineActivity, dest?: VacationDestination, placeId?: string): void {
     let outcome: OfflineOutcome | undefined;
     ctx.update((s) => {
-      outcome = doOfflineActivity(s, act, dest);
+      outcome = doOfflineActivity(s, act, dest, placeId);
     });
     if (!outcome) return;
     // ⚠️ 결과 화면은 **실제로 적용된** 수치를 보여줘야 한다. 휴가는 목적지가 활동 선언값
     //    (국내 여행 기준)을 덮어쓰므로, 그대로 넘기면 당일치기를 갔는데 "-100,000원 · 행동력 +30"이
     //    뜬다(실제로 그렇게 렌더됐다). systems가 하는 것과 같은 방식으로 갈아끼워 넘긴다.
+    //    산책 장소도 같은 이유로 갈아끼운다(정신력·스킬이 장소 값으로 적용됐다).
+    const place = placeId ? walkPlaceById(placeId) : undefined;
     const shown: OfflineActivity = dest
       ? { ...act, action: dest.action, mental: dest.mental, money: -dest.cost }
-      : act;
+      : place
+        ? { ...act, mental: place.mental, skillGains: place.skillGains }
+        : act;
     showResult(shown, outcome);
+  }
+
+  /**
+   * 산책 장소 선택 화면 — 발견한 장소가 하나라도 있을 때만 뜬다.
+   *
+   * ⚠️ '돌아다니기'와 '특정 장소'는 **의도적으로 다른 것을 준다**:
+   *    돌아다니기만 새 발견·길동물·크리처 조우가 가능하고, 장소는 확실한 스탯을 준다.
+   *    이 대비가 이 기능의 전부라 안내 문구에서 반드시 드러나야 한다.
+   */
+  function showWalkPlaces(act: OfflineActivity): void {
+    const s = ctx.store.getState();
+    const found = WALK_PLACES.filter((p) => s.walkPlaces.includes(p.id));
+    const allFound = found.length >= WALK_PLACES.length;
+
+    container.replaceChildren(
+      el(
+        "div",
+        { class: "modal__head" },
+        el("span", { class: "modal__head-title" }, icon("walk", { size: 18 }), "어디로 걸을까?"),
+        closeBtn(),
+      ),
+      el(
+        "div",
+        { class: "modal__body" },
+        el(
+          "p",
+          { class: "compose-hint", style: "margin-top:0" },
+          allFound
+            ? "동네 장소는 전부 알아냈어요. 이제 어디로 갈지만 고르면 돼요."
+            : "정처 없이 걸으면 새로운 곳을 발견할 수 있어요. 아는 곳으로 가면 그만큼 확실히 얻고요.",
+        ),
+        el(
+          "div",
+          { class: "trip-list" },
+          // 돌아다니기 — 발견·조우가 열리는 유일한 선택지
+          el(
+            "button",
+            { class: "trip-card", onclick: () => runActivity(act) },
+            el("span", { class: "trip-card__emoji" }, "🚶"),
+            el(
+              "span",
+              { class: "trip-card__body" },
+              el("span", { class: "trip-card__name" }, "정처 없이 돌아다니기"),
+              el(
+                "span",
+                { class: "trip-card__desc" },
+                allFound
+                  ? "발길 닿는 대로 걷는다. 길동물이나 이상한 것을 만날지도 모른다."
+                  : "발길 닿는 대로 걷는다. 새 장소·길동물·크리처를 만날 수 있다.",
+              ),
+              el(
+                "span",
+                { class: "trip-card__meta" },
+                ...renderDeltaParts(activityDeltaParts(s, act)),
+              ),
+            ),
+          ),
+          // 발견한 장소들
+          ...found.map((p) =>
+            el(
+              "button",
+              { class: "trip-card", onclick: () => runActivity(act, undefined, p.id) },
+              el("span", { class: "trip-card__emoji" }, p.emoji),
+              el(
+                "span",
+                { class: "trip-card__body" },
+                el("span", { class: "trip-card__name" }, p.name),
+                el("span", { class: "trip-card__desc" }, p.desc),
+                el(
+                  "span",
+                  { class: "trip-card__meta" },
+                  ...renderDeltaParts(
+                    activityDeltaParts(s, { ...act, mental: p.mental, skillGains: p.skillGains }),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        el(
+          "div",
+          { class: "compose-actions", style: "margin-top:14px" },
+          el("button", { class: "btn btn--ghost", onclick: () => showChoices() }, "돌아가기"),
+        ),
+      ),
+    );
   }
 
   /**
@@ -1123,6 +1220,20 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         ? el("p", { class: "life-result__delta" }, ...renderDeltaParts(deltaParts))
         : null,
       unlockMsg ? el("p", { class: "life-result__unlock" }, unlockMsg) : null,
+      // 새 산책 장소 발견 — systems가 등록까지 끝냈으니 여기선 알리기만 한다.
+      ...(() => {
+        const found = outcome.discoveredPlace ? walkPlaceById(outcome.discoveredPlace) : null;
+        return found
+          ? [
+              el("p", { class: "life-result__unlock" }, `${found.emoji} ${found.discoverText}`),
+              el(
+                "p",
+                { class: "compose-hint", style: "margin-top:10px" },
+                `이제 산책할 때 '${found.name}'에 갈 수 있어요.`,
+              ),
+            ]
+          : [];
+      })(),
     ];
 
     const kind = outcome.petEncounter;

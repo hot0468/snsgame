@@ -269,6 +269,7 @@ export function createInitialState(): GameState {
     postedAdultEver: false,
     pets: { dog: false, cat: false },
     creatures: [],
+    walkPlaces: [],
     cookedDishes: [],
     streamCount: 0,
     streamBests: {},
