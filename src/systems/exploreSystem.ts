@@ -6,6 +6,8 @@ import {
   FIXED_AUTHOR_HANDLES,
   makeGenericTweet,
   makeRandomTweet,
+  makeRumorTweet,
+  makeCharacterTweet,
   maybeFixedAuthorTweet,
   makeTweetOfAttribute,
   profileFromAuthor,
@@ -18,7 +20,7 @@ import { maybeSpawnChilnamDM, assignedTargetTweets, assignedTargetAccount } from
 import { targetByHandle } from "@/data/killerTargets";
 import { SPECIAL_ACCOUNT_MAKERS } from "@/data/specialAccounts";
 import { allTemplatesFor } from "@/data/tweets";
-import { chance, pick, randInt, uid } from "@/utils/random";
+import { chance, pick, randInt, sample, uid } from "@/utils/random";
 import { calcEncounterFollowerDelta, changeFollowers } from "./followers";
 import { makeWishTweet } from "./wish";
 import { makeOhaasaTweet } from "./ohaasa";
@@ -28,6 +30,7 @@ import { makePsychoTweet } from "./psychoTest";
 import { makeHauntTweet } from "./haunt";
 import { DARTPIN_TWEET_CHANCE, makeDartpinTweet } from "./dartpin";
 import { webtoonBuzzTweets } from "./author";
+import { streamBuzzTweets } from "./livestream";
 import { DSTORY_TWEET_CHANCE, isDstoryDone, makeDstoryTweet } from "./dstory";
 import { maybeSpawnFanDM } from "./dm";
 import { onFollow, onLikeTweet, onRetweet } from "./eggs";
@@ -160,6 +163,68 @@ export function exploreTweets(state: GameState): Tweet[] {
   return tweets;
 }
 
+/** 홈(추천) 피드 하루치 구성 — 광고 2개는 state.adTweets가 따로 공급한다. */
+export const HOME_FEED_RANDOM = 5;
+export const HOME_FEED_FIXED = 2;
+export const HOME_FEED_EGG = 1;
+export const HOME_FEED_COUNT = HOME_FEED_RANDOM + HOME_FEED_FIXED + HOME_FEED_EGG;
+
+/**
+ * 홈 타임라인 하루치 트윗을 만든다(랜덤 5 + 전용 문구 고정 계정 2 + 이스터에그 1, 섞어서 반환).
+ * UI가 날짜가 바뀔 때만 부르고 결과를 그날 내내 재사용한다(재렌더마다 피드가 흔들리지 않게).
+ *
+ * ⚠️ 순수 생성기다 — 여기서 상태를 바꾸지 마라(렌더 경로에서 호출된다).
+ * d스토리(IT 블로그) 링크 트윗은 원래 IT계 '검색'에만 뜨는 예외였는데,
+ * 홈 이스터에그 후보로는 사용자가 명시적으로 요청해 포함한다(둘러보기 피드는 여전히 제외).
+ */
+export function homeFeedTweets(state: GameState): Tweet[] {
+  const adult = state.adultMode;
+  const taste = state.feedTaste ?? [];
+
+  // 같은 문구가 한 피드에 두 번 뜨면 바로 티가 난다 — 겹치면 몇 번 다시 뽑는다.
+  const seen = new Set<string>();
+  const uniq = (make: () => Tweet): Tweet => {
+    let t = make();
+    for (let i = 0; i < 5 && seen.has(t.text); i++) t = make();
+    seen.add(t.text);
+    return t;
+  };
+
+  // 랜덤 트윗 — 둘러보기와 같은 에코챔버 규칙(최근 반응한 카테고리가 더 자주 뜬다).
+  const random = Array.from({ length: HOME_FEED_RANDOM }, () =>
+    uniq(() => {
+      if (taste.length && chance(ECHO_CHANCE)) {
+        const attr = pick(taste);
+        if (adult || !ATTRIBUTES[attr].adultOnly) return makeTweetOfAttribute(attr, adult, state.day);
+      }
+      return makeGenericTweet(adult, state.day);
+    }),
+  );
+
+  // 전용 문구 고정 계정(소문 계정 / 캐릭터 계정) — 확률이 아니라 매일 확정 2칸.
+  const fixed = Array.from({ length: HOME_FEED_FIXED }, () =>
+    uniq(() => (chance(0.5) ? makeRumorTweet(state.day) : makeCharacterTweet(state.day))),
+  );
+
+  // 이스터에그 1칸 — 조건부(다트 핀·d스토리)는 아직 안 푼 동안만 후보에 든다.
+  const eggMakers: Array<() => Tweet> = [
+    () => makeEggTweet(pick(EGG_KINDS), state.day),
+    () => makeOhaasaTweet(state),
+    () => makeWishTweet(state),
+    () => makeChainLetterTweet(state),
+    () => makeBoostTweet(state),
+    () => makePsychoTweet(state),
+    () => makeHauntTweet(state),
+    () => makeGoodsGroupBuyTweet(state.day),
+  ];
+  if (!state.dartpinUnlocked) eggMakers.push(() => makeDartpinTweet(state));
+  if (!isDstoryDone(state)) eggMakers.push(() => makeDstoryTweet(state));
+  const egg = pick(eggMakers)();
+
+  const feed = [...random, ...fixed, egg];
+  return sample(feed, feed.length); // 셔플 — 고정 계정·이스터에그가 항상 아래쪽에 몰리지 않게
+}
+
 /**
  * 트윗 단어 검색 — 질의(단어 또는 @핸들)가 본문·이름·핸들에 포함된 트윗을 돌려준다.
  * 배정된 킬러 타겟의 트윗을 후보에 포함하므로, 타겟 @핸들이나 그가 흘린 위치 단어로 검색하면
@@ -173,9 +238,13 @@ export function searchTweetsByWord(state: GameState, query: string): Tweet[] {
   for (let i = 0; i < 24; i++) pool.push(makeRandomTweet(state.adultMode, state.day));
   const hit = (t: Tweet) =>
     norm(t.authorHandle).includes(q) || norm(t.authorName).includes(q) || norm(t.text).includes(q);
-  // 내 작가 필명을 검색했으면 웹툰 독자 반응을 맨 앞에 붙인다(연재 중일 때만).
+  // 내 작가 필명·방송 활동명을 검색했으면 그 반응을 맨 앞에 붙인다(활동 중일 때만).
   // 랜덤 트윗 뒤에 섞이면 정작 찾던 반응이 안 보인다.
-  return [...webtoonBuzzTweets(state, query), ...pool.filter(hit)].slice(0, 20);
+  return [
+    ...webtoonBuzzTweets(state, query),
+    ...streamBuzzTweets(state, query),
+    ...pool.filter(hit),
+  ].slice(0, 20);
 }
 
 /** 검색: 특정 카테고리(성향)의 랜덤 트윗 3개 생성 */

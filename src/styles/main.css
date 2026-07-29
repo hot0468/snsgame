@@ -4591,6 +4591,10 @@ body {
   gap: 10px;
   padding: 10px 4px;
   border-bottom: 1px solid var(--line, var(--border));
+  cursor: pointer;
+}
+.following-row:hover {
+  background: var(--bg-hover, rgba(127, 127, 127, 0.12));
 }
 .following-row__meta {
   flex: 1;
@@ -6773,6 +6777,9 @@ body {
 
 /* 여행 목적지 선택 카드(휴가 → 목적지) */
 .trip-list { display: flex; flex-direction: column; gap: 10px; }
+/* 산책 장소는 8곳까지 늘어나 한 줄씩 쌓으면 스크롤이 길다 — 2열로 깐다. */
+.trip-list--2col { display: grid; grid-template-columns: 1fr 1fr; align-items: stretch; }
+.trip-list--2col .trip-card { align-items: flex-start; }
 .trip-card {
   display: flex; align-items: center; gap: 12px; width: 100%;
   padding: 12px 14px; cursor: pointer; text-align: left;
@@ -8935,22 +8942,6 @@ input.mail-search__field::placeholder { color: var(--text-muted); }
 .mail-row:hover { background: var(--hover, rgba(0, 0, 0, 0.03)); box-shadow: inset 0 0 0 9999px rgba(0,0,0,0.005); }
 .mail-row--on { background: #c2dbff; }
 .mail-row--on:hover { background: #b5d2ff; }
-.mail-row--checked { background: #fdf2d0; }
-.mail-row__check {
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  border: 2px solid #9aa0a6;
-  border-radius: 3px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  line-height: 1;
-  color: #fff;
-  cursor: pointer;
-}
-.mail-row__check--on { background: #1a73e8; border-color: #1a73e8; }
 .mail-star {
   flex-shrink: 0;
   display: inline-flex;
@@ -12241,17 +12232,6 @@ button.np-menu__item:hover {
   border-color: var(--accent-hover);
 }
 
-.mail__actionbar-btn--ghost {
-  background: transparent;
-  border-color: var(--border);
-  color: var(--text-muted);
-}
-
-.mail__actionbar-btn--ghost:hover {
-  background: var(--bg-window);
-  border-color: var(--text-muted);
-}
-
 /* ===================== 방문 기록(크롬 history 풍) ===================== */
 .hist {
   min-height: 100%;
@@ -13795,44 +13775,199 @@ button.np-menu__item:hover {
   white-space: pre-wrap;
 }
 
-/* ── 오락실 인형뽑기 레일 (ui/arcadeModal.ts) ── */
-.claw__rail {
-  position: relative;
-  height: 36px;
-  margin: 14px 0 10px;
-  border-radius: 8px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
+/* ══════════ 오락실 인형뽑기 기계 (ui/arcadeModal.ts) ══════════
+   기계 껍데기(마퀴 조명 → 유리장 테두리 → 조작 패널)만 CSS다.
+   ⚠️ 유리장 **안쪽**은 Phaser 캔버스다 — 인형·집게·배출구를 CSS로 다시 그리지 마라. */
+.modal--claw {
+  width: min(620px, 100%);
+}
+.claw-machine {
+  margin: 6px 0 12px;
+  border-radius: 14px;
   overflow: hidden;
+  background: linear-gradient(180deg, #ffc9dd, #ff9fc2);
+  box-shadow: inset 0 0 0 3px #ff7fae;
+}
+/* 위쪽 전구 장식 — 반복 그라디언트 두 겹으로 스캘럽 + 전구를 만든다(이미지 없음) */
+.claw-machine__marquee {
+  height: 26px;
+  background:
+    radial-gradient(circle at 14px 13px, #fff7d1 0 4px, transparent 5px) repeat-x 0 0 / 28px 26px,
+    radial-gradient(circle at 14px 26px, #ffd9e7 0 13px, transparent 14px) repeat-x 0 0 / 28px 26px,
+    #ff7fae;
+}
+.claw-machine__glass {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  margin: 0 10px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #fff0f6 0%, #ffe1ee 60%, #ffd0e4 100%);
+  box-shadow: inset 0 0 0 3px #ff6ea4, inset 0 8px 22px rgba(255, 255, 255, 0.7);
+}
+/* 유리 반사 — 클릭을 먹으면 안 되니 pointer-events 해제 */
+.claw-machine__shine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, rgba(255, 255, 255, 0.4) 0 18%, transparent 32%);
+}
+.claw-machine__rail {
+  position: absolute;
+  top: 8px;
+  left: 6px;
+  right: 6px;
+  height: 4px;
+  border-radius: 2px;
+  background: #e05a8a;
 }
 
-/* 존 폭은 systems/arcade.ts의 밴드 상수와 맞춘다.
-   COMMON_BAND=0.18 → 좌우 합 36% · RARE_BAND=0.06 → 좌우 합 12% */
-.claw__zone {
+/* 뽑기 성공 팝업 — 모달 전체를 덮는다(부모 .modal--claw에 position:relative).
+   ⚠️ '성공 = 판 종료'가 이 기능의 밸런스 축이라, 끝났다는 사실이 화면에서 분명해야 한다. */
+.claw-finish {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+  background: rgba(60, 20, 40, 0.55);
+  backdrop-filter: blur(4px);
+  animation: modal-pop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
-.claw__zone--common {
-  width: 36%;
-  background: rgba(96, 165, 250, 0.22);
+.claw-win {
+  width: min(340px, 100%);
+  padding: 20px 18px 16px;
+  border-radius: 16px;
+  background: var(--bg-window);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  text-align: center;
 }
-.claw__zone--rare {
-  width: 12%;
-  background: rgba(251, 191, 36, 0.38);
+.claw-win__title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #e0426f;
+}
+.claw-win__emoji {
+  margin: 6px 0 2px;
+  font-size: 64px;
+  line-height: 1.1;
+  animation: claw-win-pop 0.5s ease-out both;
+}
+@keyframes claw-win-pop {
+  0% { transform: scale(0.3) rotate(-25deg); opacity: 0; }
+  70% { transform: scale(1.15) rotate(6deg); }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+.claw-win__name {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.claw-win__note,
+.claw-win__end {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+.claw-win__gain {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.claw-win__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.modal--claw {
+  position: relative;
 }
 
-.claw__marker {
+/* 물리 미니게임 캔버스 자리 — Phaser가 이 안에 canvas를 만든다.
+   ⚠️ 인형 더미·집게·배출구는 전부 캔버스 안에서 그려진다(예전 CSS 더미/집게 규칙은 삭제됐다). */
+.claw-stage {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 3px;
-  margin-left: -1.5px;
-  background: var(--text);
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.55);
+  inset: 0;
+}
+.claw-stage canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── 조작 패널 ── */
+.claw-machine__panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+}
+.claw-machine__coin {
+  font-size: 12px;
+  font-weight: 700;
+  color: #8c2f52;
+}
+/* 좌우 이동 버튼 — 누르고 있는 동안 집게가 움직인다(조이스틱 자리) */
+.claw-machine__move {
+  width: 40px;
+  height: 34px;
+  border: none;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #7fc3ff, #3f8ede);
+  box-shadow: 0 3px 0 #2c6cae;
+  color: #08243d;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  /* 길게 누를 때 텍스트가 선택되거나 모바일에서 확대되지 않게 */
+  user-select: none;
+  touch-action: none;
+}
+.claw-machine__move:active {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 #2c6cae;
+}
+/* 조작 버튼은 기계 패널 안에 박힌 그 버튼처럼 생겼다(공용 .btn 스킨을 쓰지 않는다) */
+.claw-machine__press {
+  margin-left: auto;
+  padding: 8px 20px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #5fe08e, #29b361);
+  box-shadow: 0 3px 0 #1c8a49, 0 4px 8px rgba(0, 0, 0, 0.2);
+  color: #08351c;
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.claw-machine__press:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+/* 눌리는 느낌 — 버튼이 아래로 내려앉고 그림자가 사라진다 */
+.claw-machine__press:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 #1c8a49;
+}
+.claw-machine__press:disabled {
+  background: #cfd6db;
+  box-shadow: 0 3px 0 #a9b2b8;
+  color: #7c868d;
+  cursor: default;
+}
+.claw-machine__lamp {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.25);
+}
+.claw-machine__lamp--red {
+  background: #f0554f;
 }
 
 .claw__status {
@@ -13884,15 +14019,58 @@ button.np-menu__item:hover {
   font-size: 12px;
   color: var(--accent);
 }
+/* 활동명 줄 — 이름 표시와 '이름 바꾸기'가 한 줄에 붙는다 */
+.live-pick__name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.live-pick__handle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.live-pick__dedi {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+}
+.live-pick__rename {
+  padding: 2px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.live-pick__rename:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+/* 방송 켜기 버튼은 카드 오른쪽 끝에 붙인다 */
+.live-pick__go {
+  margin-left: auto;
+  align-self: center;
+  white-space: nowrap;
+}
 
 /* ── 방송 팝업 본체 ── */
 .modal--live {
-  max-width: 860px;
-  width: 92vw;
+  max-width: 960px;
+  width: 94vw;
+  /* 방송 종료 정산 오버레이(.live-finish)의 기준 박스 */
+  position: relative;
 }
 .live-body {
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: minmax(0, 1fr) 320px;
   gap: 14px;
   align-items: start;
 }
@@ -13927,62 +14105,151 @@ button.np-menu__item:hover {
   white-space: nowrap;
 }
 
-/* ── 방송 화면 ── */
+/* ── 방송 화면(플레이어) ──
+   실제 인방 사이트의 결: 16:9 영상 + 좌상단 경과시간 + 우상단 LIVE + 아래 제목줄.
+   화면 그림은 ui/streamStage.ts의 인라인 SVG(.live-art*)이고 움직임은 아래 keyframes가 만든다. */
 .live-stage {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 190px;
+  aspect-ratio: 16 / 9;
   border-radius: 10px;
-  background: linear-gradient(135deg, #232336, #12121c);
+  background: #05060a;
   overflow: hidden;
 }
-.live-stage__art {
-  font-size: 62px;
-  line-height: 1;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+.live-stage__art,
+.live-stage__art .live-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
-.live-stage__art--off {
-  opacity: 0.35;
+/* 인물 이미지(버튜버 그림·수다 사진)는 배경 SVG 위에 여러 장이 겹쳐 깔리고
+   각자 다른 delay로 자기 차례에만 보인다(플립북).
+   ⚠️ animation의 name·duration·delay는 streamStage.ts가 인라인으로 준다 —
+      노출 구간이 1/N이라 풀 크기마다 키프레임이 달라지기 때문이다. */
+.live-art__vtimg,
+.live-art__chatimg {
+  position: absolute;
+  height: auto;
+  opacity: 0;
+  animation-timing-function: steps(1, end);
+  animation-iteration-count: infinite;
+}
+/* 버튜버 원본은 의자·벤치에 앉은 전신이라 그대로 깔면 인물이 작다 — 확대·이동으로 상반신만 잡는다
+   (object-position은 확대를 못 하므로 width/left로 직접 크롭한다). */
+.live-art__vtimg {
+  top: 2%;
+  left: -74.5%;
+  width: 197%;
+}
+/* 수다 사진은 배경 투명한 세로 인물샷이라 가로 폭을 채우고 위를 잘라 상반신만 남긴다 */
+.live-art__chatimg {
+  top: -33%;
+  left: 0;
+  width: 100%;
+}
+/* 원본마다 인물이 놓인 가로 위치가 조금씩 달라 프레임이 넘어갈 때 좌우로 튄다 —
+   튀는 장만 잡아 화면 중앙 쪽으로 밀어준다(기준은 위 left 값). */
+.live-art__vtimg--live_vtuber3 {
+  left: -66%;
+}
+/* 이 한 장만 원본이 더 넓어(1920x2364) 같은 top에서 머리가 잘린다 — 그 장만 내려준다 */
+.live-art__chatimg--live_chat6 {
+  top: -21%;
+}
+.live-stage--off .live-stage__art {
+  opacity: 0.4;
   filter: grayscale(1);
 }
-.live-stage__caption {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.75);
+.live-stage__hud {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.live-stage__clock {
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.55);
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.live-stage__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 5px;
+  background: #ef2f2f;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+}
+.live-stage__badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  animation: live-blink-dot 1.4s ease-in-out infinite;
+}
+.live-stage--off .live-stage__badge {
+  background: #555;
+}
+.live-stage--off .live-stage__badge::before {
+  animation: none;
+}
+@keyframes live-blink-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
 }
 
-/* ── 좌측 하단 패널(선택지·결과) ── */
-.live-left {
+/* ── 선택지 오버레이(방송화면 위) ── */
+.live-overlay {
+  position: absolute;
+  inset: 0;
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
+  align-items: flex-end;
+  padding: 16px;
+  /* 위쪽은 비워 방송화면이 보이게 두고, 글이 얹히는 아래쪽만 어둡게 깐다 */
+  background: linear-gradient(
+    180deg,
+    rgba(4, 6, 12, 0) 0%,
+    rgba(4, 6, 12, 0.45) 34%,
+    rgba(4, 6, 12, 0.9) 100%
+  );
+  overflow-y: auto;
 }
-.live-panel {
-  min-height: 150px;
+.live-overlay--off {
+  display: none;
 }
-.live-idle__meta {
-  margin: 6px 0 12px;
-  font-size: 12.5px;
-  color: var(--text-muted);
+.live-event {
+  width: 100%;
+  color: #fff;
 }
 .live-event__badge {
   display: inline-block;
   margin-bottom: 8px;
   padding: 2px 9px;
   border-radius: 999px;
-  background: var(--bg-panel);
+  background: rgba(255, 255, 255, 0.16);
   font-size: 11.5px;
-  color: var(--text-muted);
+  color: #fff;
 }
 .live-event__situation,
 .live-event__result {
   margin: 0 0 12px;
   font-size: 14px;
-  line-height: 1.65;
+  line-height: 1.6;
+  color: #fff;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
 }
 .live-event__choices {
   display: flex;
@@ -13994,13 +14261,108 @@ button.np-menu__item:hover {
   white-space: normal;
   line-height: 1.5;
 }
+/* 오버레이 위 버튼은 어두운 방송화면에 얹히므로 밝은 반투명으로 뒤집고, 화면을 덜 가리게 낮춘다.
+   ⚠️ `.modal .btn:not(.btn--ghost)`(0,3,0)가 그라데이션·padding 13px 28px를 먹이므로
+      `.modal`을 붙여 특정성을 0,4,0으로 올려야 이긴다(성인 모달 오버라이드와 같은 방식). */
+.modal .live-overlay .btn:not(.btn--ghost) {
+  padding: 9px 16px;
+  font-size: 13.5px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  box-shadow: none;
+  backdrop-filter: blur(3px);
+}
+.modal .live-overlay .btn:not(.btn--ghost):hover {
+  background: rgba(255, 255, 255, 0.3);
+  box-shadow: none;
+}
+
+/* ── 영상 아래 제목줄 ── */
+.live-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.live-meta__title {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.live-meta__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.live-meta__avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  font-size: 17px;
+}
+.live-meta__channel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.live-meta__name {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.live-meta__followers {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.live-meta__stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-left: auto;
+  text-align: right;
+}
+.live-meta__viewers {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ef2f2f;
+  font-variant-numeric: tabular-nums;
+}
+.live-meta__sub {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.live-meta__end {
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.live-meta__end:hover {
+  border-color: #ef2f2f;
+  color: #ef2f2f;
+}
+
+/* ── 좌측 열 ── */
+.live-left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
 
 /* ── 채팅창 ── */
 .live-right {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  height: 356px;
+  height: 430px;
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
@@ -14049,6 +14411,33 @@ button.np-menu__item:hover {
 }
 
 /* ── 정산 ── */
+/* 방송 종료 정산은 모달 전체를 덮는다(부모 .modal--live에 position:relative). */
+.live-finish {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+  background: rgba(6, 8, 16, 0.72);
+  backdrop-filter: blur(4px);
+  animation: modal-pop 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.live-finish .live-result {
+  width: min(360px, 100%);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+.live-finish .btn {
+  width: 100%;
+}
+.live-result {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-panel);
+}
 .live-result__title {
   margin-bottom: 10px;
   font-size: 15px;
@@ -14065,12 +14454,154 @@ button.np-menu__item:hover {
   justify-content: space-between;
   font-size: 13.5px;
 }
+/* 정산 화면의 방송 후기 트윗 블록 */
+.live-tweet {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft, rgba(127, 127, 127, 0.08));
+}
+.live-tweet__ask {
+  margin: 0 0 4px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.live-tweet__hint,
+.live-tweet__gain,
+.live-tweet__done {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+/* 전용 계정 안내 — 조건이 걸린 보너스라 한 번은 읽히게 박스로 띄운다 */
+.live-tweet__note {
+  margin: 0 0 10px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: rgba(127, 127, 127, 0.12);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.live-tweet__note--on {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.live-tweet__text {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.live-tweet__gain {
+  margin-bottom: 0;
+  color: var(--accent);
+  font-weight: 700;
+}
 .live-result__label {
   color: var(--text-muted);
 }
 .live-result__value {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* ══════════ 방송화면 SVG 목업의 움직임 — ui/streamStage.ts ══════════
+   요소 위치는 SVG 속성이 잡고, CSS는 transform/크기만 흔든다.
+   ⚠️ SVG 안의 transform 애니메이션은 transform-box: fill-box가 있어야 제 기준점으로 돈다. */
+.live-art [class*="live-art__"] {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* 게임: 캐릭터가 라인을 오가고, 체력바가 닳고, 미니맵 핑이 뛴다 */
+.live-art__hero--a { animation: live-hero-a 6s ease-in-out infinite; }
+.live-art__hero--b { animation: live-hero-b 7.5s ease-in-out infinite; }
+.live-art__hero--c { animation: live-hero-c 9s ease-in-out infinite; }
+@keyframes live-hero-a {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(38px, -26px); }
+}
+@keyframes live-hero-b {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-30px, 22px); }
+}
+@keyframes live-hero-c {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(26px, -18px); }
+}
+.live-art__hp { animation: live-hp 5s ease-in-out infinite; }
+@keyframes live-hp {
+  0%, 100% { width: 108px; }
+  35% { width: 46px; }
+  70% { width: 82px; }
+}
+.live-art__mp { animation: live-mp 4s ease-in-out infinite; }
+@keyframes live-mp {
+  0%, 100% { width: 70px; }
+  50% { width: 34px; }
+}
+.live-art__ping { animation: live-ping 2.2s ease-out infinite; }
+@keyframes live-ping {
+  0% { r: 3; opacity: 1; }
+  70% { r: 9; opacity: 0; }
+  100% { r: 3; opacity: 0; }
+}
+.live-art__cd { animation: live-cd 3s linear infinite; }
+@keyframes live-cd {
+  0%, 60% { opacity: 1; }
+  61%, 100% { opacity: 0.3; }
+}
+.live-art__killfeed { animation: live-feed 8s ease-in-out infinite; }
+@keyframes live-feed {
+  0%, 12% { opacity: 0; transform: translateX(-8px); }
+  20%, 55% { opacity: 0.85; transform: translateX(0); }
+  70%, 100% { opacity: 0; transform: translateX(0); }
+}
+
+/* 수다: 오디오 레벨이 튄다(진행자는 사진이라 SVG 흔들림 규칙이 필요 없다) */
+.live-art__level { transform-origin: bottom; }
+.live-art__level--a { animation: live-level 0.7s ease-in-out infinite alternate; }
+.live-art__level--b { animation: live-level 0.5s ease-in-out infinite alternate; }
+.live-art__level--c { animation: live-level 0.9s ease-in-out infinite alternate; }
+.live-art__level--d { animation: live-level 0.6s ease-in-out infinite alternate; }
+@keyframes live-level {
+  from { transform: scaleY(0.35); }
+  to { transform: scaleY(1); }
+}
+.live-art__bokeh--a { animation: live-float 9s ease-in-out infinite; }
+.live-art__bokeh--b { animation: live-float 11s ease-in-out infinite reverse; }
+.live-art__bokeh--c { animation: live-float 7s ease-in-out infinite; }
+@keyframes live-float {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(6px, -10px); }
+}
+
+/* 버튜버: 반짝이가 빛나고 하트가 떠오른다 */
+.live-art__spark--a { animation: live-spark 2.6s ease-in-out infinite; }
+.live-art__spark--b { animation: live-spark 3.2s ease-in-out infinite 0.6s; }
+.live-art__spark--c { animation: live-spark 2.1s ease-in-out infinite 1.1s; }
+@keyframes live-spark {
+  0%, 100% { transform: scale(0.6) rotate(0deg); opacity: 0.35; }
+  50% { transform: scale(1.15) rotate(25deg); opacity: 1; }
+}
+.live-art__heart--a { animation: live-heart 3.4s ease-in infinite; }
+.live-art__heart--b { animation: live-heart 4.2s ease-in infinite 0.9s; }
+.live-art__heart--c { animation: live-heart 3.8s ease-in infinite 1.8s; }
+@keyframes live-heart {
+  0% { transform: translateY(10px) scale(0.7); opacity: 0; }
+  25% { opacity: 0.9; }
+  100% { transform: translateY(-64px) scale(1.05); opacity: 0; }
+}
+
+/* 움직임을 줄여달라는 설정이면 방송화면도 멈춘다 */
+@media (prefers-reduced-motion: reduce) {
+  .live-art [class*="live-art__"],
+  .live-stage__badge::before {
+    animation: none;
+  }
 }
 
 /* 좁은 화면에서는 채팅을 아래로 내린다 */

@@ -1241,6 +1241,13 @@ export interface GameState {
    * ⚠️ peak가 아니라 **최종 시청자**로 잡는다(peak는 모달 지역 변수라 systems가 모른다).
    */
   streamBests: Record<string, number>;
+  /**
+   * 방송 타입별 활동명(게임/수다/버튜버 각각 따로). 키가 없으면 아직 안 정한 것 —
+   * 방송을 켜기 전에 반드시 정해야 한다(systems/livestream.ts canStream).
+   * ⚠️ SNS 계정명이 이 이름과 같으면 그 계정이 **방송 전용 계정**이 되어
+   *    방송 후기 트윗의 팔로워가 크게 붙는다(systems/livestream.ts dedicatedAccount).
+   */
+  streamNames: Record<string, string>;
   /** 오락실 인형뽑기로 도감에 등록한 인형 id 목록(data/arcade.ts의 DOLLS 참조) */
   dolls: string[];
   /**
