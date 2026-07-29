@@ -6,6 +6,7 @@ import { buyItem, canBuy, effectivePrice, isOwned } from "@/systems/shop";
 import { confirmPurchase } from "./confirmModal";
 import { itemImg } from "./components";
 import { inventoryList } from "./inventory";
+import { sellDoll, stockedDolls } from "@/systems/arcade";
 import { el, formatNumber } from "@/utils/dom";
 import { hashInt } from "@/utils/random";
 import { icon } from "./icons";
@@ -148,6 +149,63 @@ function filterSide(): HTMLElement {
   );
 }
 
+/**
+ * 인형 재고 판매 구역 — 오락실에서 중복으로 뽑은 인형을 판다.
+ * 도감 1호기는 여기 안 나온다(systems/arcade.ts가 재고만 노출한다).
+ * 서랍장과 같은 즉시 정산이라 별도 대기 개념이 없다 — 확인창 없이 바로 팔린다.
+ */
+function dollSellSection(ctx: GameContext): HTMLElement | null {
+  const stock = stockedDolls(ctx.store.getState());
+  if (stock.length === 0) return null;
+
+  return el(
+    "div",
+    { class: "pm__dolls" },
+    el(
+      "p",
+      { class: "compose-hint", style: "margin:18px 0 10px" },
+      "오락실에서 중복으로 뽑은 인형이에요. 도감에 등록된 첫 개는 그대로 남습니다.",
+    ),
+    el(
+      "div",
+      { class: "inv-list" },
+      ...stock.map(({ doll, count }) =>
+        el(
+          "div",
+          { class: "inv-row" },
+          el(
+            "div",
+            { class: "inv-row__copy" },
+            el(
+              "div",
+              { class: "inv-row__name" },
+              `${doll.emoji} ${doll.name}`,
+              count > 1 ? el("span", { class: "inv-row__count" }, `×${count}`) : null,
+            ),
+            el("div", { class: "inv-row__desc" }, doll.desc),
+          ),
+          el(
+            "button",
+            {
+              class: "inv-row__sell",
+              onclick: () => {
+                let paid = 0;
+                ctx.update((s) => {
+                  paid = sellDoll(s, doll.id);
+                });
+                if (paid > 0) {
+                  ctx.toast(`${doll.name} 판매 완료! +${formatNumber(paid)}원`);
+                }
+              },
+            },
+            el("span", {}, `${formatNumber(doll.resale)}원에 팔기`),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 export function renderPeemang(ctx: GameContext): HTMLElement {
   const s = ctx.store.getState();
   const tab = ctx.ui.peemangTab;
@@ -186,6 +244,7 @@ export function renderPeemang(ctx: GameContext): HTMLElement {
             "서랍장 물건을 바로 내놓을 수 있어요. 중고 시세는 무조건 정가의 50% — 그리고 그 물건으로 올랐던 스탯도 같이 넘어갑니다.",
           ),
           inventoryList(ctx, true),
+          dollSellSection(ctx),
         );
 
   return el(
