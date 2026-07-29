@@ -9,6 +9,8 @@ import { ATTRIBUTES } from "@/data/attributes";
 import { el } from "@/utils/dom";
 import { icon, avatar } from "./icons";
 import { renderVideoModal } from "./videoModal";
+import { renderStreamTypeModal } from "./livestreamModal";
+import { canStream } from "@/systems/livestream";
 
 /* ============================================================
  * 너튜브 홈 — 유튜브 레이아웃 클론.
@@ -109,6 +111,18 @@ function tubeSearchBox(ctx: GameContext): HTMLElement {
 
 /* ===================== 마스트헤드(장식) ===================== */
 
+/**
+ * 인방 진입 — 남은 타임블록이 없으면 토스트로 막고, 있으면 타입 선택 모달을 연다.
+ * (실제 시간 소모는 타입을 고른 시점에 startStream이 한다.)
+ */
+function startLive(ctx: GameContext): void {
+  if (!canStream(ctx.store.getState())) {
+    ctx.toast("오늘은 방송할 시간이 없어요", "bad");
+    return;
+  }
+  ctx.openModal(renderStreamTypeModal);
+}
+
 function masthead(ctx: GameContext): HTMLElement {
   const me = getActiveAccount(ctx.store.getState());
 
@@ -140,7 +154,14 @@ function masthead(ctx: GameContext): HTMLElement {
     el(
       "div",
       { class: "tube__mast-right" },
-      el("span", { class: "tube__create" }, icon("pen", { size: 15 }), "만들기"),
+      // ⚠️ 마스트헤드에서 **유일하게 실제로 동작하는** 버튼이다(나머지는 장식).
+      //    인방 진입은 여기 하나뿐이라 지우면 방송 기능이 통째로 닿을 수 없게 된다.
+      el(
+        "button",
+        { class: "tube__create tube__create--live", onclick: () => startLive(ctx) },
+        el("span", { class: "tube__live-dot" }),
+        "방송 시작",
+      ),
       el("span", { class: "tube__bell" }, icon("megaphone", { size: 18 })),
       avatar(me.name, 32),
     ),

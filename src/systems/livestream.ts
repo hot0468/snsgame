@@ -7,7 +7,7 @@ import {
   STREAM_EVENT_COUNT,
   streamTypeById,
 } from "@/data/livestream";
-import { getActiveAccount } from "@/core/state";
+import { getActiveAccount, SLOTS_PER_DAY } from "@/core/state";
 import { pick } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { clampResource, gainSkill } from "./stats";
@@ -118,8 +118,16 @@ export function rollEventSequence(typeId: StreamTypeId): StreamEvent[] {
 }
 
 /**
+ * 지금 방송을 켤 수 있는지 — 남은 타임블록이 있어야 한다(canAcceptWork와 같은 계약).
+ * ⚠️ 별도 해금 조건은 없다. 시청자 수 자체가 진입 장벽이다(startingViewers 참고).
+ */
+export function canStream(state: GameState): boolean {
+  return !state.gameOver && SLOTS_PER_DAY - state.slot > 0;
+}
+
+/**
  * 방송을 시작한다 — 타임블록 1칸을 소비하고 누적 횟수를 올린다.
- * ⚠️ 호출 전에 ui가 시간이 있는지 확인해야 한다.
+ * ⚠️ 호출 전에 ui가 canStream으로 확인해야 한다.
  */
 export function startStream(state: GameState, type: StreamType): void {
   state.streamCount += 1;

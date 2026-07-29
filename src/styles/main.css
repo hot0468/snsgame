@@ -13654,3 +13654,250 @@ button.np-menu__item:hover {
   font-size: 13.5px;
   line-height: 1.65;
 }
+
+/* ══════════ 너튜브 인방(라이브 방송) — ui/livestreamModal.ts ══════════ */
+
+/* ── 타입 선택 ── */
+.live-pick {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-panel);
+  text-align: left;
+  cursor: pointer;
+}
+.live-pick:hover {
+  border-color: var(--accent);
+}
+.live-pick__emoji {
+  font-size: 26px;
+  line-height: 1.2;
+}
+.live-pick__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.live-pick__name {
+  font-weight: 700;
+  font-size: 15px;
+}
+.live-pick__desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+.live-pick__skills {
+  font-size: 12px;
+  color: var(--accent);
+}
+
+/* ── 방송 팝업 본체 ── */
+.modal--live {
+  max-width: 860px;
+  width: 92vw;
+}
+.live-body {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 14px;
+  align-items: start;
+}
+
+/* 헤드의 시청자 수 — 방송 내내 눈에 박혀 있어야 한다 */
+.live-viewers {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  margin-right: 10px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 60, 60, 0.16);
+  font-size: 13px;
+  font-weight: 700;
+  color: #ff4d4d;
+}
+.live-viewers__count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 방송 화면 ── */
+.live-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 190px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #232336, #12121c);
+  overflow: hidden;
+}
+.live-stage__art {
+  font-size: 62px;
+  line-height: 1;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+}
+.live-stage__art--off {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+.live-stage__caption {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* ── 좌측 하단 패널(선택지·결과) ── */
+.live-left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.live-panel {
+  min-height: 150px;
+}
+.live-idle__meta {
+  margin: 6px 0 12px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.live-event__badge {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--bg-panel);
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.live-event__situation,
+.live-event__result {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.65;
+}
+.live-event__choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.live-event__choice {
+  text-align: left;
+  white-space: normal;
+  line-height: 1.5;
+}
+
+/* ── 채팅창 ── */
+.live-right {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 356px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.live-chat__head {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.live-chat {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.live-chat__row {
+  font-size: 12.5px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+.live-chat__nick {
+  margin-right: 6px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.live-chat__text {
+  color: var(--text);
+}
+.live-chat__row--system .live-chat__nick {
+  color: var(--text-muted);
+}
+.live-chat__row--system .live-chat__text {
+  color: var(--text-muted);
+}
+.live-chat__row--up .live-chat__text {
+  color: #2ecc71;
+  font-weight: 700;
+}
+.live-chat__row--down .live-chat__text {
+  color: #ff6b6b;
+  font-weight: 700;
+}
+
+/* ── 정산 ── */
+.live-result__title {
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.live-result__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.live-result__row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13.5px;
+}
+.live-result__label {
+  color: var(--text-muted);
+}
+.live-result__value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 좁은 화면에서는 채팅을 아래로 내린다 */
+@media (max-width: 760px) {
+  .live-body {
+    grid-template-columns: 1fr;
+  }
+  .live-right {
+    height: 240px;
+  }
+}
+
+/* 너튜브 마스트헤드의 '방송 시작' — 이 화면에서 유일하게 동작하는 버튼이라 눈에 띄어야 한다 */
+.tube__create--live {
+  border: 1px solid rgba(255, 77, 77, 0.45);
+  background: rgba(255, 77, 77, 0.12);
+  color: #ff4d4d;
+  cursor: pointer;
+}
+.tube__create--live:hover {
+  background: rgba(255, 77, 77, 0.2);
+}
+.tube__live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff3b3b;
+  box-shadow: 0 0 6px rgba(255, 59, 59, 0.9);
+}
