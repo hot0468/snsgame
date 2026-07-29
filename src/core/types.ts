@@ -265,6 +265,18 @@ export interface DMThread {
   messages: DMMessage[];
   /** 안 읽은 새 메시지가 있는지 */
   unread: boolean;
+  /**
+   * 상대가 마지막으로 던진 화제 id(`DM_TOPICS`). 내 답장 선택지는 **이 화제에 대한 대답**에서만
+   * 나온다 — 없으면 직전 상대 말과 내 말이 어긋난다(자세한 이유는 dmContent.ts의 DMTopic 주석).
+   * 구세이브·화제를 아직 안 던진 스레드는 undefined이고, 그땐 맥락별 범용 풀로 떨어진다.
+   */
+  dmTopic?: string;
+  /**
+   * 스토리 DM 진행 상태(`data/dmStory.ts`). 있으면 이 스레드는 잡담 풀 대신 **스토리 분기**로
+   * 답장한다 — 선택지는 현재 노드의 것이고, 고르면 다음 노드로 넘어간다.
+   * 스토리가 끝나면 이 필드를 지워 평범한 DM으로 돌아간다.
+   */
+  story?: { id: string; node: string };
   /** 이미 오프라인에서 만났는지(만남은 상대당 1회) */
   metOffline: boolean;
   /** 상대가 오프라인 만남을 제안했는지(제안해야만 만날 수 있음) */
@@ -544,6 +556,13 @@ export interface KillerJob {
   completed: number;
   /** 현재 임무. 배정 전/완료 후엔 null */
   assignment: KillerAssignment | null;
+  /**
+   * 나를 이 바닥에 끌어들인 연락책. 이후 타겟 배정·실패 통보 DM이 **전부 이쪽으로** 온다.
+   * - `"momo"`: momo.com 서적요청(성인모드 전용 진입로). 반말·직설.
+   * - `"doctor"`: 병원 진료예약(전연령 진입로). 존댓말·수술 은유로만 말한다.
+   * 선택 필드인 건 구세이브 호환 때문이다 — 값이 없으면 momo로 취급한다.
+   */
+  recruiter?: "momo" | "doctor";
 }
 
 /** 대부업체에서 빌린 빚 */
@@ -635,6 +654,12 @@ export interface MarketState {
   prices: Record<string, number>;
   prevPrices: Record<string, number>;
   holdings: Record<string, number>;
+  /**
+   * 종목별 **보유분의 매수 원가 합계**(원). 평단가 = cost / holdings, 평가손익 = 평가액 - cost.
+   * 이동평균법 — 매도하면 보유 비율만큼 원가도 함께 덜어낸다(systems/market.ts).
+   * 구세이브엔 없다 → 로드 시 '현재가 × 보유량'으로 채운다(손익 0에서 다시 시작).
+   */
+  cost: Record<string, number>;
 }
 
 /** 플랫폼 작가 계약(창작 트윗이 쌓이면 제안이 온다) */
@@ -651,6 +676,12 @@ export interface AuthorContract {
   lastSettledMonth: number;
   /** 성인물 작가 계약 여부. true면 작업량 게이지 성과 스탯에 음란도가 포함된다. */
   adult: boolean;
+  /**
+   * 데뷔 시 정한 작가 필명. **SNS 검색어와 대조되는 값**이라 계약마다 반드시 있다.
+   * 이 이름으로 트윗을 검색하면 내 웹툰 독자 반응이 뜬다(systems/author.ts webtoonBuzzTweets).
+   * 구세이브엔 없어서 로드 시 계정명으로 채운다(systems/save.ts).
+   */
+  penName: string;
 }
 
 /** 취업 지원 — 결과는 지원 익일에 피메일로 통보된다. */
@@ -917,6 +948,11 @@ export interface GameState {
   lastCosplayDay: number;
   /** 유료 구독 채널 개설 여부 — 매월 구독 수익이 정산된다 */
   paidChannelJoined: boolean;
+  /**
+   * 트위터 프리미엄 구독 여부 — 팔로워 수익이 2배가 되고 매월 1일 구독료가 빠진다.
+   * 구독료를 못 내면 그 자리에서 false로 돌아간다(systems/economy.settleMonthlyIncome).
+   */
+  premium: boolean;
 
   /** 앞으로 예정된 약속들(정기런·친구 만남). 당일이 되면 할지/말지 팝업이 뜬다. */
   appointments: Appointment[];
@@ -1126,6 +1162,12 @@ export interface GameState {
    * `ridden`은 오늘 이미 편승(부스트)한 트렌드 id — 트렌드당 1회/일 부스트 제한용.
    */
   trendBoard: { day: number; ids: string[]; ridden: string[] } | null;
+  /**
+   * 최근 반응(좋아요·악플·리트윗)한 카테고리 이력 — 신규 게시글 탐색 피드가 이쪽으로 편중된다
+   * (에코챔버). 중복을 그대로 쌓아 두고 균등 `pick`으로 뽑으므로, 많이 반응한 카테고리일수록
+   * 자주 뜬다(별도 가중치 계산 없음). 최근 `FEED_TASTE_MAX`개만 유지한다.
+   */
+  feedTaste: AttributeId[];
   /**
    * 비밀번호를 풀어 잠금을 해제한 d스토리 게시글 id 목록(`DSTORY_POSTS` 참조).
    * 본문 공개 여부와 IT 보상 중복 수령 방지를 **둘 다** 이 배열 하나로 판정한다

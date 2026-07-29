@@ -3,9 +3,13 @@ import { dominantAttribute, getActiveAccount, pushTimeline } from "@/core/state"
 import {
   makeEggTweet,
   makeRandomAccount,
+  FIXED_AUTHOR_HANDLES,
+  makeGenericTweet,
   makeRandomTweet,
+  maybeFixedAuthorTweet,
   makeTweetOfAttribute,
   profileFromAuthor,
+  linesForHandle,
 } from "@/data/accounts";
 import { ATTRIBUTES, getAffinity } from "@/data/attributes";
 import { makeOmenAccount } from "@/data/omenAccount";
@@ -23,6 +27,7 @@ import { makeBoostTweet } from "./statBoost";
 import { makePsychoTweet } from "./psychoTest";
 import { makeHauntTweet } from "./haunt";
 import { DARTPIN_TWEET_CHANCE, makeDartpinTweet } from "./dartpin";
+import { webtoonBuzzTweets } from "./author";
 import { DSTORY_TWEET_CHANCE, isDstoryDone, makeDstoryTweet } from "./dstory";
 import { maybeSpawnFanDM } from "./dm";
 import { onFollow, onLikeTweet, onRetweet } from "./eggs";
@@ -31,6 +36,21 @@ import { addSchedule, advanceTime } from "./time";
 import { unlockAttribute } from "./attributeUnlock";
 import { clampAction } from "./stats";
 import { recordMission } from "./missions";
+import { TREND_MULTIPLIER, rideTrend, unriddenTrendFor } from "./trends";
+
+/** 최근 반응 카테고리 이력을 몇 개까지 들고 있을지(에코챔버 피드 재료) */
+const FEED_TASTE_MAX = 10;
+
+/** 신규 게시글 탐색 시 한 칸을 '내 취향' 카테고리로 채울 확률(에코챔버 강도) */
+const ECHO_CHANCE = 0.45;
+
+/**
+ * 반응한 카테고리를 취향 이력에 남긴다(좋아요·악플·리트윗 공통 — 악플도 관심은 관심이다).
+ * 중복 제거를 **하지 않는 게 의도**다: 같은 값이 여러 번 쌓여야 균등 pick이 곧 가중 추첨이 된다.
+ */
+function recordTaste(state: GameState, attr: AttributeId): void {
+  state.feedTaste = [...(state.feedTaste ?? []), attr].slice(-FEED_TASTE_MAX);
+}
 
 /** 남에게 다정하게(긍정) 반응하려면 필요한 최소 친화력 */
 export const SOCIABILITY_NICE_MIN = 250;
@@ -79,32 +99,63 @@ export function exploreAccounts(state: GameState): Account[] {
 
 const EGG_KINDS: EggKind[] = ["coin", "pyramid", "animal"];
 
+/**
+ * 특수 트윗(이스터에그·오하아사·소원 등)이 덮어쓸 슬롯을 고른다.
+ *
+ * 그냥 randInt로 고르면 전용 문구 고정 계정이 뽑힌 칸을 덮어써서, 선언한
+ * `FIXED_AUTHOR_TWEET_CHANCE`(30%)가 화면에서는 19%까지 내려간다. 그래서 **고정 계정이 아닌
+ * 칸을 우선**한다 — 특수 트윗 빈도는 그대로 두면서 고정 계정 노출만 지켜진다.
+ * 세 칸이 전부 고정 계정이면(≈2.7%) 어쩔 수 없이 아무 칸이나 덮는다.
+ */
+function specialSlot(tweets: Tweet[]): number {
+  const free = tweets
+    .map((t, i) => (FIXED_AUTHOR_HANDLES.includes(t.authorHandle) ? -1 : i))
+    .filter((i) => i >= 0);
+  return free.length ? pick(free) : randInt(0, tweets.length - 1);
+}
+
 /** 신규 게시글 탐색: 랜덤 트윗 3개 생성(일부는 이스터에그 트윗) */
 export function exploreTweets(state: GameState): Tweet[] {
   const adult = state.adultMode;
-  const tweets = Array.from({ length: 3 }, () => makeRandomTweet(adult, state.day));
+  // 에코챔버: 최근 반응한 카테고리가 다시 뜰 확률이 높다. 편식하면 그 판만 보이고,
+  // 대신 안 보는 카테고리는 마주칠 일이 없어 속성 해금이 정체된다(maybeUnlockAttribute가
+  // 마주친 카테고리에만 걸리므로 별도 페널티 코드 없이 자연히 따라온다).
+  const taste = state.feedTaste ?? [];
+  const tweets = Array.from({ length: 3 }, () => {
+    // ⚠️ 전용 문구 고정 계정 판정이 **에코챔버보다 먼저**다. 뒤에 두면 취향 편중이 45%를
+    //    가로채 실제 노출이 FIXED_AUTHOR_TWEET_CHANCE보다 낮아진다(선언값 30% → 체감 16%).
+    //    그래서 여기서 한 번만 굴리고, 아래 경로는 고정 계정을 다시 굴리지 않는 makeGenericTweet를 쓴다.
+    const fixed = maybeFixedAuthorTweet(state.day);
+    if (fixed) return fixed;
+    if (taste.length && chance(ECHO_CHANCE)) {
+      const attr = pick(taste);
+      // 성인물이 꺼져 있으면 성인계는 취향이어도 띄우지 않는다(일반 랜덤 경로와 같은 규칙).
+      if (adult || !ATTRIBUTES[attr].adultOnly) return makeTweetOfAttribute(attr, adult, state.day);
+    }
+    return makeGenericTweet(adult, state.day);
+  });
   // 낮은 확률로 한 칸을 이스터에그 트윗으로 교체
-  if (chance(0.4)) tweets[randInt(0, 2)] = makeEggTweet(pick(EGG_KINDS), state.day);
+  if (chance(0.4)) tweets[specialSlot(tweets)] = makeEggTweet(pick(EGG_KINDS), state.day);
   // 오하아사(아침 운세)는 자주 떠야 하므로 사슬 위쪽·높은 확률(사용자 확정 예외).
-  else if (chance(0.15)) tweets[randInt(0, 2)] = makeOhaasaTweet(state);
+  else if (chance(0.15)) tweets[specialSlot(tweets)] = makeOhaasaTweet(state);
   // 아주 낮은 확률로 '까칠한외눈' 소원 트윗이 섞인다
-  else if (chance(0.12)) tweets[randInt(0, 2)] = makeWishTweet(state);
+  else if (chance(0.12)) tweets[specialSlot(tweets)] = makeWishTweet(state);
   // 낮은 확률로 '다트 핀' 발견 트윗(링크 첨부)이 섞인다 — 아직 발견 전일 때만.
   // ⚠️ 까칠한외눈 분기 '뒤'에 두는 건 의도다: 앞에 끼우면 소원 트윗 확률이 함께 깎인다.
   else if (!state.dartpinUnlocked && chance(DARTPIN_TWEET_CHANCE)) {
-    tweets[randInt(0, 2)] = makeDartpinTweet(state);
+    tweets[specialSlot(tweets)] = makeDartpinTweet(state);
   }
   // 나머지 특수 트윗 4종은 사슬 '뒤쪽'·낮은 확률(소원/다트핀을 과희석하지 않도록).
-  else if (chance(0.06)) tweets[randInt(0, 2)] = makeChainLetterTweet(state);
-  else if (chance(0.06)) tweets[randInt(0, 2)] = makeBoostTweet(state);
-  else if (chance(0.05)) tweets[randInt(0, 2)] = makePsychoTweet(state);
-  else if (chance(0.06)) tweets[randInt(0, 2)] = makeHauntTweet(state);
+  else if (chance(0.06)) tweets[specialSlot(tweets)] = makeChainLetterTweet(state);
+  else if (chance(0.06)) tweets[specialSlot(tweets)] = makeBoostTweet(state);
+  else if (chance(0.05)) tweets[specialSlot(tweets)] = makePsychoTweet(state);
+  else if (chance(0.06)) tweets[specialSlot(tweets)] = makeHauntTweet(state);
   // 낮은 확률로 오타쿠 굿즈 공구 모집 트윗('공구 참여하기' 버튼)이 섞인다.
-  else if (chance(0.06)) tweets[randInt(0, 2)] = makeGoodsGroupBuyTweet(state.day);
+  else if (chance(0.06)) tweets[specialSlot(tweets)] = makeGoodsGroupBuyTweet(state.day);
   // 킬러 임무 중이면 낮은 확률로 배정된 타겟의 트윗이 피드에 섞인다(일반 트윗처럼 마주친다).
   if (state.killerJob?.active && state.killerJob.assignment && chance(0.3)) {
     const tgt = assignedTargetTweets(state);
-    if (tgt.length) tweets[randInt(0, 2)] = pick(tgt);
+    if (tgt.length) tweets[specialSlot(tweets)] = pick(tgt);
   }
   return tweets;
 }
@@ -122,7 +173,9 @@ export function searchTweetsByWord(state: GameState, query: string): Tweet[] {
   for (let i = 0; i < 24; i++) pool.push(makeRandomTweet(state.adultMode, state.day));
   const hit = (t: Tweet) =>
     norm(t.authorHandle).includes(q) || norm(t.authorName).includes(q) || norm(t.text).includes(q);
-  return pool.filter(hit).slice(0, 20);
+  // 내 작가 필명을 검색했으면 웹툰 독자 반응을 맨 앞에 붙인다(연재 중일 때만).
+  // 랜덤 트윗 뒤에 섞이면 정작 찾던 반응이 안 보인다.
+  return [...webtoonBuzzTweets(state, query), ...pool.filter(hit)].slice(0, 20);
 }
 
 /** 검색: 특정 카테고리(성향)의 랜덤 트윗 3개 생성 */
@@ -132,7 +185,7 @@ export function searchTweetsByCategory(state: GameState, attr: AttributeId): Twe
   // 낮은 확률로 한 칸을 'd스토리' 링크 트윗으로 교체 — 두 글을 다 풀기 전까지만.
   // ⚠️ IT계 **검색**에만 뜬다. 둘러보기 피드(exploreTweets)에는 넣지 마라(사용자 확정).
   if (attr === "it" && !isDstoryDone(state) && chance(DSTORY_TWEET_CHANCE)) {
-    tweets[randInt(0, 2)] = makeDstoryTweet(state);
+    tweets[specialSlot(tweets)] = makeDstoryTweet(state);
   }
   return tweets;
 }
@@ -208,7 +261,8 @@ export function followingFeedTweets(state: GameState, count = 5): Tweet[] {
   const usedTexts = new Set<string>();
   return Array.from({ length: count }, () => {
     const f = pick(follows);
-    const pool = allTemplatesFor(f.attribute, state.adultMode);
+    // 고정 캐릭터 계정은 전용 문구만 쓴다(팔로우 후에도 말투가 안 바뀌게).
+    const pool = linesForHandle(f.handle) ?? allTemplatesFor(f.attribute, state.adultMode);
     let text = pick(pool);
     // 같은 배치 안에서 문구 중복 회피(몇 번 재시도)
     for (let i = 0; i < 5 && usedTexts.has(text); i++) text = pick(pool);
@@ -254,6 +308,7 @@ export function reactToTweet(state: GameState, tweet: Tweet, positive: boolean):
     state.resources.morality = Math.max(0, state.resources.morality - randInt(3, 6));
   }
   changeFollowers(state, delta);
+  recordTaste(state, tweet.attribute);
   if (positive) {
     onLikeTweet(state, tweet); // 이스터에그(코인/다단계/동물/찐친)
     recordMission(state, "like");
@@ -286,8 +341,16 @@ export function retweetTweet(state: GameState, tweet: Tweet): number | null {
   // 리트윗도 내 계정 성향(다수 카테고리) 집계에 반영
   account.attribute = dominantAttribute(account);
 
-  const delta = calcEncounterFollowerDelta(state, tweet.attribute);
+  // 실검 편승: 오늘 실검에 뜬 카테고리의 트윗을 리트윗하면 팔로워 배수(트렌드당 1회/일).
+  // 이득 방향으로만 곱한다 — 궁합 상충(delta<0)일 땐 편승도 소모하지 않는다.
+  const trend = unriddenTrendFor(state, tweet.attribute);
+  let delta = calcEncounterFollowerDelta(state, tweet.attribute);
+  if (trend && delta > 0) {
+    delta = Math.round(delta * TREND_MULTIPLIER);
+    rideTrend(state, trend.id);
+  }
   changeFollowers(state, delta);
+  recordTaste(state, tweet.attribute);
   maybeUnlockAttribute(state, tweet.attribute);
   if (delta > 0) maybeSpawnFanDM(state);
   onRetweet(state, tweet); // 같은 사람 반복 리트윗 → 찐친 이스터에그

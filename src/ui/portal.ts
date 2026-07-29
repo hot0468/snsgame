@@ -726,6 +726,14 @@ function searchBar(ctx: GameContext): HTMLElement {
       ctx.refresh();
       return;
     }
+    // '내과'/'순환기내과' → 세이신내과의원. 겉은 동네 병원, [진료예약]이 킬러 진입로다.
+    // momo.com과 달리 성인모드가 필요 없다(전연령 경로) — 게이트를 붙이지 마라.
+    if (q === "내과" || q === "순환기내과") {
+      input.value = "";
+      ctx.ui.hospitalSiteOpen = true;
+      ctx.refresh();
+      return;
+    }
     // 그 외(모르는 키워드 · 또는 이번 달 이미 다녀간 경우) → 힌트 없이 동일하게 처리
     window.alert("검색 결과가 없습니다");
   };

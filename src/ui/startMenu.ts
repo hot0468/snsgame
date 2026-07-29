@@ -1,5 +1,5 @@
 import type { GameContext } from "./context";
-import { saveGame, loadGame, deleteSave } from "@/systems/save";
+import { saveGame, loadGame, deleteSave, exportSaveFile, importSaveFile } from "@/systems/save";
 import { createInitialState } from "@/core/state";
 import { el } from "@/utils/dom";
 import { renderCmdModal } from "./cmd";
@@ -44,6 +44,24 @@ export function renderStartMenu(ctx: GameContext): HTMLElement {
         ctx.toast("저장된 게임이 없습니다");
       }
       close();
+    }),
+    item("파일로 내보내기", () => {
+      const state = ctx.store.getState();
+      saveGame(state);
+      exportSaveFile(state);
+      close();
+      ctx.toast("세이브 파일을 내려받았어요");
+    }),
+    item("파일에서 가져오기", () => {
+      close();
+      void importSaveFile().then((loaded) => {
+        if (loaded) {
+          ctx.store.replace(loaded);
+          ctx.toast("가져오기 완료");
+        } else {
+          ctx.toast("가져오기 취소 또는 손상된 파일");
+        }
+      });
     }),
     sep(),
     // 2) 윈도우 앱(실제 Win+X에도 있는 둘)

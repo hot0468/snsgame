@@ -3,14 +3,18 @@ import { getActiveAccount } from "@/core/state";
 import { makeRandomAccount } from "@/data/accounts";
 import { ATTRIBUTES } from "@/data/attributes";
 import {
+  DM_EXCHANGES,
+  DM_TOPICS,
   PARTNER_REPLIES_BY_CTX,
-  REPLY_LINES_BY_CTX,
+  dmTopicById,
   randomOpener,
   type DMContext,
+  type DMExchange,
   type DMTone,
 } from "@/data/dmContent";
 import { MAX_SKILL } from "@/data/stats";
-import { pick, randInt, uid, chance } from "@/utils/random";
+import { hashInt, pick, randInt, uid, chance } from "@/utils/random";
+import { advanceDmStory, storyChoices } from "./dmStory";
 import { changeFollowers } from "./followers";
 import { bumpTchinProgress } from "./tchin";
 import { clampResource, gainSkill } from "./stats";
@@ -389,6 +393,9 @@ export interface DMReplyResult {
  * 이미 한 번이라도 답장했으면(followup) 인사 대신 대화를 잇는 풀을 쓴다.
  */
 function dmContext(thread: DMThread): DMContext {
+  // 만남 제안이 떠 있으면 그게 지금 답해야 할 말이다 — 잡담 풀로 답하면
+  // "보고 싶어!" → "오 그거 완전 공감이에요"가 된다. followup보다 먼저 판정해야 한다.
+  if (thread.wantsToMeet && !thread.metOffline) return "meet";
   if (thread.messages.some((m) => m.from === "me")) return "followup";
   if (thread.genitalSize) return "photo";
   if (
@@ -404,15 +411,74 @@ function dmContext(thread: DMThread): DMContext {
   return "greet";
 }
 
+/** 지금 고를 수 있는 답장 후보 하나 — 실제 문장과 그에 딸린 상대의 대답. */
+export interface DMReplyOption extends DMExchange {
+  tone: DMTone;
+}
+
+/**
+ * 이 스레드에서 지금 고를 수 있는 답장 후보(톤당 1개). UI가 `me`를 버튼 라벨로 그대로 쓴다.
+ *
+ * ⚠️ **무작위 pick을 쓰면 안 된다.** UI는 토스트·상태 변화마다 다시 그리는데, 그때마다 문장이
+ *    바뀌면 누르려던 말이 손 밑에서 갈린다. 그래서 스레드 id + 대화 길이 + 톤 해시로 고정한다.
+ *    답장하면 messages가 늘어나므로 다음 턴 후보는 자연히 새로 뽑힌다.
+ */
+export function dmReplyOptions(state: GameState, thread: DMThread): DMReplyOption[] {
+  // 스토리 스레드는 잡담 풀을 쓰지 않는다 — 지금 노드의 분기 선택지가 곧 후보다.
+  // 대담 톤도 성인물 해제와 무관하게 그대로 보인다(스토리 분기이지 수위가 아니다).
+  const story = storyChoices(thread);
+  if (story) return story.map((c) => ({ tone: c.tone, me: c.me, partner: c.reply }));
+
+  const ctx = dmContext(thread);
+  // 상대가 화제를 던진 뒤라면 **그 화제에 대한 대답**만 후보다(안 그러면 대화가 어긋난다).
+  // 단 잡담(followup)일 때만이다 — 사진·제안·만남 스레드는 답해야 할 말이 따로 있으므로
+  // 화제를 무시하고 그 맥락 풀을 쓴다. 화제가 없는 스레드는 맥락별 범용 풀로 떨어진다.
+  const topic = ctx === "followup" ? dmTopicById(thread.dmTopic) : undefined;
+  const tones: DMTone[] = ["friendly", "cool"];
+  if (canUseBoldTone(state)) tones.push("bold");
+  return tones.map((tone) => {
+    const pool = topic ? topic.replies[tone] : DM_EXCHANGES[ctx][tone];
+    const i = hashInt(`${thread.id}:${thread.messages.length}:${tone}`) % pool.length;
+    return { tone, ...pool[i] };
+  });
+}
+
+/**
+ * 상대가 새 화제를 던지는 메시지를 덧붙이고, 그 화제를 스레드에 기록한다.
+ * 리액션만 하고 끝나면 다음 턴에 내가 받아칠 거리가 없어 대화가 어긋난다 — 그 방지책이다.
+ *
+ * ⚠️ 직전 리액션 말풍선에 이어붙이지 말고 **별도 메시지로 push**한다. "메시지 하나 = 작성된
+ *    대사 한 줄"이 깨지면 짝 검증(`partner` 문장과 실제 말풍선 비교)이 전부 어긋난다.
+ * 방금 쓴 화제는 연달아 다시 나오지 않는다.
+ */
+function attachNextTopic(state: GameState, thread: DMThread): void {
+  const pool = DM_TOPICS.filter((t) => t.id !== thread.dmTopic);
+  if (!pool.length) return;
+  const next = pool[hashInt(`${thread.id}:${thread.messages.length}`) % pool.length];
+  thread.messages.push({ id: uid("dmm"), from: "partner", text: next.prompt, day: state.day });
+  thread.dmTopic = next.id;
+}
+
 /**
  * 특정 스레드에 톤을 골라 답장한다.
- * - 내 메시지 + 상대 자동응답을 추가.
+ * - 플레이어가 화면에서 **본 그 문장**과, 그 문장에 짝지어진 상대 대답을 추가한다
+ *   (dmReplyOptions와 같은 해시를 다시 계산하므로 UI가 문장을 넘겨줄 필요가 없다).
  * - 톤에 따라 스탯/팔로워/도덕성이 소폭 변한다.
  */
 export function replyDM(state: GameState, thread: DMThread, tone: DMTone): DMReplyResult {
+  // 스토리 스레드면 분기를 한 칸 전진시키고 끝낸다(톤별 스탯 효과·만남 제안·화제 던지기 없음 —
+  // 스토리는 자기 대사와 자기 효과만 쓴다).
+  const branch = storyChoices(thread)?.find((c) => c.tone === tone);
+  if (branch) {
+    const res = advanceDmStory(state, thread, branch);
+    if (res) return res;
+  }
+
   const ctx = dmContext(thread);
-  const myText = pick(REPLY_LINES_BY_CTX[ctx][tone]);
-  const partnerText = pick(PARTNER_REPLIES_BY_CTX[ctx][tone]);
+  // 후보에 없는 톤(예: 대담 해금 전 호출)이면 그 톤의 풀에서 임의로 하나 집는다.
+  const opt = dmReplyOptions(state, thread).find((o) => o.tone === tone) ?? pick(DM_EXCHANGES[ctx][tone]);
+  const myText = opt.me;
+  const partnerText = opt.partner;
 
   thread.messages.push({ id: uid("dmm"), from: "me", text: myText, day: state.day });
   thread.messages.push({ id: uid("dmm"), from: "partner", text: partnerText, day: state.day });
@@ -456,6 +522,10 @@ export function replyDM(state: GameState, thread: DMThread, tone: DMTone): DMRep
   // 친근/대담 대화를 이어가면 상대가 만남을 제안할 수 있음
   if (positive) maybePropose(state, thread, 0.3);
 
+  // 잡담 스레드(첫인사·이어가기)면 상대가 화제를 하나 던지며 끝낸다 → 다음 턴에 받아칠 거리가 생긴다.
+  // 제안형(offer)·사진(photo) 스레드나 만남 제안이 뜬 상태에서는 그 흐름을 끊지 않는다.
+  if ((ctx === "greet" || ctx === "followup") && !thread.wantsToMeet) attachNextTopic(state, thread);
+
   return { followerDelta, partnerText };
 }
 
@@ -473,6 +543,8 @@ export function sendCustomDM(state: GameState, thread: DMThread, text: string): 
   });
   thread.unread = false;
   maybePropose(state, thread, 0.15);
+  // 자유 입력은 화제에 대한 대답이 아니므로, 상대가 화제를 새로 던져 대화를 다시 물린다.
+  if (!thread.wantsToMeet) attachNextTopic(state, thread);
 }
 
 function applyToneEffects(state: GameState, tone: DMTone): void {

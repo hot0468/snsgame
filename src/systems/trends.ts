@@ -1,4 +1,4 @@
-import type { GameState } from "@/core/types";
+import type { AttributeId, GameState } from "@/core/types";
 import { TREND_POOL, type TrendTopic } from "@/data/trendTopics";
 import { sample } from "@/utils/random";
 
@@ -48,6 +48,16 @@ export function trendById(id: string): TrendTopic | undefined {
 /** 오늘 이 트렌드에 이미 편승(부스트)했는지. */
 export function hasRiddenTrend(state: GameState, id: string): boolean {
   return state.trendBoard?.ridden.includes(id) ?? false;
+}
+
+/**
+ * 이 카테고리로 오늘 아직 편승하지 않은 실검 트렌드를 찾는다(남의 트윗 리트윗 편승 판정용).
+ * ⚠️ 포털을 한 번도 안 연 날에도 판정이 서야 하므로 여기서 직접 `ensureTrendBoard`를 부른다
+ *    (idempotent — 오늘자 보드가 이미 있으면 아무것도 안 한다).
+ */
+export function unriddenTrendFor(state: GameState, attr: AttributeId): TrendTopic | undefined {
+  ensureTrendBoard(state);
+  return getTrends(state).find((t) => t.attr === attr && !hasRiddenTrend(state, t.id));
 }
 
 /** 이 트렌드에 편승 처리한다(중복 push 방지 — 부스트 1회/일 보장). */

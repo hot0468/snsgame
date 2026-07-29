@@ -82,7 +82,8 @@ export function renderJobplanet(ctx: GameContext): HTMLElement {
       : null;
 
   const infoCard = (co: (typeof JOBPLANET_COMPANIES)[number]): HTMLElement => {
-    const req = TIERS[co.tier].requirement;
+    // 극소기업의 requirement는 음수다(안전망 등급 — data/jobs 주석 참고). 표시는 0으로 깎는다.
+    const req = Math.max(0, TIERS[co.tier].requirement);
     const opened = s.jobplanetViewed.includes(co.name);
     return el(
       "div",

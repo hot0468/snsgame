@@ -654,6 +654,111 @@ body {
 }
 
 /* ===== momo.com (에로서적·킬러 진입로) — 다크 톤 ===== */
+/* 세이신내과의원 사이트 — momo.com과 같은 자리(킬러 진입로)지만 룩은 정반대다.
+   흰 바탕·차분한 청록. '평범한 동네 병원'으로 보여야 은유가 산다. */
+.hosp-site {
+  min-height: 100%;
+  background: #f7fbfc;
+  color: #1f3a40;
+  padding: 20px 22px 32px;
+}
+.hosp-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  border-bottom: 2px solid #1f8a8a;
+  padding-bottom: 12px;
+}
+.hosp-logo {
+  font-size: 22px;
+  font-weight: 800;
+  color: #146b6b;
+  letter-spacing: -0.5px;
+}
+.hosp-tag {
+  font-size: 12.5px;
+  color: #5c7a80;
+}
+.hosp-greeting {
+  margin-top: 14px;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: #2c4b52;
+  background: #fff;
+  border: 1px solid #d7e8ea;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.hosp-section-title {
+  margin: 20px 0 8px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #146b6b;
+}
+.hosp-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.hosp-dept {
+  background: #fff;
+  border: 1px solid #d7e8ea;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.hosp-dept__name {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.hosp-dept__desc {
+  font-size: 12.5px;
+  color: #5c7a80;
+  line-height: 1.6;
+}
+.hosp-hours {
+  background: #fff;
+  border: 1px solid #d7e8ea;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.hosp-hours__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid #eef5f6;
+}
+.hosp-hours__row:last-child {
+  border-bottom: none;
+}
+.hosp-hours__day {
+  color: #5c7a80;
+}
+.hosp-foot {
+  margin-top: 22px;
+  text-align: center;
+}
+.hosp-reserve {
+  background: #146b6b;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 11px 30px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.hosp-reserve:hover {
+  background: #0f5555;
+}
+.hosp-foot__notice {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #7a969b;
+}
+
 .momo-site {
   min-height: 100%;
   background: #14101a;
@@ -4233,6 +4338,24 @@ body {
   margin-top: 14px;
 }
 
+/* ── 웹툰 작가 데뷔 필명 입력 ── */
+.modal--pen { width: min(400px, 100%); }
+.pen-name__lead { font-size: 14.5px; line-height: 1.7; margin: 0 0 12px; color: var(--text); }
+.pen-name__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  background: #fff;
+}
+.pen-name__input:focus { outline: none; border-color: var(--accent); }
+.pen-name__hint { margin: 8px 0 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.6; }
+
 .chip {
   padding: 6px 12px;
   border-radius: 999px;
@@ -5386,6 +5509,43 @@ body {
 .dm__replies {
   padding: 10px 14px;
   border-top: 1px solid var(--border);
+}
+
+/* 답장 후보: 버튼에 톤 이름이 아니라 실제로 보낼 문장이 들어간다 → 가로 칩이 아니라 세로 목록. */
+.dm__choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+
+.dm__reply-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  text-align: left;
+  white-space: normal;
+  line-height: 1.45;
+}
+
+.dm__reply-choice:hover {
+  border-color: var(--accent);
+}
+
+/* 톤 꼬리표: 어느 게 '대담'인지 알아야 도덕성·음란도 변화가 뒤통수를 안 친다. */
+.dm__reply-tone {
+  flex-shrink: 0;
+  padding-top: 1px;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.55;
+}
+
+.dm__reply-text {
+  flex: 1;
 }
 
 .dm__send {
@@ -7515,6 +7675,9 @@ body {
 }
 
 .job-item__company {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-weight: 700;
   font-size: 15px;
 }
@@ -8249,6 +8412,15 @@ body {
   font-size: 13px; font-weight: 600; color: var(--toss-gray);
 }
 .stocks__hero-dot { color: #d1d6db; }
+/* 전 종목 합산 평가손익 — 상승 빨강 / 하락 파랑(국내 증권앱 관례) */
+.stocks__hero-pl {
+  margin-top: 6px;
+  font-size: 13.5px; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.stocks__hero-pl--up { color: #f04452; }
+.stocks__hero-pl--down { color: #3182f6; }
+.stocks__hero-pl--flat { color: var(--toss-gray); }
 .stocks__hint { padding: 6px 24px 4px; font-size: 12.5px; color: var(--toss-gray); }
 .stocks__list { display: flex; flex-direction: column; gap: 10px; padding: 10px 16px 0; }
 
@@ -8268,6 +8440,7 @@ body {
 }
 .stock-row__icon--stock { background: linear-gradient(135deg, #4593fc, #3182f6); }
 .stock-row__icon--coin { background: linear-gradient(135deg, #ffb340, #ff9500); }
+.stock-row__icon--asset { background: linear-gradient(135deg, #a08cf0, #6c5ce7); }
 .stock-row__info { flex: 1; min-width: 0; }
 .stock-row__name-line { display: flex; align-items: center; gap: 6px; }
 .stock-row__name {
@@ -8281,7 +8454,19 @@ body {
 }
 .stock-row__tag--stock { background: #e8f2ff; color: var(--toss-blue); }
 .stock-row__tag--coin { background: #fff3e0; color: #f59000; }
+.stock-row__tag--asset { background: #f0ecff; color: #6c5ce7; }
 .stock-row__hold { margin-top: 3px; font-size: 12.5px; color: var(--toss-gray); }
+/* 종목별 평가손익 한 줄 — 평가액(회색) + 손익·수익률(부호색). gap이 없으면 두 숫자가 붙어 읽힌다. */
+.stock-row__pl {
+  margin-top: 2px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  font-size: 12.5px; font-variant-numeric: tabular-nums;
+}
+.stock-row__pl-value { color: var(--toss-gray); }
+.stock-row__pl-delta { font-weight: 800; }
+.stock-row__pl-delta--up { color: #f04452; }
+.stock-row__pl-delta--down { color: #3182f6; }
+.stock-row__pl-delta--flat { color: var(--toss-gray); }
 .stock-row__price { text-align: right; flex: none; }
 .stock-row__now {
   font-weight: 800; font-size: 15px; color: var(--toss-ink);
@@ -10276,6 +10461,8 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
 .eb-card__title { font-size: 14px; font-weight: 800; color: #111; line-height: 1.35; word-break: keep-all; }
 .eb-card__inst { font-size: 12px; color: #8a8a8a; }
 .eb-card__effect { font-size: 12px; font-weight: 700; color: #ff5a1f; }
+/* 트윗 속성 해금 강의 표시 — 스탯 상승(주황)과 구분되게 보라. 이미 연 속성이면 렌더되지 않는다. */
+.eb-card__unlock { margin-top: 2px; font-size: 12px; font-weight: 700; color: #6c5ce7; }
 .eb-card__foot { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 .eb-card__price { font-size: 13px; font-weight: 800; color: #111; font-variant-numeric: tabular-nums; }
 .eb-card__buy {

@@ -43,6 +43,8 @@ import { canBeHiredByNigl, hireNigl } from "@/systems/employment";
 import { renderHistory } from "./history";
 import { renderGoedam } from "./goedam";
 import { renderMomo } from "./momo";
+import { renderHospital } from "./hospital";
+import { HOSPITAL_URL } from "@/data/hospital";
 import { GOEDAM_URL, hostsHasGoedam } from "@/systems/hosts";
 import { pick } from "@/utils/random";
 
@@ -83,6 +85,7 @@ export function closeOverlays(ctx: GameContext): void {
   ctx.ui.onetSiteOpen = false;
   ctx.ui.ebsSiteOpen = false;
   ctx.ui.gigSiteOpen = false;
+  ctx.ui.hospitalSiteOpen = false;
   ctx.ui.jobplanetSiteOpen = false;
   ctx.ui.auctionSiteOpen = false;
   ctx.ui.dstorySiteOpen = false;
@@ -105,6 +108,7 @@ export function currentBookmarkableId(ctx: GameContext): BookmarkableSiteId | nu
     ctx.ui.goblinSiteOpen ||
     ctx.ui.auctionSiteOpen ||
     ctx.ui.dstorySiteOpen ||
+    ctx.ui.hospitalSiteOpen ||
     ctx.ui.niglSiteOpen ||
     ctx.ui.historySiteOpen;
   if (!otherOverlay) {
@@ -516,6 +520,8 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
           ? "ebs.co.kr"
           : ctx.ui.gigSiteOpen
             ? "talentmarket.kr"
+            : ctx.ui.hospitalSiteOpen
+            ? HOSPITAL_URL
             : ctx.ui.jobplanetSiteOpen
           ? "jobplanet.work"
           : ctx.ui.auctionSiteOpen
@@ -617,6 +623,10 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
   } else if (ctx.ui.gigSiteOpen) {
     // 재능마켓도 현재 탭 콘텐츠를 덮어쓴다('외주' 검색으로 진입, 재진입 제한 없음).
     content.append(renderGig(ctx));
+  } else if (ctx.ui.hospitalSiteOpen) {
+    // 세이신내과의원도 현재 탭 콘텐츠를 덮어쓴다('내과'/'순환기내과' 검색으로 진입).
+    // momo.com과 달리 성인모드 게이트가 없다 — 이쪽이 킬러 일의 전연령 진입로다.
+    content.append(renderHospital(ctx));
   } else if (ctx.ui.jobplanetSiteOpen) {
     // 직플래닛(기업정보)도 현재 탭 콘텐츠를 덮어쓴다(채용공고 '직플래닛' 버튼으로 진입).
     content.append(renderJobplanet(ctx));

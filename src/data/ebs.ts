@@ -1,4 +1,4 @@
-import type { SkillStatId } from "@/core/types";
+import type { AttributeId, SkillStatId } from "@/core/types";
 
 /** EBS(교육방송) 패러디 인터넷 강의 1편. 편당 6,000원 + 행동력 8 + 시간 1슬롯(로직은 systems/ebs.ts). */
 export interface EbsLecture {
@@ -10,6 +10,14 @@ export interface EbsLecture {
   /** 스킬은 +12~18, performance는 +8~12(성과는 0~100 스케일). */
   amount: number;
   desc: string;
+  /**
+   * 수강하면 해금되는 트윗 속성(선택). 도서·너튜브 시청과 같은 결 — **배운 걸 트윗한다**.
+   *
+   * ⚠️ stat에서 자동으로 유추하지 않는다. 스킬과 트윗 속성은 1:1이 아니라서
+   *    (vocabulary·sociability·comedy엔 대응 속성이 없고, knowledge는 info계와 결이 다르다)
+   *    유추 규칙을 만들면 엉뚱한 계열이 열린다. 열어줄 강의에만 명시적으로 적어라.
+   */
+  unlockAttr?: AttributeId;
 }
 
 /** EBS 패러디 사이트명(네이놈에서 "듄" 검색 시 열림). */
@@ -23,6 +31,7 @@ export const EBS_LECTURES: EbsLecture[] = [
     stat: "it",
     amount: 15,
     desc: "변수부터 함수까지, 코딩 처음이어도 따라오게 만드는 진짜 기초반.",
+    unlockAttr: "it",
   },
   {
     id: "lec_writing",

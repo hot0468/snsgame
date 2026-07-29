@@ -29,7 +29,12 @@ export interface TierDef {
  * 후반 수입은 광고가 좌우하므로 이 격차는 초·중반에만 크게 체감된다.
  */
 export const TIERS: Record<CompanyTier, TierDef> = {
-  micro: { id: "micro", label: "극소기업", requirement: 8, overtimeRate: 0.65, caughtRate: 0.15, baseSalary: 600_000 },
+  // ⚠️ micro의 requirement가 **음수**인 건 의도다. successChance는 `0.5 + (역량-요건)/80`이라
+  //    요건이 곧 '합격률 50% 선'이다. 극소를 0으로 둬도 스킬 0인 초반 플레이어는 딱 50%라
+  //    안전망 구실을 못 한다(요건 8이던 시절엔 40%). -20이면 역량 0에서 75%로 시작해
+  //    스킬을 조금만 올려도 상한 95%에 붙는다 — 극소는 '떨어지는 곳'이 아니라 '일단 되는 곳'이다.
+  //    음수는 표시용이 아니므로 UI(ui/jobplanet)는 Math.max(0, req)로 '0 이상'으로 보여준다.
+  micro: { id: "micro", label: "극소기업", requirement: -20, overtimeRate: 0.65, caughtRate: 0.15, baseSalary: 600_000 },
   small: { id: "small", label: "중소기업", requirement: 28, overtimeRate: 0.45, caughtRate: 0.2, baseSalary: 680_000 },
   medium: { id: "medium", label: "중견기업", requirement: 52, overtimeRate: 0.25, caughtRate: 0.28, baseSalary: 800_000 },
   large: { id: "large", label: "대기업", requirement: 78, overtimeRate: 0.1, caughtRate: 0.35, baseSalary: 1_000_000 },

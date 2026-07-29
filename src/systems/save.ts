@@ -4,6 +4,7 @@ import {
   createInitialCheats,
   createInitialLab,
   createInitialState,
+  getActiveAccount,
   LATE_SLOT,
   MORNING_SLOT,
   SLOTS_PER_DAY,
@@ -29,6 +30,37 @@ export function saveGame(state: GameState): boolean {
   }
 }
 
+/** 세이브를 로컬 JSON 파일로 내려받는다(브라우저 다운로드 폴더). */
+export function exportSaveFile(state: GameState): void {
+  const url = URL.createObjectURL(
+    new Blob([JSON.stringify(state)], { type: "application/json" }),
+  );
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `snsgame-day${state.day}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * JSON 파일을 골라 세이브로 되돌린다. 취소·손상 시 null.
+ * 파싱·마이그레이션은 loadGame에 그대로 위임한다(경로 이중화 금지).
+ */
+export async function importSaveFile(): Promise<GameState | null> {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/json,.json";
+  const file = await new Promise<File | null>((resolve) => {
+    input.onchange = () => resolve(input.files?.[0] ?? null);
+    input.oncancel = () => resolve(null);
+    input.click();
+  });
+  if (!file) return null;
+  const state = loadGame(await file.text());
+  if (state) saveGame(state);
+  return state;
+}
+
 /** 저장된 게임이 있는지 */
 export function hasSave(): boolean {
   return localStorage.getItem(SAVE_KEY) !== null;
@@ -39,8 +71,7 @@ export function hasSave(): boolean {
  * 저장본이 없거나 손상되면 null 반환.
  * 스키마가 바뀌어도 최소한 필수 필드는 초기값으로 메꿔 로드되게 병합한다.
  */
-export function loadGame(): GameState | null {
-  const raw = localStorage.getItem(SAVE_KEY);
+export function loadGame(raw: string | null = localStorage.getItem(SAVE_KEY)): GameState | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<GameState>;
@@ -316,7 +347,14 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   if (!Array.isArray(state.seenWorks)) state.seenWorks = [];
   state.creationTweetCount ??= 0;
   state.authorContract ??= null;
-  if (state.authorContract) state.authorContract.adult ??= false; // 구세이브: 성인 계약 필드 보강
+  if (state.authorContract) {
+    state.authorContract.adult ??= false; // 구세이브: 성인 계약 필드 보강
+    // 필명은 신규 필드다. 없으면 검색 대상이 사라져 기능 자체가 죽으므로 계정명으로 채운다.
+    if (!state.authorContract.penName) {
+      // ⚠️ accounts는 배열이라 activeAccountId(문자열)로 인덱싱하면 안 된다 — 셀렉터를 쓴다.
+      state.authorContract.penName = getActiveAccount(state)?.name ?? "작가";
+    }
+  }
   state.housingTier ??= 0;
   state.lotto ??= null;
   state.fireDeclined ??= false;
@@ -392,6 +430,15 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
     state.market.prices = { ...base.prices, ...state.market.prices };
     state.market.prevPrices = { ...base.prevPrices, ...state.market.prevPrices };
     state.market.holdings = { ...base.holdings, ...state.market.holdings };
+    // 매수 원가(cost)는 신규 필드다. 구세이브엔 없어서 손익을 계산할 근거가 아예 없으므로
+    // '지금 산 셈'(현재가 × 보유량)으로 채운다 — 없는 과거를 지어내지 않고 손익 0에서 다시 시작.
+    const prevCost = state.market.cost ?? {};
+    state.market.cost = { ...base.cost };
+    for (const id of Object.keys(state.market.holdings)) {
+      const held = state.market.holdings[id] ?? 0;
+      state.market.cost[id] =
+        prevCost[id] ?? (held > 0 ? held * (state.market.prices[id] ?? 0) : 0);
+    }
   }
   state.gameOver ??= null;
   // 도전과제는 신규 필드 — 구세이브엔 키가 없다(미달성·알림없음이 정답).

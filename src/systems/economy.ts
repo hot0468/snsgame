@@ -55,9 +55,25 @@ export function totalFollowers(state: GameState): number {
   return state.accounts.reduce((sum, a) => sum + a.followers, 0);
 }
 
-/** 이번 달 정산될 팔로워 수익(원) */
+/** 트위터 프리미엄 월 구독료(매월 1일, 수익 정산 직후 청구) */
+export const PREMIUM_MONTHLY_FEE = 12_500;
+
+/** 프리미엄 가입 시 팔로워 수익 배율 */
+export const PREMIUM_FOLLOWER_MULTIPLIER = 2;
+
+/**
+ * 프리미엄 손익분기 팔로워 수 — 이 수를 넘겨야 구독료가 회수된다.
+ * 팔로워 1명당 월 2원이 4원이 되므로 늘어나는 몫은 명당 2원, 7000/2 = 3500명.
+ * UI가 "몇 명부터 이득인지"를 말할 때 이 값을 쓴다(문구와 계산이 어긋나지 않게).
+ */
+export const PREMIUM_BREAKEVEN_FOLLOWERS = Math.ceil(
+  PREMIUM_MONTHLY_FEE / (FOLLOWER_MONTHLY_RATE * (PREMIUM_FOLLOWER_MULTIPLIER - 1)),
+);
+
+/** 이번 달 정산될 팔로워 수익(원) — 프리미엄 가입 중이면 2배 */
 export function monthlyFollowerIncome(state: GameState): number {
-  return totalFollowers(state) * FOLLOWER_MONTHLY_RATE;
+  const rate = FOLLOWER_MONTHLY_RATE * (state.premium ? PREMIUM_FOLLOWER_MULTIPLIER : 1);
+  return totalFollowers(state) * rate;
 }
 
 /** 유료 구독 채널 수익 배율(팔로워 1명당, 음란도 만렙 기준) */
@@ -192,6 +208,17 @@ export function settleMonthlyIncome(state: GameState): void {
     pushSchedule(state, `유료 구독 수익 +${fmt(subs)}원`, "system");
   }
   if (income + subs > 0) sendTwitterSettlementKakao(state, income, subs);
+  // 프리미엄 구독료는 수익을 크레딧한 **뒤** 청구한다 — 이번 달 수익으로 이번 달 구독료를 낼 수 있어야
+  // "팔로워가 충분하면 알아서 굴러가는 구독"이 성립한다. 못 내면 빚을 지우지 않고 그 자리에서 해지한다.
+  if (state.premium) {
+    if (state.money >= PREMIUM_MONTHLY_FEE) {
+      state.money -= PREMIUM_MONTHLY_FEE;
+      pushSchedule(state, `프리미엄 구독료 -${fmt(PREMIUM_MONTHLY_FEE)}원`, "system");
+    } else {
+      state.premium = false;
+      pushSchedule(state, "잔고 부족으로 프리미엄 구독이 해지되었습니다", "system");
+    }
+  }
 }
 
 /** 소지금이 마이너스면 대부 제안 카톡을, 흑자로 돌아오면 제안 플래그를 리셋 */

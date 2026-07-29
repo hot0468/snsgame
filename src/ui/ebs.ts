@@ -1,6 +1,9 @@
 import type { GameContext } from "./context";
+import type { AttributeId } from "@/core/types";
 import type { EbsLecture } from "@/data/ebs";
 import { EBS_SITE_NAME, EBS_LECTURES } from "@/data/ebs";
+import { ATTRIBUTES } from "@/data/attributes";
+import { getActiveAccount } from "@/core/state";
 import {
   LECTURE_COST,
   canWatchLecture,
@@ -62,6 +65,10 @@ function lectureCard(ctx: GameContext, lec: EbsLecture, i: number, rank?: number
   const enabled = status === "ok";
   const reason = enabled ? null : reasonText(status);
   const free = isFreeLectureToday(s, lec);
+  // 이미 해금된 속성이면 뱃지를 숨긴다(다 연 뒤에도 계속 붙어 있으면 거짓 유인이 된다).
+  const unlockable =
+    lec.unlockAttr != null &&
+    !getActiveAccount(s).unlockedAttributes.includes(lec.unlockAttr);
 
   return el(
     "div",
@@ -79,6 +86,14 @@ function lectureCard(ctx: GameContext, lec: EbsLecture, i: number, rank?: number
       el("div", { class: "eb-card__title" }, lec.title),
       el("div", { class: "eb-card__inst" }, `${lec.instructor} · 입문`),
       el("div", { class: "eb-card__effect" }, `🔥 ${statLabel(lec.stat)} +${lec.amount}`),
+      // 아직 안 열린 속성을 여는 강의면 그걸 알려준다 — 안 그러면 어느 강의가 여는지 알 길이 없다.
+      unlockable
+        ? el(
+            "div",
+            { class: "eb-card__unlock" },
+            `🔓 ${ATTRIBUTES[lec.unlockAttr!].label} 트윗 해금`,
+          )
+        : null,
       el(
         "div",
         { class: "eb-card__foot" },
@@ -104,12 +119,23 @@ function lectureCard(ctx: GameContext, lec: EbsLecture, i: number, rank?: number
                   // 확인 사이에 상태가 바뀌었을 수 있어 한 번 더 검증한다.
                   if (canWatchLecture(ctx.store.getState(), lec) !== "ok") return;
                   let label = "";
+                  let unlocked: AttributeId | undefined;
                   ctx.update((st) => {
                     // 시간 1칸 소모는 watchLecture(systems)가 처리한다 — 여기서 또 부르면 2칸 먹는다.
                     const res = watchLecture(st, lec);
-                    if (res.ok) label = res.label;
+                    if (res.ok) {
+                      label = res.label;
+                      unlocked = res.unlockedAttr;
+                    }
                   });
                   if (label) ctx.toast(`수강 완료! ${label}`);
+                  // 해금은 스탯 토스트에 묻히지 않게 따로 띄운다(도서 감상과 같은 취급).
+                  if (unlocked) {
+                    ctx.toast(
+                      `새 트윗 소재를 얻었다! (${ATTRIBUTES[unlocked].label.replace(/계$/, "")})`,
+                      "good",
+                    );
+                  }
                 },
               });
             },

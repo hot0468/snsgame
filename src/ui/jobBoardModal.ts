@@ -1,6 +1,6 @@
 import type { GameContext } from "./context";
 import type { JobPosting } from "@/data/jobs";
-import { TRACK_LABELS } from "@/data/jobs";
+import { TIERS, TRACK_LABELS } from "@/data/jobs";
 import { DEFAULT_JOB_TRACK, submitJobApplication } from "@/systems/employment";
 import { dateLabel } from "@/systems/time";
 import { el } from "@/utils/dom";
@@ -34,7 +34,13 @@ export function renderJobBoardModal(ctx: GameContext, postings: JobPosting[]): H
       el(
         "div",
         { class: "job-item__main" },
-        el("div", { class: "job-item__company" }, job.company),
+        el(
+          "div",
+          { class: "job-item__company" },
+          // 등급 배지 — 어느 문턱의 공고인지 목록에서 바로 갈라 보라고 붙인다.
+          el("span", { class: `job-tier job-tier--${job.tier}` }, TIERS[job.tier].label),
+          job.company,
+        ),
         el(
           "div",
           { class: "job-item__role" },
