@@ -371,6 +371,7 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   state.pets.cat ??= false;
   // 크리처 도감은 신규 필드 — 구세이브엔 키가 없다(빈 도감이 정답).
   if (!Array.isArray(state.creatures)) state.creatures = [];
+  state.streamCount ??= 0;
   // 인형 도감·재고도 같은 취급(구세이브엔 키가 없다).
   if (!Array.isArray(state.dolls)) state.dolls = [];
   if (!state.dollStock || typeof state.dollStock !== "object") state.dollStock = {};

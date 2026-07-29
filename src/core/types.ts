@@ -1186,6 +1186,8 @@ export interface GameState {
   creatures: string[];
   /** 마켓걸리버에서 완성해 요리 도감에 등록한 레시피 id 목록(data/grocery.ts의 RECIPES 참조) */
   cookedDishes: string[];
+  /** 누적 인방(라이브 방송) 횟수. 방송 진행 상태는 모달 지역 변수라 여기 없다 */
+  streamCount: number;
   /** 오락실 인형뽑기로 도감에 등록한 인형 id 목록(data/arcade.ts의 DOLLS 참조) */
   dolls: string[];
   /**
