@@ -11,6 +11,7 @@ import {
 } from "@/data/livestream";
 import {
   startingViewers,
+  chatChance,
   chatInterval,
   driftViewers,
   applyChoiceViewers,
@@ -19,6 +20,12 @@ import {
   rollChatLine,
   startStream,
   finishStream,
+  setStreamName,
+  streamName,
+  dedicatedAccount,
+  postStreamTweet,
+  streamBuzzTweets,
+  STREAM_NAME_MAX,
   MIN_VIEWERS,
   CHAT_INTERVAL_MIN,
   CHAT_INTERVAL_MAX,
@@ -204,11 +211,32 @@ describe("선택지 이벤트", () => {
   it("채팅 한 줄은 그 타입 풀에서 나온다", () => {
     for (const t of STREAM_TYPES) {
       for (let i = 0; i < 20; i++) {
-        const line = rollChatLine(t.id);
+        const line = rollChatLine(t.id, 1_000);
         expect(CHAT_NICKS).toContain(line.nick);
         expect(CHAT_LINES[t.id]).toContain(line.text);
       }
     }
+  });
+
+  it("말하는 사람 수는 시청자 수를 넘지 않는다", () => {
+    const nicks = new Set<string>();
+    for (let i = 0; i < 200; i++) nicks.add(rollChatLine("game", 3).nick);
+    expect(nicks.size).toBeLessThanOrEqual(3);
+  });
+});
+
+describe("채팅 빈도", () => {
+  it("시청자가 많을수록 말이 자주 올라온다", () => {
+    expect(chatChance(3)).toBeLessThan(chatChance(30));
+    expect(chatChance(30)).toBeLessThan(chatChance(300));
+  });
+
+  it("확률은 0~1 안에 있고 소규모 방송은 대부분 침묵한다", () => {
+    for (const v of [0, 1, 3, 100, 10_000, 9_999_999]) {
+      expect(chatChance(v), `viewers=${v}`).toBeGreaterThan(0);
+      expect(chatChance(v), `viewers=${v}`).toBeLessThanOrEqual(1);
+    }
+    expect(chatChance(3)).toBeLessThan(0.5);
   });
 });
 
@@ -346,5 +374,99 @@ describe("방송 업적", () => {
       byId(id).condition(s);
     }
     expect(JSON.stringify({ c: s.streamCount, b: s.streamBests })).toBe(snapshot);
+  });
+});
+
+/* ============================================================
+ * 방송 활동명 · 전용 계정 · 검색 반응
+ * ============================================================ */
+
+describe("방송 활동명", () => {
+  it("타입마다 따로 저장되고 길이가 잘린다", () => {
+    const s = createInitialState();
+    expect(streamName(s, "game")).toBe("");
+    setStreamName(s, "game", "야근겜창");
+    setStreamName(s, "vtuber", "핑크냥");
+    expect(streamName(s, "game")).toBe("야근겜창");
+    expect(streamName(s, "vtuber")).toBe("핑크냥");
+    expect(streamName(s, "talk")).toBe("");
+
+    setStreamName(s, "talk", "가".repeat(STREAM_NAME_MAX + 5));
+    expect(streamName(s, "talk")).toHaveLength(STREAM_NAME_MAX);
+  });
+
+  it("빈 이름은 무시한다(이름 없는 방송은 검색이 성립하지 않는다)", () => {
+    const s = createInitialState();
+    setStreamName(s, "game", "겜창");
+    setStreamName(s, "game", "   ");
+    expect(streamName(s, "game")).toBe("겜창");
+  });
+});
+
+describe("방송 전용 계정", () => {
+  it("계정명이 활동명과 같으면 전용 계정이 된다(공백·대소문자 무시)", () => {
+    const s = createInitialState();
+    setStreamName(s, "game", "야근겜창");
+    expect(dedicatedAccount(s, "game")).toBeUndefined();
+
+    s.accounts[0].name = " 야근 겜창 ";
+    expect(dedicatedAccount(s, "game")?.id).toBe(s.accounts[0].id);
+    // 다른 타입의 활동명까지 덩달아 전용이 되면 안 된다
+    setStreamName(s, "talk", "수다쟁이");
+    expect(dedicatedAccount(s, "talk")).toBeUndefined();
+  });
+
+  it("전용 계정에 올린 방송 후기가 일반 계정보다 팔로워를 많이 준다", () => {
+    const make = (dedicated: boolean) => {
+      const s = createInitialState();
+      s.accounts[0].followers = 5_000;
+      setStreamName(s, "vtuber", "핑크냥");
+      if (dedicated) s.accounts[0].name = "핑크냥";
+      return postStreamTweet(s, streamTypeById("vtuber")!, 1_200);
+    };
+    // 트윗 성과에는 난수가 섞이므로 여러 번 돌려 합계로 비교한다.
+    let plain = 0;
+    let dedi = 0;
+    for (let i = 0; i < 30; i++) {
+      plain += make(false).followers;
+      dedi += make(true).followers;
+    }
+    expect(dedi).toBeGreaterThan(plain);
+    expect(make(true).dedicated).toBe(true);
+    expect(make(false).dedicated).toBe(false);
+  });
+});
+
+describe("활동명 검색 반응", () => {
+  it("방송을 켠 적 있는 활동명만 반응이 뜬다", () => {
+    const s = createInitialState();
+    setStreamName(s, "game", "야근겜창");
+    // 이름만 지어둔 상태 — 아직 방송 기록이 없으면 아무 반응도 없다
+    expect(streamBuzzTweets(s, "야근겜창")).toHaveLength(0);
+
+    s.streamBests.game = 120;
+    const tweets = streamBuzzTweets(s, "야근겜창");
+    expect(tweets.length).toBeGreaterThan(0);
+    for (const t of tweets) {
+      expect(t.text).toContain("야근겜창");
+      expect(t.text).not.toContain("{name}");
+    }
+  });
+
+  it("다른 이름을 검색하면 빈 배열이다", () => {
+    const s = createInitialState();
+    setStreamName(s, "game", "야근겜창");
+    s.streamBests.game = 120;
+    expect(streamBuzzTweets(s, "다른사람")).toHaveLength(0);
+    expect(streamBuzzTweets(s, "")).toHaveLength(0);
+  });
+
+  it("최고 기록이 클수록 반응이 많이 뜬다", () => {
+    const s = createInitialState();
+    setStreamName(s, "game", "야근겜창");
+    s.streamBests.game = 10;
+    const small = streamBuzzTweets(s, "야근겜창").length;
+    s.streamBests.game = 50_000;
+    expect(streamBuzzTweets(s, "야근겜창").length).toBeGreaterThan(small);
   });
 });

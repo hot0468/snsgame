@@ -14,7 +14,7 @@ import {
 } from "@/data/dmContent";
 import { MAX_SKILL } from "@/data/stats";
 import { hashInt, pick, randInt, uid, chance } from "@/utils/random";
-import { advanceDmStory, storyChoices } from "./dmStory";
+import { advanceDmStory, isStoryOver, storyChoices } from "./dmStory";
 import { changeFollowers } from "./followers";
 import { bumpTchinProgress } from "./tchin";
 import { clampResource, gainSkill } from "./stats";
@@ -428,6 +428,8 @@ export function dmReplyOptions(state: GameState, thread: DMThread): DMReplyOptio
   // 대담 톤도 성인물 해제와 무관하게 그대로 보인다(스토리 분기이지 수위가 아니다).
   const story = storyChoices(thread);
   if (story) return story.map((c) => ({ tone: c.tone, me: c.me, partner: c.reply }));
+  // 끝난 스토리 스레드는 후보가 없다 — 서사가 닫힌 뒤 잡담 풀로 되돌아가지 않는다.
+  if (isStoryOver(thread)) return [];
 
   const ctx = dmContext(thread);
   // 상대가 화제를 던진 뒤라면 **그 화제에 대한 대답**만 후보다(안 그러면 대화가 어긋난다).
@@ -473,6 +475,8 @@ export function replyDM(state: GameState, thread: DMThread, tone: DMTone): DMRep
     const res = advanceDmStory(state, thread, branch);
     if (res) return res;
   }
+  // 스토리가 끝난 스레드는 답장 자체가 없다(UI가 선택지를 안 그리지만 여기서도 막는다).
+  if (isStoryOver(thread)) return { followerDelta: 0, partnerText: "" };
 
   const ctx = dmContext(thread);
   // 후보에 없는 톤(예: 대담 해금 전 호출)이면 그 톤의 풀에서 임의로 하나 집는다.
@@ -531,6 +535,8 @@ export function replyDM(state: GameState, thread: DMThread, tone: DMTone): DMRep
 
 /** 자유 입력 메시지 전송(간단 응답, 특별 효과 없음) */
 export function sendCustomDM(state: GameState, thread: DMThread, text: string): void {
+  // 끝난 스토리 스레드엔 아무것도 보낼 수 없다(UI도 입력창을 숨기지만, 여기서 한 번 더 막는다).
+  if (isStoryOver(thread)) return;
   // 상대 반응은 '내 메시지를 넣기 전' 맥락으로 고른다 — 넣고 나면 무조건 followup이 된다.
   const ctx = dmContext(thread);
   thread.messages.push({ id: uid("dmm"), from: "me", text, day: state.day });

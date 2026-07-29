@@ -12,6 +12,7 @@ import {
   sendCustomDM,
   visibleDms,
 } from "@/systems/dm";
+import { isStoryOver } from "@/systems/dmStory";
 import { canMeet, MEETING_ACTION_COST } from "@/systems/meeting";
 import { joinCrew } from "@/systems/crew";
 import { joinGroupRoom } from "@/systems/groupRoom";
@@ -423,6 +424,24 @@ function dstoryLinkCard(ctx: GameContext): HTMLElement {
   );
 }
 
+/**
+ * 트윗 프로필 사진 클릭 → 그 작성자의 프로필로 이동한다(모든 트윗 카드 공용).
+ * 내 트윗이면 내 계정 상세로, 남의 트윗(리트윗은 원작자 기준)이면 남 프로필 페이지로 간다.
+ * 프로필 안에서 또 다른 아바타를 눌러도 뒤로가기가 '원래 피드'로 돌아가게 prevPage를 보존한다.
+ */
+export function openTweetAuthor(ctx: GameContext, tweet: Tweet): void {
+  const state = ctx.store.getState();
+  if (ctx.ui.snsPage !== "profile") ctx.ui.profilePrevPage = ctx.ui.snsPage;
+  if (tweet.authorHandle === getActiveAccount(state).handle) {
+    ctx.ui.viewProfile = null;
+    ctx.ui.snsPage = "me";
+  } else {
+    ctx.ui.viewProfile = accountForTweet(state, tweet);
+    ctx.ui.snsPage = "profile";
+  }
+  ctx.refresh();
+}
+
 /** 리트윗(아이콘) + 좋아요/악플 반응 행을 붙인 트윗 카드 */
 export function reactableCard(ctx: GameContext, tweet: Tweet): HTMLElement {
   const state = ctx.store.getState();
@@ -439,13 +458,7 @@ export function reactableCard(ctx: GameContext, tweet: Tweet): HTMLElement {
     onMedia: openMedia(ctx),
     readerVocab: state.skills.knowledge,
     // 남의 트윗 프로필 사진 클릭 → 그 계정 프로필 페이지(팔로우 가능)를 트윗 영역에 연다(둘러보기처럼).
-    onAuthorClick: () => {
-      // 프로필 안에서 또 다른 아바타를 눌러도 뒤로가기는 '원래 피드'로 돌아가게 prevPage를 보존한다.
-      if (ctx.ui.snsPage !== "profile") ctx.ui.profilePrevPage = ctx.ui.snsPage;
-      ctx.ui.viewProfile = accountForTweet(ctx.store.getState(), tweet);
-      ctx.ui.snsPage = "profile";
-      ctx.refresh();
-    },
+    onAuthorClick: () => openTweetAuthor(ctx, tweet),
   });
 
   // 링크 트윗이면 본문 아래(액션 바 위)에 링크 카드를 끼운다.
@@ -722,6 +735,7 @@ export function mePage(ctx: GameContext): HTMLElement {
             ctx,
             onMedia: openMedia(ctx),
             onOpen: () => enterTweetDetail(ctx, t.id),
+            onAuthorClick: () => openTweetAuthor(ctx, t),
           }),
         );
         if (myPosts.length > ctx.ui.feedShown) {
@@ -861,7 +875,13 @@ export function tweetDetailPage(ctx: GameContext): HTMLElement {
       ? el(
           "div",
           { class: "tweet-detail" },
-          tweetCard(tweet, { showGain: true, ctx, onMedia: openMedia(ctx), forceMentions: true }),
+          tweetCard(tweet, {
+            showGain: true,
+            ctx,
+            onMedia: openMedia(ctx),
+            forceMentions: true,
+            onAuthorClick: () => openTweetAuthor(ctx, tweet),
+          }),
         )
       : el("div", { class: "empty" }, "트윗을 찾을 수 없어요"),
   );
@@ -1574,8 +1594,12 @@ function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement 
     if ((e as KeyboardEvent).key === "Enter") sendCustom();
   });
 
+  // 스토리가 끝난 스레드: 답장 UI를 통째로 걷어낸다(선택지·직접 입력 모두). 서사가 닫힌 뒤에도
+  // 잡담이 이어지면 결말이 흐려진다 — 차단은 systems/dm.ts에도 걸려 있다(isStoryOver).
   // 링크 DM(소원 가게·푸시타임)·진홍안 거래·터커 조수 부탁 DM: 답장 대신 전용 버튼만.
-  const repliesSection = thread.eyeDeal
+  const repliesSection = isStoryOver(thread)
+    ? el("div", { class: "dm__replies" }, el("div", { class: "empty" }, "대화가 끝났어요."))
+    : thread.eyeDeal
     ? eyeDealReplies(ctx)
     : thread.labOffer
     ? labOfferReplies(ctx)

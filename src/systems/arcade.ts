@@ -1,16 +1,20 @@
 import type { GameState } from "@/core/types";
 import type { Doll } from "@/data/arcade";
-import { CLAW_MISS_LINES, CLAW_SLIP_LINES, DOLLS, dollById } from "@/data/arcade";
+import { DOLLS, dollById } from "@/data/arcade";
 import { clampResource, gainSkill } from "./stats";
 import { addSchedule } from "./time";
-import { pick } from "@/utils/random";
 
 /**
  * 오락실 인형뽑기 — 외출 중 확률 조우로 진입한다.
  *
- * ⚠️ **한 방문 = 인형 1개**가 이 기능의 밸런스 축이다.
- *    판이 끝나는 판정은 ui가 한다(win이면 세션 종료) — systems는 판 하나만 계산한다.
- *    상한을 풀면 12종 수집이 소지금 문제로 바뀌어 도감이 하루만에 끝난다.
+ * ⚠️ **성공/실패는 여기서 정하지 않는다.** 집게가 인형을 잡는지, 올라오다 놓치는지는
+ *    ui/arcadeScene.ts의 **물리 시뮬레이션**이 정한다(Phaser + Matter).
+ *    확률 판정(레인 폭·슬립 55%/30%)은 물리로 대체되면서 사라졌다 —
+ *    난이도를 손보려면 여기가 아니라 그 씬의 물리 상수를 봐라.
+ *
+ * ⚠️ **한 방문 = 인형 1개**가 이 기능의 밸런스 축이다(물리로 바뀐 뒤에도 그대로).
+ *    판이 끝나는 판정은 ui가 한다 — systems는 '동전 넣기'와 '경품 등록'만 한다.
+ *    상한을 풀면 12종 수집이 손기술 문제가 되어 도감이 하루만에 끝난다.
  *
  * ⚠️ 뽑기는 시간(advanceTime)을 소모하지 않는다. 외출 1블록 안에서 벌어지는 일이다.
  *
@@ -19,18 +23,6 @@ import { pick } from "@/utils/random";
 
 /** 1판 비용(원) */
 export const CLAW_COST = 1_000;
-
-/** 중앙에서 이 폭 안이면 레어 레인 */
-export const RARE_BAND = 0.06;
-/** 중앙에서 이 폭 안이면 일반 레인(레어 밴드 바깥부터) */
-export const COMMON_BAND = 0.18;
-
-/**
- * 집게 힐이 미끄러질 확률 — 레어일수록 높다.
- * 레인 폭과 곱해져 실질 성공률이 나온다: 일반 ≈ 24% · 레어 ≈ 4%.
- */
-export const HOOK_SLIP_RARE = 0.55;
-export const HOOK_SLIP_COMMON = 0.3;
 
 /** 처음 뽑은 인형 1종당 회복하는 정신력 */
 export const DOLL_FIRST_MENTAL = 3;
@@ -46,22 +38,12 @@ export function dollCount(state: GameState): number {
   return state.dolls.length;
 }
 
-/** 마커 위치(0~1)가 어느 레인에 걸리는지 */
-export function laneAt(pos: number): "rare" | "common" | "miss" {
-  const d = Math.abs(pos - 0.5);
-  if (d <= RARE_BAND) return "rare";
-  if (d <= COMMON_BAND) return "common";
-  return "miss";
-}
-
-/** 한 판의 결과 */
+/** 인형 하나를 실제로 획득했을 때의 결과(도감 등록 · 정신력 · 완성 보너스) */
 export interface ClawResult {
-  /** win=인형 획득(판 종료) / slip=집게가 놓침 / miss=레인 자체를 놓침 */
-  outcome: "win" | "slip" | "miss";
   /** 결과 문구 */
   line: string;
-  /** 획득한 인형. win이 아니면 null */
-  doll: Doll | null;
+  /** 획득한 인형 */
+  doll: Doll;
   /** 이미 도감에 있어 재고로 갔는지 */
   duplicate: boolean;
   /** 이번 판으로 회복한 정신력(완성 보너스 포함) */
@@ -71,40 +53,26 @@ export interface ClawResult {
 }
 
 /**
- * 한 판을 굴린다. 비용은 언제나 먼저 빠진다(꽝이어도 돈은 나간다 — 오락실이다).
- * ⚠️ 호출 전에 소지금이 CLAW_COST 이상인지 ui가 확인해야 한다.
+ * 동전을 넣는다(집게를 내릴 때마다 1회). 잔액이 모자라면 아무 일도 없이 false.
+ * ⚠️ 성공하든 말든 돈은 나간다 — 오락실이다.
  */
-export function playClaw(state: GameState, pos: number): ClawResult {
+export function payClaw(state: GameState): boolean {
+  if (state.money < CLAW_COST) return false;
   state.money -= CLAW_COST;
+  return true;
+}
 
-  const lane = laneAt(pos);
-  if (lane === "miss") {
-    return {
-      outcome: "miss",
-      line: pick(CLAW_MISS_LINES),
-      doll: null,
-      duplicate: false,
-      mental: 0,
-      completed: false,
-    };
-  }
-
-  const slipChance = lane === "rare" ? HOOK_SLIP_RARE : HOOK_SLIP_COMMON;
-  if (Math.random() < slipChance) {
-    return {
-      outcome: "slip",
-      line: pick(CLAW_SLIP_LINES),
-      doll: null,
-      duplicate: false,
-      mental: 0,
-      completed: false,
-    };
-  }
-
-  // 같은 등급 안에서 미수집 우선으로 고른다. 전부 모았으면 등급 전체에서 뽑아 재고로 쌓는다.
-  const pool = DOLLS.filter((d) => d.rarity === lane);
-  const fresh = pool.filter((d) => !state.dolls.includes(d.id));
-  const doll = pick(fresh.length > 0 ? fresh : pool);
+/**
+ * 물리 시뮬레이션이 인형 하나를 경품 배출구에 떨어뜨렸을 때 호출한다.
+ * 도감 등록·중복 재고·정신력·완성 보너스가 여기서 정해진다.
+ *
+ * ⚠️ **어떤 인형인지는 물리가 정한다**(집게 아래 실제로 있던 그 인형).
+ *    예전처럼 등급 안에서 미수집 우선으로 뽑아주지 않는다 — 유리장에 보이는 인형과
+ *    받는 인형이 다르면 물리로 바꾼 의미가 없다.
+ */
+export function collectDoll(state: GameState, dollId: string): ClawResult | null {
+  const doll = dollById(dollId);
+  if (!doll) return null;
 
   const duplicate = state.dolls.includes(doll.id);
   let mental = 0;
@@ -129,7 +97,6 @@ export function playClaw(state: GameState, pos: number): ClawResult {
   }
 
   return {
-    outcome: "win",
     line: `${doll.emoji} ${doll.name}을(를) 뽑았다!`,
     doll,
     duplicate,

@@ -275,6 +275,7 @@ export function createInitialState(): GameState {
     cookedDishes: [],
     streamCount: 0,
     streamBests: {},
+    streamNames: {},
     dolls: [],
     dollStock: {},
     pendingRace: null,

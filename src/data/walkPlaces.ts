@@ -7,8 +7,9 @@ import type { SkillStatId } from "@/core/types";
  * 톤: 실제로 동네에 있을 법한 곳. 크리처 도감처럼 판타지로 가지 않는다 —
  *     걷다가 우연히 알게 되는 생활 반경의 장소들이다.
  *
- * ⚠️ 스탯 합계는 기본 산책(친화력 5 · 운동 2 · 지식 -2 = 순 +5)보다 크게 잡는다.
- *    장소를 아는 것 자체가 보상이어야 한다.
+ * ⚠️ 스탯 상승폭은 **미미하게** 잡는다 — 산책은 정신력 회복이 본체이지 스탯 파밍처가 아니다.
+ *    다만 합계는 기본 산책(친화력 5 · 운동 2 · 지식 -2 = 순 +5)보다는 커야 한다
+ *    (장소를 아는 것 자체가 보상). 즉 합계 6~7이 정상 범위다.
  * ⚠️ 다만 **행동력 소모는 산책과 같다**(-12). 장소마다 코스트를 다르게 하면
  *    가성비 좋은 한 곳으로 굳어 나머지 7개가 죽는다.
  */
@@ -41,7 +42,7 @@ export const WALK_PLACES: WalkPlace[] = [
       "철봉에 매달려 보다가 팔 힘이 이것밖에 안 되나 싶어 웃었다. 그래도 몸은 개운했다.",
       "산책 나온 강아지들을 구경하며 천천히 걸었다. 견주들과 눈인사도 몇 번 오갔다.",
     ],
-    skillGains: { fitness: 6, sociability: 3 },
+    skillGains: { fitness: 4, sociability: 2 },
     mental: 14,
   },
   {
@@ -56,7 +57,7 @@ export const WALK_PLACES: WalkPlace[] = [
       "물 위로 왜가리 한 마리가 오래 서 있었다. 그걸 한참 보다가 다시 걸었다.",
       "속도를 올려 빠르게 걸었다. 땀이 식으면서 머리가 맑아졌다.",
     ],
-    skillGains: { fitness: 8 },
+    skillGains: { fitness: 6 },
     mental: 16,
   },
   {
@@ -71,7 +72,7 @@ export const WALK_PLACES: WalkPlace[] = [
       "절판된 책을 한 권 찾아내 한참을 들여다봤다. 결국 사서 옆구리에 끼고 나왔다.",
       "책등만 훑어도 시간이 훌쩍 갔다. 모르는 단어를 몇 개 주워 왔다.",
     ],
-    skillGains: { knowledge: 7, vocabulary: 6 },
+    skillGains: { knowledge: 3, vocabulary: 3 },
     mental: 8,
   },
   {
@@ -86,7 +87,7 @@ export const WALK_PLACES: WalkPlace[] = [
       "값도 안 물어보고 덤부터 얹어주는 통에 웃으며 받아 왔다. 상인 아저씨 입담이 보통이 아니다.",
       "전집 앞에서 기름 냄새를 맡다가 결국 한 봉지 사 들고 나왔다. 흥정하다 둘 다 웃음이 터졌다.",
     ],
-    skillGains: { sociability: 8, comedy: 4 },
+    skillGains: { sociability: 4, comedy: 2 },
     mental: 10,
   },
   {
@@ -101,7 +102,7 @@ export const WALK_PLACES: WalkPlace[] = [
       "커피 한 잔을 오래 붙들고 앉아 있었다. 아무 방해도 없는 시간이었다.",
       "사장이 틀어놓은 음악이 취향이라 한 곡 물어보고 왔다.",
     ],
-    skillGains: { creativity: 7 },
+    skillGains: { creativity: 6 },
     mental: 15,
   },
   {
@@ -116,7 +117,7 @@ export const WALK_PLACES: WalkPlace[] = [
       "진료 끝나고 나오는 견주와 몇 마디 나눴다. 다들 자기 애 얘기를 하고 싶어 한다.",
       "게시판에 붙은 실종 전단을 한참 읽었다. 부디 찾았기를.",
     ],
-    skillGains: { sociability: 5, knowledge: 3 },
+    skillGains: { sociability: 4, knowledge: 2 },
     mental: 12,
   },
   {
@@ -131,7 +132,7 @@ export const WALK_PLACES: WalkPlace[] = [
       "벽에 남은 빛바랜 글귀를 읽어보려 애썼다. 절반은 지워져 있었다.",
       "아무도 없는 마당에 한참 서 있었다. 이상하게 머릿속이 정리됐다.",
     ],
-    skillGains: { knowledge: 5, creativity: 5 },
+    skillGains: { knowledge: 3, creativity: 3 },
     mental: 6,
   },
   {
@@ -146,7 +147,7 @@ export const WALK_PLACES: WalkPlace[] = [
       "중턱 약수터에서 물 한 바가지 마시고 돌아왔다. 다리가 후들거린다.",
       "천천히 올라가며 나무 이름 팻말을 하나씩 읽었다. 모르는 나무가 대부분이었다.",
     ],
-    skillGains: { fitness: 12, knowledge: 2 },
+    skillGains: { fitness: 6, knowledge: 1 },
     mental: 18,
   },
 ];

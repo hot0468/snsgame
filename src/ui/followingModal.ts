@@ -32,7 +32,19 @@ export function renderFollowingModal(ctx: GameContext): HTMLElement {
             ...list.map((a) =>
               el(
                 "div",
-                { class: "following-row" },
+                {
+                  class: "following-row",
+                  title: "프로필 보기",
+                  // 트윗 아바타 클릭과 같은 그릇(SNS 프로필 페이지)으로 연다 — 모달을 닫고 그쪽으로 넘긴다.
+                  // 뒤로가기가 모달을 열었던 페이지로 돌아가도록 profilePrevPage를 먼저 박아둔다.
+                  onclick: () => {
+                    if (ctx.ui.snsPage !== "profile") ctx.ui.profilePrevPage = ctx.ui.snsPage;
+                    // 상태 객체를 그대로 들고 있지 않는다(세이브 로드 등으로 갈리면 UI가 옛 객체를 본다).
+                    ctx.ui.viewProfile = { ...a, followed: true };
+                    ctx.ui.snsPage = "profile";
+                    ctx.closeModal(); // 재렌더까지 여기서 함께 처리된다
+                  },
+                },
                 el("div", { class: "following-row__avatar" }, avatar(a.name, 40)),
                 el(
                   "div",

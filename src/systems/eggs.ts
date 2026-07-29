@@ -9,16 +9,11 @@ import { maybeSpawnGroupRoomInviteDM } from "./groupRoom";
 import { bumpTchinProgress } from "./tchin";
 import { maybeQueueProphecy } from "./prophecy";
 import {
-  KANRA_HANDLE,
-  NOCOLOR_HANDLE,
   SAIKA_ENGAGE_TRIGGER,
   SAIKA_HANDLE,
-  TARO_HANDLE,
   isStoryHandle,
-  spawnKanraStory,
-  spawnNocolorStory,
-  spawnSaikaStory,
-  spawnTaroStory,
+  maybeSpawnStoryFor,
+  storyArrivalTitle,
 } from "./dmStory";
 
 /**
@@ -142,9 +137,10 @@ function bumpEngage(state: GameState, tweet: Tweet): void {
   state.eggs.authorEngage[h] = n;
 
   // 사이카사이카는 반응이 쌓이면 그쪽이 먼저 알아본다(분기형 스토리 대화).
-  // 앞선 스토리 셋이 좋아요·리트윗·팔로우를 하나씩 가져가, 이건 '동사'가 아니라 '횟수'가 조건이다.
-  if (h === SAIKA_HANDLE && n >= SAIKA_ENGAGE_TRIGGER && spawnSaikaStory(state)) {
-    addSchedule(state, "세어본 사람", "sns");
+  // 이 계정만 '동사'가 아니라 '횟수'가 조건이다.
+  if (h === SAIKA_HANDLE && n >= SAIKA_ENGAGE_TRIGGER) {
+    const story = maybeSpawnStoryFor(state, h, "engage");
+    if (story) addSchedule(state, storyArrivalTitle(story), "sns");
   }
 
   // ⚠️ 스토리 계정에는 범용 찐친 DM을 붙이지 않는다 — 칸라칸라가 "우리 찐친 아니에요?"라고
@@ -165,11 +161,10 @@ export function onLikeTweet(state: GameState, tweet: Tweet): void {
   // 예언 계정 트윗에 좋아요 → 다음 날 예언 실현 예약(이스터에그)
   maybeQueueProphecy(state, tweet);
 
-  // 칸라칸라(소문 정보상)의 트윗에 좋아요 → 그가 DM으로 접근해온다(분기형 스토리 대화).
-  // 계정당 1회이고, 이후 진행은 systems/dmStory.ts가 노드 단위로 이어간다.
-  if (tweet.authorHandle === KANRA_HANDLE && spawnKanraStory(state)) {
-    addSchedule(state, "정체불명 계정의 DM", "sns");
-  }
+  // 좋아요가 트리거인 스토리 계정(칸라칸라·밤의 셋톤)의 다음 회차를 연다.
+  // 어느 계정이 어느 동사인지는 systems/dmStory.ts의 STORY_TRIGGERS가 안다.
+  const likeStory = maybeSpawnStoryFor(state, tweet.authorHandle, "like");
+  if (likeStory) addSchedule(state, storyArrivalTitle(likeStory), "sns");
 
   if (tweet.egg === "coin") {
     if (fire(state, "coinRoom")) {
@@ -231,11 +226,10 @@ export function onLikeTweet(state: GameState, tweet: Tweet): void {
 export function onRetweet(state: GameState, tweet: Tweet): void {
   bumpEngage(state, tweet);
 
-  // 무색의 무리 트윗을 '퍼뜨리면' 그들 눈에 띄어 초대 DM이 온다(분기형 스토리 대화).
-  // 칸라칸라는 좋아요(onLikeTweet), 이쪽은 리트윗 — 트리거를 갈라 둘이 같이 안 열리게 한다.
-  if (tweet.authorHandle === NOCOLOR_HANDLE && spawnNocolorStory(state)) {
-    addSchedule(state, "이름 없는 초대장", "sns");
-  }
+  // 리트윗이 트리거인 스토리 계정(무색의 무리·노란 바큐라)의 다음 회차를 연다 —
+  // 이쪽은 '퍼뜨려야' 눈에 띄는 캐릭터들이라 좋아요가 아니라 리트윗이다.
+  const rtStory = maybeSpawnStoryFor(state, tweet.authorHandle, "retweet");
+  if (rtStory) addSchedule(state, storyArrivalTitle(rtStory), "sns");
 }
 
 /* ─────────────────── 팔로우 ─────────────────── */
@@ -244,9 +238,8 @@ export function onRetweet(state: GameState, tweet: Tweet): void {
 export function onFollow(state: GameState, account: Account): void {
   // 이름없는 타로를 팔로우하면 그제야 용기를 내 DM을 보내온다(분기형 스토리 대화).
   // ⚠️ 아래 봇 판정(`if (!account.bot) return`)보다 **먼저** 둬야 한다 — 뒤에 두면 영영 안 걸린다.
-  if (account.handle === TARO_HANDLE && spawnTaroStory(state)) {
-    addSchedule(state, "조심스러운 첫 DM", "sns");
-  }
+  const followStory = maybeSpawnStoryFor(state, account.handle, "follow");
+  if (followStory) addSchedule(state, storyArrivalTitle(followStory), "sns");
 
   if (!account.bot) return;
   state.eggs.botFollows += 1;

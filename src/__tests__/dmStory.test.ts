@@ -1,17 +1,27 @@
 import { describe, it, expect } from "vitest";
 import { createInitialState, getActiveAccount } from "@/core/state";
 import type { Account, GameState, Tweet } from "@/core/types";
-import { DM_STORIES, KANRA_STORY, NOCOLOR_STORY, SAIKA_STORY, TARO_STORY } from "@/data/dmStory";
 import {
+  DM_STORIES,
+  KANRA_STORY,
+  NOCOLOR_STORY,
+  SAIKA_STORY,
+  TARO_STORY,
+  chaptersFor,
+} from "@/data/dmStory";
+import {
+  BAKYURA_HANDLE,
+  COLLECTOR_HANDLE,
   KANRA_HANDLE,
   NOCOLOR_HANDLE,
+  SETTON_HANDLE,
   SAIKA_ENGAGE_TRIGGER,
   SAIKA_HANDLE,
   TARO_HANDLE,
-  spawnKanraStory,
-  spawnTaroStory,
+  isStoryOver,
+  spawnStoryFor,
 } from "@/systems/dmStory";
-import { dmReplyOptions, replyDM } from "@/systems/dm";
+import { dmReplyOptions, replyDM, sendCustomDM } from "@/systems/dm";
 import { onFollow } from "@/systems/eggs";
 import { reactToTweet, retweetTweet } from "@/systems/exploreSystem";
 
@@ -164,6 +174,119 @@ describe("스토리 트리거는 서로 겹치지 않는다", () => {
   });
 });
 
+describe("트리거 동사는 겹쳐도 핸들로 갈린다", () => {
+  // 셋톤=좋아요(칸라와 겹침) / 바큐라=리트윗(무색과 겹침) / 수집가=팔로우(타로와 겹침).
+  // 판정이 핸들 단위라, 같은 동사를 써도 한 번의 행동으로 둘이 같이 열리면 안 된다.
+  const openedIds = (s: GameState) =>
+    getActiveAccount(s)
+      .dms.filter((t) => t.story)
+      .map((t) => t.story!.id)
+      .sort();
+  const tweetOf = (s: GameState, handle: string, name: string): Tweet => ({
+    ...kanraTweet(s),
+    id: "t2_" + handle,
+    authorName: name,
+    authorHandle: handle,
+  });
+
+  it("밤의 셋톤 트윗 좋아요는 셋톤만 연다", () => {
+    const s = createInitialState();
+    reactToTweet(s, tweetOf(s, SETTON_HANDLE, "밤의 셋톤"), true);
+    expect(openedIds(s)).toEqual(["setton"]);
+  });
+
+  it("노란 바큐라 트윗 리트윗은 바큐라만 연다", () => {
+    const s = createInitialState();
+    retweetTweet(s, tweetOf(s, BAKYURA_HANDLE, "노란 바큐라"));
+    expect(openedIds(s)).toEqual(["bakyura"]);
+  });
+
+  it("도시괴담 수집가 팔로우는 수집가만 연다", () => {
+    const s = createInitialState();
+    onFollow(s, {
+      id: "a_collector",
+      name: "도시괴담 수집가",
+      handle: COLLECTOR_HANDLE,
+      attribute: "daily",
+      isAdult: false,
+      bio: "",
+      followers: 100,
+      timeline: [],
+      followed: false,
+    });
+    expect(openedIds(s)).toEqual(["collector"]);
+  });
+});
+
+describe("회차 구성 계약", () => {
+  const handles = [...new Set(DM_STORIES.map((s) => s.partnerHandle))];
+
+  it("스토리 계정은 모두 3회차씩 갖는다", () => {
+    for (const h of handles) {
+      expect(chaptersFor(h).map((s) => s.id), `${h} 회차 수`).toHaveLength(3);
+    }
+  });
+
+  it("스토리 id는 전부 유일하고, 같은 계정 회차는 이름·핸들이 일치한다", () => {
+    expect(new Set(DM_STORIES.map((s) => s.id)).size).toBe(DM_STORIES.length);
+    for (const h of handles) {
+      const chapters = chaptersFor(h);
+      expect(new Set(chapters.map((s) => s.partnerName)).size, `${h} 이름 불일치`).toBe(1);
+    }
+  });
+});
+
+describe("회차(3회차) 해금", () => {
+  const settonTweet = (s: GameState, i: number): Tweet => ({
+    ...kanraTweet(s),
+    id: "t_setton_" + i,
+    authorName: "밤의 셋톤",
+    authorHandle: SETTON_HANDLE,
+    text: "야간 배달 끝. 오늘도 헬멧 안 벗고 무사히 귀가했다",
+  });
+  const settonThreads = (s: GameState) =>
+    getActiveAccount(s).dms.filter((t) => t.partnerHandle === SETTON_HANDLE);
+
+  /** 현재 회차를 끝까지(친절 루트로) 걸어 스토리를 닫는다. */
+  const finishChapter = (s: GameState) => {
+    const t = settonThreads(s)[0];
+    for (let i = 0; i < 10 && t.story; i++) replyDM(s, t, "friendly");
+    expect(t.story, "친절 루트로 끝까지 가야 한다").toBeUndefined();
+  };
+
+  it("앞 회차를 끝내야 다음 회차가 열리고, 스레드는 하나로 이어진다", () => {
+    const s = createInitialState();
+    reactToTweet(s, settonTweet(s, 1), true);
+    expect(settonThreads(s)[0].story!.id).toBe("setton");
+
+    // 진행 중에 또 좋아요를 눌러도 다음 회차가 끼어들지 않는다.
+    reactToTweet(s, settonTweet(s, 2), true);
+    expect(settonThreads(s)[0].story!.id).toBe("setton");
+
+    finishChapter(s);
+    reactToTweet(s, settonTweet(s, 3), true);
+    expect(settonThreads(s)[0].story!.id).toBe("setton_2");
+    expect(settonThreads(s), "스레드는 계속 하나여야 한다").toHaveLength(1);
+
+    finishChapter(s);
+    reactToTweet(s, settonTweet(s, 4), true);
+    expect(settonThreads(s)[0].story!.id).toBe("setton_3");
+  });
+
+  it("3회차까지 다 보면 더는 열리지 않고 답장도 막힌다", () => {
+    const s = createInitialState();
+    for (let round = 0; round < 3; round++) {
+      reactToTweet(s, settonTweet(s, 100 + round), true);
+      finishChapter(s);
+    }
+    reactToTweet(s, settonTweet(s, 999), true);
+    const t = settonThreads(s)[0];
+    expect(t.story, "4회차는 없다").toBeUndefined();
+    expect(isStoryOver(t)).toBe(true);
+    expect(dmReplyOptions(s, t)).toEqual([]);
+  });
+});
+
 describe("사이카사이카 스토리 (반응 누적 트리거)", () => {
   const saikaTweet = (s: GameState, i: number): Tweet => ({
     ...kanraTweet(s),
@@ -275,7 +398,7 @@ describe("무색의 무리 스토리", () => {
 describe("이름없는 타로 스토리", () => {
   it("친절 루트로 데뷔 노드까지 가고, 응원 엔딩이 평판·정신력을 올린다", () => {
     const s = createInitialState();
-    spawnTaroStory(s);
+    spawnStoryFor(s, TARO_HANDLE);
     const t = getActiveAccount(s).dms.find((x) => x.story?.id === "taro")!;
 
     // hello(친절) → confide(친절) → debut
@@ -297,7 +420,7 @@ describe("이름없는 타로 스토리", () => {
 
   it("초반에 밀어내면 위축 노드에서 조용히 끝난다", () => {
     const s = createInitialState();
-    spawnTaroStory(s);
+    spawnStoryFor(s, TARO_HANDLE);
     const t = getActiveAccount(s).dms.find((x) => x.story?.id === "taro")!;
     replyDM(s, t, "cool");
     expect(t.story!.node).toBe("hesitate");
@@ -324,7 +447,7 @@ describe("칸라칸라 스토리 진행", () => {
 
   it("선택지는 현재 노드 것이고, 고르면 다음 노드로 넘어간다", () => {
     const s = createInitialState();
-    spawnKanraStory(s);
+    spawnStoryFor(s, KANRA_HANDLE);
     const t = storyThread(s)!;
 
     const node = KANRA_STORY.nodes.find((n) => n.id === t.story!.node)!;
@@ -345,13 +468,13 @@ describe("칸라칸라 스토리 진행", () => {
   it("대담 선택지는 성인물 해제 없이도 보인다(수위가 아니라 분기다)", () => {
     const s = createInitialState();
     expect(s.adultMode).toBe(false);
-    spawnKanraStory(s);
+    spawnStoryFor(s, KANRA_HANDLE);
     expect(dmReplyOptions(s, storyThread(s)!).some((o) => o.tone === "bold")).toBe(true);
   });
 
   it("끝 노드를 고르면 스토리가 끝나고 효과가 적용된다", () => {
     const s = createInitialState();
-    spawnKanraStory(s);
+    spawnStoryFor(s, KANRA_HANDLE);
     const t = storyThread(s)!;
 
     // start → insist(무심) → 거절(무심, next=null, 정신력+3·도덕성+2)
@@ -366,13 +489,20 @@ describe("칸라칸라 스토리 진행", () => {
     expect(s.resources.mental).toBe(mental + 3);
     expect(s.resources.morality).toBe(morality + 2);
 
-    // 스토리가 끝난 뒤엔 평범한 DM으로 돌아간다(선택지가 계속 나온다).
-    expect(dmReplyOptions(s, t).length).toBeGreaterThan(0);
+    // 스토리가 끝나면 그 스레드엔 더 이상 답장할 수 없다(잡담 풀로 돌아가지 않는다).
+    expect(isStoryOver(t)).toBe(true);
+    expect(dmReplyOptions(s, t)).toEqual([]);
+
+    // 답장 경로 두 갈래 모두 막혀 있다 — 말풍선이 하나도 늘지 않는다.
+    const before = t.messages.length;
+    replyDM(s, t, "friendly");
+    sendCustomDM(s, t, "저기요, 아직 하고 싶은 말이 있어요");
+    expect(t.messages.length).toBe(before);
   });
 
   it("팔로워 % 효과가 현재 팔로워 기준으로 적용된다", () => {
     const s = createInitialState();
-    spawnKanraStory(s);
+    spawnStoryFor(s, KANRA_HANDLE);
     const t = storyThread(s)!;
     getActiveAccount(s).followers = 10_000;
 

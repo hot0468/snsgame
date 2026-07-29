@@ -413,6 +413,7 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   if (!Array.isArray(state.walkPlaces)) state.walkPlaces = [];
   state.streamCount ??= 0;
   if (!state.streamBests || typeof state.streamBests !== "object") state.streamBests = {};
+  if (!state.streamNames || typeof state.streamNames !== "object") state.streamNames = {};
   // 인형 도감·재고도 같은 취급(구세이브엔 키가 없다).
   if (!Array.isArray(state.dolls)) state.dolls = [];
   if (!state.dollStock || typeof state.dollStock !== "object") state.dollStock = {};

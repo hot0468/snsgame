@@ -417,6 +417,11 @@ export function createApp(root: HTMLElement, store: Store): void {
         e.scrollTop = savedScroll[sel];
       }
     }
+    // DM 대화창은 위 '위치 보존'이 아니라 **항상 맨 아래(최신 말풍선)**로 맞춘다.
+    // 재렌더가 스크롤을 0으로 되돌려서 답장 선택지를 누를 때마다 대화 맨 위로 튀었고,
+    // 위치를 그대로 복원해도 방금 오간 말풍선이 화면 밖에 남는다(실제 채팅앱과 같은 규칙).
+    const dmBox = root.querySelector<HTMLElement>(".dm__messages");
+    if (dmBox) dmBox.scrollTop = dmBox.scrollHeight;
   }
 
   // 상태 변경 시 재렌더

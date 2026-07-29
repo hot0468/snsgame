@@ -10,7 +10,8 @@ import { el } from "@/utils/dom";
 import { icon, avatar } from "./icons";
 import { renderVideoModal } from "./videoModal";
 import { renderStreamTypeModal } from "./livestreamModal";
-import { canStream } from "@/systems/livestream";
+import { canStream, STREAM_ACTION_COST, STREAM_MENTAL_COST } from "@/systems/livestream";
+import { confirmPurchase } from "./confirmModal";
 
 /* ============================================================
  * 너튜브 홈 — 유튜브 레이아웃 클론.
@@ -112,15 +113,28 @@ function tubeSearchBox(ctx: GameContext): HTMLElement {
 /* ===================== 마스트헤드(장식) ===================== */
 
 /**
- * 인방 진입 — 남은 타임블록이 없으면 토스트로 막고, 있으면 타입 선택 모달을 연다.
- * (실제 시간 소모는 타입을 고른 시점에 startStream이 한다.)
+ * 인방 진입 — 시간·행동력이 모자라면 토스트로 막고, 되면 코스트 확인 뒤 타입 선택 모달을 연다.
+ * (실제 소모는 타입을 고른 시점에 startStream이 한다.)
  */
 function startLive(ctx: GameContext): void {
-  if (!canStream(ctx.store.getState())) {
-    ctx.toast("오늘은 방송할 시간이 없어요", "bad");
+  const state = ctx.store.getState();
+  if (!canStream(state)) {
+    ctx.toast(
+      state.resources.action < STREAM_ACTION_COST
+        ? `행동력이 부족해요 (필요 ${STREAM_ACTION_COST})`
+        : "오늘은 방송할 시간이 없어요",
+      "bad",
+    );
     return;
   }
-  ctx.openModal(renderStreamTypeModal);
+  confirmPurchase(ctx, {
+    title: "방송 시작 확인",
+    itemName: "너튜브 라이브 방송",
+    priceText: `행동력 -${STREAM_ACTION_COST} · 정신력 -${STREAM_MENTAL_COST} · 시간 1칸`,
+    message: "방송을 켜면 위 비용이 듭니다. 시작할까요?",
+    confirmLabel: "방송하기",
+    onConfirm: () => ctx.openModal(renderStreamTypeModal),
+  });
 }
 
 function masthead(ctx: GameContext): HTMLElement {

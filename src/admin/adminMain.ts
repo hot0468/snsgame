@@ -3,6 +3,8 @@
  * 한눈에 확인하기 위한 별도 페이지. `admin.html`로 진입한다(예: /admin.html).
  * 여기서는 게임 상태를 바꾸지 않고, 데이터/규칙을 읽어와 표로 보여주기만 한다.
  */
+// 샌드박스로 띄우는 게임 컴포넌트(소원 가게·도깨비 상점·인형뽑기)는 게임 CSS가 있어야 제 모습이 나온다.
+import "@/styles/main.css";
 import { GAME_EVENTS, type EventEffect, type GameEvent } from "@/data/events";
 import { CONTROVERSY_EVENTS } from "@/data/controversies";
 import { ATTRIBUTES } from "@/data/attributes";
@@ -14,6 +16,7 @@ import { createInitialState } from "@/core/state";
 import { createUIState, type GameContext } from "@/ui/context";
 import { renderWishSite } from "@/ui/wishSite";
 import { renderGoblinShop } from "@/ui/goblinShop";
+import { renderArcadeModal } from "@/ui/arcadeModal";
 import { WISHES, WISH_MONEY_PENALTY, rollWishOptions } from "@/systems/wish";
 import { GOBLIN_ITEMS } from "@/data/goblin";
 
@@ -208,6 +211,10 @@ function oneShotSitesSection(): string {
     <p class="note" style="margin-top:10px">페널티: <b>소원이 가리키는 대상 제외</b> 랜덤 스탯 <b>-30~50</b> 또는 돈 <b>-${WISH_MONEY_PENALTY.toLocaleString("ko-KR")}원</b> + 정신력 <b>-15~25</b>. (소원은 안 이뤄짐)</p>
     <table><thead><tr><th>소원</th><th>대상(하락 제외)</th></tr></thead><tbody>${wishRows}</tbody></table>
 
+    <h3 class="admin-sub" style="margin-top:22px">오락실 인형뽑기 (외출 조우 25% · 한 방문 1개)</h3>
+    <button id="claw-reset" class="admin-btn">🔄 리셋(소지금 100만원 지급)</button>
+    <div id="claw-sandbox" class="wish-embed"></div>
+
     <h3 class="admin-sub" style="margin-top:22px">도깨비 상점 (네이놈 검색 '열려라 참깨' · 월 1회)</h3>
     <button id="goblin-reset" class="admin-btn">🔄 리셋(금화 100억 지급)</button>
     <div id="goblin-sandbox" class="wish-embed"></div>
@@ -253,6 +260,44 @@ function mountWishSandbox(host: HTMLElement): void {
   reset();
 
   const btn = document.getElementById("wish-reset");
+  if (btn) btn.addEventListener("click", reset);
+}
+
+/**
+ * 오락실 인형뽑기를 샌드박스로 렌더링(소지금을 넉넉히 줘서 계속 눌러볼 수 있게).
+ * 게임에서는 외출 조우 25%로만 열리는 화면이라 눈으로 확인하기 어렵다 — 그 대용이다.
+ */
+function mountClawSandbox(host: HTMLElement): void {
+  const site = document.createElement("div");
+  site.className = "wish-embed__frame";
+
+  let store = new Store(createInitialState());
+  const ui = createUIState();
+  const ctx: GameContext = {
+    store,
+    ui,
+    update: (fn) => store.dispatch(fn),
+    refresh: () => {},
+    // 인형을 뽑으면 판이 끝난다 — 샌드박스에서는 닫는 대신 새 판으로 되돌린다.
+    openModal: () => {},
+    closeModal: () => reset(),
+    toast: () => {},
+    afterAction: () => {},
+  };
+
+  const reset = (): void => {
+    store = new Store(createInitialState());
+    ctx.store = store;
+    store.dispatch((s) => {
+      s.money = 1_000_000; // 미리보기: 계속 뽑아볼 수 있게 동전 넉넉히
+    });
+    site.replaceChildren(renderArcadeModal(ctx));
+  };
+
+  host.replaceChildren(site);
+  reset();
+
+  const btn = document.getElementById("claw-reset");
   if (btn) btn.addEventListener("click", reset);
 }
 
@@ -304,6 +349,9 @@ function attrTable(): string {
 const STYLE = `
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
+  /* ⚠️ main.css는 게임 데스크톱 셸용으로 html/body를 height:100% + overflow:hidden으로 잠근다.
+     어드민은 위에서 아래로 읽는 긴 문서라 그대로 두면 **스크롤이 죽는다.** 여기서 되돌린다. */
+  html, body { height: auto; overflow: auto; }
   body { margin: 0; background: #0e1116; color: #d7dde6; font: 13px/1.55 -apple-system, "Pretendard", system-ui, sans-serif; }
   header.top { position: sticky; top: 0; z-index: 5; background: #12161d; border-bottom: 1px solid #232a35; padding: 14px 20px; }
   header.top h1 { margin: 0; font-size: 17px; color: #fff; }
@@ -390,6 +438,8 @@ function render(): void {
   // 문자열 렌더 후, 단발 사이트는 실제 컴포넌트를 샌드박스로 마운트
   const wishHost = document.getElementById("wish-sandbox");
   if (wishHost) mountWishSandbox(wishHost);
+  const clawHost = document.getElementById("claw-sandbox");
+  if (clawHost) mountClawSandbox(clawHost);
   const goblinHost = document.getElementById("goblin-sandbox");
   if (goblinHost) mountGoblinSandbox(goblinHost);
 }
