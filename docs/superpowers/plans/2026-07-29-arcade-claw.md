@@ -10,6 +10,19 @@
 
 설계서: [docs/superpowers/specs/2026-07-29-arcade-claw-design.md](../specs/2026-07-29-arcade-claw-design.md)
 
+## 구현 완료 (2026-07-29) — 계획과 달라진 점 2가지
+
+1. **`migrateSave`는 존재하지 않는다.** 마이그레이션은 `loadGame` 안에 인라인으로 있다.
+   Task 2 테스트는 `save.test.ts`의 `loadLegacy` 하네스(localStorage 폴리필 + `loadGame`)를
+   그대로 빌려 실제 로드 경로로 검증했다. 주입 코드도 `??=` 대신 주변 관례인
+   `if (!Array.isArray(...))` 형태를 따랐다.
+2. **스테이터스 독의 기존 "도감" 버튼을 "크리처 도감"으로 개명했다.**
+   인형 도감을 나란히 두니 어느 쪽인지 알 수 없어서다.
+
+브라우저 검증에서 확인한 것: 마커 왕복, 한 방문 1개 상한(승리 후 "멈춰!" 사라짐),
+미수집 우선 배분(4회 방문 = 서로 다른 4종), 5회차 중복 → 재고행, 판매 +24,000원 후
+재고 비움 · 도감 4종 유지.
+
 ## Global Constraints
 
 - 의존은 `data → systems → ui` 단방향. systems는 DOM을 모른다.
@@ -41,7 +54,7 @@
   - `export const CLAW_SLIP_LINES: string[]` — 집게 힐이 미끄러졌을 때 문구
   - `export function dollById(id: string): Doll | undefined`
 
-- [ ] **Step 1: 실패하는 테스트를 쓴다**
+- [x] **Step 1: 실패하는 테스트를 쓴다**
 
 `src/__tests__/arcade.test.ts` 새 파일:
 
@@ -97,12 +110,12 @@ describe("인형 카탈로그", () => {
 });
 ```
 
-- [ ] **Step 2: 테스트가 실패하는지 확인한다**
+- [x] **Step 2: 테스트가 실패하는지 확인한다**
 
 Run: `npx vitest run --pool=forks src/__tests__/arcade.test.ts`
 Expected: FAIL — `Cannot find module '@/data/arcade'`
 
-- [ ] **Step 3: 카탈로그를 만든다**
+- [x] **Step 3: 카탈로그를 만든다**
 
 `src/data/arcade.ts` 새 파일. 인형 12종은 아래 골격을 그대로 쓰되, `desc`/`brag`는 **한국어 창작**으로 채운다(오락실 인형 특유의 촌스럽고 정겨운 톤 — 크리처 도감처럼 과하게 판타지로 가지 말 것):
 
@@ -145,7 +158,7 @@ export function dollById(id: string): Doll | undefined {
 }
 ```
 
-- [ ] **Step 4: 테스트가 통과하는지 확인한다**
+- [x] **Step 4: 테스트가 통과하는지 확인한다**
 
 Run: `npx vitest run --pool=forks src/__tests__/arcade.test.ts`
 Expected: PASS (5 tests)
@@ -153,7 +166,7 @@ Expected: PASS (5 tests)
 Run: `npm run typecheck`
 Expected: 에러 없음
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add src/data/arcade.ts src/__tests__/arcade.test.ts
@@ -174,7 +187,7 @@ git commit -m "feat(data): 오락실 인형 카탈로그 12종"
 - Consumes: 없음
 - Produces: `GameState.dolls: string[]`, `GameState.dollStock: Record<string, number>`
 
-- [ ] **Step 1: 실패하는 테스트를 추가한다**
+- [x] **Step 1: 실패하는 테스트를 추가한다**
 
 `src/__tests__/arcade.test.ts` 상단 import에 추가:
 
@@ -207,12 +220,12 @@ describe("인형 상태 필드", () => {
 });
 ```
 
-- [ ] **Step 2: 테스트가 실패하는지 확인한다**
+- [x] **Step 2: 테스트가 실패하는지 확인한다**
 
 Run: `npx vitest run --pool=forks src/__tests__/arcade.test.ts`
 Expected: FAIL — `dolls`가 타입에 없거나 `undefined`
 
-- [ ] **Step 3: 세 파일을 고친다**
+- [x] **Step 3: 세 파일을 고친다**
 
 `src/core/types.ts` — `cookedDishes: string[];` 선언 **바로 아래**:
 
@@ -240,7 +253,7 @@ Expected: FAIL — `dolls`가 타입에 없거나 `undefined`
   state.dollStock ??= {};
 ```
 
-- [ ] **Step 4: 테스트가 통과하는지 확인한다**
+- [x] **Step 4: 테스트가 통과하는지 확인한다**
 
 Run: `npx vitest run --pool=forks src/__tests__/arcade.test.ts`
 Expected: PASS (7 tests)
@@ -248,7 +261,7 @@ Expected: PASS (7 tests)
 Run: `npm run typecheck`
 Expected: 에러 없음
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add src/core/types.ts src/core/state.ts src/systems/save.ts src/__tests__/arcade.test.ts
@@ -275,7 +288,7 @@ git commit -m "feat(core): 인형 도감·재고 상태 필드"
   - `export function playClaw(state: GameState, pos: number): ClawResult`
   - `export function dollCount(state: GameState): number` · `export const DOLL_TOTAL: number`
 
-- [ ] **Step 1: 실패하는 테스트를 추가한다**
+- [x] **Step 1: 실패하는 테스트를 추가한다**
 
 import에 추가:
 
@@ -401,12 +414,12 @@ describe("뽑기 판정", () => {
 });
 ```
 
-- [ ] **Step 2: 테스트가 실패하는지 확인한다**
+- [x] **Step 2: 테스트가 실패하는지 확인한다**
 
 Run: `npx vitest run --pool=forks src/__tests__/arcade.test.ts`
 Expected: FAIL — `Cannot find module '@/systems/arcade'`
 
-- [ ] **Step 3: systems를 만든다**
+- [x] **Step 3: systems를 만든다**
 
 `src/systems/arcade.ts` 새 파일:
 
@@ -531,7 +544,7 @@ export function playClaw(state: GameState, pos: number): ClawResult {
 ⚠️ `pick`의 실제 경로를 확인하라: `grep -n "import { pick" src/systems/offline.ts`.
 ⚠️ `addSchedule`의 두 번째 인자로 `"system"`이 유효한지 확인하라: `grep -n "export function addSchedule" -A 5 src/systems/time.ts`.
 
-- [ ] **Step 4: 테스트가 통과하는지 확인한다**
+- [x] **Step 4: 테스트가 통과하는지 확인한다**
 
 Run: `npx vitest run --pool=forks src/__tests__/arcade.test.ts`
 Expected: PASS (15 tests)
@@ -539,7 +552,7 @@ Expected: PASS (15 tests)
 Run: `npm run typecheck`
 Expected: 에러 없음
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add src/systems/arcade.ts src/__tests__/arcade.test.ts
@@ -561,7 +574,7 @@ git commit -m "feat(systems): 인형뽑기 레인 판정·힐 슬립·도감 등
   - `export function stockedDolls(state: GameState): StockedDoll[]`
   - `export function sellDoll(state: GameState, dollId: string): number` — 입금액 반환, 재고 없으면 0
 
-- [ ] **Step 1: 실패하는 테스트를 추가한다**
+- [x] **Step 1: 실패하는 테스트를 추가한다**
 
 import에 `stockedDolls, sellDoll` 추가. 파일 끝에:
 
@@ -617,12 +630,12 @@ describe("인형 판매", () => {
 });
 ```
 
-- [ ] **Step 2: 테스트가 실패하는지 확인한다**
+- [x] **Step 2: 테스트가 실패하는지 확인한다**
 
 Run: `npx vitest run --pool=forks src/__tests__/arcade.test.ts`
 Expected: FAIL — `stockedDolls is not a function`
 
-- [ ] **Step 3: 판매 함수를 추가한다**
+- [x] **Step 3: 판매 함수를 추가한다**
 
 `src/systems/arcade.ts` 끝에:
 
@@ -663,7 +676,7 @@ export function sellDoll(state: GameState, dollId: string): number {
 }
 ```
 
-- [ ] **Step 4: 테스트가 통과하는지 확인한다**
+- [x] **Step 4: 테스트가 통과하는지 확인한다**
 
 Run: `npx vitest run --pool=forks src/__tests__/arcade.test.ts`
 Expected: PASS (20 tests)
@@ -671,7 +684,7 @@ Expected: PASS (20 tests)
 Run: `npm run typecheck`
 Expected: 에러 없음
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add src/systems/arcade.ts src/__tests__/arcade.test.ts
@@ -690,7 +703,7 @@ git commit -m "feat(systems): 인형 재고 피망마켓 즉시 판매"
 - Consumes: 없음
 - Produces: `OfflineOutcome.arcadeEncounter: boolean` · `export const ARCADE_ENCOUNTER_CHANCE = 0.25`
 
-- [ ] **Step 1: 실패하는 테스트를 추가한다**
+- [x] **Step 1: 실패하는 테스트를 추가한다**
 
 ```ts
 import { OFFLINE_ACTIVITIES, ARCADE_ENCOUNTER_CHANCE } from "@/systems/offline";
@@ -707,12 +720,12 @@ describe("오락실 조우", () => {
 });
 ```
 
-- [ ] **Step 2: 테스트가 실패하는지 확인한다**
+- [x] **Step 2: 테스트가 실패하는지 확인한다**
 
 Run: `npx vitest run --pool=forks src/__tests__/arcade.test.ts`
 Expected: FAIL — `ARCADE_ENCOUNTER_CHANCE` export 없음
 
-- [ ] **Step 3: offline.ts를 고친다**
+- [x] **Step 3: offline.ts를 고친다**
 
 (1) 상수 — `CREATURE_ENCOUNTER_CHANCE` 선언 근처에 추가:
 
@@ -757,7 +770,7 @@ export const ARCADE_ENCOUNTER_CHANCE = 0.25;
 
 (4) return 블록 — `creatureEncounter,` 아래에 `arcadeEncounter,` 추가.
 
-- [ ] **Step 4: 테스트가 통과하는지 확인한다**
+- [x] **Step 4: 테스트가 통과하는지 확인한다**
 
 Run: `npx vitest run --pool=forks src/__tests__/arcade.test.ts`
 Expected: PASS (22 tests)
@@ -765,7 +778,7 @@ Expected: PASS (22 tests)
 Run: `npm run typecheck`
 Expected: 에러 없음 — `OfflineOutcome`을 만드는 다른 자리가 있으면 여기서 드러난다. 있으면 `arcadeEncounter: false`를 채운다.
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add src/systems/offline.ts src/__tests__/arcade.test.ts
@@ -784,7 +797,7 @@ git commit -m "feat(systems): 외출 중 오락실 조우"
 - Consumes: `DOLLS` (Task 1), `state.dolls`/`state.dollStock` (Task 2)
 - Produces: `export function renderDollDexModal(ctx: GameContext): HTMLElement`
 
-- [ ] **Step 1: 도감 화면을 만든다**
+- [x] **Step 1: 도감 화면을 만든다**
 
 `src/ui/dollDexModal.ts` 새 파일 — 크리처 도감(`ui/creaturesModal.ts`)과 **같은 그릇**을 쓴다. 새 CSS 클래스를 만들지 않는다:
 
@@ -853,7 +866,7 @@ export function renderDollDexModal(ctx: GameContext): HTMLElement {
 }
 ```
 
-- [ ] **Step 2: 스테이터스 팝업에 진입 버튼을 단다**
+- [x] **Step 2: 스테이터스 팝업에 진입 버튼을 단다**
 
 `src/ui/statusPopup.ts`에서 크리처 도감 버튼을 찾는다:
 
@@ -871,12 +884,12 @@ import { renderDollDexModal } from "./dollDexModal";
 el("button", { class: /* 크리처 버튼과 동일 */, onclick: () => ctx.openModal(renderDollDexModal) }, "🧸 인형 도감"),
 ```
 
-- [ ] **Step 3: 타입 체크**
+- [x] **Step 3: 타입 체크**
 
 Run: `npm run typecheck`
 Expected: 에러 없음
 
-- [ ] **Step 4: 커밋**
+- [x] **Step 4: 커밋**
 
 ```bash
 git add src/ui/dollDexModal.ts src/ui/statusPopup.ts
@@ -895,7 +908,7 @@ git commit -m "feat(ui): 인형 도감 화면"
 - Consumes: `playClaw`, `CLAW_COST`, `ClawResult` (Task 3) · `ARCADE_INTRO` (Task 1) · `renderDollDexModal` (Task 6)
 - Produces: `export function renderArcadeModal(ctx: GameContext): HTMLElement`
 
-- [ ] **Step 1: 미니게임 모달을 만든다**
+- [x] **Step 1: 미니게임 모달을 만든다**
 
 `src/ui/arcadeModal.ts` 새 파일:
 
@@ -1063,7 +1076,7 @@ export function renderArcadeModal(ctx: GameContext): HTMLElement {
 - `formatNumber`가 `@/utils/dom`에서 나오는지: `grep -n "formatNumber" src/ui/peemang.ts | head -2`
 - 버튼 클래스 `btn btn--primary`가 이 코드베이스의 관례인지: `grep -n "btn--primary" src/ui/offlineModal.ts | head -3`. 다르면 주변 관례를 따른다.
 
-- [ ] **Step 2: CSS를 추가한다**
+- [x] **Step 2: CSS를 추가한다**
 
 먼저 유사 클래스를 찾는다: `grep -n "bar__fill\|\.bar {" src/styles/main.css | head -5`
 
@@ -1117,12 +1130,12 @@ export function renderArcadeModal(ctx: GameContext): HTMLElement {
 }
 ```
 
-- [ ] **Step 3: 타입 체크**
+- [x] **Step 3: 타입 체크**
 
 Run: `npm run typecheck`
 Expected: 에러 없음
 
-- [ ] **Step 4: 커밋**
+- [x] **Step 4: 커밋**
 
 ```bash
 git add src/ui/arcadeModal.ts src/styles/main.css
@@ -1140,7 +1153,7 @@ git commit -m "feat(ui): 인형뽑기 타이밍 미니게임 모달"
 - Consumes: `outcome.arcadeEncounter` (Task 5) · `renderArcadeModal` (Task 7)
 - Produces: 없음
 
-- [ ] **Step 1: 분기를 추가한다**
+- [x] **Step 1: 분기를 추가한다**
 
 `src/ui/offlineModal.ts` 상단 import에 추가:
 
@@ -1162,7 +1175,7 @@ import { renderArcadeModal } from "./arcadeModal";
 ⚠️ `showStatusNotice`의 두 번째 인자가 콜백인지 확인하라:
 `grep -n "showStatusNotice" -A 6 src/ui/offlineModal.ts | head -20`
 
-- [ ] **Step 2: 타입 체크와 전체 테스트**
+- [x] **Step 2: 타입 체크와 전체 테스트**
 
 Run: `npm run typecheck`
 Expected: 에러 없음
@@ -1170,7 +1183,7 @@ Expected: 에러 없음
 Run: `npx vitest run --pool=forks`
 Expected: 전부 통과(기존 테스트 포함)
 
-- [ ] **Step 3: 커밋**
+- [x] **Step 3: 커밋**
 
 ```bash
 git add src/ui/offlineModal.ts
@@ -1188,7 +1201,7 @@ git commit -m "feat(ui): 외출 결과에서 오락실 진입"
 - Consumes: `stockedDolls`, `sellDoll` (Task 4)
 - Produces: 없음
 
-- [ ] **Step 1: 판매 pane에 인형 구역을 붙인다**
+- [x] **Step 1: 판매 pane에 인형 구역을 붙인다**
 
 `src/ui/peemang.ts` import에 추가:
 
@@ -1263,12 +1276,12 @@ function dollSellSection(ctx: GameContext): HTMLElement | null {
 ⚠️ `el()`이 `null` 자식을 허용하는지 확인하라(`inventoryList`가 이미 `: null`을 쓰고 있으니 허용된다).
 ⚠️ `ctx.update` 후 화면이 다시 그려지는지 확인하라 — 안 그려지면 주변 코드가 쓰는 갱신 방식(`ctx.refresh()` 등)을 따른다: `grep -n "ctx.update\|ctx.refresh" src/ui/peemang.ts`
 
-- [ ] **Step 2: 타입 체크**
+- [x] **Step 2: 타입 체크**
 
 Run: `npm run typecheck`
 Expected: 에러 없음
 
-- [ ] **Step 3: 커밋**
+- [x] **Step 3: 커밋**
 
 ```bash
 git add src/ui/peemang.ts
@@ -1282,12 +1295,12 @@ git commit -m "feat(ui): 피망마켓에서 인형 재고 판매"
 **Files:**
 - 없음(검증만)
 
-- [ ] **Step 1: 전체 테스트**
+- [x] **Step 1: 전체 테스트**
 
 Run: `npx vitest run --pool=forks`
 Expected: 전부 통과
 
-- [ ] **Step 2: 타입 체크와 빌드**
+- [x] **Step 2: 타입 체크와 빌드**
 
 Run: `npm run typecheck`
 Expected: 에러 없음
@@ -1295,7 +1308,7 @@ Expected: 에러 없음
 Run: `npm run build`
 Expected: 빌드 성공
 
-- [ ] **Step 3: 경계면 교차 확인**
+- [x] **Step 3: 경계면 교차 확인**
 
 아래를 눈으로 확인한다:
 - `OfflineOutcome`을 만드는 **모든** 자리가 `arcadeEncounter`를 채우는가:
@@ -1303,7 +1316,7 @@ Expected: 빌드 성공
 - CSS 존 폭이 systems 상수와 맞는가: `COMMON_BAND=0.18`→`width:36%`, `RARE_BAND=0.06`→`width:12%`
 - `DOLLS`의 id가 전부 `doll_` 프리픽스이고 12종인가(Task 1 테스트가 이미 지킨다)
 
-- [ ] **Step 4: 브라우저 실행 확인**
+- [x] **Step 4: 브라우저 실행 확인**
 
 game-run 스킬로 게임을 띄운다. 확인할 것:
 1. 현생 → 외출을 여러 번 눌러 오락실 조우가 뜨는가(확률 0.25라 몇 번 걸릴 수 있다)
@@ -1316,7 +1329,7 @@ game-run 스킬로 게임을 띄운다. 확인할 것:
 
 스크린샷은 **인형뽑기 모달과 도감 2장만** 찍는다(이미지는 비싸다).
 
-- [ ] **Step 5: 계획서 체크박스를 전부 갱신하고 커밋**
+- [x] **Step 5: 계획서 체크박스를 전부 갱신하고 커밋**
 
 ```bash
 git add docs/superpowers/plans/2026-07-29-arcade-claw.md
