@@ -94,6 +94,8 @@ export function renderLivestreamModal(ctx: GameContext, type: StreamType): HTMLE
   let paused = false;
   let timer = 0;
   let ended = false;
+  /** 모달이 한 번이라도 문서에 붙었는지(누수 방어 판정의 전제) */
+  let mounted = false;
 
   const viewerLabel = el("span", { class: "live-viewers__count" }, formatNumber(viewers));
   const chatBox = el("div", { class: "live-chat" });
@@ -143,6 +145,16 @@ export function renderLivestreamModal(ctx: GameContext, type: StreamType): HTMLE
   };
 
   function tick(): void {
+    // ⚠️ 자기 방어: app.ts는 ui.modal이 교체될 때 옛 노드를 **teardown 훅 없이** 버린다.
+    //    강제 팝업(질병·새 날 아침 등)이 방송 위로 끼어들면 leave()를 못 거치므로,
+    //    노드가 문서에서 떨어졌으면 스스로 타이머를 끊는다(누수 방지 최후 방어선).
+    //    ⚠️ 단, 한 번이라도 붙은 뒤에만 판정한다 — 첫 tick이 마운트보다 빠르면
+    //       아직 안 붙은 상태라 즉시 자살해 방송이 시작도 못 한다.
+    if (mounted && !root.isConnected) {
+      stopChat();
+      return;
+    }
+    if (root.isConnected) mounted = true;
     if (paused || ended) return;
     const line = rollChatLine(type.id);
     pushChat(line.nick, line.text);
@@ -282,12 +294,7 @@ export function renderLivestreamModal(ctx: GameContext, type: StreamType): HTMLE
     );
   }
 
-  // 방송 시작
-  showIdlePanel();
-  pushChat("📢 시스템", `${type.label}을(를) 시작했습니다.`, "system");
-  restartChat();
-
-  return el(
+  const root = el(
     "div",
     { class: "modal modal--live" },
     el(
@@ -319,6 +326,13 @@ export function renderLivestreamModal(ctx: GameContext, type: StreamType): HTMLE
       ),
     ),
   );
+
+  // 방송 시작 — root가 만들어진 뒤에 건다(tick이 root.isConnected를 본다).
+  showIdlePanel();
+  pushChat("📢 시스템", `${type.label}을(를) 시작했습니다.`, "system");
+  restartChat();
+
+  return root;
 }
 
 function resultRow(label: string, value: string): HTMLElement {
