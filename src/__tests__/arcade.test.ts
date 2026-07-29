@@ -4,11 +4,9 @@ import { createInitialState } from "@/core/state";
 import { loadGame } from "@/systems/save";
 import { OFFLINE_ACTIVITIES, ARCADE_ENCOUNTER_CHANCE } from "@/systems/offline";
 import {
-  laneAt,
-  playClaw,
+  payClaw,
+  collectDoll,
   CLAW_COST,
-  RARE_BAND,
-  COMMON_BAND,
   DOLL_TOTAL,
   DOLL_FIRST_MENTAL,
   stockedDolls,
@@ -111,110 +109,66 @@ describe("인형 상태 필드", () => {
   });
 });
 
-describe("레인 판정", () => {
-  it("중앙은 레어, 그 바깥은 일반, 끝은 꽝이다", () => {
-    expect(laneAt(0.5)).toBe("rare");
-    expect(laneAt(0.5 + RARE_BAND - 0.01)).toBe("rare");
-    expect(laneAt(0.5 + RARE_BAND + 0.01)).toBe("common");
-    expect(laneAt(0.5 + COMMON_BAND - 0.01)).toBe("common");
-    expect(laneAt(0.5 + COMMON_BAND + 0.01)).toBe("miss");
-    expect(laneAt(0)).toBe("miss");
-    expect(laneAt(1)).toBe("miss");
-  });
-
-  it("중앙 기준 좌우가 대칭이다", () => {
-    for (const d of [0.03, 0.1, 0.25]) {
-      expect(laneAt(0.5 - d)).toBe(laneAt(0.5 + d));
-    }
-  });
-});
-
-describe("뽑기 판정", () => {
-  it("판마다 1,000원을 소모한다", () => {
+/* ⚠️ 성공·실패 판정(레인·슬립 확률)은 물리 미니게임(ui/arcadeScene.ts)으로 옮겨갔다.
+   systems는 이제 '동전 넣기'와 '경품 등록'만 한다 — 여기서 확률을 검사하지 마라. */
+describe("동전 넣기", () => {
+  it("집게를 내릴 때마다 1,000원이 나간다", () => {
     const s = createInitialState();
     const before = s.money;
-    playClaw(s, 0);
+    expect(payClaw(s)).toBe(true);
     expect(s.money).toBe(before - CLAW_COST);
   });
 
-  it("꽝이면 인형이 없다", () => {
+  it("동전이 모자라면 아무 일도 없다", () => {
     const s = createInitialState();
-    const r = playClaw(s, 0);
-    expect(r.outcome).toBe("miss");
-    expect(r.doll).toBeNull();
-    expect(s.dolls).toEqual([]);
+    s.money = CLAW_COST - 1;
+    expect(payClaw(s)).toBe(false);
+    expect(s.money).toBe(CLAW_COST - 1);
   });
+});
 
-  it("힐이 미끄러지면 당첨 위치여도 인형을 못 얻는다", () => {
-    const s = createInitialState();
-    const orig = Math.random;
-    Math.random = () => 0;
-    try {
-      const r = playClaw(s, 0.5);
-      expect(r.outcome).toBe("slip");
-      expect(r.doll).toBeNull();
-      expect(s.dolls).toEqual([]);
-    } finally {
-      Math.random = orig;
-    }
-  });
-
-  it("성공하면 도감에 등록되고 정신력이 오른다", () => {
+describe("경품 등록", () => {
+  it("물리가 떨어뜨린 그 인형이 도감에 들어가고 정신력이 오른다", () => {
     const s = createInitialState();
     s.resources.mental = 50;
-    const orig = Math.random;
-    Math.random = () => 0.99;
-    try {
-      const r = playClaw(s, 0.5);
-      expect(r.outcome).toBe("win");
-      expect(r.doll).not.toBeNull();
-      expect(r.duplicate).toBe(false);
-      expect(s.dolls).toHaveLength(1);
-      expect(s.resources.mental).toBe(50 + DOLL_FIRST_MENTAL);
-    } finally {
-      Math.random = orig;
-    }
+    const target = DOLLS.find((d) => d.rarity === "rare")!;
+    const r = collectDoll(s, target.id)!;
+    // ⚠️ 등급 안에서 다시 뽑지 않는다 — 유리장에서 잡은 그 인형이 그대로 와야 한다.
+    expect(r.doll.id).toBe(target.id);
+    expect(r.duplicate).toBe(false);
+    expect(s.dolls).toEqual([target.id]);
+    expect(s.resources.mental).toBe(50 + DOLL_FIRST_MENTAL);
+  });
+
+  it("없는 id면 null이고 상태를 안 건드린다", () => {
+    const s = createInitialState();
+    expect(collectDoll(s, "doll_nope")).toBeNull();
+    expect(s.dolls).toEqual([]);
   });
 
   it("중복 인형은 도감이 아니라 재고로 간다", () => {
     const s = createInitialState();
-    const orig = Math.random;
-    Math.random = () => 0.99;
-    try {
-      const first = playClaw(s, 0.5);
-      const id = first.doll!.id;
-      for (const d of DOLLS.filter((x) => x.rarity === "rare" && x.id !== id)) {
-        s.dolls.push(d.id);
-      }
-      const again = playClaw(s, 0.5);
-      expect(again.outcome).toBe("win");
-      expect(again.duplicate).toBe(true);
-      expect(s.dolls.filter((x) => x === again.doll!.id)).toHaveLength(1);
-      expect(s.dollStock[again.doll!.id]).toBe(1);
-    } finally {
-      Math.random = orig;
-    }
+    const target = DOLLS[0];
+    collectDoll(s, target.id);
+    const again = collectDoll(s, target.id)!;
+    expect(again.duplicate).toBe(true);
+    expect(s.dolls.filter((x) => x === target.id)).toHaveLength(1);
+    expect(s.dollStock[target.id]).toBe(1);
   });
 
   it("전종을 채우면 완성 보너스가 1회만 붙는다", () => {
     const s = createInitialState();
-    const lastRare = DOLLS.find((d) => d.rarity === "rare")!;
-    s.dolls = DOLLS.filter((d) => d.id !== lastRare.id).map((d) => d.id);
+    const last = DOLLS[DOLLS.length - 1];
+    s.dolls = DOLLS.filter((d) => d.id !== last.id).map((d) => d.id);
     expect(s.dolls).toHaveLength(DOLL_TOTAL - 1);
 
-    const orig = Math.random;
-    Math.random = () => 0.99;
-    try {
-      const r = playClaw(s, 0.5);
-      expect(r.completed).toBe(true);
-      expect(r.doll!.id).toBe(lastRare.id);
-      expect(s.dolls).toHaveLength(DOLL_TOTAL);
-      const again = playClaw(s, 0.5);
-      expect(again.completed).toBe(false);
-      expect(again.duplicate).toBe(true);
-    } finally {
-      Math.random = orig;
-    }
+    const r = collectDoll(s, last.id)!;
+    expect(r.completed).toBe(true);
+    expect(s.dolls).toHaveLength(DOLL_TOTAL);
+
+    const again = collectDoll(s, last.id)!;
+    expect(again.completed).toBe(false);
+    expect(again.duplicate).toBe(true);
   });
 });
 
