@@ -19,6 +19,7 @@ import { renderOfflineModal } from "./offlineModal";
 import { renderInventoryModal } from "./inventory";
 import { renderAchievementsModal } from "./achievementsModal";
 import { renderCreaturesModal } from "./creaturesModal";
+import { renderDollDexModal } from "./dollDexModal";
 import { renderMissionsModal } from "./missionsModal";
 import { renderAvWorkModal } from "./avWorkModal";
 
@@ -488,7 +489,20 @@ export function renderStatusDock(ctx: GameContext): HTMLElement {
             onclick: () => ctx.openModal(renderCreaturesModal),
           },
           icon("book", { size: 18 }),
-          "도감",
+          "크리처 도감",
+        ),
+      ),
+      el(
+        "div",
+        { class: "life-btn-row" },
+        el(
+          "button",
+          {
+            class: "life-btn life-btn--sub",
+            onclick: () => ctx.openModal(renderDollDexModal),
+          },
+          icon("book", { size: 18 }),
+          "인형 도감",
         ),
       ),
       el(
