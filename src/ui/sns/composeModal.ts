@@ -723,11 +723,13 @@ export function renderComposeModal(
             let delta = 0;
             let unlockedMeeting = false;
             let statChanges: { label: string; delta: number }[] = [];
+            let streak = 1;
             ctx.update((st) => {
               const res = postTweet(st, finalAttr, finalText, finalAdult, adultKind, mult, opts);
               delta = res.followerDelta;
               unlockedMeeting = res.unlockedMeeting;
               statChanges = res.statChanges;
+              streak = res.streak;
               if (res.ddeoksang) {
                 ddPayload = {
                   likes: res.tweet.likes,
@@ -749,7 +751,8 @@ export function renderComposeModal(
             ctx.toast(
               (delta >= 0 ? `트윗 등록! +${delta} 팔로워` : `트윗 등록... ${delta} 팔로워`) +
                 (statText ? ` · ${statText}` : "") +
-                (rode ? " · 🔥 트렌드 편승!" : ""),
+                (rode ? " · 🔥 트렌드 편승!" : "") +
+                (streak >= 2 ? ` · ⚡${streak}연타!` : ""),
             );
             if (unlockedMeeting) ctx.toast("🔓 성인 콘텐츠가 풀렸다 — 새로운 만남의 문이 열렸다.");
           }

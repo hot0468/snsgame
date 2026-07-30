@@ -266,6 +266,12 @@ export interface DMThread {
   /** 안 읽은 새 메시지가 있는지 */
   unread: boolean;
   /**
+   * 지금까지 읽은 메시지 수 — 스레드를 열 때 `messages.length`로 갱신된다.
+   * 대화를 열면 UI가 이 지점(= 안 읽은 첫 메시지)이 화면 맨 위에 오도록 스크롤한다.
+   * 구세이브엔 없다(그땐 '마지막 상대 말 뭉치의 첫 줄'로 어림한다).
+   */
+  readCount?: number;
+  /**
    * 상대가 마지막으로 던진 화제 id(`DM_TOPICS`). 내 답장 선택지는 **이 화제에 대한 대답**에서만
    * 나온다 — 없으면 직전 상대 말과 내 말이 어긋난다(자세한 이유는 dmContent.ts의 DMTopic 주석).
    * 구세이브·화제를 아직 안 던진 스레드는 undefined이고, 그땐 맥락별 범용 풀로 떨어진다.
@@ -963,6 +969,12 @@ export interface GameState {
 
   /** 오늘 심야 트윗을 썼는지(다음날 수면 회복이 줄어듦) */
   lateTweetToday: boolean;
+
+  /**
+   * 연속 트윗 콤보 — 같은 갈래를 연달아 올린 횟수(다른 갈래를 올리면 1로 리셋).
+   * 직전 트윗만 보므로 날짜·계정 전환과 무관하다. null=아직 한 건도 안 올림.
+   */
+  tweetStreak: { attr: AttributeId; count: number } | null;
 
   /** 마지막으로 부장님 아재개그로 개그(comedy)를 얻은 날(일차). -1이면 없음. 하루 1회 캡. */
   bossJokeDay: number;

@@ -382,7 +382,8 @@ function tweetAction(
 
 /** 멘션 본문을 렌더한다. 개별 트윗(상세) 화면에서 forceMentions로만 표시된다. */
 function renderReactions(tweet: Tweet, ctx?: GameContext, show?: boolean): HTMLElement | null {
-  if (!ctx || !show) return null;
+  // ctx가 없으면 좋아요 버튼 없이 읽기 전용으로 그린다(남의 트윗 상세 — likeReply가 내 타임라인만 본다).
+  if (!show) return null;
   const replies = tweet.replies ?? [];
   if (!replies.length) return null;
   return el(

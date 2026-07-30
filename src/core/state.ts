@@ -292,6 +292,7 @@ export function createInitialState(): GameState {
       done: {},
     },
     lateTweetToday: false,
+    tweetStreak: null,
     bossJokeDay: -1,
     ebsFreeWatchedDay: -1,
     lastWorkTweetDay: -1,

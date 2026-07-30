@@ -8,7 +8,14 @@ import {
 import { chance, randInt, uid } from "@/utils/random";
 import { makeMedia } from "@/data/media";
 import { mediaSetFor } from "@/data/mediaTweets";
-import { DDEOKSANG_MIN, DDEOKSANG_RATE, DDEOKSANG_BONUS_RATE } from "@/data/tweetFun";
+import {
+  DDEOKSANG_MIN,
+  DDEOKSANG_RATE,
+  DDEOKSANG_BONUS_RATE,
+  COMBO_BONUS_RATE,
+  COMBO_MAX_STEP,
+  COMBO_CONTROVERSY_RATE,
+} from "@/data/tweetFun";
 import { imageForTweet } from "./mediaImages";
 import { recordMission } from "./missions";
 import { PC_UPGRADE_ID } from "@/data/shop";
@@ -66,6 +73,8 @@ export interface PostTweetResult {
   ddeoksangGain: number;
   /** 이번 트윗으로 변한 스탯들(덕질·지식·평판 등) — ui가 토스트로 알린다. */
   statChanges: { label: string; delta: number }[];
+  /** 이번 트윗 포함 같은 갈래 연타 수(1=콤보 없음) — ui가 2연타부터 표시한다. */
+  streak: number;
 }
 
 /**
@@ -79,6 +88,27 @@ export function isDdeoksang(delta: number, followers: number): boolean {
 /** 떡상 눈덩이 보너스(증가분의 DDEOKSANG_BONUS_RATE, 반올림). */
 export function ddeoksangBonus(delta: number): number {
   return Math.round(delta * DDEOKSANG_BONUS_RATE);
+}
+
+/**
+ * 연속 트윗 콤보를 갱신하고 **이번 트윗 포함** 연타 수를 돌려준다.
+ * 같은 갈래면 +1, 다른 갈래면 1로 리셋. 직전 트윗만 보므로 날이 바뀌어도 이어진다.
+ */
+export function bumpTweetStreak(state: GameState, attr: AttributeId): number {
+  const prev = state.tweetStreak;
+  const count = prev && prev.attr === attr ? prev.count + 1 : 1;
+  state.tweetStreak = { attr, count };
+  return count;
+}
+
+/** 연타 수 → 도달 배수(1연타=1배, COMBO_MAX_STEP에서 상한). */
+export function comboMultiplier(streak: number): number {
+  return 1 + COMBO_BONUS_RATE * (Math.min(streak, COMBO_MAX_STEP) - 1);
+}
+
+/** 연타 수 → 추가 논란 확률(1연타=0, COMBO_MAX_STEP에서 상한). */
+export function comboControversy(streak: number): number {
+  return COMBO_CONTROVERSY_RATE * (Math.min(streak, COMBO_MAX_STEP) - 1);
 }
 
 /** postTweet 부가 옵션 */
@@ -126,6 +156,8 @@ export function postTweet(
   const kind = opts.kind ?? "plain";
   const kindEff = TWEET_KIND_EFFECTS[kind];
   const outcome = calcTweetOutcome(state, attr, kind);
+  // 같은 갈래 연타 콤보 — 도달이 오르는 대신 아래에서 논란 확률도 같이 오른다.
+  const streak = bumpTweetStreak(state, attr);
   // 성인 트윗은 신규 팔로워 1.5배, 박학다식 달성 시 정보성 트윗 성과 상승,
   // 창작(1차/2차)·이달의 인기작 적중 시 followerMultiplier로 추가 가중.
   const followers = applyTchinReach(
@@ -134,6 +166,7 @@ export function postTweet(
       outcome.followers *
         (isAdult ? ADULT_FOLLOWER_MULTIPLIER : 1) *
         smartTweetMultiplier(state, attr) *
+        comboMultiplier(streak) *
         followerMultiplier,
     ),
   );
@@ -242,7 +275,7 @@ export function postTweet(
   }
 
   // 평판이 낮거나 성인 트윗은 논란/박제가 터질 수 있다. 자극 성격은 논란 확률이 추가된다.
-  let ctrlChance = kindEff.controversyBonus;
+  let ctrlChance = kindEff.controversyBonus + comboControversy(streak);
   if (state.resources.reputation < CONTROVERSY_REP_THRESHOLD) ctrlChance += 0.18;
   if (isAdult && state.resources.morality < 30) ctrlChance += 0.15;
   rollControversy(state, ctrlChance);
@@ -262,7 +295,15 @@ export function postTweet(
   checkAchievements(state);
   // 트윗으로 오른 스킬(덕질·지식 등)의 스탯 마일스톤 즉시 판정.
   checkStatMilestones(state);
-  return { tweet, followerDelta: followers, unlockedMeeting, ddeoksang, ddeoksangGain, statChanges };
+  return {
+    tweet,
+    followerDelta: followers,
+    unlockedMeeting,
+    ddeoksang,
+    ddeoksangGain,
+    statChanges,
+    streak,
+  };
 }
 
 /** 트윗 작성이 가능한지(행동력 체크) */

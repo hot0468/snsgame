@@ -3,6 +3,7 @@ import { FEED_PAGE } from "@/ui/context";
 import type { Account, AttributeId, DMThread, GameState, Tweet } from "@/core/types";
 import { getActiveAccount, visibleTimeline } from "@/core/state";
 import { ALL_ATTRIBUTE_IDS, ATTRIBUTES } from "@/data/attributes";
+import { FIXED_AUTHOR_HANDLES } from "@/data/accounts";
 import type { DMTone } from "@/data/dmContent";
 import { DICK_SIZE_LABELS } from "@/data/dmContent";
 import {
@@ -256,7 +257,8 @@ function doReact(ctx: GameContext, tweet: Tweet, positive: boolean): void {
   });
   if (positive) {
     ctx.toast(delta > 0 ? `응원했다! 팔로워 +${delta}` : "응원했지만 반응은 미지근하다.");
-    ctx.afterAction("like");
+    // 고정 계정(전용 문구 캐릭터·소문 계정)은 맞팔 DM 이벤트 대상이 아니다 — 자기 세계관대로만 움직인다.
+    if (!FIXED_AUTHOR_HANDLES.includes(tweet.authorHandle)) ctx.afterAction("like");
   } else {
     ctx.toast(`악플을 남겼다... 팔로워 ${delta >= 0 ? "+" : ""}${delta} · 도덕성 하락`, "bad");
   }
@@ -459,6 +461,8 @@ export function reactableCard(ctx: GameContext, tweet: Tweet): HTMLElement {
     readerVocab: state.skills.knowledge,
     // 남의 트윗 프로필 사진 클릭 → 그 계정 프로필 페이지(팔로우 가능)를 트윗 영역에 연다(둘러보기처럼).
     onAuthorClick: () => openTweetAuthor(ctx, tweet),
+    // 같은 갈래 계정이 답글을 단 트윗만 눌러서 펼친다(멘션 없는 트윗은 상세가 빈 화면이라 안 연다).
+    onOpen: tweet.replies?.length ? () => enterTweetDetail(ctx, tweet.id) : undefined,
   });
 
   // 링크 트윗이면 본문 아래(액션 바 위)에 링크 카드를 끼운다.
@@ -863,10 +867,28 @@ export function enterTweetDetail(ctx: GameContext, id: string): void {
   ctx.refresh();
 }
 
-/** 선택한 내 트윗을 단독으로 크게 보여주고, 걸린 멘션을 모두 표시한다. */
+/**
+ * 선택한 트윗을 단독으로 크게 보여주고, 걸린 멘션을 모두 표시한다.
+ * 내 트윗뿐 아니라 **남의 트윗**(같은 갈래 계정끼리 답글이 달린 고정 계정 트윗)도 연다 —
+ * 피드 트윗은 상태가 아니라 ui 캐시(homeFeed·explorePosts)에 살아서 거기서 찾는다.
+ */
 export function tweetDetailPage(ctx: GameContext): HTMLElement {
-  const account = getActiveAccount(ctx.store.getState());
-  const tweet = account.timeline.find((t) => t.id === ctx.ui.tweetDetailId);
+  const state = ctx.store.getState();
+  const id = ctx.ui.tweetDetailId;
+  const mine = getActiveAccount(state).timeline.find((t) => t.id === id);
+  // 남의 트윗을 띄우는 화면 전부에서 찾는다(한 곳이라도 빠지면 그 화면에서만 "찾을 수 없어요"가 뜬다).
+  const tweet =
+    mine ??
+    [
+      ctx.ui.homeFeed,
+      ctx.ui.followingFeed,
+      ctx.ui.explorePosts,
+      ctx.ui.searchPosts,
+      ctx.ui.searchWordPosts,
+      ctx.ui.viewProfile?.timeline ?? [],
+    ]
+      .flat()
+      .find((t) => t.id === id);
   return el(
     "section",
     { class: "sns__feed" },
@@ -876,8 +898,10 @@ export function tweetDetailPage(ctx: GameContext): HTMLElement {
           "div",
           { class: "tweet-detail" },
           tweetCard(tweet, {
-            showGain: true,
-            ctx,
+            showGain: !!mine,
+            // 남의 트윗 멘션은 읽기 전용(ctx 생략) — likeReply가 내 타임라인만 뒤져 좋아요가 안 먹는다.
+            ctx: mine ? ctx : undefined,
+            readerVocab: mine ? undefined : state.skills.knowledge,
             onMedia: openMedia(ctx),
             forceMentions: true,
             onAuthorClick: () => openTweetAuthor(ctx, tweet),
@@ -901,7 +925,35 @@ const TONE_LABELS: Record<DMTone, string> = {
 
 function markRead(state: GameState, threadId: string): void {
   const t = getActiveAccount(state).dms.find((x) => x.id === threadId);
-  if (t) t.unread = false;
+  if (!t) return;
+  t.unread = false;
+  t.readCount = t.messages.length; // 다음에 새 말이 오면 여기가 '안 읽은 첫 줄'이 된다
+}
+
+/**
+ * 안 읽은 첫 메시지의 인덱스. 대화를 열 때 이 말풍선이 화면 맨 위에 오도록 스크롤한다.
+ * readCount가 없는 구세이브는 **마지막 상대 말 뭉치의 첫 줄**로 어림한다
+ * (0으로 두면 오래된 스레드가 맨 처음부터 펼쳐져 방금 온 말이 화면 밖으로 밀린다).
+ */
+export function firstUnreadIndex(thread: DMThread): number {
+  const last = thread.messages.length - 1;
+  if (last < 0) return 0;
+  if (thread.readCount != null) return Math.min(thread.readCount, last);
+  let i = last;
+  while (i > 0 && thread.messages[i - 1].from === "partner") i--;
+  return i;
+}
+
+/**
+ * 안 읽은 첫 줄 앵커가 아직 유효한가. 스레드를 바꾸거나 말이 늘면(답장·새 쪽지) 버린다 —
+ * 그 뒤 재렌더는 평소대로 대화 맨 아래로 붙는다.
+ */
+export function anchorFits(
+  anchor: { threadId: string; len: number } | null,
+  thread: DMThread | null,
+): boolean {
+  if (!anchor) return false;
+  return !!thread && anchor.threadId === thread.id && anchor.len === thread.messages.length;
 }
 
 function dmThreadList(ctx: GameContext, threads: DMThread[], selected: DMThread | null): HTMLElement {
@@ -1533,12 +1585,16 @@ function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement 
     return el("div", { class: "dm__convo" }, el("div", { class: "empty" }, "대화를 선택하세요."));
   }
 
-  const bubbles = thread.messages.map((m) => {
+  // 방금 연 스레드면 안 읽은 첫 말풍선에 표식을 단다(app.ts가 이걸 찾아 맨 위로 스크롤한다).
+  const anchor = ctx.ui.dmUnreadAnchor;
+  const anchorAt = anchor && anchor.threadId === thread.id ? anchor.index : -1;
+  const bubbles = thread.messages.map((m, i) => {
+    const mark = i === anchorAt ? " dm__bubble--unread-start" : "";
     // 성기 사진: 모자이크 타일 + 크기 라벨(노골적 이미지 없이 자리만)
     if (m.photoSize) {
       return el(
         "div",
-        { class: "dm__bubble dm__bubble--them dm__bubble--photo" },
+        { class: "dm__bubble dm__bubble--them dm__bubble--photo" + mark },
         el(
           "div",
           { class: "dm-photo", title: "성기 사진" },
@@ -1549,7 +1605,7 @@ function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement 
     }
     return el(
       "div",
-      { class: "dm__bubble dm__bubble--" + (m.from === "me" ? "me" : "them") },
+      { class: "dm__bubble dm__bubble--" + (m.from === "me" ? "me" : "them") + mark },
       m.text,
     );
   });
@@ -1732,7 +1788,17 @@ export function dmPage(ctx: GameContext): HTMLElement {
   // 화면에 열려 있는 스레드는 곧 '읽는 중' → 읽음 처리(뱃지 즉시 감소).
   // 목록 클릭 외 진입 경로(페이지 진입 자동 선택·만남 모달 점프)도 여기서 함께 처리된다.
   // 조건부 dispatch라 루프가 없다: 읽음이면 update를 호출하지 않는다(renderDartpin과 같은 패턴).
-  if (selected?.unread) ctx.update((s) => markRead(s, selected.id));
+  // 읽음 처리 전에 '안 읽은 첫 줄'을 기억해둔다 — markRead가 readCount를 덮어쓰면 못 찾는다.
+  if (selected?.unread) {
+    ctx.ui.dmUnreadAnchor = {
+      threadId: selected.id,
+      index: firstUnreadIndex(selected),
+      len: selected.messages.length,
+    };
+    ctx.update((s) => markRead(s, selected.id));
+  } else if (!anchorFits(ctx.ui.dmUnreadAnchor, selected)) {
+    ctx.ui.dmUnreadAnchor = null;
+  }
   return el(
     "section",
     { class: "sns__feed sns__feed--dm" },

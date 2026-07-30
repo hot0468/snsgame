@@ -70,6 +70,13 @@ export interface UIState {
   tweetDetailId: string | null;
   /** 쪽지 페이지: 선택된 대화 스레드 id */
   dmThreadId: string | null;
+  /**
+   * 방금 연 스레드의 '안 읽은 첫 메시지' 위치 — app.ts가 그 말풍선을 화면 맨 위로 스크롤한다.
+   * `len`(앵커를 잡을 때의 메시지 수)이 달라지거나 스레드를 바꾸면 dmPage가 버린다
+   * (그 뒤로는 평소대로 맨 아래로 붙는다). 렌더 1회로 못 끊는다 —
+   * 읽음 처리 dispatch가 microtask 뒤 재렌더를 한 번 더 부른다.
+   */
+  dmUnreadAnchor: { threadId: string; index: number; len: number } | null;
   /** 이미 좋아요/악플 반응을 남긴 남의 트윗 id 집합(재반응 차단용) */
   reactedTweetIds: Set<string>;
   /** 좋아요(긍정)를 누른 남의 트윗 id 집합 — 하트 채움 표시용(악플과 구분). */
@@ -168,6 +175,7 @@ export function createUIState(): UIState {
     searchWordPosts: [],
     tweetDetailId: null,
     dmThreadId: null,
+    dmUnreadAnchor: null,
     reactedTweetIds: new Set(),
     likedTweetIds: new Set(),
     homeTab: "recommend",

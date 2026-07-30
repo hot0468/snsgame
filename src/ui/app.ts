@@ -420,8 +420,20 @@ export function createApp(root: HTMLElement, store: Store): void {
     // DM 대화창은 위 '위치 보존'이 아니라 **항상 맨 아래(최신 말풍선)**로 맞춘다.
     // 재렌더가 스크롤을 0으로 되돌려서 답장 선택지를 누를 때마다 대화 맨 위로 튀었고,
     // 위치를 그대로 복원해도 방금 오간 말풍선이 화면 밖에 남는다(실제 채팅앱과 같은 규칙).
+    // 단, 스레드를 **막 열어** 안 읽은 말이 있었다면 그 첫 말풍선을 화면 맨 위에 놓는다
+    // (긴 스레드에서 맨 아래로 붙이면 어디서부터가 새 말인지 알 수 없다).
+    // 앵커를 버리는 건 dmPage 몫이다(답장·스레드 전환). 여기서 지우면 읽음 처리 dispatch가
+    // 부르는 다음 렌더가 앵커 없이 돌아 방금 맞춘 위치가 맨 아래로 튄다.
     const dmBox = root.querySelector<HTMLElement>(".dm__messages");
-    if (dmBox) dmBox.scrollTop = dmBox.scrollHeight;
+    if (dmBox) {
+      const unreadStart = dmBox.querySelector<HTMLElement>(".dm__bubble--unread-start");
+      if (unreadStart) {
+        void dmBox.scrollHeight; // 새 노드라 레이아웃이 없다 — 리플로를 강제해야 offsetTop이 맞는다
+        dmBox.scrollTop = unreadStart.offsetTop - dmBox.offsetTop;
+      } else {
+        dmBox.scrollTop = dmBox.scrollHeight;
+      }
+    }
   }
 
   // 상태 변경 시 재렌더
