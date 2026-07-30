@@ -1,58 +1,64 @@
 import Phaser from "phaser";
 
 /**
- * 오락실 농구 슛 **물리 미니게임**(Phaser 3 + Matter).
+ * 오락실 농구 슛 **물리 미니게임** — 정면 뷰(Phaser 3, 2.5D).
  *
- * ⚠️ **득점은 물리가 정한다.** 확률 추첨이 아니다 — 공이 실제로 림 두 기둥 사이를
- *    위에서 아래로 통과했을 때만 1점이다(ui/arcadeScene.ts 인형뽑기와 같은 원칙).
- *    난이도를 만지려면 아래 `TUNING` 하나만 보면 된다.
+ * ⚠️ **득점은 물리가 정한다.** 확률 추첨이 아니다 — 공이 실제로 림 높이를 **내려오면서**
+ *    링 안쪽(반지름 RIM_R)을 통과했을 때만 1점이다(ui/arcadeScene.ts 인형뽑기와 같은 원칙).
+ *
+ * ⚠️ **Matter를 쓰지 않는다.** 정면 뷰는 공이 화면 안쪽(깊이 z)으로 날아가는데 Matter는 2D라
+ *    그 축이 없다. 그래서 (x 좌우 · y 높이 · z 깊이) 3축을 직접 적분하고, 화면에는 원근 투영으로
+ *    그린다. 포물선 하나에 물리 엔진을 얹는 것보다 이쪽이 짧고 통제하기 쉽다.
+ *    → 좌표는 **월드 단위**(px 아님)다. 화면 좌표는 project()만 만든다.
  *
  * ⚠️ 이 파일은 **동적 import 전용**이다(ui/hoopModal.ts가 농구기를 열 때만 불러온다).
  *    정적으로 import하면 Phaser 1.1MB가 첫 화면 번들에 들어간다.
  *
  * ⚠️ 씬은 자기 상태만 만지고, 게임 상태(소지금·최고기록)는 **콜백으로 바깥에 알린다**.
- *    여기서 store를 직접 건드리면 data→systems→ui 단방향이 깨진다.
  */
 
-/** 물리 세계 좌표계(캔버스 픽셀) */
+/** 캔버스 크기(px) */
 const W = 520;
 const H = 340;
 
-/** 공 반지름(px) */
-const BALL_R = 17;
-/** 공이 출발하는 자리 — 화면 아래 왼쪽(오른쪽 위 림을 향해 쏜다) */
-const START_X = 120;
-const START_Y = H - 52;
+/* ── 원근 투영 ──────────────────────────────────────────────
+   카메라는 슛 지점 뒤 FOCAL만큼, 바닥에서 CAM_H만큼 위에 있다.
+   월드 (x, y, z) → 화면: 멀수록(z가 클수록) 작고 지평선에 가까워진다. */
+const FOCAL = 300;
+const CAM_H = 130;
+const HORIZON = 96;
 
-/** 림 중심 x — 오른쪽에 매단다 */
-const RIM_X = 400;
-/** 림 높이(작을수록 높다) */
-const RIM_Y = 132;
-/** 림 안쪽 반폭(px). 공 반지름보다 넉넉해야 들어간다 */
-const RIM_HALF = 30;
-/** 림 기둥(좌우 작은 강체) 반지름 */
-const RIM_POST_R = 5;
+/** 공 반지름(월드) */
+const BALL_R = 15;
+/** 림 안쪽 반지름(월드). 공보다 넉넉해야 들어간다 */
+const RIM_R = 34;
+/** 림 높이(월드, 바닥 0 기준) */
+const RIM_Y = 175;
+/** 림까지의 거리(월드 깊이) */
+const RIM_Z = 430;
 
 /**
  * 난이도 손잡이. **이 게임이 쉬운지 어려운지는 전부 여기서 정해진다.**
  */
 const TUNING = {
-  /** 당긴 거리 1px당 붙는 속도. 새총 세기다 */
-  power: 0.135,
+  /** 당긴 거리 1px당 붙는 속도(월드/초). 새총 세기다 */
+  power: 6,
   /**
    * 최대 당김 거리(px).
-   * ⚠️ **반드시 클램프한다.** 안 하면 캔버스 밖까지 끌어 공이 화면을 벗어난다.
+   * ⚠️ **반드시 클램프한다.** 안 하면 화면 밖까지 끌어 아무 힘이나 낼 수 있다.
    */
   maxPull: 150,
-  /** 공 반발(림·백보드에 튄다) */
-  restitution: 0.6,
-  /** 공 마찰 — 너무 낮으면 림 위에서 미끄러지기만 한다 */
-  friction: 0.04,
-  /** 슛한 공이 이 시간(ms) 뒤에도 안 멈추면 강제 리셋한다(끼임 방지) */
+  /** 발사 각도(도) — 던지는 높이. 세기는 플레이어가, 각도는 기계가 정한다 */
+  angleDeg: 52,
+  /** 좌우 조준 감도: 가로로 당긴 1px이 만드는 옆속도 */
+  sway: 1.6,
+  /** 중력(월드/초²) */
+  gravity: 900,
+  /** 림·백보드 반발 */
+  restitution: 0.55,
+  /** 슛한 공이 이 시간(ms) 뒤에도 안 끝나면 강제 리셋한다(끼임 방지) */
   deadMs: 4_000,
-  /** 이 속도 아래로 떨어지면 '멈췄다'고 본다 */
-  restSpeed: 0.6,
-  /** 멈춘 뒤 다음 공까지 기다리는 시간(ms) */
+  /** 공이 끝난 뒤 다음 공까지 기다리는 시간(ms) */
   resetMs: 420,
 } as const;
 
@@ -68,14 +74,20 @@ export interface HoopSceneEvents {
   onEnd: (score: number) => void;
 }
 
-type Body = MatterJS.BodyType;
+/** 월드 좌표 한 점 */
+interface Vec3 {
+  x: number;
+  y: number;
+  z: number;
+}
 
 export class HoopScene extends Phaser.Scene {
   private ev!: HoopSceneEvents;
 
-  private ball!: Body;
   private ballG!: Phaser.GameObjects.Arc;
-  private g!: Phaser.GameObjects.Graphics;
+  private shadowG!: Phaser.GameObjects.Ellipse;
+  private back!: Phaser.GameObjects.Graphics;
+  private front!: Phaser.GameObjects.Graphics;
   private hud!: Phaser.GameObjects.Text;
   private flash!: Phaser.GameObjects.Text;
 
@@ -84,18 +96,20 @@ export class HoopScene extends Phaser.Scene {
   private score = 0;
   private remainMs = 30_000;
 
-  /** 드래그 중인지와 현재 당긴 지점 */
+  /** 공의 월드 위치·속도 */
+  private p: Vec3 = { x: 0, y: BALL_R, z: 0 };
+  private v: Vec3 = { x: 0, y: 0, z: 0 };
+
   private dragging = false;
   private dragX = 0;
   private dragY = 0;
+  /** 새총을 당기기 시작한 지점(여기서 지금 지점까지가 당김 벡터다) */
+  private grabX = 0;
+  private grabY = 0;
 
   /** 이번 슛이 이미 득점 처리됐는지 — 한 번의 슛으로 두 번 세지 않는다 */
   private scoredThisShot = false;
-  /** 공이 림 높이 위쪽에 있었는지 — 위→아래 통과 판정에 쓴다 */
-  private wasAboveRim = false;
-  /** 슛한 시각(끼임 강제 리셋용) */
   private shotAt = 0;
-  /** 리셋이 예약됐는지 */
   private resetting = false;
 
   constructor() {
@@ -109,58 +123,49 @@ export class HoopScene extends Phaser.Scene {
   }
 
   create(): void {
-    const M = this.matter;
-    // 좌우와 바닥만 막는다. 천장을 막으면 세게 쏜 공이 위에서 튕겨 되돌아와 어색하다.
-    M.world.setBounds(0, -200, W, H + 200, 40, true, true, false, true);
-
-    // 백보드(림 뒤쪽 정적 사각형)
-    M.add.rectangle(RIM_X + RIM_HALF + 26, RIM_Y - 34, 12, 92, {
-      isStatic: true,
-      restitution: 0.4,
-    });
-
-    // 림 좌우 두 기둥 — **이 사이를 통과해야 득점**이다.
-    for (const s of [-1, 1] as const) {
-      M.add.circle(RIM_X + s * RIM_HALF, RIM_Y, RIM_POST_R, {
-        isStatic: true,
-        restitution: 0.5,
-      });
-    }
-
-    // 공
-    this.ball = M.add.circle(START_X, START_Y, BALL_R, {
-      restitution: TUNING.restitution,
-      friction: TUNING.friction,
-      frictionAir: 0.006,
-      density: 0.0018,
-    }) as unknown as Body;
-    M.body.setStatic(this.ball, true);
-
-    this.ballG = this.add.circle(START_X, START_Y, BALL_R, 0xe8763a).setDepth(5);
-    this.g = this.add.graphics().setDepth(4);
+    this.back = this.add.graphics().setDepth(1);
+    this.shadowG = this.add.ellipse(0, 0, 30, 10, 0x000000, 0.22).setDepth(2);
+    this.ballG = this.add.circle(0, 0, BALL_R, 0xe8763a).setDepth(5);
+    this.front = this.add.graphics().setDepth(6);
 
     this.hud = this.add
       .text(12, 10, "", { fontSize: "18px", color: "#ffffff", fontStyle: "bold" })
       .setDepth(20);
     this.flash = this.add
-      .text(W / 2, 76, "", { fontSize: "26px", color: "#ffd166", fontStyle: "bold" })
+      .text(W / 2, 210, "", { fontSize: "26px", color: "#ffd166", fontStyle: "bold" })
       .setOrigin(0.5)
       .setDepth(20)
       .setAlpha(0);
 
+    this.resetBall();
     this.setupDrag();
     this.updateHud();
   }
 
   /**
+   * 월드 → 화면 투영. 멀수록 작아지고 지평선에 붙는다.
+   * `scale`은 그 지점의 축소율이라 공 반지름·림 크기에도 그대로 쓴다.
+   */
+  private project(p: Vec3): { x: number; y: number; scale: number } {
+    const scale = FOCAL / (FOCAL + Math.max(-FOCAL * 0.8, p.z));
+    return {
+      x: W / 2 + p.x * scale,
+      y: HORIZON + (CAM_H - p.y) * scale,
+      scale,
+    };
+  }
+
+  /**
    * 드래그(새총) 입력. **pointer 단일 경로**라 마우스와 터치를 함께 받는다.
-   * ⚠️ 캔버스 어디를 눌러도 당길 수 있게 했다 — 공(반지름 17px)만 잡게 하면
-   *    모바일에서 조준이 지나치게 까다롭다.
+   * ⚠️ 정면 뷰라 공은 화면 아래 가운데 한 곳에 고정이다. 그래서 당김은 **누른 지점 기준**이다 —
+   *    공 위치 기준으로 재면 화면 아무 데나 눌렀을 때 당김 길이가 제멋대로 튄다.
    */
   private setupDrag(): void {
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       if (this.phase !== "ready") return;
       this.dragging = true;
+      this.grabX = p.x;
+      this.grabY = p.y;
       this.dragX = p.x;
       this.dragY = p.y;
     });
@@ -180,36 +185,39 @@ export class HoopScene extends Phaser.Scene {
     this.input.on("pointerupoutside", release);
   }
 
-  /** 지금 당긴 벡터(공 → 포인터의 반대 방향, 최대 거리로 클램프) */
+  /** 지금 당긴 벡터(아래로 당길수록 세다). 최대 거리로 클램프 */
   private pullVector(): { x: number; y: number; len: number } {
-    const dx = START_X - this.dragX;
-    const dy = START_Y - this.dragY;
+    const dx = this.dragX - this.grabX;
+    const dy = this.dragY - this.grabY;
     const raw = Math.hypot(dx, dy);
     if (raw < 0.001) return { x: 0, y: 0, len: 0 };
     const len = Math.min(raw, TUNING.maxPull);
     return { x: (dx / raw) * len, y: (dy / raw) * len, len };
   }
 
-  /** 손을 뗐다 — 당긴 반대 방향으로 공을 던진다 */
+  /**
+   * 손을 뗐다 — 당긴 만큼 세게, 당긴 좌우만큼 비껴 던진다.
+   * ⚠️ 각도는 고정이다. 세기(거리)와 좌우(가로)만 플레이어가 정한다 —
+   *    정면 뷰에서 각도까지 주면 조작이 3축이 되어 감을 못 잡는다.
+   */
   private shoot(): void {
     if (this.phase !== "ready") return;
     const pull = this.pullVector();
     // 살짝 눌렀다 뗀 것은 슛이 아니다(오터치 방지).
     if (pull.len < 12) return;
 
-    const M = this.matter;
-    M.body.setStatic(this.ball, false);
-    M.body.setPosition(this.ball, { x: START_X, y: START_Y }, false);
-    M.body.setAngularVelocity(this.ball, 0);
-    M.body.setVelocity(this.ball, {
-      x: pull.x * TUNING.power,
-      y: pull.y * TUNING.power,
-    });
+    const speed = pull.len * TUNING.power;
+    const rad = Phaser.Math.DegToRad(TUNING.angleDeg);
+    this.v = {
+      // 아래로 당기면 앞으로 나간다. 오른쪽으로 당기면 왼쪽으로 나간다(새총 그대로).
+      x: -pull.x * TUNING.sway,
+      y: speed * Math.sin(rad),
+      z: speed * Math.cos(rad),
+    };
+    this.p = { x: 0, y: BALL_R, z: 0 };
 
     this.phase = "flying";
     this.scoredThisShot = false;
-    // 출발 지점은 림보다 아래다 — 그래서 처음엔 '위에 없었다'로 시작한다.
-    this.wasAboveRim = false;
     this.shotAt = this.time.now;
     this.resetting = false;
   }
@@ -224,75 +232,105 @@ export class HoopScene extends Phaser.Scene {
       }
     }
 
-    const pos = this.ball.position;
-    this.ballG.setPosition(pos.x, pos.y);
+    if (this.phase === "flying") this.step(Math.min(deltaMs, 40) / 1000);
 
-    if (this.phase === "flying") {
-      this.checkGoal();
-      this.checkSettled();
-    }
-
+    this.drawScene();
+    this.drawBall();
     this.updateHud();
-    this.draw();
+  }
+
+  /** 한 프레임 적분 — 중력·림·백보드·바닥 순서로 본다 */
+  private step(dt: number): void {
+    const prevY = this.p.y;
+    this.v.y -= TUNING.gravity * dt;
+    this.p.x += this.v.x * dt;
+    this.p.y += this.v.y * dt;
+    this.p.z += this.v.z * dt;
+
+    this.checkGoal(prevY);
+    this.hitRim(prevY);
+    this.hitBackboard();
+    this.checkSettled();
   }
 
   /**
-   * 득점 판정 — 공이 림 두 기둥 **사이를 위에서 아래로** 통과했는가.
+   * 득점 판정 — 공이 림 높이를 **내려오면서** 링 안을 통과했는가.
    *
-   * ⚠️ 방향 판정(`velocity.y > 0`)이 없으면 아래에서 위로 튀어 오른 공이 득점으로
-   *    잡힌다(실제로 흔한 버그다). 그래서 '림 위에 있었다'는 사실을 먼저 기록해두고,
-   *    내려오면서 통과할 때만 인정한다.
+   * ⚠️ 방향 판정(내려오는 중)이 없으면 아래에서 위로 솟은 공도 득점으로 잡힌다.
+   *    그래서 직전 프레임의 높이와 비교해 **위→아래로 가로지른 그 순간**만 본다.
    */
-  private checkGoal(): void {
+  private checkGoal(prevY: number): void {
     if (this.scoredThisShot) return;
-    const { x, y } = this.ball.position;
+    const crossed = prevY > RIM_Y && this.p.y <= RIM_Y;
+    if (!crossed || this.v.y >= 0) return;
+    const dist = Math.hypot(this.p.x, this.p.z - RIM_Z);
+    if (dist > RIM_R - BALL_R * 0.4) return;
 
-    // 림보다 확실히 위에 올라간 적이 있어야 한다(공 반지름만큼 여유).
-    if (y < RIM_Y - BALL_R && Math.abs(x - RIM_X) < RIM_HALF) {
-      this.wasAboveRim = true;
-      return;
-    }
-    if (!this.wasAboveRim) return;
-
-    const goingDown = this.ball.velocity.y > 0;
-    const insideRim = Math.abs(x - RIM_X) < RIM_HALF - 2;
-    const belowRim = y > RIM_Y + BALL_R * 0.4;
-
-    if (goingDown && insideRim && belowRim) {
-      this.scoredThisShot = true;
-      this.score += 1;
-      this.ev.onScore(this.score);
-      this.showFlash("들어갔다!");
-    }
+    this.scoredThisShot = true;
+    this.score += 1;
+    this.ev.onScore(this.score);
+    this.showFlash("들어갔다!");
   }
 
-  /** 공이 멈췄거나 너무 오래 굴러다니면 다음 공을 올린다 */
+  /**
+   * 링(테)에 맞고 튕기는 판정. 림 높이 근처에서 **링 테두리 거리**에 걸리면 밖으로 밀어낸다.
+   * 이게 없으면 아깝게 빗나간 공이 그냥 통과해 버려서 '림을 맞혔다'는 감각이 사라진다.
+   */
+  private hitRim(prevY: number): void {
+    if (this.scoredThisShot) return;
+    const nearRimY = Math.abs(this.p.y - RIM_Y) < BALL_R || (prevY > RIM_Y) !== (this.p.y > RIM_Y);
+    if (!nearRimY) return;
+    const dx = this.p.x;
+    const dz = this.p.z - RIM_Z;
+    const dist = Math.hypot(dx, dz);
+    if (Math.abs(dist - RIM_R) > BALL_R) return;
+
+    // 링 테두리에서 바깥/안쪽으로 반사 — 공을 테두리 밖으로 밀어내고 속도를 꺾는다.
+    const nx = dist < 0.001 ? 1 : dx / dist;
+    const nz = dist < 0.001 ? 0 : dz / dist;
+    const outward = dist > RIM_R ? 1 : -1;
+    this.p.x = RIM_R * nx + nx * BALL_R * outward;
+    this.p.z = RIM_Z + RIM_R * nz + nz * BALL_R * outward;
+    this.v.x = nx * Math.abs(this.v.x + this.v.z) * 0.25 * outward;
+    this.v.z = nz * Math.abs(this.v.z) * 0.25 * outward;
+    this.v.y *= -TUNING.restitution * 0.5;
+  }
+
+  /** 백보드(림 뒤 판)에 맞으면 앞으로 튕긴다 */
+  private hitBackboard(): void {
+    const boardZ = RIM_Z + 34;
+    if (this.p.z < boardZ || this.v.z <= 0) return;
+    if (Math.abs(this.p.x) > 92) return;
+    if (this.p.y < RIM_Y - 14 || this.p.y > RIM_Y + 108) return;
+    this.p.z = boardZ;
+    this.v.z = -Math.abs(this.v.z) * TUNING.restitution;
+  }
+
+  /** 공이 바닥에 닿았거나 너무 오래 굴러다니면 다음 공을 올린다 */
   private checkSettled(): void {
     if (this.resetting) return;
-    const v = this.ball.velocity;
-    const speed = Math.hypot(v.x, v.y);
+    const landed = this.p.y <= BALL_R && this.v.y < 0;
     const tooLong = this.time.now - this.shotAt > TUNING.deadMs;
-    const offscreen = this.ball.position.y > H + 80;
+    const gone = this.p.z > RIM_Z + 260 || Math.abs(this.p.x) > 320;
+    if (!landed && !tooLong && !gone) return;
 
-    if (speed < TUNING.restSpeed || tooLong || offscreen) {
-      this.resetting = true;
-      if (!this.scoredThisShot) this.ev.onMiss();
-      this.time.delayedCall(TUNING.resetMs, () => this.resetBall());
+    if (landed) {
+      this.p.y = BALL_R;
+      this.v = { x: 0, y: 0, z: 0 };
     }
+    this.resetting = true;
+    if (!this.scoredThisShot) this.ev.onMiss();
+    this.time.delayedCall(TUNING.resetMs, () => this.resetBall());
   }
 
   /** 다음 슛을 위해 공을 출발 지점에 되돌린다 */
   private resetBall(): void {
     if (this.phase === "over") return;
-    const M = this.matter;
-    M.body.setVelocity(this.ball, { x: 0, y: 0 });
-    M.body.setAngularVelocity(this.ball, 0);
-    M.body.setPosition(this.ball, { x: START_X, y: START_Y }, false);
-    M.body.setStatic(this.ball, true);
+    this.p = { x: 0, y: BALL_R, z: 0 };
+    this.v = { x: 0, y: 0, z: 0 };
     this.phase = "ready";
     this.resetting = false;
     this.scoredThisShot = false;
-    this.wasAboveRim = false;
   }
 
   /** 제한시간 종료 */
@@ -315,75 +353,120 @@ export class HoopScene extends Phaser.Scene {
     this.hud.setText(`⏱ ${sec}초   🏀 ${this.score}골`);
   }
 
-  /** 림·백보드·조준선을 그린다 */
-  private draw(): void {
-    const g = this.g;
+  /** 공과 그림자를 화면에 옮긴다(멀수록 작다) */
+  private drawBall(): void {
+    const s = this.project(this.p);
+    this.ballG.setPosition(s.x, s.y).setRadius(BALL_R * s.scale);
+    // 그림자는 같은 x·z의 **바닥 점**에 그린다 — 공이 얼마나 멀리 갔는지 알려주는 유일한 단서다.
+    const g = this.project({ x: this.p.x, y: 0, z: this.p.z });
+    this.shadowG
+      .setPosition(g.x, g.y)
+      .setSize(34 * g.scale, 11 * g.scale)
+      .setAlpha(0.25);
+    // 공이 림보다 멀리 가면 림 뒤로 숨는다(앞뒤 관계가 안 맞으면 원근이 깨져 보인다).
+    this.ballG.setDepth(this.p.z > RIM_Z ? 3 : 5);
+  }
+
+  /** 코트·백보드·림·조준선을 그린다 */
+  private drawScene(): void {
+    const g = this.back;
     g.clear();
+    this.front.clear();
 
-    // 백보드
-    g.fillStyle(0xf2f2f2, 0.9);
-    g.fillRoundedRect(RIM_X + RIM_HALF + 20, RIM_Y - 80, 12, 92, 3);
-    g.lineStyle(3, 0xc0335f, 1);
-    g.strokeRect(RIM_X + RIM_HALF - 4, RIM_Y - 44, 26, 30);
-
-    // 림(두 기둥을 잇는 선) + 그물
-    g.lineStyle(5, 0xe0426f, 1);
+    // 코트 바닥(사다리꼴) — 원근을 알려주는 기준면
+    const nearL = this.project({ x: -300, y: 0, z: -40 });
+    const nearR = this.project({ x: 300, y: 0, z: -40 });
+    const farL = this.project({ x: -300, y: 0, z: RIM_Z + 220 });
+    const farR = this.project({ x: 300, y: 0, z: RIM_Z + 220 });
+    g.fillStyle(0xc98b4b, 0.55);
     g.beginPath();
-    g.moveTo(RIM_X - RIM_HALF, RIM_Y);
-    g.lineTo(RIM_X + RIM_HALF, RIM_Y);
-    g.strokePath();
+    g.moveTo(nearL.x, nearL.y);
+    g.lineTo(nearR.x, nearR.y);
+    g.lineTo(farR.x, farR.y);
+    g.lineTo(farL.x, farL.y);
+    g.closePath();
+    g.fillPath();
 
-    g.lineStyle(1.5, 0xffffff, 0.65);
-    for (let i = 0; i <= 6; i += 1) {
-      const t = i / 6;
-      const topX = RIM_X - RIM_HALF + t * (RIM_HALF * 2);
-      const botX = RIM_X - RIM_HALF * 0.5 + t * RIM_HALF;
+    // 깊이 가늠용 가로줄
+    g.lineStyle(1.5, 0xffffff, 0.25);
+    for (const z of [120, 260, 420, 560]) {
+      const a = this.project({ x: -300, y: 0, z });
+      const b = this.project({ x: 300, y: 0, z });
       g.beginPath();
-      g.moveTo(topX, RIM_Y);
-      g.lineTo(botX, RIM_Y + 30);
+      g.moveTo(a.x, a.y);
+      g.lineTo(b.x, b.y);
       g.strokePath();
     }
 
-    // 조준 중이면 당김 화살표와 예상 궤적을 그린다
+    // 백보드
+    const bz = RIM_Z + 34;
+    const bl = this.project({ x: -92, y: RIM_Y + 108, z: bz });
+    const br = this.project({ x: 92, y: RIM_Y - 14, z: bz });
+    g.fillStyle(0xf6f6f6, 0.92);
+    g.fillRoundedRect(bl.x, bl.y, br.x - bl.x, br.y - bl.y, 4);
+    g.lineStyle(3, 0xc0335f, 1);
+    const il = this.project({ x: -40, y: RIM_Y + 62, z: bz });
+    const ir = this.project({ x: 40, y: RIM_Y - 6, z: bz });
+    g.strokeRect(il.x, il.y, ir.x - il.x, ir.y - il.y);
+
+    // 림 — 정면에서는 납작한 타원으로 보인다
+    const rimC = this.project({ x: 0, y: RIM_Y, z: RIM_Z });
+    const rx = RIM_R * rimC.scale;
+    const ry = rx * 0.34;
+    g.lineStyle(5, 0xe0426f, 1);
+    g.strokeEllipse(rimC.x, rimC.y, rx * 2, ry * 2);
+
+    // 그물 — 림 타원에서 아래로 좁아지며 내려온다
+    const netBottom = this.project({ x: 0, y: RIM_Y - 46, z: RIM_Z });
+    g.lineStyle(1.4, 0xffffff, 0.7);
+    for (let i = 0; i < 10; i += 1) {
+      const a = (i / 10) * Math.PI * 2;
+      g.beginPath();
+      g.moveTo(rimC.x + Math.cos(a) * rx, rimC.y + Math.sin(a) * ry);
+      g.lineTo(netBottom.x + Math.cos(a) * rx * 0.45, netBottom.y + Math.sin(a) * ry * 0.45);
+      g.strokePath();
+    }
+
     if (this.dragging && this.phase === "ready") this.drawAim();
   }
 
   /**
-   * 당김 화살표 + 예상 궤적 점선.
-   * ⚠️ 텍스트 게임 플레이어에게 물리 감각을 주는 장치다 — 궤적 없이 던지면
-   *    첫 판이 통째로 감 잡기에 날아간다.
+   * 당김 고무줄 + 예상 궤적.
+   * ⚠️ 궤적은 **실제 적분과 같은 식**으로 그린다. 근사치를 쓰면 점선과 공이 따로 놀아
+   *    조준 보조가 오히려 방해가 된다.
    */
   private drawAim(): void {
-    const g = this.g;
+    const g = this.front;
     const pull = this.pullVector();
     if (pull.len < 1) return;
 
-    // 당긴 방향(공에서 손가락 쪽으로) 고무줄
+    const from = this.project(this.p);
     g.lineStyle(3, 0xffd166, 0.9);
     g.beginPath();
-    g.moveTo(START_X, START_Y);
-    g.lineTo(START_X - pull.x, START_Y - pull.y);
+    g.moveTo(from.x, from.y);
+    g.lineTo(from.x + pull.x, from.y + pull.y);
     g.strokePath();
 
-    // 예상 궤적 — **실제 Matter 적분과 같은 식**으로 그린다. 근사치를 쓰면 점선과
-    // 공이 따로 놀아서 조준 보조가 오히려 방해가 된다(실제로 그랬다).
-    //   Engine: force.y = mass × gravity.y × 0.001  →  Body.update:
-    //   velocity += (force/mass) × dt²  =  0.001 × 1 × (1000/60)² ≈ 0.2778 px/프레임²
-    //   그리고 매 프레임 frictionAir(0.006)만큼 감쇠한다.
-    const GRAVITY_PER_FRAME = 0.001 * (1000 / 60) ** 2;
-    const AIR = 1 - 0.006;
-    let px = START_X;
-    let py = START_Y;
-    let vx = pull.x * TUNING.power;
-    let vy = pull.y * TUNING.power;
-    g.fillStyle(0xffffff, 0.55);
-    for (let step = 1; step <= 90; step += 1) {
-      vx *= AIR;
-      vy = vy * AIR + GRAVITY_PER_FRAME;
-      px += vx;
-      py += vy;
-      if (px < 0 || px > W || py > H) break;
-      if (step % 4 === 0) g.fillCircle(px, py, 2.5);
+    const speed = pull.len * TUNING.power;
+    const rad = Phaser.Math.DegToRad(TUNING.angleDeg);
+    const p: Vec3 = { x: 0, y: BALL_R, z: 0 };
+    const v: Vec3 = {
+      x: -pull.x * TUNING.sway,
+      y: speed * Math.sin(rad),
+      z: speed * Math.cos(rad),
+    };
+    const dt = 1 / 60;
+    g.fillStyle(0xffffff, 0.6);
+    for (let step = 1; step <= 130; step += 1) {
+      v.y -= TUNING.gravity * dt;
+      p.x += v.x * dt;
+      p.y += v.y * dt;
+      p.z += v.z * dt;
+      if (p.y < 0) break;
+      if (step % 5 === 0) {
+        const s = this.project(p);
+        g.fillCircle(s.x, s.y, 2.4 * s.scale);
+      }
     }
   }
 }
@@ -401,7 +484,7 @@ export function mountHoopGame(
     height: H,
     transparent: true,
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-    physics: { default: "matter", matter: { gravity: { x: 0, y: 1 }, debug: false } },
+    // ⚠️ 물리 엔진 없음 — 3축 적분을 씬이 직접 한다(파일 상단 주석 참고).
     scene: HoopScene,
   });
   game.scene.start("hoop", { events, durationMs });
