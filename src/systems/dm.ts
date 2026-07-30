@@ -14,7 +14,7 @@ import {
 } from "@/data/dmContent";
 import { MAX_SKILL } from "@/data/stats";
 import { hashInt, pick, randInt, uid, chance } from "@/utils/random";
-import { advanceDmStory, isStoryOver, storyChoices } from "./dmStory";
+import { advanceDmStory, isStoryOver, isStoryPending, storyChoices } from "./dmStory";
 import { changeFollowers } from "./followers";
 import { bumpTchinProgress } from "./tchin";
 import { clampResource, gainSkill } from "./stats";
@@ -475,8 +475,9 @@ export function replyDM(state: GameState, thread: DMThread, tone: DMTone): DMRep
     const res = advanceDmStory(state, thread, branch);
     if (res) return res;
   }
-  // 스토리가 끝난 스레드는 답장 자체가 없다(UI가 선택지를 안 그리지만 여기서도 막는다).
-  if (isStoryOver(thread)) return { followerDelta: 0, partnerText: "" };
+  // 스토리가 끝난 스레드, 그리고 다음 말이 아직 안 온 대기 중 스레드는 답장 자체가 없다
+  // (UI가 선택지를 안 그리지만 여기서도 막는다 — 안 막으면 대기 중에 잡담 풀로 새어 나간다).
+  if (isStoryOver(thread) || isStoryPending(thread)) return { followerDelta: 0, partnerText: "" };
 
   const ctx = dmContext(thread);
   // 후보에 없는 톤(예: 대담 해금 전 호출)이면 그 톤의 풀에서 임의로 하나 집는다.
@@ -536,7 +537,8 @@ export function replyDM(state: GameState, thread: DMThread, tone: DMTone): DMRep
 /** 자유 입력 메시지 전송(간단 응답, 특별 효과 없음) */
 export function sendCustomDM(state: GameState, thread: DMThread, text: string): void {
   // 끝난 스토리 스레드엔 아무것도 보낼 수 없다(UI도 입력창을 숨기지만, 여기서 한 번 더 막는다).
-  if (isStoryOver(thread)) return;
+  // 다음 말을 기다리는 중(약속한 익일 도착 전)에도 마찬가지다.
+  if (isStoryOver(thread) || isStoryPending(thread)) return;
   // 상대 반응은 '내 메시지를 넣기 전' 맥락으로 고른다 — 넣고 나면 무조건 followup이 된다.
   const ctx = dmContext(thread);
   thread.messages.push({ id: uid("dmm"), from: "me", text, day: state.day });

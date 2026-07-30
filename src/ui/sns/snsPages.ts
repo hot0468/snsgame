@@ -12,7 +12,7 @@ import {
   sendCustomDM,
   visibleDms,
 } from "@/systems/dm";
-import { isStoryOver } from "@/systems/dmStory";
+import { isStoryOver, isStoryPending } from "@/systems/dmStory";
 import { canMeet, MEETING_ACTION_COST } from "@/systems/meeting";
 import { joinCrew } from "@/systems/crew";
 import { joinGroupRoom } from "@/systems/groupRoom";
@@ -1599,6 +1599,13 @@ function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement 
   // 링크 DM(소원 가게·푸시타임)·진홍안 거래·터커 조수 부탁 DM: 답장 대신 전용 버튼만.
   const repliesSection = isStoryOver(thread)
     ? el("div", { class: "dm__replies" }, el("div", { class: "empty" }, "대화가 끝났어요."))
+    : // 상대가 "내일 보낼게요"라고 한 스레드: 그날이 오기 전엔 답장 UI를 걷어낸다(systems/dm.ts도 막는다).
+      isStoryPending(thread)
+      ? el(
+          "div",
+          { class: "dm__replies" },
+          el("div", { class: "empty" }, "답을 기다리는 중이에요. 다음 날 연락이 올 거예요."),
+        )
     : thread.eyeDeal
     ? eyeDealReplies(ctx)
     : thread.labOffer

@@ -1,5 +1,5 @@
 import type { DMThread, GameState, SkillStatId } from "@/core/types";
-import { getActiveAccount } from "@/core/state";
+import { getActiveAccount, pushTimeline } from "@/core/state";
 import type { EventEffect } from "@/data/events";
 import {
   BAKYURA_STORY,
@@ -52,10 +52,20 @@ function applyStoryEffect(state: GameState, effect: EventEffect | undefined): nu
   return delta;
 }
 
+/**
+ * 다음 노드의 말이 아직 도착하지 않은 스레드인가("내일 보낼게요" 대기 중).
+ * 대기 중엔 선택지도 직접 입력도 막는다 — 안 막으면 약속을 기다리는 상대와 잡담이 되어
+ * 다음 날 도착하는 문장이 뜬금없어진다.
+ */
+export function isStoryPending(thread: DMThread): boolean {
+  return thread.story?.pendingDay != null;
+}
+
 /** 이 스레드가 지금 보여줄 스토리 선택지들(스토리 스레드가 아니면 null). */
 export function storyChoices(thread: DMThread): DmStoryChoice[] | null {
   const story = dmStoryById(thread.story?.id);
   if (!story || !thread.story) return null;
+  if (isStoryPending(thread)) return []; // 대기 중 — 스토리 스레드이지만 지금 고를 건 없다
   return dmStoryNode(story, thread.story.node)?.choices ?? null;
 }
 
@@ -96,14 +106,55 @@ export function advanceDmStory(
   thread.unread = false;
 
   const followerDelta = applyStoryEffect(state, choice.effect);
+  if (choice.postTweet) postStoryTweet(state, choice.postTweet);
 
   if (choice.next) {
+    const delay = choice.delayDays ?? 0;
     thread.story = { id: story.id, node: choice.next };
-    pushIntro(state, thread, story, choice.next);
+    // 약속한 며칠 뒤에 도착한다 — 지금은 노드만 예약하고 말은 넣지 않는다(onNewDay가 넣는다).
+    if (delay > 0) thread.story.pendingDay = state.day + delay;
+    else pushIntro(state, thread, story, choice.next);
   } else {
     delete thread.story; // 스토리 종료 — 이후엔 평범한 DM 스레드로 돌아간다
   }
   return { followerDelta, partnerText: choice.reply };
+}
+
+/**
+ * 스토리 선택지가 시킨 문장을 내 계정으로 실제 게시한다(칸라의 대행 트윗 등).
+ * 일반 트윗 경로(systems/tweetSystem.ts)를 타지 않는다 — 행동력·게시 슬롯을 쓰지 않고
+ * 팔로워 계산도 하지 않는다(대가는 이미 choice.effect에 적혀 있다).
+ */
+function postStoryTweet(state: GameState, text: string): void {
+  const account = getActiveAccount(state);
+  pushTimeline(account, {
+    id: uid("story_tweet"),
+    authorName: account.name,
+    authorHandle: account.handle,
+    attribute: "daily",
+    isAdult: false,
+    text,
+    createdDay: state.day,
+    likes: 0,
+    retweets: 0,
+    gainedFollowers: 0,
+  });
+  account.lastTweetDay = state.day;
+}
+
+/**
+ * 도착일이 된 스토리 노드의 말을 스레드에 넣는다(time.onNewDay에서 호출).
+ * "내일 아침에 보낼게요"를 실제로 다음 날 지키게 하는 쪽 절반 — 예약은 advanceDmStory가 한다.
+ */
+export function deliverPendingStoryNodes(state: GameState): void {
+  for (const thread of getActiveAccount(state).dms) {
+    const pending = thread.story?.pendingDay;
+    if (pending == null || state.day < pending) continue;
+    const story = dmStoryById(thread.story!.id);
+    if (!story) continue;
+    delete thread.story!.pendingDay;
+    pushIntro(state, thread, story, thread.story!.node);
+  }
 }
 
 /** 스토리 DM 스레드를 새로 연다. 이미 진행했거나 끝난 스토리면 아무것도 하지 않는다. */

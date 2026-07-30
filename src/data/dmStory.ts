@@ -29,6 +29,17 @@ export interface DmStoryChoice {
    * (customKey·unlockAttribute는 안 먹는다 — 필요해지면 systems/dmStory.ts에 추가하라).
    */
   effect?: EventEffect;
+  /**
+   * 다음 노드의 말이 **며칠 뒤** 도착한다(1이면 익일 아침). 없으면 즉시.
+   * "내일 문장 보낼게요" 같은 약속을 진짜 다음 날에 지키게 하는 장치 — 그 사이엔 답장도 막힌다.
+   * 도착 처리는 systems/dmStory.ts의 deliverPendingStoryNodes(time.onNewDay에서 호출)가 한다.
+   */
+  delayDays?: number;
+  /**
+   * 이 선택을 고르면 이 문장을 **내 타임라인에 실제로 트윗한다**(칸라의 문장 대행처럼
+   * "올린다"가 서사의 핵인 선택지용). 행동력·게시 슬롯은 안 쓴다 — 대가는 effect로 낸다.
+   */
+  postTweet?: string;
 }
 
 export interface DmStoryNode {
@@ -185,27 +196,71 @@ export const KANRA_STORY: DmStory = {
         "…아, 그리고 하나만요.",
         "혹시 나중에 무슨 일이 생겨도, 저한테 들었다는 말은 하지 말아주세요 🙂",
       ],
+      // ⚠️ 여기서 문장을 바로 주지 않는다. 칸라가 "내일 아침에 보낼게요"라고 했으므로
+      //    delayDays로 진짜 익일에 sentence 노드가 도착한다(그 사이 이 스레드는 답장이 막힌다).
       choices: [
         {
           tone: "friendly",
           me: "무슨 일이 생기는데요?",
-          reply: "아무 일도 안 생겨요. 그냥 습관처럼 하는 말이에요 🙂",
-          next: "twist",
-          effect: { followers: 400 },
+          reply: "아무 일도 안 생겨요. 그냥 습관처럼 하는 말이에요 🙂 그럼 내일 아침에 봬요.",
+          next: "sentence",
+          delayDays: 1,
         },
         {
           tone: "cool",
           me: "알겠어요.",
-          reply: "역시 편한 분이에요. 그래서 좋아요.",
-          next: "twist",
-          effect: { followers: 400 },
+          reply: "역시 편한 분이에요. 그래서 좋아요. 내일 보낼게요 🙂",
+          next: "sentence",
+          delayDays: 1,
         },
         {
           tone: "bold",
           me: "일 생기면 그쪽도 같이 끌고 들어갈 건데요",
-          reply: "그것도 재밌겠네요. 그럼 서로 조심하죠 🙂",
+          reply: "그것도 재밌겠네요. 그럼 서로 조심하죠 🙂 문장은 내일 아침에.",
+          next: "sentence",
+          delayDays: 1,
+          effect: { morality: -3 },
+        },
+      ],
+    },
+    {
+      // 익일 아침에 도착하는 노드 — 약속한 '문장'이 실제로 오고, 올릴지를 여기서 정한다.
+      // 올리는 선택은 postTweet으로 **내 타임라인에 진짜 게시**된다(그래야 다음 날 twist의
+      // "어제 그 글"이 거짓말이 아니다). 안 올리면 여기서 스토리가 끝난다.
+      id: "sentence",
+      intro: [
+        "약속대로 문장 가져왔어요 🙂",
+        "「그 골목 끝 분식집, 위생 단속 나왔다던데 아무도 기사 안 쓰네요. 다들 조심하세요」",
+        "딱 이대로만 올려주시면 돼요. 한 글자도 고치지 말고, 출처도 붙이지 말고요.",
+        "어때요, 올려주실래요?",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "올릴게요. 이대로 그냥 올리면 되죠?",
+          reply: "네, 그거면 돼요. 고마워요 🙂",
           next: "twist",
-          effect: { followers: 600, morality: -3 },
+          delayDays: 1,
+          postTweet:
+            "그 골목 끝 분식집, 위생 단속 나왔다던데 아무도 기사 안 쓰네요. 다들 조심하세요",
+          effect: { followers: 400 },
+        },
+        {
+          tone: "cool",
+          me: "생각해봤는데 안 올릴게요. 이건 좀 아닌 것 같아요.",
+          reply: "…그럴 수도 있죠. 아쉽네요. 문장은 다른 분께 드릴게요 🙂",
+          next: null,
+          effect: { morality: 8, reputation: 3, mental: -2 },
+        },
+        {
+          tone: "bold",
+          me: "올려는 줄게요. 대신 값은 올려 받을게요",
+          reply: "역시 거래를 아는 분이네요. 좋아요, 그렇게 하죠 🙂",
+          next: "twist",
+          delayDays: 1,
+          postTweet:
+            "그 골목 끝 분식집, 위생 단속 나왔다던데 아무도 기사 안 쓰네요. 다들 조심하세요",
+          effect: { followers: 600, money: 200_000, morality: -5 },
         },
       ],
     },
@@ -360,6 +415,7 @@ export const NOCOLOR_STORY: DmStory = {
           me: "제가 올릴게요. 그 정도는 할 수 있어요",
           reply: "고맙다는 말은 안 하겠습니다. 규칙이라서요.",
           next: "twist",
+          delayDays: 3,
           effect: { reputation: 5, followers: 150 },
         },
         {
@@ -367,17 +423,21 @@ export const NOCOLOR_STORY: DmStory = {
           me: "제 일도 아닌데요.",
           reply: "맞습니다. 아무의 일도 아닙니다. 그래서 대개 아무도 안 합니다.",
           next: "twist",
+          delayDays: 3,
         },
         {
           tone: "bold",
           me: "그 소문 누가 냈는지부터 알려줘요. 그쪽을 조질게요",
           reply: "그건 우리 방식이 아닙니다. 말리지도 않겠습니다만.",
           next: "twist",
+          delayDays: 3,
           effect: { morality: -5, reputation: -2 },
         },
       ],
     },
     {
+      // 인트로가 "며칠 지났으니"로 시작한다 — 그래서 들어오는 간선이 전부 delayDays: 3이다.
+      // 즉시 도착으로 되돌리면 방금 부탁을 마친 상대가 며칠 지났다고 말한다.
       id: "twist",
       intro: [
         "며칠 지났으니 하나 알려드립니다.",
@@ -498,6 +558,7 @@ export const TARO_STORY: DmStory = {
           me: "그냥 시작해요! 처음엔 다 그래요",
           reply: "그냥… 시작해도 되는 거군요. 생각보다 간단하네요.",
           next: "debut",
+          delayDays: 2,
           effect: { skills: { sociability: 10 } },
         },
         {
@@ -505,17 +566,20 @@ export const TARO_STORY: DmStory = {
           me: "글은 쓰는 사람이 쓰는 거예요. 제가 조언할 건 없네요.",
           reply: "…맞는 말씀이에요. 제가 너무 남한테 기댔네요.",
           next: "debut",
+          delayDays: 2,
         },
         {
           tone: "bold",
           me: "시작하면 내 계정에 홍보해줄게요. 대신 그쪽도 나 좀 밀어줘요",
           reply: "아… 그런 방법도 있군요. 네, 그렇게라도 해주시면 감사하죠.",
           next: "debut",
+          delayDays: 2,
           effect: { followers: 200, morality: -3 },
         },
       ],
     },
     {
+      // 계정을 만들고 "어제" 첫 글을 올렸다 — 최소 이틀이 지나야 성립한다(delayDays: 2).
       id: "debut",
       intro: [
         "말씀대로 계정을 만들었어요. 어제 첫 글을 올렸습니다.",
@@ -715,6 +779,7 @@ export const SETTON_STORY: DmStory = {
           me: "새벽이면 저도 어차피 깨어 있어요. 할게요",
           reply: "고맙다. 이런 부탁을 이렇게 쉽게 받는 사람은 처음이다.",
           next: "handover",
+          delayDays: 1,
         },
         {
           tone: "cool",
@@ -743,6 +808,7 @@ export const SETTON_STORY: DmStory = {
           me: "안 열어보고 들고만 있으면 되는 거죠? 그 정도는 할게요",
           reply: "그거면 된다. 새벽 4시, 골목 끝 가로등 밑에서 보자.",
           next: "handover",
+          delayDays: 1,
         },
         {
           tone: "cool",
@@ -756,11 +822,13 @@ export const SETTON_STORY: DmStory = {
           me: "위험한 거면 값을 더 주셔야죠",
           reply: "…계산이 확실한 사람은 오래 간다. 좋다, 더 얹어주겠다.",
           next: "handover",
+          delayDays: 1,
           effect: { money: 30_000, morality: -3 },
         },
       ],
     },
     {
+      // 셋톤이 "내일 새벽에" 받아달라고 했다 — 그 새벽이 진짜 다음 날이어야 한다(delayDays: 1).
       id: "handover",
       intro: [
         "새벽 4시. 헬멧 쓴 채로 상자를 건네고, 담배도 안 피우고 그냥 옆에 서 있었다.",
@@ -851,23 +919,27 @@ export const SETTON_STORY_2: DmStory = {
           me: "저는 아무것도 못 봤다고 할게요. 사실이기도 하고요",
           reply: "그게 제일 낫다. 실제로 못 봤으니 거짓말도 아니고.",
           next: "visitor",
+          delayDays: 1,
         },
         {
           tone: "cool",
           me: "제 이름이 왜 나와요? 그쪽 일이잖아요.",
           reply: "맞는 말이다. 그래서 미리 알리는 거다. 모르고 당하는 것보단 낫다.",
           next: "visitor",
+          delayDays: 1,
         },
         {
           tone: "bold",
           me: "그 사람 누군지 알아내서 제가 먼저 만나볼게요",
           reply: "…하지 마라. 그런 건 나 같은 사람이 하는 일이다.",
           next: "visitor",
+          delayDays: 1,
           effect: { morality: -3, skills: { sociability: 10 } },
         },
       ],
     },
     {
+      // "어제 그쪽이 DM을 보냈을 거다" — 그 어제가 있어야 한다(delayDays: 1).
       id: "visitor",
       intro: [
         "어제 그쪽이 네 계정에 DM을 보냈을 거다. 정중한 말투였을 거고.",
@@ -1015,6 +1087,7 @@ export const SETTON_STORY_3: DmStory = {
           me: "제가 흐릴게요. 그날 그 시간에 저도 그 근처에 있었다고 쓸게요",
           reply: "…거짓말을 시키려던 건 아니었는데. 그래도 고맙다.",
           next: "morning",
+          delayDays: 3,
           effect: { morality: -3, mental: 5 },
         },
         {
@@ -1022,17 +1095,20 @@ export const SETTON_STORY_3: DmStory = {
           me: "저는 아무 말도 안 할게요. 그게 제일 안전해요.",
           reply: "그게 맞다. 조용한 게 제일 좋은 답일 때가 많다.",
           next: "morning",
+          delayDays: 3,
         },
         {
           tone: "bold",
           me: "미안한데 이건 못 참아요. 제가 제일 먼저 올릴게요",
           reply: "…그래. 언젠가 이런 날이 올 줄 알았다. 원망은 안 한다.",
           next: "morning",
+          delayDays: 3,
           effect: { followersPct: 18, morality: -12, reputation: -8 },
         },
       ],
     },
     {
+      // "며칠 지났다" — 사진이 묻히고 그가 퇴원할 시간이 필요하다(delayDays: 3).
       id: "morning",
       intro: [
         "며칠 지났다. 사진은 다른 사건에 밀려 내려갔다. 이 도시는 원래 그렇다.",
@@ -1610,23 +1686,28 @@ export const NOCOLOR_STORY_2: DmStory = {
           me: "그 정도야 어렵지 않죠. 그럴게요",
           reply: "감사합니다. 대부분은 이유를 먼저 묻습니다.",
           next: "thursday",
+          delayDays: 3,
         },
         {
           tone: "cool",
           me: "그날 뭐가 있는데요?",
           reply: "아무 일도 없습니다. 당신이 아무것도 안 하면요.",
           next: "thursday",
+          delayDays: 3,
         },
         {
           tone: "bold",
           me: "그날 뭐가 있는지 알아내면 되겠네요",
           reply: "…그것도 방법입니다. 우리는 막지 않습니다. 막은 적도 없고요.",
           next: "thursday",
+          delayDays: 3,
           effect: { skills: { knowledge: 10 } },
         },
       ],
     },
     {
+      // "이번 주 목요일 저녁 7시" 부탁의 결과 — 그 목요일이 지나야 한다(delayDays: 3).
+      // 실제 요일이 아니라 며칠이라는 간격으로만 표현한다(day는 단순 카운터다).
       id: "thursday",
       intro: [
         "목요일이 지났습니다.",

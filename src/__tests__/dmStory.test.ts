@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createInitialState, getActiveAccount } from "@/core/state";
-import type { Account, GameState, Tweet } from "@/core/types";
+import type { Account, DMThread, GameState, Tweet } from "@/core/types";
 import {
   DM_STORIES,
   KANRA_STORY,
@@ -19,6 +19,8 @@ import {
   SAIKA_HANDLE,
   TARO_HANDLE,
   isStoryOver,
+  isStoryPending,
+  deliverPendingStoryNodes,
   spawnStoryFor,
 } from "@/systems/dmStory";
 import { dmReplyOptions, replyDM, sendCustomDM } from "@/systems/dm";
@@ -47,6 +49,20 @@ function kanraTweet(state: GameState): Tweet {
 
 const storyThread = (s: GameState) => getActiveAccount(s).dms.find((t) => t.story?.id === "kanra");
 
+/**
+ * 스토리를 한 수 전진시킨다 — 다음 말이 아직 안 온 노드(delayDays)면 하루를 넘겨 받아오고,
+ * 아니면 친절 루트로 답장한다. 지연 간선이 붙은 스토리를 훑는 테스트는 이걸 써야 한다
+ * (replyDM만 반복하면 대기 상태에서 무한히 아무 일도 안 일어난다).
+ */
+function walkStory(s: GameState, t: DMThread): void {
+  if (isStoryPending(t)) {
+    s.day += 1;
+    deliverPendingStoryNodes(s);
+    return;
+  }
+  replyDM(s, t, "friendly");
+}
+
 describe("스토리 그래프 무결성", () => {
   it("모든 선택지의 next가 실재하는 노드를 가리킨다", () => {
     for (const story of DM_STORIES) {
@@ -62,6 +78,27 @@ describe("스토리 그래프 무결성", () => {
           expect(c.me.trim(), `${story.id}.${node.id}: me 비어 있음`).not.toBe("");
           expect(c.reply.trim(), `${story.id}.${node.id}: reply 비어 있음`).not.toBe("");
         }
+      }
+    }
+  });
+
+  /**
+   * 시간이 흐른 노드("며칠 지났다", "새벽 4시")는 **들어오는 모든 간선**이 지연이어야 한다.
+   * 한 갈래만 즉시면 그 루트에서는 방금 대화를 마친 상대가 며칠 지났다고 말한다 —
+   * 지연 간선을 새로 붙일 때 형제 선택지를 깜빡하는 게 정확히 이 실수다.
+   */
+  it("지연 도착 노드는 들어오는 간선이 전부 지연이다", () => {
+    for (const story of DM_STORIES) {
+      const delayed = new Set<string>();
+      const instant = new Set<string>();
+      for (const node of story.nodes) {
+        for (const c of node.choices) {
+          if (!c.next) continue;
+          (c.delayDays ? delayed : instant).add(c.next);
+        }
+      }
+      for (const id of delayed) {
+        expect(instant.has(id), `${story.id}.${id}: 지연/즉시 간선이 섞여 있다`).toBe(false);
       }
     }
   });
@@ -247,10 +284,10 @@ describe("회차(3회차) 해금", () => {
   const settonThreads = (s: GameState) =>
     getActiveAccount(s).dms.filter((t) => t.partnerHandle === SETTON_HANDLE);
 
-  /** 현재 회차를 끝까지(친절 루트로) 걸어 스토리를 닫는다. */
+  /** 현재 회차를 끝까지(친절 루트로) 걸어 스토리를 닫는다. 도착 대기 노드는 날을 넘겨 받는다. */
   const finishChapter = (s: GameState) => {
     const t = settonThreads(s)[0];
-    for (let i = 0; i < 10 && t.story; i++) replyDM(s, t, "friendly");
+    for (let i = 0; i < 20 && t.story; i++) walkStory(s, t);
     expect(t.story, "친절 루트로 끝까지 가야 한다").toBeUndefined();
   };
 
@@ -401,11 +438,15 @@ describe("이름없는 타로 스토리", () => {
     spawnStoryFor(s, TARO_HANDLE);
     const t = getActiveAccount(s).dms.find((x) => x.story?.id === "taro")!;
 
-    // hello(친절) → confide(친절) → debut
+    // hello(친절) → confide(친절) → [이틀 뒤] debut
     replyDM(s, t, "friendly");
     expect(t.story!.node).toBe("confide");
     replyDM(s, t, "friendly");
     expect(t.story!.node).toBe("debut");
+    // 타로는 계정을 만들고 "어제" 첫 글을 올렸다 — 그래서 이 노드는 이틀 뒤에 온다.
+    expect(isStoryPending(t)).toBe(true);
+    s.day += 2;
+    deliverPendingStoryNodes(s);
 
     // 반전 고백이 데뷔 노드 안내문에 들어 있다(모든 분기가 이걸 보고 결말을 고른다).
     expect(t.messages.some((m) => m.text.includes("그쪽 글을 보고"))).toBe(true);
@@ -500,19 +541,84 @@ describe("칸라칸라 스토리 진행", () => {
     expect(t.messages.length).toBe(before);
   });
 
+  /**
+   * 칸라가 "내일 아침에 문장 보낼게요"라고 한 약속을 진짜 익일에 지키는지 —
+   * 즉시 도착으로 되돌아가면 그 대사가 거짓이 되고, 다음 노드(twist)의 "어제 그 글"도 어긋난다.
+   */
+  it("약속한 문장이 익일에 도착하고, 그때까지 답장이 막힌다", () => {
+    const s = createInitialState();
+    spawnStoryFor(s, KANRA_HANDLE);
+    const t = storyThread(s)!;
+
+    // start(친절) → offer(친절) → deal(친절): 여기서 '내일 아침' 약속으로 대기 상태가 된다
+    replyDM(s, t, "friendly");
+    replyDM(s, t, "friendly");
+    replyDM(s, t, "friendly");
+    expect(t.story!.node).toBe("sentence");
+    expect(isStoryPending(t)).toBe(true);
+    // 문장은 아직 안 왔다 — 선택지도, 직접 입력도 없다
+    expect(dmReplyOptions(s, t)).toEqual([]);
+    const waiting = t.messages.length;
+    replyDM(s, t, "friendly");
+    sendCustomDM(s, t, "문장 언제 줘요?");
+    expect(t.messages.length).toBe(waiting);
+    // 같은 날 하루가 안 지났으면 계속 대기
+    deliverPendingStoryNodes(s);
+    expect(isStoryPending(t)).toBe(true);
+
+    s.day += 1;
+    deliverPendingStoryNodes(s);
+    expect(isStoryPending(t)).toBe(false);
+    expect(t.messages[t.messages.length - 1].text).toContain("올려주실래요");
+    expect(dmReplyOptions(s, t)).toHaveLength(3);
+  });
+
+  it("올리겠다고 하면 그 문장이 내 타임라인에 실제로 게시된다", () => {
+    const s = createInitialState();
+    spawnStoryFor(s, KANRA_HANDLE);
+    const t = storyThread(s)!;
+    for (let i = 0; i < 3; i++) replyDM(s, t, "friendly");
+    s.day += 1;
+    deliverPendingStoryNodes(s);
+
+    const posted = getActiveAccount(s).timeline.length;
+    replyDM(s, t, "friendly"); // 올릴게요
+    const timeline = getActiveAccount(s).timeline;
+    expect(timeline.length).toBe(posted + 1);
+    expect(timeline[0].text).toContain("위생 단속");
+    expect(timeline[0].authorHandle).toBe(getActiveAccount(s).handle);
+  });
+
+  it("안 올리겠다고 하면 거기서 스토리가 끝난다(트윗도 안 올라간다)", () => {
+    const s = createInitialState();
+    spawnStoryFor(s, KANRA_HANDLE);
+    const t = storyThread(s)!;
+    for (let i = 0; i < 3; i++) replyDM(s, t, "friendly");
+    s.day += 1;
+    deliverPendingStoryNodes(s);
+
+    const posted = getActiveAccount(s).timeline.length;
+    replyDM(s, t, "cool"); // 안 올릴게요
+    expect(t.story).toBeUndefined();
+    expect(getActiveAccount(s).timeline.length).toBe(posted);
+  });
+
   it("팔로워 % 효과가 현재 팔로워 기준으로 적용된다", () => {
     const s = createInitialState();
     spawnStoryFor(s, KANRA_HANDLE);
     const t = storyThread(s)!;
     getActiveAccount(s).followers = 10_000;
 
-    // start(친절) → offer(친절) → deal(친절, 팔로워+400) → twist
+    // start(친절) → offer(친절) → deal(친절) → [익일] sentence(친절, 팔로워+400) → [익일] twist
+    for (let i = 0; i < 3; i++) replyDM(s, t, "friendly");
+    s.day += 1;
+    deliverPendingStoryNodes(s);
     replyDM(s, t, "friendly");
-    replyDM(s, t, "friendly");
-    replyDM(s, t, "friendly");
-    expect(t.story!.node).toBe("twist");
     expect(getActiveAccount(s).followers).toBe(10_400);
+    expect(t.story!.node).toBe("twist");
 
+    s.day += 1;
+    deliverPendingStoryNodes(s);
     // twist 무심 엔딩은 팔로워를 안 건드린다
     replyDM(s, t, "cool");
     expect(t.story).toBeUndefined();

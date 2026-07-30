@@ -35,6 +35,7 @@ import { ensureMissions } from "./missions";
 import { checkStatMilestones, perkMentalRecovery } from "./milestones";
 import { killerDailyTick } from "./killer";
 import { resolveProphecy } from "./prophecy";
+import { deliverPendingStoryNodes } from "./dmStory";
 import { HOUSINGS } from "@/data/housing";
 import { clampAction, staminaActionBonus } from "./stats";
 import { settleGigDeadlines } from "./gig";
@@ -275,6 +276,8 @@ function onNewDay(state: GameState): void {
   killerDailyTick(state);
   // 예약된 예언 실현(예언 계정 트윗 좋아요 이스터에그)
   resolveProphecy(state);
+  // "내일 보낼게요"로 예약된 스토리 DM 노드가 도착일이 됐으면 그 말을 스레드에 넣는다
+  deliverPendingStoryNodes(state);
   // 오늘 도래한 트친 생일이 있으면 축하 배너/카톡을 세팅(전날 미축하는 무해하게 흘려보낸다)
   processBirthdayDue(state);
 }

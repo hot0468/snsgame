@@ -275,8 +275,12 @@ export interface DMThread {
    * 스토리 DM 진행 상태(`data/dmStory.ts`). 있으면 이 스레드는 잡담 풀 대신 **스토리 분기**로
    * 답장한다 — 선택지는 현재 노드의 것이고, 고르면 다음 노드로 넘어간다.
    * 스토리가 끝나면 이 필드를 지워 평범한 DM으로 돌아간다.
+   *
+   * `pendingDay`가 있으면 그 노드의 말이 **아직 도착하지 않았다**("내일 보낼게요" 같은 약속).
+   * 그날이 오면 time.onNewDay → deliverPendingStoryNodes가 intro를 넣고 이 필드를 지운다.
+   * 그동안은 선택지도 직접 입력도 막힌다(systems/dm.ts의 isStoryPending 게이트).
    */
-  story?: { id: string; node: string };
+  story?: { id: string; node: string; pendingDay?: number };
   /** 이미 오프라인에서 만났는지(만남은 상대당 1회) */
   metOffline: boolean;
   /** 상대가 오프라인 만남을 제안했는지(제안해야만 만날 수 있음) */
