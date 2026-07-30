@@ -281,6 +281,22 @@ export const ACHIEVEMENTS: Achievement[] = [
     condition: (s) => DOLLS.every((d) => (s.dolls ?? []).includes(d.id)),
   },
 
+  // ── 오락실 농구 슛 ──────────────────────────────
+  {
+    id: "hoop_first",
+    name: "첫 골",
+    desc: "농구 게임기에서 한 골을 넣었다. 그물이 흔들리는 소리가 생각보다 좋았다.",
+    emoji: "🏀",
+    condition: (s) => (s.hoopBest ?? 0) >= 1,
+  },
+  {
+    id: "hoop_ten",
+    name: "슛 감각",
+    desc: "30초 안에 10골을 넣었다. 손목이 알아서 각도를 잡는 경지다.",
+    emoji: "🎯",
+    condition: (s) => (s.hoopBest ?? 0) >= 10,
+  },
+
   // ── 산책 장소 ──────────────────────────────────
   {
     id: "walk_place_first",

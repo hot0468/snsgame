@@ -417,6 +417,8 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   // 인형 도감·재고도 같은 취급(구세이브엔 키가 없다).
   if (!Array.isArray(state.dolls)) state.dolls = [];
   if (!state.dollStock || typeof state.dollStock !== "object") state.dollStock = {};
+  // 농구 최고 기록도 신규 필드. NaN이 들어가면 신기록 판정이 영구히 깨지므로 유한수를 보장한다.
+  if (typeof state.hoopBest !== "number" || !Number.isFinite(state.hoopBest)) state.hoopBest = 0;
   // 이스터에그 추적 상태 보강(구버전 저장본 대비)
   const freshEggs = fresh.eggs;
   state.eggs = { ...freshEggs, ...(state.eggs ?? {}) };

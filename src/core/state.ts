@@ -278,6 +278,7 @@ export function createInitialState(): GameState {
     streamNames: {},
     dolls: [],
     dollStock: {},
+    hoopBest: 0,
     pendingRace: null,
     raceBests: {},
     bodyProfile: null,

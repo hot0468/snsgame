@@ -17,6 +17,8 @@ import { createUIState, type GameContext } from "@/ui/context";
 import { renderWishSite } from "@/ui/wishSite";
 import { renderGoblinShop } from "@/ui/goblinShop";
 import { renderArcadeModal } from "@/ui/arcadeModal";
+import { renderHoopModal } from "@/ui/hoopModal";
+import { renderArcadePickModal } from "@/ui/arcadePickModal";
 import { WISHES, WISH_MONEY_PENALTY, rollWishOptions } from "@/systems/wish";
 import { GOBLIN_ITEMS } from "@/data/goblin";
 
@@ -211,9 +213,17 @@ function oneShotSitesSection(): string {
     <p class="note" style="margin-top:10px">페널티: <b>소원이 가리키는 대상 제외</b> 랜덤 스탯 <b>-30~50</b> 또는 돈 <b>-${WISH_MONEY_PENALTY.toLocaleString("ko-KR")}원</b> + 정신력 <b>-15~25</b>. (소원은 안 이뤄짐)</p>
     <table><thead><tr><th>소원</th><th>대상(하락 제외)</th></tr></thead><tbody>${wishRows}</tbody></table>
 
+    <h3 class="admin-sub" style="margin-top:22px">오락실 기계 선택 (조우 시 먼저 뜨는 화면)</h3>
+    <button id="arcade-pick-reset" class="admin-btn">🔄 리셋(소지금 100만원 · 최고 7골)</button>
+    <div id="arcade-pick-sandbox" class="wish-embed"></div>
+
     <h3 class="admin-sub" style="margin-top:22px">오락실 인형뽑기 (외출 조우 25% · 한 방문 1개)</h3>
     <button id="claw-reset" class="admin-btn">🔄 리셋(소지금 100만원 지급)</button>
     <div id="claw-sandbox" class="wish-embed"></div>
+
+    <h3 class="admin-sub" style="margin-top:22px">오락실 농구 슛 (30초 · 드래그로 조준)</h3>
+    <button id="hoop-reset" class="admin-btn">🔄 리셋(소지금 100만원 지급)</button>
+    <div id="hoop-sandbox" class="wish-embed"></div>
 
     <h3 class="admin-sub" style="margin-top:22px">도깨비 상점 (네이놈 검색 '열려라 참깨' · 월 1회)</h3>
     <button id="goblin-reset" class="admin-btn">🔄 리셋(금화 100억 지급)</button>
@@ -298,6 +308,80 @@ function mountClawSandbox(host: HTMLElement): void {
   reset();
 
   const btn = document.getElementById("claw-reset");
+  if (btn) btn.addEventListener("click", reset);
+}
+
+/**
+ * 오락실 농구 슛을 샌드박스로 렌더링(인형뽑기와 같은 이유 — 조우로만 열리는 화면이다).
+ * ⚠️ 30초 제한이 있어 한 판이 끝나면 정산 팝업이 덮는다. 리셋 버튼으로 새 판을 연다.
+ */
+function mountHoopSandbox(host: HTMLElement): void {
+  const site = document.createElement("div");
+  site.className = "wish-embed__frame";
+
+  let store = new Store(createInitialState());
+  const ui = createUIState();
+  const ctx: GameContext = {
+    store,
+    ui,
+    update: (fn) => store.dispatch(fn),
+    refresh: () => {},
+    // 기계 선택 화면으로 돌아가는 자리 — 샌드박스에서는 새 판으로 되돌린다.
+    openModal: () => reset(),
+    closeModal: () => reset(),
+    toast: () => {},
+    afterAction: () => {},
+  };
+
+  const reset = (): void => {
+    store = new Store(createInitialState());
+    ctx.store = store;
+    store.dispatch((s) => {
+      s.money = 1_000_000; // 미리보기: 계속 던져볼 수 있게 동전 넉넉히
+    });
+    site.replaceChildren(renderHoopModal(ctx));
+  };
+
+  host.replaceChildren(site);
+  reset();
+
+  const btn = document.getElementById("hoop-reset");
+  if (btn) btn.addEventListener("click", reset);
+}
+
+/** 오락실 기계 선택 화면을 샌드박스로 렌더링(인형뽑기·농구 앞에 끼는 화면). */
+function mountArcadePickSandbox(host: HTMLElement): void {
+  const site = document.createElement("div");
+  site.className = "wish-embed__frame";
+
+  let store = new Store(createInitialState());
+  const ui = createUIState();
+  const ctx: GameContext = {
+    store,
+    ui,
+    update: (fn) => store.dispatch(fn),
+    refresh: () => {},
+    // 기계를 고르면 실제로 그 모달이 열려야 한다(선택 → 기계 흐름 확인용).
+    openModal: (render) => site.replaceChildren(render(ctx)),
+    closeModal: () => reset(),
+    toast: () => {},
+    afterAction: () => {},
+  };
+
+  const reset = (): void => {
+    store = new Store(createInitialState());
+    ctx.store = store;
+    store.dispatch((s) => {
+      s.money = 1_000_000;
+      s.hoopBest = 7; // 최고 기록이 카드에 어떻게 보이는지 확인용
+    });
+    site.replaceChildren(renderArcadePickModal(ctx));
+  };
+
+  host.replaceChildren(site);
+  reset();
+
+  const btn = document.getElementById("arcade-pick-reset");
   if (btn) btn.addEventListener("click", reset);
 }
 
@@ -438,8 +522,12 @@ function render(): void {
   // 문자열 렌더 후, 단발 사이트는 실제 컴포넌트를 샌드박스로 마운트
   const wishHost = document.getElementById("wish-sandbox");
   if (wishHost) mountWishSandbox(wishHost);
+  const pickHost = document.getElementById("arcade-pick-sandbox");
+  if (pickHost) mountArcadePickSandbox(pickHost);
   const clawHost = document.getElementById("claw-sandbox");
   if (clawHost) mountClawSandbox(clawHost);
+  const hoopHost = document.getElementById("hoop-sandbox");
+  if (hoopHost) mountHoopSandbox(hoopHost);
   const goblinHost = document.getElementById("goblin-sandbox");
   if (goblinHost) mountGoblinSandbox(goblinHost);
 }

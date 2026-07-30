@@ -13977,6 +13977,256 @@ button.np-menu__item:hover {
   line-height: 1.65;
 }
 
+/* ══════════ 오락실 기계 선택 (ui/arcadePickModal.ts) ══════════
+   인형뽑기·농구 앞에 한 겹 끼는 화면. 각 카드에 1판 비용과 최고 기록을 함께 보여준다. */
+.modal--arcade-pick {
+  width: min(460px, 100%);
+}
+.arcade-pick__intro {
+  margin: 2px 0 14px;
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+.arcade-pick__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+/* 카드 전체가 버튼이다 — 기계 앞으로 걸어가는 동작이라 클릭 영역을 넓게 잡는다 */
+.arcade-pick__card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffe9f2, #ffd7e8);
+  box-shadow: inset 0 0 0 2px #ff9fc2;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+.arcade-pick__card:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.03);
+}
+.arcade-pick__card:active:not(:disabled) {
+  transform: translateY(0);
+}
+/* 동전이 모자란 기계는 눌리지 않는다(무엇이 부족한지는 아래 안내 문구가 말한다) */
+.arcade-pick__card--broke {
+  background: #eceff1;
+  box-shadow: inset 0 0 0 2px #cfd6db;
+  cursor: default;
+  opacity: 0.7;
+}
+.arcade-pick__emoji {
+  flex: none;
+  font-size: 38px;
+  line-height: 1;
+}
+.arcade-pick__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.arcade-pick__name {
+  font-size: 15px;
+  font-weight: 800;
+  color: #8c2f52;
+}
+.arcade-pick__card--broke .arcade-pick__name {
+  color: #5c666d;
+}
+.arcade-pick__desc {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.arcade-pick__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.arcade-pick__cost {
+  color: #c0335f;
+}
+.arcade-pick__card--broke .arcade-pick__cost {
+  color: #7c868d;
+}
+.arcade-pick__record {
+  color: var(--text-muted);
+}
+
+/* ══════════ 오락실 농구 슛 기계 (ui/hoopModal.ts) ══════════
+   기계 껍데기(마퀴 → 케이지 → 점수 패널)만 CSS다.
+   ⚠️ 케이지 **안쪽**은 Phaser 캔버스다 — 공·림·백보드를 CSS로 다시 그리지 마라. */
+.modal--hoop {
+  position: relative;
+  width: min(620px, 100%);
+}
+.hoop-machine {
+  margin: 6px 0 12px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #ffd9a8, #ffb877);
+  box-shadow: inset 0 0 0 3px #f09040;
+}
+/* ⚠️ 전구는 **좌우 끝에만** 깔고 가운데는 비워 글자와 겹치지 않게 한다.
+   전체에 repeat-x로 깔았더니 'SHOOTOUT' 글자와 전구가 정확히 포개져 읽을 수 없었다. */
+.hoop-machine__marquee {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 14px 14px, #fff7d1 0 3px, transparent 4px) repeat-x 0 0 / 28px 28px,
+    #e8763a;
+  color: #fff4e2;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+/* 글자 뒤에 기계색 판을 깔아 전구를 가린다 — 마퀴 조명은 글자 양옆으로만 보인다 */
+.hoop-machine__marquee > * {
+  padding: 0 14px;
+  background: #e8763a;
+}
+/* 코트 — 캔버스가 이 안을 채운다 */
+.hoop-machine__cage {
+  position: relative;
+  aspect-ratio: 26 / 17;
+  margin: 0 10px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #2b3a55 0%, #38507a 65%, #46628f 100%);
+  box-shadow: inset 0 0 0 3px #d9762e, inset 0 8px 22px rgba(0, 0, 0, 0.3);
+}
+/* 물리 미니게임 캔버스 자리 — Phaser가 이 안에 canvas를 만든다 */
+.hoop-stage {
+  position: absolute;
+  inset: 0;
+  /* 드래그로 조준하므로 브라우저 스크롤 제스처를 막는다(모바일에서 화면이 딸려간다) */
+  touch-action: none;
+}
+.hoop-stage canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── 점수 패널 ── */
+.hoop-machine__panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+}
+.hoop-machine__time {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #2b3a55;
+  color: #ffd166;
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.hoop-machine__coin {
+  font-size: 12px;
+  font-weight: 700;
+  color: #8a4a16;
+}
+.hoop-machine__score {
+  margin-left: auto;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: #e8763a;
+  color: #fff4e2;
+  font-size: 13.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.hoop__status {
+  margin: 10px 0 14px;
+  min-height: 3.2em;
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+
+/* 정산 팝업 — 모달 전체를 덮는다(부모 .modal--hoop에 position:relative) */
+.hoop-finish {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+  background: rgba(30, 40, 60, 0.58);
+  backdrop-filter: blur(4px);
+  animation: modal-pop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.hoop-win {
+  width: min(340px, 100%);
+  padding: 20px 18px 16px;
+  border-radius: 16px;
+  background: var(--bg-window);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  text-align: center;
+}
+.hoop-win__title {
+  font-size: 34px;
+  font-weight: 800;
+  color: #e8763a;
+  animation: hoop-win-pop 0.5s ease-out both;
+}
+@keyframes hoop-win-pop {
+  0% { transform: scale(0.4); opacity: 0; }
+  70% { transform: scale(1.14); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.hoop-win__label {
+  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.hoop-win__result {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.65;
+}
+.hoop-win__gain {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.hoop-win__best {
+  margin: 6px 0;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #e8763a;
+}
+.hoop-win__note {
+  margin: 6px 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.hoop-win__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 /* ══════════ 너튜브 인방(라이브 방송) — ui/livestreamModal.ts ══════════ */
 
 /* ── 타입 선택 ── */

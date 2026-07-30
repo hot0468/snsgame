@@ -1255,6 +1255,8 @@ export interface GameState {
    * ⚠️ 판매는 이 재고만 차감한다 — dolls(도감)는 절대 비우지 않는다.
    */
   dollStock: Record<string, number>;
+  /** 오락실 농구 슛 최고 득점(한 판 30초 기준). 진행 상태는 씬 지역 변수라 여기 없다 */
+  hoopBest: number;
   /** 결과 대기 중인 마라톤 대회 신청(대회일에 판정, 동시 1건). 없으면 null */
   pendingRace: { id: string; appliedDay: number } | null;
   /** 코스별 개인 최고 기록(분 단위, 낮을수록 좋다). 완주한 코스만 키가 있다. */

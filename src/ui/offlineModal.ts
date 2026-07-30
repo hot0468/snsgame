@@ -23,7 +23,7 @@ import { getAdultOfflineEncounter } from "@/data/adultOffline";
 import { resolveAdultOfflineEncounter } from "@/systems/adultOffline";
 import { canNiglWork, quitCurrentJob } from "@/systems/employment";
 import { confirmPurchase } from "./confirmModal";
-import { renderArcadeModal } from "./arcadeModal";
+import { renderArcadePickModal } from "./arcadePickModal";
 import { NIGL_COMPANY, NIGL_SHIFT_GOAL } from "@/data/niglnigl";
 import { renderWorkModal } from "./workModal";
 import { hasCertification } from "@/systems/certification";
@@ -951,9 +951,9 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
       return;
     }
     // 오락실 조우 — 성인 이벤트·제안과 같은 흐름. 스탯 안내를 먼저 보이고,
-    // 확인하면 인형뽑기 모달로 넘긴다(결과 문구와 미니게임을 한 창에 섞지 않는다).
+    // 확인하면 기계 선택 화면으로 넘긴다(결과 문구와 미니게임을 한 창에 섞지 않는다).
     if (outcome.arcadeEncounter) {
-      showStatusNotice(act, outcome, () => ctx.openModal(renderArcadeModal));
+      showStatusNotice(act, outcome, () => ctx.openModal(renderArcadePickModal));
       return;
     }
     // 운동 중 제안(바디프로필·마라톤)도 성인 이벤트와 같은 흐름 — 스탯 안내를 먼저 보이고,
