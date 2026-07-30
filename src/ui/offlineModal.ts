@@ -274,6 +274,21 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
       el(
         "div",
         { class: "modal__body" },
+        // 발견 진행률 — 도감 화면(ach-progress)과 같은 그릇을 쓴다. 몇 곳이 남았는지
+        // 알 방법이 없으면 수집 동기가 생기지 않는다(선택 화면엔 발견한 곳만 뜨므로).
+        el(
+          "div",
+          { class: "ach-progress" },
+          el("span", { class: "ach-progress__count" }, `${found.length} / ${WALK_PLACES.length}`),
+          el(
+            "div",
+            { class: "bar" },
+            el("div", {
+              class: "bar__fill",
+              style: `width:${Math.round((found.length / WALK_PLACES.length) * 100)}%`,
+            }),
+          ),
+        ),
         el(
           "p",
           { class: "compose-hint", style: "margin-top:0" },

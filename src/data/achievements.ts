@@ -12,6 +12,9 @@
 import type { GameState } from "@/core/types";
 import { getActiveAccount } from "@/core/state";
 import { STREAM_TYPES } from "./livestream";
+import { DOLLS } from "./arcade";
+import { WALK_PLACES } from "./walkPlaces";
+import { RECIPES } from "./grocery";
 
 export interface Achievement {
   id: string;
@@ -252,5 +255,73 @@ export const ACHIEVEMENTS: Achievement[] = [
     desc: "게임·수다·버튜버 방송을 모두 경험했다.",
     emoji: "🎭",
     condition: (s) => STREAM_TYPES.every((t) => (s.streamBests?.[t.id] ?? 0) > 0),
+  },
+
+  // ── 오락실 인형뽑기 ─────────────────────────────
+  {
+    id: "doll_first",
+    name: "집게의 은총",
+    desc: "인형뽑기로 인형을 하나 건졌다. 그 집게가 정말 잡을 줄은 몰랐다.",
+    emoji: "🧸",
+    condition: (s) => (s.dolls?.length ?? 0) >= 1,
+  },
+  {
+    id: "doll_rare",
+    name: "유리장 맨 뒤",
+    desc: "레어 인형을 뽑았다. 오락실에서 제일 안 뽑히던 그 자리다.",
+    emoji: "🐻",
+    condition: (s) =>
+      DOLLS.some((d) => d.rarity === "rare" && (s.dolls ?? []).includes(d.id)),
+  },
+  {
+    id: "doll_dex_complete",
+    name: "인형 도감 완성",
+    desc: `인형 ${DOLLS.length}종을 전부 모았다. 방에 둘 자리가 없다.`,
+    emoji: "🏆",
+    condition: (s) => DOLLS.every((d) => (s.dolls ?? []).includes(d.id)),
+  },
+
+  // ── 산책 장소 ──────────────────────────────────
+  {
+    id: "walk_place_first",
+    name: "동네 탐험가",
+    desc: "산책하다 새로운 장소를 발견했다. 여기 이런 게 있었구나.",
+    emoji: "🗺️",
+    condition: (s) => (s.walkPlaces?.length ?? 0) >= 1,
+  },
+  {
+    id: "walk_place_all",
+    name: "우리 동네 지도 완성",
+    desc: `산책으로 갈 수 있는 장소 ${WALK_PLACES.length}곳을 전부 찾아냈다.`,
+    emoji: "🧭",
+    condition: (s) => WALK_PLACES.every((p) => (s.walkPlaces ?? []).includes(p.id)),
+  },
+
+  // ── 요리 도감 ──────────────────────────────────
+  {
+    id: "cooking_dex_complete",
+    name: "요리 도감 완성",
+    desc: `레시피 ${RECIPES.length}종을 전부 만들어봤다. 이제 배달앱을 지워도 된다.`,
+    emoji: "🍳",
+    condition: (s) => RECIPES.every((r) => (s.cookedDishes ?? []).includes(r.id)),
+  },
+
+  // ── 고생 훈장(숨김) ─────────────────────────────
+  // 자랑거리가 아니라 흑역사라 hidden으로 둔다 — 목표로 삼을 일이 아니다.
+  {
+    id: "overtime_streak",
+    name: "회사가 집이다",
+    desc: "야근을 5일 연속으로 했다. 몸이 먼저 알아본다.",
+    emoji: "🌃",
+    hidden: true,
+    condition: (s) => (s.overtimeStreak ?? 0) >= 5,
+  },
+  {
+    id: "hunger_survivor",
+    name: "물로 배 채우기",
+    desc: "생활비를 못 내고 3일을 굶었다. 다시는 겪지 말자.",
+    emoji: "🥄",
+    hidden: true,
+    condition: (s) => (s.hungerStreak ?? 0) >= 3,
   },
 ];
