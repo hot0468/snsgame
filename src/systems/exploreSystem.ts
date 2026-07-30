@@ -8,6 +8,7 @@ import {
   makeRandomTweet,
   makeRumorTweet,
   makeCharacterTweet,
+  makeDiaryTweet,
   maybeFixedAuthorTweet,
   makeTweetOfAttribute,
   profileFromAuthor,
@@ -167,7 +168,13 @@ export function exploreTweets(state: GameState): Tweet[] {
 export const HOME_FEED_RANDOM = 5;
 export const HOME_FEED_FIXED = 2;
 export const HOME_FEED_EGG = 1;
-export const HOME_FEED_COUNT = HOME_FEED_RANDOM + HOME_FEED_FIXED + HOME_FEED_EGG;
+/**
+ * 관찰일기 계정 칸 — 확률이 아니라 확정 1칸(그 계정은 하루에 딱 한 줄 올린다).
+ * ⚠️ 단 일기 문구를 다 쓴 날 이후로는 이 칸이 사라진다 — 그래서 HOME_FEED_COUNT는 **상한**이다.
+ */
+export const HOME_FEED_DIARY = 1;
+export const HOME_FEED_COUNT =
+  HOME_FEED_RANDOM + HOME_FEED_FIXED + HOME_FEED_EGG + HOME_FEED_DIARY;
 
 /**
  * 홈 타임라인 하루치 트윗을 만든다(랜덤 5 + 전용 문구 고정 계정 2 + 이스터에그 1, 섞어서 반환).
@@ -221,7 +228,10 @@ export function homeFeedTweets(state: GameState): Tweet[] {
   if (!isDstoryDone(state)) eggMakers.push(() => makeDstoryTweet(state));
   const egg = pick(eggMakers)();
 
-  const feed = [...random, ...fixed, egg];
+  // 관찰일기 — 날짜에 묶인 한 줄이라 uniq(재추첨)를 쓰지 않는다(오늘 줄은 오늘 줄이다).
+  // 문구를 다 쓴 날부터는 null이 오고, 그때부터 홈 피드는 이 칸 없이 HOME_FEED_COUNT-1개다.
+  const diary = makeDiaryTweet(state.day);
+  const feed = [...random, ...fixed, egg, ...(diary ? [diary] : [])];
   return sample(feed, feed.length); // 셔플 — 고정 계정·이스터에그가 항상 아래쪽에 몰리지 않게
 }
 
