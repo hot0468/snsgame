@@ -58,6 +58,64 @@ describe("성격별 게시 부수효과", () => {
     expect(s.skills.knowledge).toBe(kn0);
   });
 
+  /**
+   * ⚠️ **트레이드오프 계약.** 감성은 도달이 무난보다 높은 대신 정신력을 낸다.
+   *    이 대가가 사라지면 감성이 무난의 완전 상위호환이 되어(도달 1.2배 · 페널티 0)
+   *    4장 중 3장을 누를 이유가 없어진다 — 실제로 그 상태였던 걸 고친 것이다.
+   */
+  it("감성은 정신력을 소모한다(도달이 높은 대가)", () => {
+    const s = createInitialState();
+    s.resources.mental = 50; // 0에 막히지 않게
+    const m0 = s.resources.mental;
+    postTweet(s, "daily", "감성 트윗", false, "meetup", 1, { kind: "emotional", free: true });
+    expect(s.resources.mental).toBeLessThan(m0);
+  });
+
+  it("자극도 정신력을 소모한다(도달 최고의 대가)", () => {
+    const s = createInitialState();
+    s.resources.mental = 50;
+    const m0 = s.resources.mental;
+    postTweet(s, "daily", "자극 트윗", false, "meetup", 1, { kind: "provoke", free: true });
+    expect(s.resources.mental).toBeLessThan(m0);
+  });
+
+  /** 무난이 존재할 이유 — 유일하게 아무것도 잃지 않는 카드여야 한다. */
+  it("무난·정보는 정신력을 깎지 않는다", () => {
+    for (const kind of ["plain", "info"] as const) {
+      const s = createInitialState();
+      s.resources.mental = 50;
+      const m0 = s.resources.mental;
+      postTweet(s, "daily", `${kind} 트윗`, false, "meetup", 1, { kind, free: true });
+      expect(s.resources.mental, kind).toBe(m0);
+    }
+  });
+
+  it("어떤 성격도 다른 성격의 완전 상위호환이 아니다", () => {
+    // 도달이 더 높으면 반드시 어딘가에서 대가를 낸다(정신력·평판·논란 중 하나).
+    const kinds = ["plain", "provoke", "info", "emotional"] as const;
+    for (const a of kinds) {
+      for (const b of kinds) {
+        if (a === b) continue;
+        const A = TWEET_KIND_EFFECTS[a];
+        const B = TWEET_KIND_EFFECTS[b];
+        if (A.reachMul <= B.reachMul) continue;
+        // A가 B보다 도달이 높다 → A는 B보다 무언가를 더 잃어야 한다.
+        const aCost =
+          -A.mentalDelta + -A.reputationDelta + A.controversyBonus * 100 - A.knowledgeDelta;
+        const bCost =
+          -B.mentalDelta + -B.reputationDelta + B.controversyBonus * 100 - B.knowledgeDelta;
+        expect(aCost, `${a}가 ${b}의 상위호환이다`).toBeGreaterThan(bCost);
+      }
+    }
+  });
+
+  it("정신력이 0이면 감성을 써도 음수로 안 내려간다", () => {
+    const s = createInitialState();
+    s.resources.mental = 0;
+    postTweet(s, "daily", "감성 트윗", false, "meetup", 1, { kind: "emotional", free: true });
+    expect(s.resources.mental).toBeGreaterThanOrEqual(0);
+  });
+
   it("자극은 논란 확률이 붙어, 고정 seed에서 무난은 안 터지고 자극은 터진다", () => {
     // 평판을 높여 기반 논란확률(reputation<45) 0으로 만든 뒤 성격 효과만 남긴다.
     vi.spyOn(Math, "random").mockReturnValue(0.05); // < provoke 0.12, == plain 0

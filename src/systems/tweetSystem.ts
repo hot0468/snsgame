@@ -263,10 +263,18 @@ export function postTweet(
   maybeSpawnLingerieDM(state);
   maybeSpawnCosplayDM(state);
 
-  // 성격별 부수효과: 정보=평판·지식↑, 자극=평판 리스크(감성/무난은 0). plain은 전부 0이라 특수 모드는 무영향.
+  // 성격별 부수효과: 정보=평판·지식↑, 자극=평판 리스크, 감성·자극=정신력 소모(무난은 전부 0).
+  // plain은 모든 필드가 0이라 특수 모드(성격 미지정) 경로는 기존 동작과 동일하다.
   if (kindEff.reputationDelta !== 0) {
     state.resources.reputation = clampResource(state.resources.reputation + kindEff.reputationDelta);
     statChanges.push({ label: "평판", delta: kindEff.reputationDelta });
+  }
+  if (kindEff.mentalDelta !== 0) {
+    // ⚠️ 감성·자극의 대가. 실제 반영 델타를 표시한다(0에서 더 못 깎이면 0으로 보여야 한다).
+    const before = state.resources.mental;
+    state.resources.mental = clampResource(state.resources.mental + kindEff.mentalDelta);
+    const applied = state.resources.mental - before;
+    if (applied !== 0) statChanges.push({ label: "정신력", delta: applied });
   }
   if (kindEff.knowledgeDelta !== 0) {
     // 선언값이 아니라 실제 반영 델타를 표시한다(위 덕질과 같은 이유).

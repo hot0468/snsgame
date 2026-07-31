@@ -56,10 +56,12 @@ type Step = 1 | 2;
  * 힌트는 수치 노출 금지 — 방향성만. 실제 효과 수치는 systems(TWEET_KIND_EFFECTS)가 소유.
  */
 const KIND_META: Record<TweetKind, { label: string; hint: string; warn?: boolean }> = {
-  plain: { label: "무난", hint: "안정적" },
-  provoke: { label: "자극", hint: "🔥 대박 가능 · 논란 위험", warn: true },
-  info: { label: "정보", hint: "평판↑ · 꾸준" },
-  emotional: { label: "감성", hint: "유입↑" },
+  // ⚠️ 힌트에 **대가**가 안 보이면 트레이드오프가 성립하지 않는다 —
+  //    감성이 "유입↑"만 달고 있던 시절엔 무난·정보를 누를 이유가 화면에 없었다.
+  plain: { label: "무난", hint: "안정적 · 소모 없음" },
+  provoke: { label: "자극", hint: "🔥 대박 가능 · 논란 위험 · 정신력↓", warn: true },
+  info: { label: "정보", hint: "평판↑ · 지식↑ · 꾸준" },
+  emotional: { label: "감성", hint: "유입↑ · 정신력↓", warn: true },
 };
 
 /** "일상계" → "일상" 처럼 카테고리 라벨의 '계' 접미사를 뗀다. */

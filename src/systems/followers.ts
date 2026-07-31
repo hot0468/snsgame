@@ -124,17 +124,32 @@ export interface TweetKindEffect {
   controversyBonus: number; // 게시 후 추가 논란 확률
   reputationDelta: number; // 게시 후 평판 증감(0~100 스케일)
   knowledgeDelta: number; // 게시 후 지식 스킬 증감(999 스케일)
+  /**
+   * 게시 후 정신력 증감(0~100 스케일).
+   * ⚠️ **감성의 대가다.** 이게 없으면 감성이 무난의 완전 상위호환이 되어(도달 1.2배에 페널티 0)
+   *    4장 중 3장을 누를 이유가 사라진다 — 실제로 그 상태였다.
+   */
+  mentalDelta: number;
 }
 
+/**
+ * ⚠️ **4성격은 서로 트레이드오프여야 한다.** 어느 하나가 다른 하나의 완전 상위호환이 되면
+ *    카드가 4장 떠도 실질 선택지는 그만큼 줄어들고, 작성이 기계적인 클릭이 된다.
+ *    지금 축: 도달(reachMul) ↔ 정신력(mentalDelta) ↔ 평판·논란 ↔ 안정성(varRange).
+ *    **무난은 유일하게 아무것도 잃지 않는 선택지**라는 게 그 자리의 값이다.
+ */
 export const TWEET_KIND_EFFECTS: Record<TweetKind, TweetKindEffect> = {
-  // 기준점: 배율 1.0, 리스크 없음.
-  plain: { reachMul: 1.0, varLow: 0.8, varRange: 0.6, controversyBonus: 0, reputationDelta: 0, knowledgeDelta: 0 },
-  // 자극: 도달↑ + 분산 대폭↑(0.4~1.9배로 대박/폭망 갈림) + 논란 +0.12 + 평판 소폭 리스크.
-  provoke: { reachMul: 1.35, varLow: 0.4, varRange: 1.5, controversyBonus: 0.12, reputationDelta: -3, knowledgeDelta: 0 },
-  // 정보: 유입 ×0.85(꾸준) 대신 평판 +2, 지식 스킬 +2.
-  info: { reachMul: 0.85, varLow: 0.85, varRange: 0.4, controversyBonus: 0, reputationDelta: 2, knowledgeDelta: 2 },
-  // 감성: 유입 ×1.2(공감·확산), 부가 이득 없음.
-  emotional: { reachMul: 1.2, varLow: 0.8, varRange: 0.6, controversyBonus: 0, reputationDelta: 0, knowledgeDelta: 0 },
+  // 무난: 도달은 기준점이지만 **잃는 게 하나도 없다**(정신력·평판·논란 전부 0).
+  //       정신력이 빠듯할 때 고르는 카드 — 이게 이 성격의 존재 이유다.
+  plain: { reachMul: 1.0, varLow: 0.8, varRange: 0.6, controversyBonus: 0, reputationDelta: 0, knowledgeDelta: 0, mentalDelta: 0 },
+  // 자극: 도달 최고 + 분산 대폭↑(0.4~1.9배로 대박/폭망 갈림) + 논란 +0.12 + 평판 -3.
+  //       정신력도 깎인다 — 싸움을 걸고 반응을 받아내는 일이라 소모가 크다.
+  provoke: { reachMul: 1.35, varLow: 0.4, varRange: 1.5, controversyBonus: 0.12, reputationDelta: -3, knowledgeDelta: 0, mentalDelta: -4 },
+  // 정보: 유입 ×0.85(꾸준·저분산) 대신 평판 +2, 지식 +2. 정신력은 안 깎인다(차분한 작업).
+  info: { reachMul: 0.85, varLow: 0.85, varRange: 0.4, controversyBonus: 0, reputationDelta: 2, knowledgeDelta: 2, mentalDelta: 0 },
+  // 감성: 유입 ×1.2(공감·확산)의 **대가로 정신력을 낸다**. 속을 꺼내 파는 글이라 소모된다.
+  //       연속으로 쓰면 정신력이 바닥나 우울 모드에 걸리는 게 의도된 제동이다.
+  emotional: { reachMul: 1.2, varLow: 0.8, varRange: 0.6, controversyBonus: 0, reputationDelta: 0, knowledgeDelta: 0, mentalDelta: -3 },
 };
 
 /**
