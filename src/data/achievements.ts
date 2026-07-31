@@ -15,6 +15,7 @@ import { STREAM_TYPES } from "./livestream";
 import { DOLLS } from "./arcade";
 import { WALK_PLACES } from "./walkPlaces";
 import { RECIPES } from "./grocery";
+import { CHARACTER_GROUP_DEFS } from "./accounts";
 
 export interface Achievement {
   id: string;
@@ -340,4 +341,41 @@ export const ACHIEVEMENTS: Achievement[] = [
     hidden: true,
     condition: (s) => (s.hungerStreak ?? 0) >= 3,
   },
+
+  // ── 고정 계정 도감(원작 갈래별 전원 팔로우) ──────
+  /**
+   * 갈래 정의(CHARACTER_GROUP_DEFS)에서 **자동 생성**한다.
+   * ⚠️ 손으로 나열하지 마라 — 갈래에 계정을 추가하면 업적 조건도 같이 늘어나야 한다.
+   *    따로 적어두면 계정만 늘리고 업적을 안 고쳐 조건이 조용히 헐거워진다.
+   * ⚠️ id는 갈래 id에서 나온다(`fixed_dex_{id}`). 갈래 id를 바꾸면 달성 기록이 끊긴다.
+   *
+   * 판정 기준은 **팔로우**다. 둘러보기에서 스쳐 본 것만으로는 안 된다 —
+   * 계정을 모으는 행위 자체가 수집이라, 별도 '발견' 상태 없이 followingAccounts만 읽는다.
+   */
+  ...CHARACTER_GROUP_DEFS.map(
+    (g): Achievement => ({
+      id: `fixed_dex_${g.id}`,
+      name: `${g.label} 전원 팔로우`,
+      desc: `'${g.label}' 갈래의 고정 계정 ${g.handles.length}개를 전부 팔로우했다.`,
+      emoji: "🔖",
+      condition: (s) => hasWholeGroup(s, g.handles),
+    }),
+  ),
+  {
+    id: "fixed_dex_all",
+    name: "고정 계정 도감 완성",
+    desc: `원작 ${CHARACTER_GROUP_DEFS.length}갈래의 고정 계정을 전부 팔로우했다. 타임라인이 남의 이야기로 가득하다.`,
+    emoji: "📚",
+    condition: (s) => CHARACTER_GROUP_DEFS.every((g) => hasWholeGroup(s, g.handles)),
+  },
 ];
+
+/** 활성 계정이 이 핸들을 팔로우 중인지 */
+function follows(s: GameState, handle: string): boolean {
+  return getActiveAccount(s).followingAccounts.some((a) => a.handle === handle);
+}
+
+/** 갈래 하나를 전부 팔로우했는지 — 업적 판정과 진행률 표시가 같은 함수를 쓴다. */
+export function hasWholeGroup(s: GameState, handles: string[]): boolean {
+  return handles.every((h) => follows(s, h));
+}
