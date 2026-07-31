@@ -6,6 +6,8 @@ import {
   COLLECTOR_STORY,
   DM_STORIES,
   chaptersFor,
+  GETO_STORY,
+  IKOMA_STORY,
   KANRA_STORY,
   NOCOLOR_STORY,
   SAIKA_STORY,
@@ -226,6 +228,10 @@ const STORY_TRIGGERS: Record<string, StoryTrigger> = {
   [TARO_STORY.partnerHandle]: "follow",
   [COLLECTOR_STORY.partnerHandle]: "follow",
   [SAIKA_STORY.partnerHandle]: "engage",
+  // 듀라라라 계정이 아닌 첫 스토리(월드 트리거 갈래) — 핸들이 안 겹치니 동사는 리트윗을 재사용한다.
+  [IKOMA_STORY.partnerHandle]: "retweet",
+  // 주술회전 갈래. 팔로우가 트리거인 건 "제 계정을 팔로우하셨더군요"로 1회차가 시작하기 때문이다.
+  [GETO_STORY.partnerHandle]: "follow",
 };
 
 /**
@@ -259,6 +265,8 @@ export const SAIKA_HANDLE = SAIKA_STORY.partnerHandle;
 export const SETTON_HANDLE = SETTON_STORY.partnerHandle;
 export const BAKYURA_HANDLE = BAKYURA_STORY.partnerHandle;
 export const COLLECTOR_HANDLE = COLLECTOR_STORY.partnerHandle;
+export const IKOMA_HANDLE = IKOMA_STORY.partnerHandle;
+export const GETO_HANDLE = GETO_STORY.partnerHandle;
 
 /**
  * 이 핸들이 스토리 계정인가.

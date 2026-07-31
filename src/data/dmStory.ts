@@ -2723,6 +2723,695 @@ export const COLLECTOR_STORY_3: DmStory = {
 };
 
 /**
+ * 필살기 작명가(이코마) — 기술에 이름 붙이는 게 인생인 부대장(`data/accounts.ts`의 고정 계정).
+ * 그의 트윗을 **리트윗**하면 DM이 온다(무색·바큐라와 같은 동사 — 계정이 다르면 겹쳐도 된다).
+ *
+ * 이 스토리의 축은 **'이름 붙이기'**다. 남들은 촌스럽다고 웃지만 본인에겐 진지한 일이고,
+ * 플레이어가 그걸 비웃느냐 같이 진지해지느냐가 결말을 가른다.
+ * ⚠️ 말투는 간사이 사투리("~다 아이가", "~기다")를 끝까지 유지한다 — 이 캐릭터의 정체성이다.
+ * ⚠️ 보상축은 팔로워가 아니라 **창작·사교**다(작명은 창작이라는 게 이 스토리의 주장).
+ * 줄기: 이름 지어달라 부탁 → 남들의 비웃음 → 후배의 부탁 → 이름을 남기는 문제.
+ */
+export const IKOMA_STORY: DmStory = {
+  id: "ikoma_1",
+  partnerName: "필살기 작명가",
+  partnerHandle: "finisher_naming",
+  arrivalTitle: "필살기 작명가의 DM",
+  startNode: "request",
+  nodes: [
+    {
+      id: "request",
+      intro: [
+        "어이! 내 트윗 퍼간 사람 맞제? 고맙다 아이가.",
+        "실은 부탁이 하나 있는데… 내가 새 기술을 하나 만들었거든.",
+        "근데 이름이 안 떠오른다. 사흘째 못 자고 있는 기다.",
+        "센스 있어 보이는데, 하나 지어줄 수 있나?",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "저 그런 거 잘 못하는데… 그래도 같이 고민해볼게요",
+          reply: "진짜가! 고맙다! 같이 고민해준다는 사람은 니가 처음이다 아이가.",
+          next: "laughed",
+          effect: { skills: { sociability: 8 } },
+        },
+        {
+          tone: "cool",
+          me: "기술 이름이 그렇게 중요한가요?",
+          reply: "중요하다. 이름이 없으면 그건 그냥 휘두르는 거지 기술이 아이다. …다들 이걸 모른다.",
+          next: "laughed",
+        },
+        {
+          tone: "bold",
+          me: "'떨어지는 벼락 베기' 같은 거요? 솔직히 좀 촌스러워요",
+          reply: "촌스럽다고?! …아니 뭐, 틀린 말은 아니다. 근데 그게 멋있는 기다!",
+          next: "laughed",
+          effect: { mental: -3, skills: { creativity: 5 } },
+        },
+      ],
+    },
+    {
+      id: "laughed",
+      intro: [
+        "…오늘 훈련 때 부대원들 앞에서 새 이름을 발표했다.",
+        "아무도 안 웃더라. 아니, 한 놈이 웃었는데 기술이 웃긴 게 아니라 내가 웃긴 거였다.",
+        "이런 게 몇 년째다. 나만 진지한 기다.",
+        "…내가 이상한 건가? 솔직하게 말해도 된다.",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "안 이상해요. 뭔가에 진지한 사람 별로 없어요",
+          reply: "…그런 말은 처음 들어본다. 니 좋은 사람이네. 진짜로.",
+          next: "junior",
+          effect: { mental: 6, skills: { sociability: 12 } },
+        },
+        {
+          tone: "cool",
+          me: "이상하긴 해요. 근데 이상한 게 나쁜 건 아니잖아요",
+          reply: "…맞다. 이상한 게 나쁜 건 아이다. 니 말이 맞다 아이가.",
+          next: "junior",
+          effect: { skills: { knowledge: 10 } },
+        },
+        {
+          tone: "bold",
+          me: "네 좀 이상해요. 근데 그러니까 사람들이 기억하죠",
+          reply: "기억한다고? …하긴, 다들 내 이름은 안 잊어버리더라. 이거 칭찬 맞제?",
+          next: "junior",
+          effect: { skills: { creativity: 12 }, mental: -2 },
+        },
+      ],
+    },
+    {
+      id: "junior",
+      intro: [
+        "오늘 후배가 찾아왔다. 자기 기술에 이름을 지어달라고.",
+        "웃으러 온 줄 알았는데 진지하더라. 손까지 떨면서 부탁하는 기다.",
+        "…근데 내가 지어주면 그 이름 때문에 걔도 웃음거리가 되는 거 아이가?",
+        "니 생각은 어떻노.",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "웃음거리가 되더라도 그건 그 후배가 고른 거예요. 지어주세요",
+          reply: "…그렇네. 걔가 고른 기다. 내가 겁먹을 일이 아니었네. 지어주겠다.",
+          next: null,
+          effect: { mental: 8, reputation: 6, skills: { sociability: 20, creativity: 15 } },
+        },
+        {
+          tone: "cool",
+          me: "그 걱정을 후배한테 그대로 말해보세요",
+          reply: "…솔직하게 말하라고? 그건 생각도 못 했다. 해보겠다.",
+          next: null,
+          effect: { skills: { knowledge: 18, sociability: 10 }, mental: 4 },
+        },
+        {
+          tone: "bold",
+          me: "같이 웃음거리 되면 되죠. 둘이면 덜 외롭잖아요",
+          reply: "…둘이면 덜 외롭다라. 니 그거 좋은 말이다. 오늘 최고의 작명이다 아이가!",
+          next: null,
+          effect: { mental: 12, skills: { creativity: 25, sociability: 12 }, reputation: -3 },
+        },
+      ],
+    },
+  ],
+};
+
+/**
+ * 필살기 작명가 2회차 — 이름이 밖으로 나간다.
+ * 1회차가 '나만 진지한가'였다면, 여기서는 그 이름이 **부대 밖에서 불리기 시작한다**.
+ * 놀림받던 작명이 갑자기 유명해질 때 본인이 어떻게 흔들리는지가 축이다.
+ */
+const IKOMA_STORY_2: DmStory = {
+  id: "ikoma_2",
+  partnerName: "필살기 작명가",
+  partnerHandle: "finisher_naming",
+  arrivalTitle: "필살기 작명가의 DM",
+  startNode: "spread",
+  nodes: [
+    {
+      id: "spread",
+      intro: [
+        "큰일 났다. 내가 지은 이름이 다른 부대에서 돌고 있다 아이가.",
+        "누가 랭크전 중계에서 그 이름을 불렀다. 해설자가.",
+        "…전국에 나갔다는 뜻이제? 이거 좋아해야 하나 무서워해야 하나.",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "좋아하셔도 돼요. 그거 축하할 일이에요",
+          reply: "축하할 일이가… 그래, 축하받겠다. 니가 제일 먼저 축하해줬다 아이가.",
+          next: "offer",
+          effect: { mental: 8, skills: { sociability: 10 } },
+        },
+        {
+          tone: "cool",
+          me: "무서운 건 왜예요?",
+          reply: "…이름이 커지면 내 손을 떠나잖나. 그럼 그건 아직 내 기술인가 싶어서.",
+          next: "offer",
+          effect: { skills: { knowledge: 12 } },
+        },
+        {
+          tone: "bold",
+          me: "이제 작명료 받으세요. 공짜로 해주지 마시고",
+          reply: "작명료?! 그런 건 생각도 못 했다. 근데… 그것도 나쁘지 않네?",
+          next: "offer",
+          effect: { money: 30000, reputation: -4 },
+        },
+      ],
+    },
+    {
+      id: "offer",
+      intro: [
+        "본부에서 연락이 왔다. 공식 기술 명칭 정리를 맡아달란다.",
+        "돈도 준다더라. 근데 조건이 있다. '너무 튀지 않게' 지어달란다.",
+        "…그럼 그건 내 이름이 아이잖나.",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "그 조건은 빼달라고 해보세요. 안 되면 안 하는 거고요",
+          reply: "…말해보겠다. 니 말대로 안 되면 안 하는 기다. 그게 맞다.",
+          next: "answer",
+          effect: { skills: { sociability: 15 }, mental: 5 },
+        },
+        {
+          tone: "cool",
+          me: "돈은 얼마나 준대요?",
+          reply: "…솔직히 꽤 준다. 그래서 더 고민되는 기다. 돈이 문제가 아인데 자꾸 계산하게 되네.",
+          next: "answer",
+          effect: { skills: { knowledge: 10 } },
+        },
+        {
+          tone: "bold",
+          me: "받고 튀는 이름으로 지으세요. 계약서에 '튀지 마라'가 정의돼 있나요?",
+          reply: "…니 그거 진짜 나쁜 머리다. 근데 왜 설득력이 있노.",
+          next: "answer",
+          effect: { money: 50000, morality: -6, skills: { creativity: 15 } },
+        },
+      ],
+    },
+    {
+      id: "answer",
+      intro: [
+        "결정했다. 근데 그 전에 니한테 먼저 말하고 싶었다.",
+        "내가 이름을 짓는 이유가 뭔지 이제 알겠다.",
+        "…내가 지은 이름을 누가 부르면, 그 순간 그 기술이 진짜가 되는 기다.",
+        "이거 니 덕분에 알았다.",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "그럼 앞으로도 계속 지으세요. 제가 다 불러드릴게요",
+          reply: "…니가 불러준다고? 그럼 나는 계속 지을 수 있겠네. 고맙다 진짜로.",
+          next: null,
+          effect: { mental: 12, reputation: 8, skills: { sociability: 25, creativity: 20 } },
+        },
+        {
+          tone: "cool",
+          me: "그 얘기를 본부에도 그대로 하세요",
+          reply: "…그대로 말하라고? 잘리는 거 아이가. 뭐, 잘려도 상관없다. 해보겠다.",
+          next: null,
+          effect: { reputation: 10, skills: { knowledge: 22 }, mental: 6 },
+        },
+        {
+          tone: "bold",
+          me: "멋있는 말인데 좀 오글거려요",
+          reply: "오글거린다고?! …맞다. 근데 오글거리는 게 내 전공이다 아이가!",
+          next: null,
+          effect: { mental: 6, skills: { creativity: 25 }, reputation: -4 },
+        },
+      ],
+    },
+  ],
+};
+
+/**
+ * 필살기 작명가 3회차 — 마지막 이름.
+ * 부대가 해체 위기에 놓이고, '이름을 남긴다'는 게 무슨 뜻인지로 끝맺는다.
+ * ⚠️ 이 회차는 **delayDays**를 쓴다("내일 답 주겠다"를 진짜 다음 날 지킨다).
+ */
+const IKOMA_STORY_3: DmStory = {
+  id: "ikoma_3",
+  partnerName: "필살기 작명가",
+  partnerHandle: "finisher_naming",
+  arrivalTitle: "필살기 작명가의 DM",
+  startNode: "disband",
+  nodes: [
+    {
+      id: "disband",
+      intro: [
+        "우리 부대 해체될지도 모른다.",
+        "순위가 계속 아래라서 그렇다. 내 탓이다 아이가.",
+        "…부대가 없어지면 내가 지은 이름들도 같이 없어지는 건가.",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "이름은 안 없어져요. 부른 사람들이 기억하잖아요",
+          reply: "…기억한다고. 그래, 그럼 없어지는 게 아이네. 니 말 들으니까 좀 낫다.",
+          next: "last_name",
+          effect: { mental: 10, skills: { sociability: 15 } },
+        },
+        {
+          tone: "cool",
+          me: "부대장 탓 아니에요. 순위는 여러 사람 몫이에요",
+          reply: "…그래도 앞에 선 놈 탓이 제일 크다. 근데 그렇게 말해주니 고맙다.",
+          next: "last_name",
+          effect: { skills: { knowledge: 15 }, mental: 5 },
+        },
+        {
+          tone: "bold",
+          me: "그럼 이기면 되잖아요. 아직 안 끝났어요",
+          reply: "…이기면 된다라. 니 말이 제일 단순한데 제일 맞다 아이가. 해보겠다.",
+          next: "last_name",
+          effect: { mental: 8, skills: { fitness: 12 } },
+        },
+      ],
+    },
+    {
+      id: "last_name",
+      intro: [
+        "마지막 랭크전이다. 이기면 남고 지면 끝이다.",
+        "부대원들이 나한테 부탁했다. 이번 작전에 이름을 붙여달라고.",
+        "다들 진지하더라. 아무도 안 웃었다.",
+        "…근데 못 짓겠다. 이번만은 안 떠오른다. 내일 답 주겠다.",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "천천히 생각하세요. 기다릴게요",
+          reply: "…기다려준다고. 알겠다. 천천히 생각해보겠다.",
+          next: "result",
+          delayDays: 1,
+          effect: { skills: { sociability: 12 } },
+        },
+        {
+          tone: "cool",
+          me: "안 떠오르는 이유가 있을 거예요. 그게 뭔지 생각해보세요",
+          reply: "…이유라. 그것부터 생각해보겠다. 니 말이 맞을지도 모르겠다.",
+          next: "result",
+          delayDays: 1,
+          effect: { skills: { knowledge: 15 } },
+        },
+        {
+          tone: "bold",
+          me: "부대원들한테 같이 짓자고 하세요",
+          reply: "같이…? 작명은 내 몫인데. …아니, 그것도 방법이네. 생각해보겠다.",
+          next: "result",
+          delayDays: 1,
+          effect: { skills: { creativity: 15 } },
+        },
+      ],
+    },
+    {
+      id: "result",
+      intro: [
+        "이름 지었다. 어젯밤에 부대원들이랑 같이 앉아서.",
+        "…결과는 말 안 하겠다. 이겼는지 졌는지는 중요한 게 아이더라.",
+        "다들 그 이름을 부르면서 나갔다. 그게 전부다.",
+        "니한테 제일 먼저 말하고 싶었다. 처음부터 들어준 사람이니까.",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "그 이름 뭔지 알려주세요. 저도 부르고 싶어요",
+          reply: "…니가 부르면 그건 진짜가 되는 기다. 알려주겠다. 우리끼리만이다.",
+          next: null,
+          effect: { mental: 15, reputation: 10, skills: { sociability: 30, creativity: 25 } },
+        },
+        {
+          tone: "cool",
+          me: "결과가 안 중요하다는 말, 진심이에요?",
+          reply: "…반은 진심이다. 나머지 반은 아직 정리가 안 됐다. 그래도 후회는 없다 아이가.",
+          next: null,
+          effect: { skills: { knowledge: 28 }, mental: 8, reputation: 6 },
+        },
+        {
+          tone: "bold",
+          me: "이제 작명가 말고 부대장이 된 것 같네요",
+          reply: "…그 말이 제일 무섭다. 근데 제일 듣고 싶었던 말이기도 하다. 고맙다.",
+          next: null,
+          effect: { mental: 12, reputation: 12, skills: { sociability: 25, knowledge: 20 } },
+        },
+      ],
+    },
+  ],
+};
+
+/**
+ * 산에 사는 설교자(게토) — 아이들을 거두고 사는 전직 교사(`data/accounts.ts`의 고정 계정).
+ * 그의 트윗을 **팔로우**하면 DM이 온다(타로·수집가와 같은 동사 — 계정이 다르면 겹쳐도 된다).
+ *
+ * 이 스토리의 축은 **'질문'**이다. bio가 "질문은 받지만 답은 잘 안 합니다"인 사람이라,
+ * 플레이어가 물을수록 그는 되묻고 비껴간다. **답을 얻어내려 할수록 멀어지고,
+ * 답을 요구하지 않을 때 오히려 스스로 말한다** — 이게 이 캐릭터의 유일한 공략법이다.
+ *
+ * ⚠️ 말투는 **끝까지 정중한 존댓말**이다. 화를 내거나 언성을 높이는 대사를 쓰지 마라 —
+ *    "저는 화를 내지 않습니다. 다만 기억할 뿐입니다"가 이 인물의 핵심이다.
+ * ⚠️ 그는 **자기 선택을 후회한다고 말하지 않는다.** 뉘우치게 만드는 결말을 쓰지 마라.
+ * ⚠️ 보상축은 지식·도덕성이다(옳음을 다루는 이야기라 창작·팔로워가 아니다).
+ * 줄기: 왜 팔로우했냐 → 아이들 이야기 → 옛 친구 → 선을 넘는 문제.
+ */
+export const GETO_STORY: DmStory = {
+  id: "geto_1",
+  partnerName: "산에 사는 설교자",
+  partnerHandle: "mountain_preacher",
+  arrivalTitle: "산에 사는 설교자의 DM",
+  startNode: "why_follow",
+  nodes: [
+    {
+      id: "why_follow",
+      intro: [
+        "제 계정을 팔로우하셨더군요.",
+        "제 글은 대체로 불편합니다. 그런데도 남아 계시는 분은 드뭅니다.",
+        "먼저 여쭙겠습니다. 무엇을 기대하고 계십니까.",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "기대는 없어요. 그냥 글이 좋아서요",
+          reply: "기대가 없다고 하셨습니까. …그 대답이 제일 오래 남습니다. 감사합니다.",
+          next: "children",
+          effect: { skills: { sociability: 8 } },
+        },
+        {
+          tone: "cool",
+          me: "무슨 생각으로 사시는지 궁금해서요",
+          reply: "궁금하시다. 그럼 실망하실 겁니다. 저는 답을 잘 하지 않거든요.",
+          next: "children",
+          effect: { skills: { knowledge: 10 } },
+        },
+        {
+          tone: "bold",
+          me: "위험한 사람 같아서요. 가까이서 보고 싶었어요",
+          reply: "위험하다. …정확한 표현입니다. 부정하지 않겠습니다.",
+          next: "children",
+          effect: { mental: -3, skills: { knowledge: 12 } },
+        },
+      ],
+    },
+    {
+      id: "children",
+      intro: [
+        "오늘 아이 하나가 새로 왔습니다. 열두 살입니다.",
+        "부모가 있는데도 갈 곳이 없다더군요. 그런 경우가 생각보다 많습니다.",
+        "저는 우선 밥을 먹입니다. 그다음은 그 아이가 정합니다.",
+        "…이런 이야기를 왜 하는지 저도 모르겠군요.",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "잘하고 계신 것 같아요. 밥부터가 맞아요",
+          reply: "잘한다는 말은 오랜만에 듣습니다. …고맙습니다. 진심으로요.",
+          next: "old_friend",
+          effect: { mental: 6, morality: 5, skills: { sociability: 12 } },
+        },
+        {
+          tone: "cool",
+          me: "그 아이들이 나중에 어떻게 되길 바라세요?",
+          reply: "…바라는 건 없습니다. 바라기 시작하면 그건 제 몫이 되니까요. 좋은 질문입니다.",
+          next: "old_friend",
+          effect: { skills: { knowledge: 15 } },
+        },
+        {
+          tone: "bold",
+          me: "그거 선의예요, 아니면 필요해서예요?",
+          reply: "…둘 다입니다. 그걸 구분하려고 애쓰는 사람은 대체로 오래 못 갑니다.",
+          next: "old_friend",
+          effect: { skills: { knowledge: 18 }, mental: -4 },
+        },
+      ],
+    },
+    {
+      id: "old_friend",
+      intro: [
+        "옛 친구가 하나 있습니다. 지금은 교단에 서 있다더군요.",
+        "그 친구는 웃으면서 사람을 밀어냅니다. 저는 그걸 못 배웠습니다.",
+        "예전엔 같은 걸 보고 같은 걸 옳다고 했습니다. 지금은 아니죠.",
+        "…이 이야기는 여기까지 하겠습니다.",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "알겠어요. 더 안 물을게요",
+          reply: "…물으실 줄 알았는데. 안 물으시는군요. 그게 더 어렵습니다, 저한테는.",
+          next: null,
+          effect: { mental: 8, morality: 6, skills: { sociability: 25, knowledge: 15 } },
+        },
+        {
+          tone: "cool",
+          me: "그 친구는 지금 뭐라고 할까요, 당신에 대해",
+          reply: "…아마 아무 말도 안 할 겁니다. 그게 그 친구의 방식이니까요. 그만하죠.",
+          next: null,
+          effect: { skills: { knowledge: 22 }, mental: -3 },
+        },
+        {
+          tone: "bold",
+          me: "왜 갈라섰는지 말 안 하실 거죠",
+          reply: "네. 말하지 않을 겁니다. 그래도 물어봐 주신 건 기억하겠습니다.",
+          next: null,
+          effect: { skills: { knowledge: 20 }, mental: -6, morality: -3 },
+        },
+      ],
+    },
+  ],
+};
+
+/**
+ * 산에 사는 설교자 2회차 — 선.
+ * 1회차가 '묻지 않기'였다면, 여기서는 그가 **먼저 자기 이야기를 꺼낸다**.
+ * 축은 "누군가를 지키려면 선을 하나 넘게 되더군요"라는 그의 문장이다.
+ */
+const GETO_STORY_2: DmStory = {
+  id: "geto_2",
+  partnerName: "산에 사는 설교자",
+  partnerHandle: "mountain_preacher",
+  arrivalTitle: "산에 사는 설교자의 DM",
+  startNode: "the_line",
+  nodes: [
+    {
+      id: "the_line",
+      intro: [
+        "지난번에 아무것도 묻지 않으셨죠. 그 뒤로 계속 생각했습니다.",
+        "제가 왜 이러고 사는지 한 번쯤 말해두고 싶어졌습니다.",
+        "…처음엔 지키려고 시작한 일이었습니다. 그러다 선을 하나 넘었고요.",
+        "넘고 나니 그 뒤로는 쉬웠습니다. 그게 제일 무서운 부분입니다.",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "그 선을 다시 넘어서 돌아올 수는 없나요",
+          reply: "…돌아갈 수 있었던 지점이 몇 번 있었습니다. 매번 돌아가지 않았고요.",
+          next: "the_child",
+          effect: { morality: 6, skills: { sociability: 15 } },
+        },
+        {
+          tone: "cool",
+          me: "쉬워졌다는 게 무섭다는 건 아직 감각이 남아 있다는 뜻이에요",
+          reply: "…그렇게 봐주시는군요. 저는 그 감각이 사라지길 바랐는데 말입니다.",
+          next: "the_child",
+          effect: { skills: { knowledge: 20 } },
+        },
+        {
+          tone: "bold",
+          me: "무섭다면서 왜 계속하세요",
+          reply: "…아이들이 있으니까요. 그 이상의 답은 저도 못 찾았습니다.",
+          next: "the_child",
+          effect: { skills: { knowledge: 18 }, mental: -5 },
+        },
+      ],
+    },
+    {
+      id: "the_child",
+      intro: [
+        "그 열두 살 아이가 오늘 저한테 물었습니다.",
+        "\"아저씨는 나쁜 사람이에요?\"",
+        "…아이들은 늘 제일 정확한 걸 묻습니다.",
+        "뭐라고 답해야 했을까요. 이번엔 정말로 묻는 겁니다.",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "모르겠다고 하세요. 그게 제일 정직해요",
+          reply: "…모르겠다. 그렇게 말했습니다, 실은. 아이가 고개를 끄덕이더군요.",
+          next: "answer_day",
+          delayDays: 1,
+          effect: { morality: 8, mental: 6, skills: { sociability: 20 } },
+        },
+        {
+          tone: "cool",
+          me: "그 질문에 답할 사람은 당신이 아니라 그 아이예요",
+          reply: "…제가 정할 일이 아니라는 말씀이군요. 하루만 생각해보겠습니다.",
+          next: "answer_day",
+          delayDays: 1,
+          effect: { skills: { knowledge: 25 } },
+        },
+        {
+          tone: "bold",
+          me: "나쁜 사람 맞다고 하세요. 거짓말은 하지 마시고요",
+          reply: "…그렇게 말하면 그 아이가 저를 떠날 겁니다. 그게 옳을지도 모르겠군요.",
+          next: "answer_day",
+          delayDays: 1,
+          effect: { morality: -5, skills: { knowledge: 22 }, mental: -6 },
+        },
+      ],
+    },
+    {
+      id: "answer_day",
+      intro: [
+        "어제 그 아이에게 답을 했습니다.",
+        "무슨 말을 했는지는 적지 않겠습니다. 그건 그 아이 것이니까요.",
+        "다만 오늘 아침에도 그 아이가 밥상에 앉아 있었습니다.",
+        "…그거면 된 것 같습니다. 오랜만에 잘 잤습니다.",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "다행이에요. 잘 주무셨다니 더 다행이고요",
+          reply: "…이런 말을 해주는 사람이 있다는 게 이상합니다. 나쁘지 않은 이상함이군요.",
+          next: null,
+          effect: { mental: 12, morality: 8, skills: { sociability: 28 } },
+        },
+        {
+          tone: "cool",
+          me: "그 아이가 남은 건 당신 답 때문이 아니라 밥 때문일 수도 있어요",
+          reply: "…맞습니다. 그래서 저는 밥부터 먹이는 겁니다. 잘 보셨군요.",
+          next: null,
+          effect: { skills: { knowledge: 30 }, morality: 5 },
+        },
+        {
+          tone: "bold",
+          me: "잘 잤다는 게 제일 무서운 말인 거 아세요?",
+          reply: "…압니다. 그래서 적어둔 겁니다. 잊지 않으려고요.",
+          next: null,
+          effect: { skills: { knowledge: 28 }, mental: -8, morality: -4 },
+        },
+      ],
+    },
+  ],
+};
+
+/**
+ * 산에 사는 설교자 3회차 — 마지막 질문.
+ * 그가 처음으로 **플레이어에게 무언가를 부탁한다**. 답을 안 하던 사람이 청하는 쪽이 되는 회차다.
+ * ⚠️ 여기서도 그를 회개시키지 마라. 끝까지 자기 선택을 부정하지 않는 채로 끝난다.
+ */
+const GETO_STORY_3: DmStory = {
+  id: "geto_3",
+  partnerName: "산에 사는 설교자",
+  partnerHandle: "mountain_preacher",
+  arrivalTitle: "산에 사는 설교자의 DM",
+  startNode: "a_favor",
+  nodes: [
+    {
+      id: "a_favor",
+      intro: [
+        "부탁이 하나 있습니다. 이런 건 처음이군요.",
+        "산을 정리하게 될지도 모릅니다. 아이들이 갈 데를 찾아야 합니다.",
+        "…제 이름으로는 아무 데도 연결이 안 됩니다. 당연한 일이죠.",
+        "당신 계정에 글을 하나 올려주실 수 있겠습니까.",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "올릴게요. 뭐라고 쓰면 될까요",
+          reply: "…바로 그렇게 답하실 줄은 몰랐습니다. 문장은 제가 보내드리겠습니다.",
+          next: "posted",
+          effect: { morality: 10, skills: { sociability: 20 } },
+        },
+        {
+          tone: "cool",
+          me: "제 계정으로 나가면 제 책임이 돼요. 그건 아세요?",
+          reply: "…압니다. 그래서 부탁이라고 했습니다. 거절하셔도 원망하지 않습니다.",
+          next: "posted",
+          effect: { skills: { knowledge: 25 } },
+        },
+        {
+          tone: "bold",
+          me: "왜 하필 저예요? 이용하시는 거잖아요",
+          reply: "…이용하는 것 맞습니다. 부정하지 않겠습니다. 다만 다른 방법이 없더군요.",
+          next: "posted",
+          effect: { skills: { knowledge: 22 }, mental: -5, morality: -3 },
+        },
+      ],
+    },
+    {
+      id: "posted",
+      intro: [
+        "문장을 보냅니다. 고쳐 쓰셔도 됩니다.",
+        "\"갈 곳 없는 아이들을 잠시 맡아주실 분을 찾습니다. 사연은 묻지 않으셔도 됩니다.\"",
+        "…이 문장에 제 이름은 없습니다. 그게 이 부탁의 조건입니다.",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "그대로 올릴게요",
+          reply: "감사합니다. …이 말을 이렇게 여러 번 하게 될 줄은 몰랐습니다.",
+          next: "ending",
+          delayDays: 1,
+          postTweet:
+            "갈 곳 없는 아이들을 잠시 맡아주실 분을 찾습니다. 사연은 묻지 않으셔도 됩니다.",
+          effect: { morality: 12, reputation: 8, skills: { sociability: 25 } },
+        },
+        {
+          tone: "cool",
+          me: "당신 이름을 넣는 게 더 솔직하지 않을까요",
+          reply: "…제 이름이 붙으면 아무도 안 옵니다. 그건 제가 제일 잘 압니다.",
+          next: "ending",
+          delayDays: 1,
+          postTweet:
+            "갈 곳 없는 아이들을 잠시 맡아주실 분을 찾습니다. 사연은 묻지 않으셔도 됩니다.",
+          effect: { morality: 8, skills: { knowledge: 28 }, reputation: 5 },
+        },
+        {
+          tone: "bold",
+          me: "제 말로 다시 쓸게요. 당신 문장은 너무 차가워요",
+          reply: "…차갑다고 하셨습니까. 그럼 당신 말로 써주십시오. 그편이 낫겠군요.",
+          next: "ending",
+          delayDays: 1,
+          postTweet:
+            "혹시 잠깐이라도 아이 한 명 맡아주실 수 있는 분 계실까요. 사정은 안 물어보셔도 돼요. 밥만 같이 먹여주시면 됩니다.",
+          effect: { morality: 10, reputation: 12, skills: { sociability: 30, creativity: 15 } },
+        },
+      ],
+    },
+    {
+      id: "ending",
+      intro: [
+        "연락이 왔습니다. 생각보다 여러 곳에서요.",
+        "아이 셋이 어제 산을 내려갔습니다. 울지 않더군요. 저도 울지 않았습니다.",
+        "…저는 여전히 제가 한 일을 후회하지 않습니다. 그건 변하지 않습니다.",
+        "다만 당신에게는 빚이 하나 생겼군요. 이건 갚지 못할 것 같습니다.",
+      ],
+      choices: [
+        {
+          tone: "friendly",
+          me: "빚 아니에요. 그냥 잘된 일이에요",
+          reply: "…그렇게 정리해주시는군요. 그럼 그렇게 두겠습니다. 고맙습니다.",
+          next: null,
+          effect: { mental: 15, morality: 15, reputation: 10, skills: { sociability: 35 } },
+        },
+        {
+          tone: "cool",
+          me: "후회 안 한다는 말, 계속 하셔도 돼요. 저는 안 따질게요",
+          reply: "…따지지 않겠다고요. 그 말이 제일 무겁습니다. 오래 기억하겠습니다.",
+          next: null,
+          effect: { skills: { knowledge: 35 }, morality: 8, mental: 8 },
+        },
+        {
+          tone: "bold",
+          me: "언젠가 그 옛 친구랑 마주 앉으세요. 그게 마지막 숙제예요",
+          reply: "…그 이야기를 다시 꺼내시는군요. 언젠가는요. 언젠가는 말입니다.",
+          next: null,
+          effect: { skills: { knowledge: 30 }, mental: -5, morality: 10, reputation: 8 },
+        },
+      ],
+    },
+  ],
+};
+
+/**
  * 전체 스토리 목록. **같은 핸들이 여러 번 나오면 그 순서가 곧 회차다**(1·2·3회차).
  * 회차 해금은 `systems/dmStory.ts`의 `spawnStoryFor`가 처리한다 — 앞 회차를 끝내야 다음이 열린다.
  */
@@ -2748,6 +3437,12 @@ export const DM_STORIES: DmStory[] = [
   COLLECTOR_STORY,
   COLLECTOR_STORY_2,
   COLLECTOR_STORY_3,
+  IKOMA_STORY,
+  IKOMA_STORY_2,
+  IKOMA_STORY_3,
+  GETO_STORY,
+  GETO_STORY_2,
+  GETO_STORY_3,
 ];
 
 /** 이 계정의 회차 목록(선언 순서 = 1·2·3회차). 스토리 계정이 아니면 빈 배열. */
