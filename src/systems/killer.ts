@@ -3,7 +3,7 @@ import { getActiveAccount } from "@/core/state";
 import { uid } from "@/utils/random";
 import { dateOf } from "./calendar";
 import { MAX_SKILL } from "@/data/stats";
-import { clampResource, gainStamina } from "./stats";
+import { clampMental, gainStamina } from "./stats";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { KILLER_TARGETS, targetById, targetFullTweets } from "@/data/killerTargets";
 import {
@@ -394,7 +394,7 @@ export function attemptHit(state: GameState, input: string): HitResult {
     const dmg = Math.round((1 - killerCompetence(state)) * COUNTER_MAX_DAMAGE);
     if (dmg > 0) {
       gainStamina(state, -dmg);
-      state.resources.mental = clampResource(state.resources.mental - dmg);
+      state.resources.mental = clampMental(state, state.resources.mental - dmg);
       pushMomo(state, "그 자식, 순순히 당하지 않더군. 다쳤나? 역량을 더 키워라.");
       counterNote = ` 하지만 반격당했다 — 체력·정신 -${dmg}.`;
     }

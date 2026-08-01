@@ -4,7 +4,7 @@ import { MEETING_SCENARIOS, type MeetingScenario } from "@/data/meetings";
 import { chance, pick, uid } from "@/utils/random";
 import { applyEffect } from "./events";
 import { changeFollowers } from "./followers";
-import { clampAction, clampResource, gainSkill, skillTo100 } from "./stats";
+import { clampAction, clampMental, clampResource, gainSkill, skillTo100 } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 import { sendFriendHangoutInvite } from "./appointments";
 
@@ -42,7 +42,7 @@ export function resolveTicket(state: GameState, thread: DMThread): TicketResult 
   const isConcert = kind === "concert";
   // 30% 확률로 사기
   if (chance(0.3)) {
-    state.resources.mental = clampResource(state.resources.mental - 12);
+    state.resources.mental = clampMental(state, state.resources.mental - 12);
     addSchedule(state, isConcert ? "콘서트 티켓 사기" : "GV 티켓 사기", "system");
     return {
       scam: true,
@@ -68,7 +68,7 @@ export function resolveTicket(state: GameState, thread: DMThread): TicketResult 
     };
   }
 
-  state.resources.mental = clampResource(state.resources.mental + 12);
+  state.resources.mental = clampMental(state, state.resources.mental + 12);
   gainSkill(state, "beauty", 5);
   changeFollowers(state, isConcert ? 8 : 4);
   addSchedule(state, isConcert ? "콘서트 관람" : "영화 GV 관람", "offline");
@@ -128,7 +128,7 @@ export function resolveMotel(state: GameState, thread: DMThread): MotelResult {
   // 모텔 만남으로 오르는 음란도는 반복 육성 축이므로 gainSkill 관문(정신력 배율·감쇠)을 거친다.
   const raiseLewd = (n: number) => gainSkill(state, "lewd", n);
   const changeMental = (n: number) =>
-    (state.resources.mental = clampResource(state.resources.mental + n));
+    (state.resources.mental = clampMental(state, state.resources.mental + n));
   const changeMorality = (n: number) =>
     (state.resources.morality = clampResource(state.resources.morality + n));
 

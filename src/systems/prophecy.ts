@@ -1,5 +1,5 @@
 import type { GameState, Tweet } from "@/core/types";
-import { clampResource, gainStamina } from "./stats";
+import { clampMental, gainStamina } from "./stats";
 import { changeFollowers } from "./followers";
 import { pick } from "@/utils/random";
 
@@ -45,7 +45,7 @@ export function resolveProphecy(state: GameState): void {
   const o = pick(PROPHECY_OUTCOMES);
   if (o.money) state.money += o.money;
   if (o.followers) changeFollowers(state, o.followers);
-  if (o.mental) state.resources.mental = clampResource(state.resources.mental + o.mental);
+  if (o.mental) state.resources.mental = clampMental(state, state.resources.mental + o.mental);
   if (o.stamina) gainStamina(state, o.stamina);
   state.pendingProphecyText = `🔮 예언이 실현됐다 — ${o.text}`;
 }

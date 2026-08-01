@@ -2,7 +2,7 @@ import type { GameState, Tweet } from "@/core/types";
 import { getActiveAccount } from "@/core/state";
 import { pick, randInt, uid } from "@/utils/random";
 import { spawnSpamEmails } from "./spam";
-import { clampResource } from "./stats";
+import { clampMental } from "./stats";
 
 /**
  * '의문의 심리테스트' — 좋아요를 누르면 DM으로 링크가 오고, '결과 보기'를 누르면
@@ -77,7 +77,7 @@ export function spawnPsychoDM(state: GameState): void {
 export function resolvePsychoTest(state: GameState): string {
   const count = randInt(2, 3);
   spawnSpamEmails(state, count);
-  state.resources.mental = clampResource(state.resources.mental - randInt(8, 15));
+  state.resources.mental = clampMental(state, state.resources.mental - randInt(8, 15));
   // 링크 소비(재방문 불가)
   const account = getActiveAccount(state);
   account.dms = account.dms.filter((t) => !t.psychoLink);

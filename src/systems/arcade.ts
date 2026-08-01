@@ -1,7 +1,7 @@
 import type { GameState } from "@/core/types";
 import type { Doll } from "@/data/arcade";
 import { DOLLS, dollById } from "@/data/arcade";
-import { clampResource, gainSkill } from "./stats";
+import { clampMental, gainSkill } from "./stats";
 import { addSchedule } from "./time";
 
 /**
@@ -83,13 +83,13 @@ export function collectDoll(state: GameState, dollId: string): ClawResult | null
     addSchedule(state, `인형뽑기: ${doll.name} (중복 — 서랍행)`, "system");
   } else {
     state.dolls.push(doll.id);
-    state.resources.mental = clampResource(state.resources.mental + DOLL_FIRST_MENTAL);
+    state.resources.mental = clampMental(state, state.resources.mental + DOLL_FIRST_MENTAL);
     mental = DOLL_FIRST_MENTAL;
     addSchedule(state, `인형 도감 등록: ${doll.name}`, "system");
 
     if (state.dolls.length >= DOLL_TOTAL) {
       completed = true;
-      state.resources.mental = clampResource(state.resources.mental + DEX_COMPLETE_MENTAL);
+      state.resources.mental = clampMental(state, state.resources.mental + DEX_COMPLETE_MENTAL);
       mental += DEX_COMPLETE_MENTAL;
       gainSkill(state, "creativity", DEX_COMPLETE_CREATIVITY);
       addSchedule(state, `인형 도감 완성! (${DOLL_TOTAL}종)`, "system");

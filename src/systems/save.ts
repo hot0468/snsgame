@@ -180,6 +180,10 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   if (typeof state.actionMaxBonus !== "number" || !Number.isFinite(state.actionMaxBonus)) {
     state.actionMaxBonus = 0;
   }
+  // 정신력 상한 보너스도 같은 함정 — NaN이면 mentalMax가 NaN이 되고 정신력이 통째로 오염된다.
+  if (typeof state.mentalMaxBonus !== "number" || !Number.isFinite(state.mentalMaxBonus)) {
+    state.mentalMaxBonus = 0;
+  }
   state.cheats = { ...createInitialCheats(), ...(state.cheats ?? {}) };
   // 체력(가변 상한)은 신규 필드. staminaMax가 0/NaN이면 clampStamina가 체력을 영구히 0으로
   // 눌러 세이브까지 오염된다(actionMaxBonus NaN 선례와 동급 함정) — 반드시 유효한 양수로 보정.

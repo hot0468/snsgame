@@ -182,6 +182,7 @@ export function createInitialState(): GameState {
     staminaMax: 200,
     // 새 게임은 상한 보너스 0 · 치트 미사용에서 시작한다 — 치트가 '게임당 1회'인 지점.
     actionMaxBonus: 0,
+    mentalMaxBonus: 0,
     cheats: createInitialCheats(),
     schedule: [],
     activeGigs: [],

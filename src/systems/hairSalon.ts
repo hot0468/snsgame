@@ -2,7 +2,7 @@ import type { GameState } from "@/core/types";
 import type { HairGrade } from "@/data/hairSalon";
 import { TALK_RESULTS, TIMING_RESULTS } from "@/data/hairSalon";
 import { pick } from "@/utils/random";
-import { clampAction, clampResource, gainSkill, hasAction } from "./stats";
+import { clampAction, clampMental, gainSkill, hasAction } from "./stats";
 import { advanceTime, addSchedule } from "./time";
 
 /**
@@ -72,7 +72,7 @@ export function applyHairResult(
 
   const beauty = gainSkill(state, "beauty", SALON_BEAUTY[grade]);
   const mentalBefore = state.resources.mental;
-  state.resources.mental = clampResource(state.resources.mental + SALON_MENTAL[grade]);
+  state.resources.mental = clampMental(state, state.resources.mental + SALON_MENTAL[grade]);
 
   const message = pick(game === "timing" ? TIMING_RESULTS[grade] : TALK_RESULTS[grade]);
   addSchedule(state, grade === "bad" ? "미용실 (망함)" : "미용실", "offline");

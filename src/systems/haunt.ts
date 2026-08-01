@@ -1,6 +1,6 @@
 import type { GameState, Tweet } from "@/core/types";
 import { pick, randInt, uid } from "@/utils/random";
-import { clampAction, clampResource, gainSkill } from "./stats";
+import { clampAction, clampMental, clampResource, gainSkill } from "./stats";
 
 /**
  * '밤에 찾아오는 괴담 계정' — 좋아요를 누르면 그날 심야에 실제로 찾아온다.
@@ -72,7 +72,7 @@ export function resolveHauntVisit(state: GameState): HauntOutcome {
     const mental = randInt(10, 20);
     gainSkill(state, "lewd", lewd);
     state.resources.morality = clampResource(state.resources.morality - morality);
-    state.resources.mental = clampResource(state.resources.mental - mental);
+    state.resources.mental = clampMental(state, state.resources.mental - mental);
     // 성인 공포 서사(호러+에로, 웹소설 수위)
     return { message:
       "새벽 한 시, 잠결에 눈을 떴을 때 이미 그것은 침대 발치에 서 있었다. 분명히 잠갔던 현관문이 소리 없이 " +
@@ -98,7 +98,7 @@ export function resolveHauntVisit(state: GameState): HauntOutcome {
   }
   const mental = randInt(15, 25);
   const action = randInt(10, 20);
-  state.resources.mental = clampResource(state.resources.mental - mental);
+  state.resources.mental = clampMental(state, state.resources.mental - mental);
   state.resources.action = clampAction(state, state.resources.action - action);
   // 순수 공포 서사
   return { message: `새벽 한 시, 창문을 두드리는 소리에 눈을 떴다. 커튼 틈으로, 붉은 마스크를 쓴 무언가가 나를 들여다보고 있었다. 눈이 마주친 순간부터 아침까지, 나는 이불 속에서 숨소리조차 죽인 채 뜬눈으로 밤을 지새웠다(정신력 -${mental}, 행동력 -${action}).` };

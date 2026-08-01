@@ -12,7 +12,7 @@ import { getTrendingCategories } from "@/data/trends";
 import { allTemplatesFor } from "@/data/tweets";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { calcTweetOutcome, changeFollowers } from "./followers";
-import { clampAction, clampResource, gainSkill } from "./stats";
+import { clampAction, clampMental, clampResource, gainSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 import { unlockAttribute } from "./attributeUnlock";
 import { spawnFanDM } from "./dm";
@@ -103,12 +103,12 @@ function counterAttack(state: GameState): string {
   if (success) {
     const gain = Math.round(account.followers * 0.12) + 30;
     changeFollowers(state, gain);
-    state.resources.mental = clampResource(state.resources.mental + 5);
+    state.resources.mental = clampMental(state, state.resources.mental + 5);
     return `재치 있는 맞대응이 사이다로 통했다! 구경하던 사람들이 몰려와 팔로워가 +${gain} 늘었다.`;
   }
   const loss = Math.round(account.followers * 0.2) + 20;
   changeFollowers(state, -loss);
-  state.resources.mental = clampResource(state.resources.mental - 12);
+  state.resources.mental = clampMental(state, state.resources.mental - 12);
   state.resources.reputation = clampResource(state.resources.reputation - 8);
   return `괜히 기름을 부었다. 역풍이 거세지며 팔로워가 ${-loss} 빠지고 평판도 더 떨어졌다.`;
 }
@@ -137,7 +137,7 @@ export function outdoorShoot(state: GameState): string {
     const loss = Math.round(account.followers * 0.05) + 10;
     changeFollowers(state, -loss);
     state.resources.reputation = clampResource(state.resources.reputation - 12);
-    state.resources.mental = clampResource(state.resources.mental - 10);
+    state.resources.mental = clampMental(state, state.resources.mental - 10);
     state.resources.morality = clampResource(state.resources.morality - 3);
     return (
       `촬영 도중 지나가던 행인에게 딱 걸렸다! 소란이 일고 망신만 당한 채 도망쳤다. ` +
@@ -167,7 +167,7 @@ function coworkerFollow(state: GameState): string {
 
   if (hasAdult || hasNegative) {
     state.resources.reputation = clampResource(state.resources.reputation - 12);
-    state.resources.mental = clampResource(state.resources.mental - 6);
+    state.resources.mental = clampMental(state, state.resources.mental - 6);
     const what = hasAdult ? "낯 뜨거운 성인글" : "예민한 정치글";
     return (
       `동료가 계정을 보더니 표정이 굳었다. ${what}이 그대로 드러나 회사에 어색한 소문이 돌았다. ` +
@@ -175,7 +175,7 @@ function coworkerFollow(state: GameState): string {
     );
   }
   gainSkill(state, "sociability", 20);
-  state.resources.mental = clampResource(state.resources.mental + 3);
+  state.resources.mental = clampMental(state, state.resources.mental + 3);
   return "동료가 계정을 보고 '오, 잘 관리하시네요' 하며 웃었다. 덕분에 자연스럽게 친해져 친화력이 올랐다.";
 }
 
@@ -221,7 +221,7 @@ function sponsorDeal(state: GameState): string {
 
 /** 단체 회식 참석 — 저녁 시간 블록과 정신력을 소모하고 동료와 조금 가까워진다. */
 function companyDinner(state: GameState): string {
-  state.resources.mental = clampResource(state.resources.mental - 12);
+  state.resources.mental = clampMental(state, state.resources.mental - 12);
   gainSkill(state, "sociability", 10);
   advanceTime(state, 1); // 저녁 시간 블록 소모
   return "억지로 잔을 부딪히다 보니 밤이 깊었다. 시간과 정신력을 쏟았지만 동료들과는 조금 가까워졌다.";
@@ -233,12 +233,12 @@ function hackRansom(state: GameState): string {
   const ransom = Math.min(state.money, 5000);
   state.money -= ransom;
   if (Math.random() < 0.5) {
-    state.resources.mental = clampResource(state.resources.mental - 5);
+    state.resources.mental = clampMental(state, state.resources.mental - 5);
     return `요구한 ${won(ransom)}원을 보내자 거짓말처럼 계정 잠금이 풀렸다. 안도했지만 뒷맛이 영 찜찜하다.`;
   }
   const loss = Math.round(account.followers * 0.08) + 20;
   changeFollowers(state, -loss);
-  state.resources.mental = clampResource(state.resources.mental - 12);
+  state.resources.mental = clampMental(state, state.resources.mental - 12);
   return `돈만 받고 해커는 잠적했다. 계정은 그대로 털린 채 스팸이 도배됐고, 팔로워도 ${loss} 빠졌다.`;
 }
 
@@ -286,7 +286,7 @@ function taxDodge(state: GameState): string {
   if (Math.random() < TAX_AUDIT_CHANCE) {
     const penalty = Math.min(state.money, Math.floor(state.money * TAX_RATE * 2));
     state.money -= penalty;
-    state.resources.mental = clampResource(state.resources.mental - 10);
+    state.resources.mental = clampMental(state, state.resources.mental - 10);
     return `하필 세무조사 대상에 걸렸다! 축소 신고가 들통나 가산세까지 붙어 ${won(penalty)}원을 추징당했다. 괜히 욕심부렸다...`;
   }
   const tax = Math.floor(state.money * TAX_DODGE_RATE);
@@ -304,7 +304,7 @@ function whaleOrgy(state: GameState): string {
   // 함께 치렀다. 여기에 정신력 배율이 걸리면 같은 서사를 읽고도 +18만 오르는 괴리가 생긴다.
   gainSkill(state, "lewd", WHALE_ORGY_LEWD_GAIN, { flat: true });
   state.resources.morality = clampResource(state.resources.morality - 18);
-  state.resources.mental = clampResource(state.resources.mental - 8);
+  state.resources.mental = clampMental(state, state.resources.mental - 8);
   getActiveAccount(state).groupUnlocked = true;
 
   addSchedule(state, "고액 후원자 저택 — 밤샘", "offline");
@@ -344,7 +344,7 @@ export function wallHoleOrgy(state: GameState): string {
   // 시나리오 확정 지급(flat) — whaleOrgy와 동일 근거.
   gainSkill(state, "lewd", COERCION_ORGY_LEWD_GAIN, { flat: true });
   state.resources.morality = clampResource(state.resources.morality - 16);
-  state.resources.mental = clampResource(state.resources.mental - 14);
+  state.resources.mental = clampMental(state, state.resources.mental - 14);
   state.resources.reputation = clampResource(state.resources.reputation - 4);
   changeFollowers(state, 30);
   getActiveAccount(state).groupUnlocked = true;
@@ -367,7 +367,7 @@ export function blackVanOrgy(state: GameState): string {
   // 시나리오 확정 지급(flat) — wallHoleOrgy와 같은 강압/범죄 계열이라 프로필을 맞춘다.
   gainSkill(state, "lewd", COERCION_ORGY_LEWD_GAIN, { flat: true });
   state.resources.morality = clampResource(state.resources.morality - 16);
-  state.resources.mental = clampResource(state.resources.mental - 14);
+  state.resources.mental = clampMental(state, state.resources.mental - 14);
   state.resources.reputation = clampResource(state.resources.reputation - 4);
   changeFollowers(state, 35);
   getActiveAccount(state).groupUnlocked = true;
@@ -399,7 +399,7 @@ function crewGangDrill(state: GameState): string {
   gainSkill(state, "lewd", CREW_DRILL_LEWD_GAIN, { flat: true });
   gainSkill(state, "sociability", 15, { flat: true });
   state.resources.morality = clampResource(state.resources.morality - 12);
-  state.resources.mental = clampResource(state.resources.mental - 8);
+  state.resources.mental = clampMental(state, state.resources.mental - 8);
   changeFollowers(state, 55);
   getActiveAccount(state).groupUnlocked = true;
 
@@ -448,7 +448,7 @@ const CUSTOM_EFFECTS: Record<NonNullable<EventEffect["customKey"]>, (s: GameStat
 export function applyEffect(state: GameState, effect: EventEffect): string | void {
   // 행동력만 상한이 가변(clampAction) — 나머지 리소스는 고정 100(clampResource)이다.
   if (effect.action) state.resources.action = clampAction(state, state.resources.action + effect.action);
-  if (effect.mental) state.resources.mental = clampResource(state.resources.mental + effect.mental);
+  if (effect.mental) state.resources.mental = clampMental(state, state.resources.mental + effect.mental);
   if (effect.morality)
     state.resources.morality = clampResource(state.resources.morality + effect.morality);
   if (effect.reputation)

@@ -4,7 +4,7 @@ import { getActiveAccount } from "@/core/state";
 import { ATTRIBUTES } from "@/data/attributes";
 import { pick } from "@/utils/random";
 import { isOwned } from "./shop";
-import { clampResource, gainSkill } from "./stats";
+import { clampMental, gainSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 import { unlockAttribute } from "./attributeUnlock";
 
@@ -99,7 +99,7 @@ const FLAVOR: Record<VideoAttribute, string[]> = {
 export function watchVideo(state: GameState, video: Video): VideoOutcome {
   // 검색으로만 뜨는 숨은 영상(id "hidden_*")은 감상 효과가 일반 영상의 2배다(발견 보상).
   const hiddenMul = video.id.startsWith("hidden_") ? HIDDEN_VIDEO_BONUS : 1;
-  state.resources.mental = clampResource(state.resources.mental + WATCH_MENTAL * hiddenMul);
+  state.resources.mental = clampMental(state, state.resources.mental + WATCH_MENTAL * hiddenMul);
   const rel = RELATED_SKILL[video.attribute];
   const amount = watchSkillAmount(state, rel.amount) * hiddenMul;
   // 영상 시청은 반복 육성 — gainSkill 관문으로 정신력 배율·상단 감쇠를 받는다.

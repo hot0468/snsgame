@@ -8,7 +8,7 @@ import { lecturerLevel, lecturerQuota, lecturerSalaryOf, lessonPay } from "@/sys
 import { jobRankOf, nextRankIn } from "@/data/jobs";
 import { COACH_STAT_TARGET, coachLevel, coachSalaryOf, teamStrength } from "@/systems/coach";
 import { certById } from "@/systems/certification";
-import { actionMax } from "@/systems/stats";
+import { actionMax, mentalMax } from "@/systems/stats";
 import type { SkillStatId } from "@/core/types";
 import { highestMilestoneTier, unlockedPerks, MILESTONE_PERKS } from "@/systems/milestones";
 import { MILESTONE_TITLES, milestoneGrade } from "@/data/milestones";
@@ -384,7 +384,8 @@ function statusInner(ctx: GameContext): HTMLElement[] {
     // ⚠️ 행동력만 상한이 가변이다(Cheat.exe로 +20). RESOURCE_STATS.action.max(100)를 쓰면
     //    행동력 120이 바에서 꽉 찬 것처럼 보여 상한이 오른 티가 나지 않는다.
     //    정신력·도덕성·평판은 상한이 고정 100이므로 def.max 그대로.
-    const max = id === "action" ? actionMax(s) : def.max;
+    // 행동력·정신력은 상한이 가변이다(치트/퍼크). 나머지만 고정 100.
+    const max = id === "action" ? actionMax(s) : id === "mental" ? mentalMax(s) : def.max;
     return statBar(def.label, s.resources[id], max, `bar__fill--${id}`, drops.res[id]);
   });
 

@@ -4,7 +4,7 @@ import { MAX_SKILL, SKILL_STATS } from "@/data/stats";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { changeFollowers, currentMaxPostSlots } from "./followers";
 import { pushKakao } from "./kakao";
-import { clampSkill } from "./stats";
+import { clampMental, clampSkill } from "./stats";
 import { maybeSpawnGroupRoomInviteDM } from "./groupRoom";
 import { bumpTchinProgress } from "./tchin";
 import { maybeQueueProphecy } from "./prophecy";
@@ -202,7 +202,7 @@ export function onLikeTweet(state: GameState, tweet: Tweet): void {
   if (tweet.egg === "animal") {
     state.eggs.animalLikes += 1;
     if (state.eggs.animalLikes >= 3 && fire(state, "catButler")) {
-      state.resources.mental = Math.min(100, state.resources.mental + 12);
+      state.resources.mental = clampMental(state, state.resources.mental + 12);
       addSchedule(state, "길고양이 집사 데뷔", "offline");
       pushKakao(
         state,

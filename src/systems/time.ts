@@ -40,7 +40,7 @@ import { killerDailyTick } from "./killer";
 import { resolveProphecy } from "./prophecy";
 import { deliverPendingStoryNodes } from "./dmStory";
 import { HOUSINGS } from "@/data/housing";
-import { clampAction, staminaActionBonus } from "./stats";
+import { clampAction, clampMental, staminaActionBonus } from "./stats";
 import { settleGigDeadlines } from "./gig";
 // 달력/요일 헬퍼는 calendar.ts에 있다(순환 참조 방지). 내부에서 dateLabel을 쓰고, 나머지는 재노출한다.
 import {
@@ -197,7 +197,7 @@ function onNewDay(state: GameState): void {
   const actionBefore = state.resources.action;
   const mentalBefore = state.resources.mental;
   // ⚠️ 행동력 상한은 가변(치트로 +20)이라 100을 하드코딩하면 안 된다 — clampAction이 상한을 안다.
-  //    정신력은 상한이 고정 100이므로 아래 줄은 그대로 둔다.
+  //    정신력도 이제 상한이 가변(mentalMaxBonus)이라 clampMental을 쓴다.
   // 체력 한계치(운동으로 성장)가 아침 행동력 회복을 늘린다 — "수련해서 더 많이 행동한다"(staminaActionBonus).
   state.resources.action = clampAction(
     state,
@@ -207,8 +207,9 @@ function onNewDay(state: GameState): void {
       staminaActionBonus(state),
   );
   // ④ 마일스톤 퍼크 'stamina'가 하루 정신력 회복을 +5 해준다(해금 전 0).
-  state.resources.mental = Math.min(
-    100,
+  // ⚠️ 상한을 100으로 박으면 mentalMaxBonus가 통째로 죽는다 — 채울 방법이 없어지기 때문이다.
+  state.resources.mental = clampMental(
+    state,
     state.resources.mental + (rested ? 20 : 8) + home.mentalBonus + perkMentalRecovery(state),
   );
   state.lastRestGain = {

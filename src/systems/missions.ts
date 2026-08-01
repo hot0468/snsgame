@@ -17,7 +17,7 @@ import {
   type MissionReward,
 } from "@/data/missions";
 import { SKILL_STATS } from "@/data/stats";
-import { clampAction, clampResource, gainSkill } from "./stats";
+import { clampAction, clampMental, gainSkill } from "./stats";
 import { changeFollowers } from "./followers";
 
 /** 날짜/주차가 바뀌었으면 해당 미션 세트를 다시 굴린다(onNewDay·세이브 마이그레이션에서 호출). */
@@ -44,7 +44,7 @@ export function ensureMissions(state: GameState): void {
 function grantReward(state: GameState, r: MissionReward): void {
   if (r.money) state.money += r.money;
   if (r.action) state.resources.action = clampAction(state, state.resources.action + r.action);
-  if (r.mental) state.resources.mental = clampResource(state.resources.mental + r.mental);
+  if (r.mental) state.resources.mental = clampMental(state, state.resources.mental + r.mental);
   if (r.followers) changeFollowers(state, r.followers);
   if (r.skills) {
     for (const [k, v] of Object.entries(r.skills)) {

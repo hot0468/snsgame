@@ -24,7 +24,7 @@ import {
 import { accountsTotalFollowers } from "./followers";
 import { hasAnyJob, quitCurrentJob } from "./employment";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
-import { clampResource, gainSkill, skillTo100 } from "./stats";
+import { clampMental, clampResource, gainSkill, skillTo100 } from "./stats";
 import { addSchedule } from "./time";
 import { chance, pick } from "@/utils/random";
 
@@ -181,7 +181,7 @@ export function doCut(state: GameState, style: CutStyle): CutResult | null {
     state.resources.reputation = clampResource(state.resources.reputation + BOTCH_REPUTATION);
   }
 
-  state.resources.mental = clampResource(state.resources.mental - STYLIST_MENTAL_COST);
+  state.resources.mental = clampMental(state, state.resources.mental - STYLIST_MENTAL_COST);
   gainSkill(state, "beauty", ok ? 6 : 3);
   gainSkill(state, "sociability", 2);
 

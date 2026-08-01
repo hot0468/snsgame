@@ -54,6 +54,7 @@ export const MILESTONE_PERKS: readonly MilestonePerk[] = [
   { id: "efficient", at: 14, label: "요령이 붙었다", desc: "뭘 하든 예전보다 는다. 모든 스킬 획득량 +10%." },
   { id: "resilient", at: 20, label: "웬만해선 안 흔들린다", desc: "컨디션이 나빠도 크게 개의치 않는다. 활동 실패 확률 -20% 추가." },
   { id: "mastery", at: 28, label: "경지에 올랐다", desc: "손대는 족족 실력으로 남는다. 모든 스킬 획득량 +10%(누적 +20%)." },
+  { id: "steady", at: 24, label: "쉽게 지치지 않는다", desc: "버틸 수 있는 총량이 늘었다. 정신력 상한 +20." },
 ] as const;
 
 /** 현재 해금된 퍼크 목록(claimed 개수에서 파생 — 상태 저장 없음). UI 표시용. */
@@ -93,6 +94,16 @@ export function perkFailMult(state: GameState): number {
 /** 퍼크로 인한 **하루 정신력 회복 보너스**. `systems/time.ts`의 아침 회복이 더한다. */
 export function perkMentalRecovery(state: GameState): number {
   return hasPerk(state, "stamina") ? 5 : 0;
+}
+
+/**
+ * 퍼크 'steady'가 올려주는 정신력 상한(해금 전 0).
+ *
+ * ⚠️ 행동력의 `actionMaxBonus`와 달리 이건 **상태에 저장하지 않고 퍼크에서 파생**한다
+ *    (claimed 개수에서 나오므로 저장할 값이 없다). `stats.mentalMax`가 이걸 더한다.
+ */
+export function perkMentalMax(state: GameState): number {
+  return hasPerk(state, "steady") ? 20 : 0;
 }
 
 /** 새로 돌파한 마일스톤에 보상을 지급한다(claimed push는 호출부에서 이미 함). */

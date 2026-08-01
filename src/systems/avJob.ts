@@ -2,7 +2,7 @@ import type { GameState } from "@/core/types";
 import { getActiveAccount, LATE_SLOT } from "@/core/state";
 import { makeRandomAccount } from "@/data/accounts";
 import { chance, pick, uid } from "@/utils/random";
-import { clampAction, clampResource, gainSkill } from "./stats";
+import { clampAction, clampMental, clampResource, gainSkill } from "./stats";
 import { hasAnyJob, quitCurrentJob } from "./employment";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { dateOfMonth } from "./calendar";
@@ -421,7 +421,7 @@ export function resolveAvWork(state: GameState, acceptCondomless: boolean): stri
   if (!job) return "";
   state.resources.action = clampAction(state, state.resources.action - AV_WORK_ACTION_COST);
   gainSkill(state, "lewd", 12);
-  state.resources.mental = clampResource(state.resources.mental - 8);
+  state.resources.mental = clampMental(state, state.resources.mental - 8);
   state.resources.morality = clampResource(state.resources.morality - 4);
 
   // 근무일 카운트는 하루 1회만(스탯 효과는 매회)
@@ -440,7 +440,7 @@ export function resolveAvWork(state: GameState, acceptCondomless: boolean): stri
     // 노콘 촬영은 낮은 확률로 성병을 남긴다 → 회복까지 촬영 불가.
     if (Math.random() < AV_STD_CHANCE) {
       job.stdUntilDay = state.day + AV_STD_DAYS;
-      state.resources.mental = clampResource(state.resources.mental - 8);
+      state.resources.mental = clampMental(state, state.resources.mental - 8);
       narration += AV_STD_NARRATION;
       addSchedule(state, `성병 감염 — ${AV_STD_DAYS}일간 촬영 불가`, "system");
     }

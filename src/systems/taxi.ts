@@ -17,7 +17,7 @@ import {
 import { LATE_SLOT } from "@/core/state";
 import { hasAnyJob, quitCurrentJob } from "./employment";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
-import { clampResource, gainSkill } from "./stats";
+import { clampMental, clampResource, gainSkill } from "./stats";
 import { addSchedule } from "./time";
 import { pick } from "@/utils/random";
 
@@ -160,7 +160,7 @@ export function resolveRide(state: GameState, choice: TaxiChoice): RideResult | 
   job.totalEarned += fare;
   state.money += fare;
 
-  if (choice.mental) state.resources.mental = clampResource(state.resources.mental + choice.mental);
+  if (choice.mental) state.resources.mental = clampMental(state, state.resources.mental + choice.mental);
   if (choice.morality) {
     state.resources.morality = clampResource(state.resources.morality + choice.morality);
   }

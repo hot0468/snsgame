@@ -1,7 +1,7 @@
 import type { GameState } from "@/core/types";
 import { ESTHETIC_AD_MAIL, ESTHETIC_SCAM_LINES, ESTHETIC_VISIT_LINES } from "@/data/esthetic";
 import { chance, pick, uid } from "@/utils/random";
-import { clampAction, clampResource, gainSkill } from "./stats";
+import { clampAction, clampMental, clampResource, gainSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 import { scheduleNextEsthetic } from "./appointments";
 import { pushEmail } from "@/core/state";
@@ -121,7 +121,7 @@ export function checkEstheticScam(state: GameState): boolean {
     read: false,
   });
   addSchedule(state, "에스테틱 폐업 — 정기권 30만원 날림", "system");
-  state.resources.mental = clampResource(state.resources.mental - ESTHETIC_SCAM_MENTAL);
+  state.resources.mental = clampMental(state, state.resources.mental - ESTHETIC_SCAM_MENTAL);
   state.resources.reputation = clampResource(state.resources.reputation - ESTHETIC_SCAM_REP);
   return true;
 }

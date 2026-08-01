@@ -2,7 +2,7 @@ import type { GameState, SkillStatId, Tweet } from "@/core/types";
 import { getActiveAccount } from "@/core/state";
 import { SKILL_STATS, SKILL_STAT_IDS } from "@/data/stats";
 import { pick, randInt, sample, uid } from "@/utils/random";
-import { clampResource, clampSkill } from "./stats";
+import { clampMental, clampSkill } from "./stats";
 
 /**
  * '까칠한외눈(@Apr1)' — 소원을 이루어주는 가게로 유인하는 수상한 계정.
@@ -126,7 +126,7 @@ export function grantWish(state: GameState, wishId: string): WishOutcome {
   }
 
   const mentalDrop = randInt(15, 25);
-  state.resources.mental = clampResource(state.resources.mental - mentalDrop);
+  state.resources.mental = clampMental(state, state.resources.mental - mentalDrop);
 
   return {
     message:

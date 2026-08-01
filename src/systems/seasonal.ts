@@ -18,7 +18,7 @@ import {
 import { randInt, uid } from "@/utils/random";
 import { dateOf } from "./calendar";
 import { pushKakao } from "./kakao";
-import { clampAction, clampResource, gainStamina } from "./stats";
+import { clampAction, clampMental, gainStamina } from "./stats";
 
 /**
  * 계절/연말 시스템.
@@ -92,7 +92,7 @@ export function applySeasonalEvents(state: GameState): void {
 
   // 🎄 크리스마스
   if (m === 11 && date === 25 && fire(`xmas:${y}`)) {
-    state.resources.mental = clampResource(state.resources.mental + 10);
+    state.resources.mental = clampMental(state, state.resources.mental + 10);
     pushSchedule(state, "메리 크리스마스 🎄", "offline");
     pushKakao(
       state,
@@ -104,7 +104,7 @@ export function applySeasonalEvents(state: GameState): void {
 
   // 🎊 새해 — 새해 목표 다짐(정신력·행동력 회복)
   if (m === 0 && date === 1 && fire(`newyear:${y}`)) {
-    state.resources.mental = clampResource(state.resources.mental + 12);
+    state.resources.mental = clampMental(state, state.resources.mental + 12);
     state.resources.action = clampAction(state, state.resources.action + 15);
     pushSchedule(state, "새해 목표 다짐 🎊", "offline");
     pushKakao(
@@ -122,7 +122,7 @@ export function applySeasonalEvents(state: GameState): void {
       pushKakao(state, "안전안내문자", [HEATWAVE_ALERT], { hue: 15 });
     } else {
       gainStamina(state, -HEATWAVE_STAMINA);
-      state.resources.mental = clampResource(state.resources.mental - HEATWAVE_MENTAL);
+      state.resources.mental = clampMental(state, state.resources.mental - HEATWAVE_MENTAL);
       pushSchedule(state, HEATWAVE_NOTICE_HIT, "system");
       pushKakao(state, "안전안내문자", [HEATWAVE_ALERT], { hue: 15 });
     }
@@ -135,7 +135,7 @@ export function applySeasonalEvents(state: GameState): void {
       pushKakao(state, "안전안내문자", [COLDWAVE_ALERT], { hue: 210 });
     } else {
       gainStamina(state, -COLDWAVE_STAMINA);
-      state.resources.mental = clampResource(state.resources.mental - COLDWAVE_MENTAL);
+      state.resources.mental = clampMental(state, state.resources.mental - COLDWAVE_MENTAL);
       pushSchedule(state, COLDWAVE_NOTICE_HIT, "system");
       pushKakao(state, "안전안내문자", [COLDWAVE_ALERT], { hue: 210 });
     }

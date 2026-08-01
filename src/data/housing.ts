@@ -23,6 +23,16 @@ export interface Housing {
   actionBonus: number;
   /** 잠에서 깰 때 추가로 회복하는 정신력 */
   mentalBonus: number;
+  /**
+   * 정신력 **상한**에 더해지는 값(기본 0). 회복(mentalBonus)과 다른 축이다 —
+   * 회복은 '아침에 얼마나 차나', 이건 '얼마나 담기나'다.
+   *
+   * ⚠️ 회복만 올리면 상한 100에 막혀 버려진다. 좋은 집일수록 아침 회복이 커지는데
+   *    (최대 +25) 그릇이 그대로면 초과분이 그냥 사라졌다 — 그래서 상한도 같이 올린다.
+   * ⚠️ **현재 집에 귀속**이다(actionBonus·mentalBonus와 같은 규칙). 이사하면 즉시 새 집 값으로
+   *    바뀌므로, 상한이 줄어드는 이사에서는 현재 정신력이 새 상한으로 잘린다.
+   */
+  mentalMaxBonus?: number;
   /** 아파트 이상: 계약 시 1회 영구 스탯 상승(이사해도 빠지지 않는다) */
   permaSkills?: Partial<Record<SkillStatId, number>>;
 }
@@ -63,6 +73,7 @@ export const HOUSINGS: Housing[] = [
     price: 12_000_000,
     actionBonus: 7,
     mentalBonus: 9,
+    mentalMaxBonus: 5,
   },
   {
     id: "oldapt",
@@ -72,6 +83,7 @@ export const HOUSINGS: Housing[] = [
     price: 40_000_000,
     actionBonus: 9,
     mentalBonus: 12,
+    mentalMaxBonus: 10,
     permaSkills: { sociability: 20, beauty: 15 },
   },
   {
@@ -82,6 +94,7 @@ export const HOUSINGS: Housing[] = [
     price: 120_000_000,
     actionBonus: 12,
     mentalBonus: 15,
+    mentalMaxBonus: 15,
     permaSkills: { sociability: 30, beauty: 25, knowledge: 20 },
   },
   {
@@ -92,6 +105,7 @@ export const HOUSINGS: Housing[] = [
     price: 300_000_000,
     actionBonus: 15,
     mentalBonus: 20,
+    mentalMaxBonus: 20,
     permaSkills: { fitness: 30, creativity: 30 },
   },
   {
@@ -102,6 +116,7 @@ export const HOUSINGS: Housing[] = [
     price: 900_000_000,
     actionBonus: 20,
     mentalBonus: 25,
+    mentalMaxBonus: 25,
     permaSkills: { sociability: 40, beauty: 40, creativity: 30, knowledge: 30 },
   },
   {
@@ -112,6 +127,7 @@ export const HOUSINGS: Housing[] = [
     price: 3_000_000_000,
     actionBonus: 28,
     mentalBonus: 32,
+    mentalMaxBonus: 30,
     permaSkills: { sociability: 60, beauty: 60, creativity: 50, knowledge: 50, vocabulary: 40 },
   },
 ];

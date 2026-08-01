@@ -14,7 +14,7 @@ import {
 } from "@/data/lab";
 import { randInt, uid } from "@/utils/random";
 import { isWeekday } from "./calendar";
-import { clampAction, clampResource, gainSkill } from "./stats";
+import { clampAction, clampMental, clampResource, gainSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 
 /**
@@ -168,7 +168,7 @@ export function doLabShift(state: GameState): LabShiftResult {
   // 지식은 스킬(0~999) — clampSkill.
   state.resources.action = clampAction(state, state.resources.action - LAB_ACTION_COST);
   state.resources.morality = clampResource(state.resources.morality - LAB_MORALITY_COST);
-  state.resources.mental = clampResource(state.resources.mental - LAB_MENTAL_COST);
+  state.resources.mental = clampMental(state, state.resources.mental - LAB_MENTAL_COST);
   // 지식은 스킬(0~999) — 반복 근무형 육성이므로 gainSkill 관문(정신력 배율·감쇠)을 거친다.
   gainSkill(state, "knowledge", LAB_KNOWLEDGE_GAIN);
 

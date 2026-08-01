@@ -2,7 +2,7 @@ import type { GameState } from "@/core/types";
 import { GACHA_ITEMS } from "@/data/gacha";
 import { pick, randInt } from "@/utils/random";
 import { changeFollowers } from "./followers";
-import { clampResource } from "./stats";
+import { clampMental } from "./stats";
 import { ownedCount } from "./shop";
 
 /**
@@ -77,7 +77,7 @@ export function drawGacha(state: GameState): GachaResult | null {
   // 사본 순번은 **담기 전 보유 수**다(0부터). 꽝은 담기지 않으니 0으로 둔다.
   const copy = def.rarity === "empty" ? 0 : ownedCount(state, item.id);
   if (def.rarity !== "empty") state.ownedItems.push(item.id);
-  state.resources.mental = clampResource(state.resources.mental + def.mental);
+  state.resources.mental = clampMental(state, state.resources.mental + def.mental);
   const followers = randInt(def.followers[0], def.followers[1]);
   if (followers > 0) changeFollowers(state, followers);
 

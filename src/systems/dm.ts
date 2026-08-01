@@ -17,7 +17,7 @@ import { hashInt, pick, randInt, uid, chance } from "@/utils/random";
 import { advanceDmStory, isStoryOver, isStoryPending, storyChoices } from "./dmStory";
 import { changeFollowers } from "./followers";
 import { bumpTchinProgress } from "./tchin";
-import { clampResource, gainSkill } from "./stats";
+import { clampMental, clampResource, gainSkill } from "./stats";
 
 /**
  * 팬이 DM을 보내올 확률(팔로워를 얻은 행동 직후 호출).
@@ -561,7 +561,7 @@ function applyToneEffects(state: GameState, tone: DMTone): void {
       gainSkill(state, "sociability", 5);
       break;
     case "cool":
-      state.resources.mental = clampResource(state.resources.mental + 1);
+      state.resources.mental = clampMental(state, state.resources.mental + 1);
       break;
     case "bold":
       gainSkill(state, "lewd", 5);

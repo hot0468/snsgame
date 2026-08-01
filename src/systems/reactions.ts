@@ -8,7 +8,7 @@ import { randomName } from "@/data/accounts";
 import { MAX_SKILL } from "@/data/stats";
 import { chance, pick, randInt, sample, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
-import { clampResource, gainSkill } from "./stats";
+import { clampMental, gainSkill } from "./stats";
 
 const NON_ADULT_ATTRS = ALL_ATTRIBUTE_IDS.filter((a) => !ATTRIBUTES[a].adultOnly);
 
@@ -116,7 +116,7 @@ export function replyToMention(
 
   const fx = REPLY_TONE_EFFECT[tone];
   if (fx.skill) gainSkill(state, fx.skill, 5);
-  if (fx.mental) state.resources.mental = clampResource(state.resources.mental + fx.mental);
+  if (fx.mental) state.resources.mental = clampMental(state, state.resources.mental + fx.mental);
 
   if (chance(fx.chance)) {
     const delta = randInt(1, 2);

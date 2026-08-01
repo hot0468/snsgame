@@ -26,7 +26,7 @@ import { isWeekday } from "./calendar";
 import { hasAnyJob, quitCurrentJob } from "./employment";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { mutableRelOf, relStateOf } from "./relationship";
-import { clampResource, gainSkill, skillTo100 } from "./stats";
+import { clampMental, clampResource, gainSkill, skillTo100 } from "./stats";
 import { addSchedule } from "./time";
 import { chance, pick } from "@/utils/random";
 
@@ -180,7 +180,7 @@ export function sellToCold(state: GameState): SalesResult | null {
   if (!job) return null;
 
   const signed = chance(coldChance(state));
-  state.resources.mental = clampResource(state.resources.mental - COLD_MENTAL_COST);
+  state.resources.mental = clampMental(state, state.resources.mental - COLD_MENTAL_COST);
   gainSkill(state, "sociability", COLD_SOCIABILITY_GAIN);
 
   let commission = 0;

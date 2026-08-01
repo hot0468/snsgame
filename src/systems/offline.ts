@@ -4,7 +4,7 @@ import { ATTRIBUTES } from "@/data/attributes";
 import { ALL_ATTRIBUTE_IDS } from "@/data/attributes";
 import { SKILL_STATS } from "@/data/stats";
 import { pick } from "@/utils/random";
-import { clampAction, clampResource, gainSkill, gainStamina, STAMINA_MAX_CAP } from "./stats";
+import { STAMINA_MAX_CAP, clampAction, clampMental, clampResource, gainSkill, gainStamina } from "./stats";
 import { REST_STAMINA, WORKOUT_STAMINA, WORKOUT_STAMINA_MAX_GAIN, AUTHOR_WORK_STAMINA } from "./health";
 import { addSchedule, advanceTime } from "./time";
 import { doAuthorWork } from "./author";
@@ -960,7 +960,7 @@ export function spendDayResting(state: GameState): { action: number; mental: num
     const actionBefore = state.resources.action;
     const mentalBefore = state.resources.mental;
     state.resources.action = clampAction(state, state.resources.action + REST_ACTIVITY.action);
-    state.resources.mental = clampResource(state.resources.mental + REST_ACTIVITY.mental);
+    state.resources.mental = clampMental(state, state.resources.mental + REST_ACTIVITY.mental);
     gainStamina(state, REST_STAMINA); // 쉬며 넘긴 슬롯마다 체력도 회복(rest 활동과 동일)
     action += state.resources.action - actionBefore;
     mental += state.resources.mental - mentalBefore;
@@ -1031,7 +1031,7 @@ export function doOfflineActivity(
 
   // 휴식 활동은 activity.action이 양수 — 상한이 걸리는 지점이라 clampAction이어야 한다.
   state.resources.action = clampAction(state, state.resources.action + activity.action);
-  state.resources.mental = clampResource(state.resources.mental + activity.mental);
+  state.resources.mental = clampMental(state, state.resources.mental + activity.mental);
   if (activity.morality) {
     state.resources.morality = clampResource(state.resources.morality + activity.morality);
   }
@@ -1059,7 +1059,7 @@ export function doOfflineActivity(
     // 친화력이 매우 낮으면 손님 응대가 버거워 정신력이 추가로 깎인다.
     // 실수 판정 '전에' 적용 → 낮은 친화력이 멘탈을 더 떨어뜨려 실수 확률까지 높인다(연쇄).
     if (state.skills.sociability < PART_TIME_LOW_SOCIAL) {
-      state.resources.mental = clampResource(state.resources.mental - PART_TIME_LOW_SOCIAL_MENTAL);
+      state.resources.mental = clampMental(state, state.resources.mental - PART_TIME_LOW_SOCIAL_MENTAL);
     }
     // 카운터 키는 활동 id. 이번 회차의 일당은 **증가 전** 카운트로 계산한다(1회차 = BASE).
     earnedMoney = partTimePay(partTimeCountOf(state, activity.id));
@@ -1312,7 +1312,7 @@ export function collectCreature(state: GameState, id: string): void {
   state.creatures.push(id);
   const c = creatureById(id);
   addSchedule(state, `${c?.name ?? "크리처"} 도감 등록!`, "system");
-  state.resources.mental = clampResource(state.resources.mental + 2);
+  state.resources.mental = clampMental(state, state.resources.mental + 2);
 }
 
 /** 반려동물 이름(강아지/고양이) */

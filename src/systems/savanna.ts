@@ -7,7 +7,7 @@ import { changeFollowers } from "./followers";
 import { applyEffect } from "./events";
 import { legendBJMultiplier } from "./eggs";
 import { ownedCount } from "./shop";
-import { gainSkill, SKILL_SCALE } from "./stats";
+import { SKILL_SCALE, clampMental, gainSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 
 /**
@@ -126,7 +126,7 @@ function runSavannaShock(state: GameState): SavannaResult {
   advanceTime(state, 1);
   const amount = 5_000 + randInt(0, 5_000);
   state.money += amount;
-  state.resources.mental = Math.max(0, state.resources.mental - 15);
+  state.resources.mental = clampMental(state, state.resources.mental - 15);
   addSchedule(state, "사바나 시청자 난입 소동", "sns");
   return {
     amount,
@@ -186,7 +186,7 @@ export function resolveSavannaIntrusion(state: GameState, choiceIndex: number): 
 
   gainSkill(state, "lewd", onCam ? 24 : 18);
   state.resources.morality = Math.max(0, state.resources.morality - (onCam ? 12 : 8));
-  state.resources.mental = Math.max(0, state.resources.mental - (onCam ? 6 : 3));
+  state.resources.mental = clampMental(state, state.resources.mental - (onCam ? 6 : 3));
 
   addSchedule(state, `사바나 시청자 난입 방송 (+${amount.toLocaleString("ko-KR")}원)`, "sns");
   advanceTime(state, 1);
@@ -230,7 +230,7 @@ export function runSavannaStream(state: GameState): SavannaResult {
   const amount = savannaDonation(state);
   state.money += amount;
   gainSkill(state, "lewd", 3);
-  state.resources.mental = Math.max(0, state.resources.mental - 8);
+  state.resources.mental = clampMental(state, state.resources.mental - 8);
   state.lateTweetToday = true; // 밤샘 방송 → 다음날 회복 감소
   addSchedule(state, `사바나 라이브방송 (+${amount.toLocaleString("ko-KR")}원)`, "sns");
   advanceTime(state, 1);

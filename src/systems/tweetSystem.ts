@@ -31,7 +31,7 @@ import { maybeSpawnLingerieDM } from "./lingerie";
 import { maybeSpawnCosplayDM } from "./cosplay";
 import { maybeSpawnPushDM } from "./pushtime";
 import { generateReactions } from "./reactions";
-import { clampAction, clampResource, gainSkill } from "./stats";
+import { clampAction, clampMental, clampResource, gainSkill } from "./stats";
 import { addStrike } from "./ban";
 import { rollControversy, CONTROVERSY_REP_THRESHOLD } from "./controversy";
 import { gainAffinityFromTweet } from "./relationship";
@@ -288,7 +288,7 @@ export function postTweet(
   if (kindEff.mentalDelta !== 0) {
     // ⚠️ 감성·자극의 대가. 실제 반영 델타를 표시한다(0에서 더 못 깎이면 0으로 보여야 한다).
     const before = state.resources.mental;
-    state.resources.mental = clampResource(state.resources.mental + kindEff.mentalDelta);
+    state.resources.mental = clampMental(state, state.resources.mental + kindEff.mentalDelta);
     const applied = state.resources.mental - before;
     if (applied !== 0) statChanges.push({ label: "정신력", delta: applied });
   }

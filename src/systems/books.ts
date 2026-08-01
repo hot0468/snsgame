@@ -4,7 +4,7 @@ import { BOOK_PRICE_BY_CATEGORY } from "@/data/books";
 import { ATTRIBUTES } from "@/data/attributes";
 import { getActiveAccount } from "@/core/state";
 import { unlockAttribute } from "./attributeUnlock";
-import { clampAction, clampResource, gainSkill } from "./stats";
+import { clampAction, clampMental, gainSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 
 /** 책 한 권 감상에 드는 행동력 */
@@ -45,7 +45,7 @@ export function readBook(
   // 공통 상승 — 반복 육성(독서)이므로 gainSkill 관문을 거쳐 정신력 배율·감쇠를 받는다.
   gainSkill(state, "knowledge", 10);
   gainSkill(state, "vocabulary", 10);
-  state.resources.mental = clampResource(state.resources.mental + 3);
+  state.resources.mental = clampMental(state, state.resources.mental + 3);
 
   let extra: string;
   if (category === "culture") {

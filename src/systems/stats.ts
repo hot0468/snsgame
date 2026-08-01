@@ -1,7 +1,8 @@
 import { MAX_RESOURCE, MAX_SKILL } from "@/data/stats";
 import type { GameState, SkillStatId } from "@/core/types";
 // ④ 마일스톤 해금 퍼크(스킬 획득 배율). milestones.ts는 stats.ts를 import하지 않으므로 순환 없음.
-import { perkSkillMult } from "./milestones";
+import { perkMentalMax, perkSkillMult } from "./milestones";
+import { HOUSINGS } from "@/data/housing";
 
 /**
  * 스탯 클램프 단일 출처.
@@ -26,8 +27,9 @@ export function clampSkill(v: number): number {
 }
 
 /**
- * 상한이 고정 100인 리소스(정신력·도덕성·평판) 클램프.
- * ⚠️ **행동력에는 쓰지 마라** — 상한이 가변이다. clampAction을 쓸 것.
+ * 상한이 고정 100인 리소스(도덕성·평판) 클램프.
+ * ⚠️ **행동력·정신력에는 쓰지 마라** — 둘 다 상한이 가변이다.
+ *    clampAction / clampMental을 쓸 것.
  */
 export function clampResource(v: number): number {
   return Math.max(0, Math.min(MAX_RESOURCE, v));
@@ -43,10 +45,42 @@ export function actionMax(state: GameState): number {
 
 /**
  * 행동력 전용 클램프(0 ~ actionMax(state)).
- * 리소스 4종 중 행동력만 상한이 가변이라 상태를 인자로 받는다.
+ * 리소스 4종 중 행동력·정신력만 상한이 가변이라 상태를 인자로 받는다.
  */
 export function clampAction(state: GameState, v: number): number {
   return Math.max(0, Math.min(actionMax(state), v));
+}
+
+/**
+ * 현재 정신력 상한. 기본 100에 세 가지가 더해진다.
+ *   - `state.mentalMaxBonus` — 영구 보너스(이벤트·치트 등에서 쓸 자리)
+ *   - 현재 집(`Housing.mentalMaxBonus`) — **이사하면 즉시 바뀐다**(회복 보너스와 같은 규칙)
+ *   - 마일스톤 퍽 '쉽게 지치지 않는다'
+ *
+ * ⚠️ UI의 정신력 바 상한도 RESOURCE_STATS.mental.max가 아니라 이 값을 써야 한다.
+ * ⚠️ 집을 낮춰 이사하면 상한이 줄어든다 — 현재 정신력이 새 상한을 넘으면 다음 clampMental에서
+ *    잘린다. 의도된 동작이다(좋은 집의 값어치가 유지비에 있다).
+ */
+export function mentalMax(state: GameState): number {
+  const bonus = state.mentalMaxBonus;
+  const home = HOUSINGS[state.housingTier] ?? HOUSINGS[0];
+  return (
+    MAX_RESOURCE +
+    (Number.isFinite(bonus) ? bonus : 0) +
+    (home?.mentalMaxBonus ?? 0) +
+    perkMentalMax(state)
+  );
+}
+
+/**
+ * 정신력 전용 클램프(0 ~ mentalMax(state)).
+ *
+ * ⚠️ **정신력을 건드리는 곳에서 clampResource가 보이면 그건 버그다.**
+ *    행동력이 겪었던 것과 같은 함정이다: 상한 120에서 8을 깎으면 clampResource가
+ *    112를 100으로 눌러 보너스가 조용히 사라진다. 감소 경로에서도 반드시 이걸 써라.
+ */
+export function clampMental(state: GameState, v: number): number {
+  return Math.max(0, Math.min(mentalMax(state), v));
 }
 
 /**

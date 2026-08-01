@@ -4,7 +4,7 @@ import { dateOf, dateOfMonth, isWeekday, monthKey } from "./calendar";
 import { hasAnyJob, quitCurrentJob } from "./employment";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { pushKakao } from "./kakao";
-import { clampAction, clampResource, gainSkill, skillTo100 } from "./stats";
+import { clampAction, clampMental, gainSkill, skillTo100 } from "./stats";
 import { rollActivityGrade, type ActivityGrade } from "./condition";
 import { addSchedule } from "./time";
 
@@ -226,7 +226,7 @@ export function doCoachTraining(state: GameState, mode: "drill" | "easy"): Train
   if (mode === "easy") {
     // 가볍게 넘긴 날 — 팀은 안 늘지만 코치 정신력이 회복된다(딴짓과 달리 벌점은 없다).
     state.resources.action = clampAction(state, state.resources.action - 4);
-    state.resources.mental = clampResource(state.resources.mental + 6);
+    state.resources.mental = clampMental(state, state.resources.mental + 6);
     addSchedule(state, "배구부 자율 훈련", "system");
     return {
       message: "가볍게 몸만 풀리고 자율 훈련으로 돌렸다. 코치도 숨을 좀 돌렸다.",
@@ -241,7 +241,7 @@ export function doCoachTraining(state: GameState, mode: "drill" | "easy"): Train
   const gained = Math.max(1, Math.round(trainGain(state) * TRAIN_GRADE_MULT[grade]));
 
   state.resources.action = clampAction(state, state.resources.action - COACH_TRAIN_ACTION_COST);
-  state.resources.mental = clampResource(state.resources.mental - 8);
+  state.resources.mental = clampMental(state, state.resources.mental - 8);
   job.teamStat = Math.min(COACH_STAT_TARGET, job.teamStat + gained);
   job.totalTrainings += 1;
   gainSkill(state, "fitness", 5);

@@ -1,7 +1,7 @@
 import type { GameState } from "@/core/types";
 import { pick } from "@/utils/random";
 import { changeFollowers } from "./followers";
-import { clampResource, gainSkill } from "./stats";
+import { clampMental, clampResource, gainSkill } from "./stats";
 import { postTweet } from "./tweetSystem";
 import { addSchedule } from "./time";
 
@@ -113,7 +113,7 @@ export function rollBinge(state: GameState): string | null {
   const before = bp.gauge;
   bp.gauge = Math.max(0, bp.gauge - BINGE_PENALTY);
   bp.binges += 1;
-  state.resources.mental = clampResource(state.resources.mental + BINGE_MENTAL_GAIN);
+  state.resources.mental = clampMental(state, state.resources.mental + BINGE_MENTAL_GAIN);
   return `${pick(BINGE_LINES)} (바디게이지 -${before - bp.gauge})`;
 }
 

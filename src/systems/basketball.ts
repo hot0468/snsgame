@@ -2,7 +2,7 @@ import type { GameState, SkillStatId } from "@/core/types";
 import type { HoopPrize } from "@/data/basketball";
 import { HOOP_PRIZES } from "@/data/basketball";
 import { SKILL_STATS } from "@/data/stats";
-import { clampResource, gainSkill } from "./stats";
+import { clampMental, gainSkill } from "./stats";
 import { addSchedule } from "./time";
 
 /**
@@ -64,7 +64,7 @@ export function finishHoop(state: GameState, score: number): HoopResult {
 
   if (prize.money > 0) state.money += prize.money;
   if (prize.mental > 0) {
-    state.resources.mental = clampResource(state.resources.mental + prize.mental);
+    state.resources.mental = clampMental(state, state.resources.mental + prize.mental);
   }
 
   // 라벨은 화면에 그대로 뜨므로 한글 표시명을 쓴다(스탯 id를 노출하면 안 된다).

@@ -5,7 +5,7 @@ import { pick, randInt, uid } from "@/utils/random";
 import { postTweet, type PostTweetResult } from "./tweetSystem";
 import { scheduleNextStudy } from "./appointments";
 import { addSchedule, advanceTime } from "./time";
-import { clampAction, clampResource, gainSkill } from "./stats";
+import { clampAction, clampMental, gainSkill } from "./stats";
 
 /**
  * 취업스터디 모임 흐름.
@@ -116,7 +116,7 @@ export function resolveStudy(state: GameState): string {
   gainSkill(state, "vocabulary", randInt(8, 12));
   gainSkill(state, "knowledge", randInt(8, 12));
   state.resources.action = clampAction(state, state.resources.action - STUDY_ACTION_COST);
-  state.resources.mental = clampResource(state.resources.mental + 4);
+  state.resources.mental = clampMental(state, state.resources.mental + 4);
   addSchedule(state, "취업스터디 모임", "offline");
   advanceTime(state, 1);
   return pick(STUDY_MEET_LINES);

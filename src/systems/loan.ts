@@ -2,6 +2,7 @@ import type { GameState, KakaoLoanOffer } from "@/core/types";
 import { LOAN_DEFAULT_ENDING_REASON, LOAN_DEFAULT_ENDING_REASON_ADULT } from "@/core/state";
 import { pick } from "@/utils/random";
 import { pushKakao } from "./kakao";
+import { clampMental } from "./stats";
 
 /**
  * 대부(사채) 시스템.
@@ -91,7 +92,7 @@ export interface CaptureResult {
  * 3회째 연체면 gameOver를 세운다 — 성인 모드는 실종, 아니면 부모님에게 들켜 강제 귀향.
  */
 export function applyCapturePenalty(state: GameState): CaptureResult {
-  state.resources.mental = Math.max(0, state.resources.mental - 30);
+  state.resources.mental = clampMental(state, state.resources.mental - 30);
   let performanceHit = false;
   if (state.employment) {
     state.employment.performance = Math.max(0, state.employment.performance - 40);

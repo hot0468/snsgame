@@ -2,7 +2,7 @@ import type { Email, GameState, ScheduleEvent, Tweet } from "@/core/types";
 import { appendSchedule, getActiveAccount, pushEmail, pushTimeline } from "@/core/state";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
-import { clampResource } from "./stats";
+import { clampMental } from "./stats";
 
 /**
  * 스팸(피싱) 메일.
@@ -111,7 +111,7 @@ function getHacked(state: GameState): number {
   const acc = getActiveAccount(state);
   const loss = Math.max(20, Math.round(acc.followers * 0.15));
   changeFollowers(state, -loss);
-  state.resources.mental = clampResource(state.resources.mental - 12);
+  state.resources.mental = clampMental(state, state.resources.mental - 12);
 
   // 해커가 내 계정으로 스팸 트윗을 올린다
   const tweet: Tweet = {

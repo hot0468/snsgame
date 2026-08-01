@@ -1,7 +1,7 @@
 import type { Email, GameState } from "@/core/types";
 import { uid } from "@/utils/random";
 import { hasAnyJob, quitCurrentJob } from "./employment";
-import { clampResource, gainSkill, skillTo100 } from "./stats";
+import { clampMental, gainSkill, skillTo100 } from "./stats";
 import { addSchedule } from "./time";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { pushEmail } from "@/core/state";
@@ -245,7 +245,7 @@ export function doLecture(state: GameState): LessonResult | null {
   job.totalLessons += 1;
   gainSkill(state, "vocabulary", 6);
   gainSkill(state, "sociability", 4);
-  state.resources.mental = clampResource(state.resources.mental - 6);
+  state.resources.mental = clampMental(state, state.resources.mental - 6);
 
   return {
     pay: lessonPay(state),

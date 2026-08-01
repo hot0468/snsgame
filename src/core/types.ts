@@ -1039,6 +1039,12 @@ export interface GameState {
    * 새 게임에선 0으로 리셋된다(치트는 '게임당 1회').
    */
   actionMaxBonus: number;
+  /**
+   * 정신력 상한에 더해지는 보너스(기본 0). 정신력 상한 = MAX_RESOURCE + mentalMaxBonus.
+   * ⚠️ 이 값이 0이 아니면 정신력을 건드리는 **모든** 경로가 `clampMental`을 써야 한다 —
+   *    `clampResource`를 쓰면 100에서 잘려 보너스가 조용히 사라진다.
+   */
+  mentalMaxBonus: number;
 
   /** 게임당 1회만 쓸 수 있는 치트의 사용 여부 */
   cheats: CheatState;

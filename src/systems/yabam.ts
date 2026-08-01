@@ -9,7 +9,7 @@ import {
 import { ADULT_KINDS, ADULT_REVIEW_TWEETS } from "@/data/categories/adult";
 import { getActiveAccount } from "@/core/state";
 import { chance, pick } from "@/utils/random";
-import { clampResource, gainSkill } from "./stats";
+import { clampMental, clampResource, gainSkill } from "./stats";
 import { advanceTime } from "./time";
 import { postTweet } from "./tweetSystem";
 
@@ -45,7 +45,7 @@ export function viewYabamVideo(state: GameState, video: YabamVideo): YabamVideoR
   // 반복 감상 육성 — gainSkill 관문(정신력 배율·감쇠)을 거친다.
   // ⚠️ 문구에는 선언값(10)이 아니라 **실제 반영 델타**를 쓴다.
   const lewdGain = gainSkill(state, "lewd", YABAM_VIDEO_LEWD_GAIN);
-  state.resources.mental = clampResource(state.resources.mental + 5);
+  state.resources.mental = clampMental(state, state.resources.mental + 5);
   state.resources.morality = clampResource(state.resources.morality - 2);
   // 한 편 감상에 시간 블록 1개를 소모한다(오프라인 활동·근무와 같은 결).
   advanceTime(state, 1);
@@ -73,7 +73,7 @@ export function playYabamToto(state: GameState, bet: number): TotoResult | null 
     state.money += bet;
     // 승리해도 도박은 도덕성을 갉아먹지만, 정신력은 잠깐 오른다
     state.resources.morality = clampResource(state.resources.morality - 1);
-    state.resources.mental = clampResource(state.resources.mental + 2);
+    state.resources.mental = clampMental(state, state.resources.mental + 2);
     return {
       won: true,
       bet,
@@ -83,7 +83,7 @@ export function playYabamToto(state: GameState, bet: number): TotoResult | null 
   }
   state.money -= bet;
   state.resources.morality = clampResource(state.resources.morality - 2);
-  state.resources.mental = clampResource(state.resources.mental - 3);
+  state.resources.mental = clampMental(state, state.resources.mental - 3);
   return {
     won: false,
     bet,

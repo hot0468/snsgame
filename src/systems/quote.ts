@@ -10,7 +10,7 @@ import {
 } from "@/data/quote";
 import { changeFollowers } from "./followers";
 import { consumePostSlot } from "./eggs";
-import { clampAction, clampResource } from "./stats";
+import { clampAction, clampMental, clampResource } from "./stats";
 import { rollControversy } from "./controversy";
 import { ddeoksangBonus, isDdeoksang, tweetActionCost } from "./tweetSystem";
 import { applyTchinReach, bumpTchinProgress } from "./tchin";
@@ -64,7 +64,7 @@ export function postQuoteTweet(
     ratioed = true;
     followerDelta = -Math.round(popularity * QRT_RATIO_RATE * toneDef.riskMult);
     state.resources.reputation = clampResource(state.resources.reputation - 8);
-    state.resources.mental = clampResource(state.resources.mental - 6);
+    state.resources.mental = clampMental(state, state.resources.mental - 6);
     rollControversy(state, QRT_CONTROVERSY_BASE * toneDef.riskMult);
   }
 

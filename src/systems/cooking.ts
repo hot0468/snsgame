@@ -1,7 +1,7 @@
 import type { GameState } from "@/core/types";
 import type { Recipe } from "@/data/grocery";
 import { RECIPES } from "@/data/grocery";
-import { gainSkill, clampResource } from "./stats";
+import { clampMental, gainSkill } from "./stats";
 import { addSchedule } from "./time";
 
 /**
@@ -52,7 +52,7 @@ export function recordCooking(state: GameState, recipe: Recipe): CookingRecord |
 
   const completed = state.cookedDishes.length >= DISH_TOTAL;
   if (completed) {
-    state.resources.mental = clampResource(state.resources.mental + DEX_COMPLETE_MENTAL);
+    state.resources.mental = clampMental(state, state.resources.mental + DEX_COMPLETE_MENTAL);
     gainSkill(state, "creativity", DEX_COMPLETE_CREATIVITY);
     addSchedule(state, `요리 도감 완성! (${DISH_TOTAL}종)`, "system");
   }

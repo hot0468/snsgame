@@ -11,7 +11,7 @@ import {
 } from "@/data/callCenter";
 import { hasAnyJob, quitCurrentJob } from "./employment";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
-import { clampResource, gainSkill } from "./stats";
+import { clampMental, gainSkill } from "./stats";
 import { addSchedule } from "./time";
 import { pick } from "@/utils/random";
 
@@ -106,7 +106,7 @@ export function takeCall(state: GameState, line: CallLine, streak: number): Call
   const pay = Math.round(callPay(streak) * (line.payMul ?? 1));
   const before = state.resources.mental;
   // 누적 가속 소모 + 콜 고유 증감(thanks 같은 콜은 오히려 +다).
-  state.resources.mental = clampResource(before - callMentalCost(streak) + (line.mental ?? 0));
+  state.resources.mental = clampMental(state, before - callMentalCost(streak) + (line.mental ?? 0));
   const mentalDelta = state.resources.mental - before;
 
   state.money += pay;

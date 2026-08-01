@@ -6,7 +6,7 @@ import { applyEffect } from "./events";
 import { CREW_MILESTONES, GROUP_NIGHT_MILESTONES, type MeetMilestone } from "@/data/regularMeetEvents";
 import { pushKakao } from "./kakao";
 import { ownedCount } from "./shop";
-import { clampAction, clampResource, gainSkill, skillTo100 } from "./stats";
+import { clampAction, clampMental, clampResource, gainSkill, skillTo100 } from "./stats";
 import {
   addSchedule,
   advanceTime,
@@ -107,7 +107,7 @@ function resolveCrewRun(state: GameState, go: boolean): string {
 
   if (!go) {
     addSchedule(state, "정기런 불참", "system");
-    state.resources.mental = clampResource(state.resources.mental + 2);
+    state.resources.mental = clampMental(state, state.resources.mental + 2);
     return "오늘은 쉬기로 했다. 크루원들에게 양해를 구했다. 다음 주 목요일엔 꼭 나가야지.";
   }
 
@@ -115,7 +115,7 @@ function resolveCrewRun(state: GameState, go: boolean): string {
   gainSkill(state, "fitness", 22);
   gainSkill(state, "sociability", 10);
   gainSkill(state, "beauty", 3);
-  state.resources.mental = clampResource(state.resources.mental + 5);
+  state.resources.mental = clampMental(state, state.resources.mental + 5);
   const delta = randInt(3, 9);
   changeFollowers(state, delta);
   addSchedule(state, "러닝크루 정기런", "offline");
@@ -171,7 +171,7 @@ function resolveGroupNight(state: GameState, go: boolean): string {
 
   if (!go) {
     addSchedule(state, "그룹방 정기 모임 불참", "system");
-    state.resources.mental = clampResource(state.resources.mental + 3);
+    state.resources.mental = clampMental(state, state.resources.mental + 3);
     state.resources.morality = clampResource(state.resources.morality + 1);
     return (
       "단톡에 ‘이번 주는 패스’라고만 남겼다. 아쉽다는 이모지가 몇 개 붙었지만, " +
@@ -182,7 +182,7 @@ function resolveGroupNight(state: GameState, go: boolean): string {
   state.resources.action = clampAction(state, state.resources.action - GROUP_NIGHT_ACTION_COST);
   gainSkill(state, "lewd", 24);
   gainSkill(state, "sociability", 6);
-  state.resources.mental = clampResource(state.resources.mental - 8);
+  state.resources.mental = clampMental(state, state.resources.mental - 8);
   state.resources.morality = clampResource(state.resources.morality - 10);
   getActiveAccount(state).groupUnlocked = true;
   const delta = randInt(12, 28);
@@ -242,7 +242,7 @@ export function scheduleNextLingerieShoot(state: GameState): void {
 function resolveLingerieSkip(state: GameState): string {
   scheduleNextLingerieShoot(state);
   addSchedule(state, "란제리 화보 촬영 불참", "system");
-  state.resources.mental = clampResource(state.resources.mental + 2);
+  state.resources.mental = clampMental(state, state.resources.mental + 2);
   return "오늘 심야 촬영은 쉬기로 했다. 스튜디오에 양해를 구했다. 다음 주 촬영 일정은 그대로 잡혀 있다.";
 }
 
@@ -285,7 +285,7 @@ export function scheduleNextStudy(state: GameState): void {
 function resolveStudySkip(state: GameState): string {
   scheduleNextStudy(state);
   addSchedule(state, "취업스터디 불참", "system");
-  state.resources.mental = clampResource(state.resources.mental + 2);
+  state.resources.mental = clampMental(state, state.resources.mental + 2);
   return "오늘 스터디는 쉬기로 했다. 스터디원들에게 양해를 구했다. 다음 주 월요일 일정은 그대로 잡혀 있다.";
 }
 
@@ -328,7 +328,7 @@ export function scheduleNextEsthetic(state: GameState): void {
 function resolveEstheticSkip(state: GameState): string {
   scheduleNextEsthetic(state);
   addSchedule(state, "에스테틱 방문 불참", "system");
-  state.resources.mental = clampResource(state.resources.mental + 2);
+  state.resources.mental = clampMental(state, state.resources.mental + 2);
   return "이번 주 에스테틱은 건너뛰기로 했다. 관리비 1만원은 굳었다. 다음 주 화요일 예약은 그대로 잡혀 있다.";
 }
 
@@ -370,11 +370,11 @@ function resolveFriendMeet(state: GameState, appt: Appointment, go: boolean): st
   const name = appt.partnerName ?? "친구";
   if (!go) {
     addSchedule(state, `${name}와 약속 취소`, "system");
-    state.resources.mental = clampResource(state.resources.mental + 1);
+    state.resources.mental = clampMental(state, state.resources.mental + 1);
     return `${name}에게 오늘은 못 만날 것 같다고 양해를 구했다. 미안한 마음이 남는다.`;
   }
   state.resources.action = clampAction(state, state.resources.action - 10);
-  state.resources.mental = clampResource(state.resources.mental + 8);
+  state.resources.mental = clampMental(state, state.resources.mental + 8);
   gainSkill(state, "sociability", 20);
   const delta = randInt(4, 12);
   changeFollowers(state, delta);
@@ -397,11 +397,11 @@ function resolveFriendMeet(state: GameState, appt: Appointment, go: boolean): st
 function resolveEventVisit(state: GameState, appt: Appointment, go: boolean): string {
   if (!go) {
     addSchedule(state, `${appt.title} 불참`, "system");
-    state.resources.mental = clampResource(state.resources.mental + 1);
+    state.resources.mental = clampMental(state, state.resources.mental + 1);
     return `${appt.title}에 가지 않기로 했다. 표는 아쉽지만 다음 기회에...`;
   }
   state.resources.action = clampAction(state, state.resources.action - 10);
-  state.resources.mental = clampResource(state.resources.mental + 10);
+  state.resources.mental = clampMental(state, state.resources.mental + 10);
   gainSkill(state, "sociability", 10);
   const delta = randInt(15, 40);
   changeFollowers(state, delta);
@@ -518,7 +518,7 @@ export function resolveComiccon(
 
   if (mode === "cosplay") {
     state.resources.action = clampAction(state, state.resources.action - 12);
-    state.resources.mental = clampResource(state.resources.mental + 8);
+    state.resources.mental = clampMental(state, state.resources.mental + 8);
     gainSkill(state, "beauty", 15);
     gainSkill(state, "sociability", 15);
     const followers = randInt(25, 55);
@@ -539,7 +539,7 @@ export function resolveComiccon(
 
   // visitor
   state.resources.action = clampAction(state, state.resources.action - 8);
-  state.resources.mental = clampResource(state.resources.mental + 10);
+  state.resources.mental = clampMental(state, state.resources.mental + 10);
   gainSkill(state, "sociability", 15);
   const followers = randInt(12, 28);
   changeFollowers(state, followers);
@@ -588,14 +588,14 @@ function resolveTicketing(state: GameState, appt: Appointment, won: boolean): st
       attribute: tf.attribute,
       variant: tf.variant,
     });
-    state.resources.mental = clampResource(state.resources.mental + 5);
+    state.resources.mental = clampMental(state, state.resources.mental + 5);
     addSchedule(state, `${tf.title} 티켓팅 성공`, "sns");
     return (
       `치열한 광클 끝에 원하는 좌석을 잡았다!! 「${tf.title}」 관람 일정이 스케줄에 등록됐다. ` +
       `(${dateLabel(tf.day)} ${SLOT_LABELS[tf.slot] ?? ""})`
     );
   }
-  state.resources.mental = clampResource(state.resources.mental - 6);
+  state.resources.mental = clampMental(state, state.resources.mental - 6);
   addSchedule(state, `${tf?.title ?? "행사"} 티켓팅 실패`, "system");
   return `아쉽게 티켓팅에 실패했다... 「${tf?.title ?? "행사"}」 관람은 물거품이 됐다. 다음 기회를 노리자.`;
 }

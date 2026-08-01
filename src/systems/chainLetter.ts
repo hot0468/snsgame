@@ -2,7 +2,7 @@ import type { GameState, Tweet } from "@/core/types";
 import { getActiveAccount } from "@/core/state";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
-import { clampResource } from "./stats";
+import { clampMental } from "./stats";
 
 /**
  * '행운의 편지' — 리트윗하면 행운/저주가 갈리는 도박 트윗(까칠한외눈 몰드).
@@ -59,7 +59,7 @@ export function resolveChainLetter(state: GameState): string {
     const mental = randInt(5, 10);
     state.money += money;
     changeFollowers(state, fol);
-    state.resources.mental = clampResource(state.resources.mental + mental);
+    state.resources.mental = clampMental(state, state.resources.mental + mental);
     // 행운 서사
     return `정말 행운의 편지였다! 통장에 ${money.toLocaleString("ko-KR")}원이 꽂히고, 어디선가 팔로워 ${fol}명이 몰려왔다. 리트윗하길 잘했다.`;
   }
@@ -68,7 +68,7 @@ export function resolveChainLetter(state: GameState): string {
   const mental = randInt(8, 15);
   state.money -= money;
   changeFollowers(state, -loss);
-  state.resources.mental = clampResource(state.resources.mental - mental);
+  state.resources.mental = clampMental(state, state.resources.mental - mental);
   // 저주 서사
   return `역시 이런 건 믿는 게 아니었다… 이유 없이 ${money.toLocaleString("ko-KR")}원이 빠져나가고, 팔로워 ${loss}명이 조용히 떠나버렸다. 등골이 서늘하다.`;
 }

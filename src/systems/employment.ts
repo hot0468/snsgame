@@ -9,7 +9,7 @@ import { isLastDayOfMonth, isWeekday } from "./calendar";
 import { certJobBonus } from "./certification";
 import { markOvertime } from "./health";
 import { currentSalary } from "./economy";
-import { clampAction, clampResource, skillTo100 } from "./stats";
+import { clampAction, clampMental, skillTo100 } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 
 /**
@@ -471,12 +471,12 @@ export function doWork(state: GameState, mode: "work" | "slack"): WorkResult {
     if (mistake) {
       // 행동력이 낮아 실수 → 성과·정신력 하락
       leveledUp = gainPerformance(state, -10);
-      state.resources.mental = clampResource(state.resources.mental - 18);
+      state.resources.mental = clampMental(state, state.resources.mental - 18);
       message =
         "피곤에 절어 실수를 연발했다. 상사에게 한 소리 듣고 다시 하느라 진이 다 빠졌다. 성과가 깎였다.";
     } else {
       leveledUp = gainPerformance(state, PERF_GAIN);
-      state.resources.mental = clampResource(state.resources.mental - 12);
+      state.resources.mental = clampMental(state, state.resources.mental - 12);
       message = "맡은 일을 야무지게 처리했다. 성과가 차곡차곡 쌓였지만 정신력이 닳았다.";
     }
   } else {
@@ -484,11 +484,11 @@ export function doWork(state: GameState, mode: "work" | "slack"): WorkResult {
     caught = chance(TIERS[emp.tier].caughtRate);
     if (caught) {
       leveledUp = gainPerformance(state, -25);
-      state.resources.mental = clampResource(state.resources.mental - 12);
+      state.resources.mental = clampMental(state, state.resources.mental - 12);
       message =
         "몰래 트위터를 하다 상사에게 딱 걸렸다! 경위서까지 쓰고 나니 등에 식은땀이... 성과가 곤두박질쳤다.";
     } else {
-      state.resources.mental = clampResource(state.resources.mental + 7);
+      state.resources.mental = clampMental(state, state.resources.mental + 7);
       message = "책상 밑으로 트위터를 하며 슬렁슬렁 시간을 보냈다. 성과는 없지만 정신력이 회복됐다.";
     }
   }

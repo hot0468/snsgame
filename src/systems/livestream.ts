@@ -17,7 +17,7 @@ import { randomName } from "@/data/accounts";
 import { getActiveAccount, SLOTS_PER_DAY } from "@/core/state";
 import { pick, randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
-import { clampAction, clampResource, gainSkill } from "./stats";
+import { clampAction, clampMental, gainSkill } from "./stats";
 import { switchAccount } from "./accountSystem";
 import { postTweet } from "./tweetSystem";
 import { addSchedule, advanceTime } from "./time";
@@ -224,7 +224,7 @@ export function startStream(state: GameState, type: StreamType): void {
 /** 선택지 하나의 정신력 효과를 적용한다(없으면 무시) */
 export function applyChoiceMental(state: GameState, choice: StreamChoice): void {
   if (!choice.mental) return;
-  state.resources.mental = clampResource(state.resources.mental + choice.mental);
+  state.resources.mental = clampMental(state, state.resources.mental + choice.mental);
 }
 
 /** 방송 종료 정산 결과 */
@@ -263,7 +263,7 @@ export function finishStream(
   if (followers > 0) changeFollowers(state, followers);
   state.money += donation;
   const skillGain = gainSkill(state, type.gainSkill, skillAmount);
-  state.resources.mental = clampResource(state.resources.mental - STREAM_MENTAL_COST);
+  state.resources.mental = clampMental(state, state.resources.mental - STREAM_MENTAL_COST);
 
   // 최고 시청자 기록 갱신(raceBests 패턴 — 기록한 타입만 키가 생긴다)
   const prevBest = state.streamBests[type.id] ?? 0;

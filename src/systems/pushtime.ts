@@ -3,7 +3,7 @@ import type { PushWork } from "@/data/pushtime";
 import { PUSH_VIEW_COST } from "@/data/pushtime";
 import { getActiveAccount } from "@/core/state";
 import { chance, pick, uid } from "@/utils/random";
-import { clampResource, gainSkill } from "./stats";
+import { clampMental, clampResource, gainSkill } from "./stats";
 
 /**
  * 푸시타임 해금 DM / 콘텐츠 감상 로직.
@@ -76,7 +76,7 @@ export function viewPushWork(state: GameState, work: PushWork): PushViewResult |
   state.money -= PUSH_VIEW_COST;
   // 반복 감상 육성 — gainSkill 관문을 거치고, 문구에는 실제 반영 델타를 쓴다.
   const lewdGain = gainSkill(state, "lewd", PUSH_VIEW_LEWD_GAIN);
-  state.resources.mental = clampResource(state.resources.mental + 5);
+  state.resources.mental = clampMental(state, state.resources.mental + 5);
   state.resources.morality = clampResource(state.resources.morality - 2);
   return {
     message: `『${work.title}』을(를) 결제하고 몰래 감상했다. 은밀한 만족감에 밤이 짧게 느껴진다. (음란 +${lewdGain} · 정신력 +5 · 도덕성 -2)`,

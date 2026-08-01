@@ -5,7 +5,7 @@ import { chance, pick, uid } from "@/utils/random";
 import { dayOfWeek } from "./calendar";
 import { gainPerformance } from "./employment";
 import { markOvertime } from "./health";
-import { clampAction, clampResource } from "./stats";
+import { clampAction, clampMental } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 
 /**
@@ -95,7 +95,7 @@ export function acceptWorkMsg(state: GameState, id: string): boolean {
   if (!state.employment) return false;
 
   gainPerformance(state, WORK_MSG_PERF);
-  state.resources.mental = clampResource(state.resources.mental - WORK_MSG_MENTAL);
+  state.resources.mental = clampMental(state, state.resources.mental - WORK_MSG_MENTAL);
   state.resources.action = clampAction(state, state.resources.action - WORK_MSG_ACTION);
   advanceTime(state, 1); // 블록 소모(심야 전환 시 취침 팝업 등 자연 발생)
   m.resolved = true;
