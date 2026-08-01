@@ -617,6 +617,25 @@ export interface InsuranceJob {
   lastSalaryMonth: number;
 }
 
+/**
+ * 헤어디자이너직.
+ *
+ * ⚠️ **SNS 본편과 협력하는 유일한 직업이다.** 팔로워가 예약을 데려오고 단가까지 올린다
+ *    (다른 직업은 슬롯·정신력을 뺏어 본편과 경쟁한다).
+ */
+export interface StylistJob {
+  /** 입사한 날(day) */
+  hiredDay: number;
+  /** 누적 시술 건수 */
+  cuts: number;
+  /** 누적 시술비(원) */
+  totalEarned: number;
+  /** 단골 수 — 단가에 얹히고, 시술을 망치면 떠난다 */
+  regulars: number;
+  /** 망친 시술 누적(표시용) */
+  botched: number;
+}
+
 /** 배구부 대회 성적(좋은 순) */
 export type MeetResult = "champion" | "runnerup" | "semifinal" | "eliminated";
 
@@ -1208,6 +1227,8 @@ export interface GameState {
   callCenterJob: CallCenterJob | null;
   /** 보험설계사직(없으면 미취업). 평일 낮 강제 출근. 초기 null */
   insuranceJob: InsuranceJob | null;
+  /** 헤어디자이너직(없으면 미취업). 미용사 자격증 보유 시 미용실에서 지원. 초기 null */
+  stylistJob: StylistJob | null;
   /**
    * 한 번이라도 해본 직업 id 목록(직업 도감 해금 근거). 초기 [].
    * ⚠️ 그만둬도 지우지 않는다 — 회사·AV·강사는 사직 시 상태가 통째로 사라지므로

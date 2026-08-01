@@ -37,7 +37,7 @@ import { VACATION_DESTINATIONS, type VacationDestination } from "@/data/vacation
 import { WALK_PLACES, walkPlaceById } from "@/data/walkPlaces";
 import { RACES, raceById } from "@/data/races";
 import { canVisitSalon, SALON_ACTION, SALON_COST } from "@/systems/hairSalon";
-import { renderHairSalonModal } from "./hairSalonModal";
+import { renderSalonMenuModal } from "./salonMenuModal";
 import {
   applyRace,
   expectedRecord,
@@ -716,11 +716,14 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
   }
 
   /**
-   * 미용실 섹션(자기개발 탭) — 누르면 미니게임 모달이 열린다.
-   * 비용·행동력·시간은 미니게임 결과를 확정할 때 systems가 한 번에 처리한다.
+   * 미용실 섹션(자기개발 탭) — 누르면 '무엇을 할까' 메뉴가 열린다.
+   * 시술받기(미니게임)와 디자이너 지원·근무가 같은 문 안에 있다 —
+   * 채용을 별도 사이트로 빼지 않고 가게 안에 둔 이유는 salonMenuModal 주석 참조.
    */
   function salonSection(): HTMLElement {
-    const can = canVisitSalon(ctx.store.getState());
+    const s = ctx.store.getState();
+    // 디자이너로 일하는 중이면 시술비가 없어도 들어갈 수 있어야 한다(일하러 가는 거니까).
+    const can = canVisitSalon(s) || s.stylistJob != null;
     return el(
       "div",
       { class: "goal-section" },
@@ -735,7 +738,7 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         {
           class: "life-btn" + (can ? "" : " job-apply-btn--off"),
           disabled: !can,
-          onclick: () => can && ctx.openModal(renderHairSalonModal),
+          onclick: () => can && ctx.openModal(renderSalonMenuModal),
         },
         can ? "미용실 가기" : "소지금 또는 행동력 부족",
       ),

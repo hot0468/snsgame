@@ -217,6 +217,7 @@ export function createInitialState(): GameState {
     taxiJob: null,
     callCenterJob: null,
     insuranceJob: null,
+    stylistJob: null,
     jobsExperienced: [],
     killerJob: null,
     momoOfferedDay: -1,

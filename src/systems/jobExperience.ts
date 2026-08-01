@@ -23,6 +23,7 @@ export const JOB_ID = {
   taxi: "taxi",
   callCenter: "callCenter",
   insurance: "insurance",
+  stylist: "stylist",
 } as const;
 
 /** 이 직업을 해본 것으로 기록한다(중복 호출은 무해). */

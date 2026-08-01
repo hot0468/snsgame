@@ -273,6 +273,7 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   state.taxiJob ??= null;
   state.callCenterJob ??= null;
   state.insuranceJob ??= null;
+  state.stylistJob ??= null;
   // 태운 지인 목록이 배열이 아니면 knownContacts의 includes가 터진다.
   if (state.insuranceJob && !Array.isArray(state.insuranceJob.burnedContacts)) {
     state.insuranceJob.burnedContacts = [];
