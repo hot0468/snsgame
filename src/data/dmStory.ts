@@ -278,6 +278,8 @@ export const KANRA_STORY: DmStory = {
           me: "정정 글 올릴게요. 지금이라도.",
           reply: "…그럴 줄 알았어요. 이래서 재미없는 분들이 오래가더라고요 🙂",
           next: null,
+          postTweet:
+            "어제 올린 분식집 글, 사실이 아닙니다. 확인도 안 하고 옮겼습니다. 그 가게는 아무 잘못 없습니다. 제 글 보고 발길 돌리신 분들께 사과드립니다.",
           effect: { followersPct: -15, morality: 10, reputation: 8, mental: -5 },
         },
         {
@@ -416,6 +418,8 @@ export const NOCOLOR_STORY: DmStory = {
           reply: "고맙다는 말은 안 하겠습니다. 규칙이라서요.",
           next: "twist",
           delayDays: 3,
+          postTweet:
+            "골목 안쪽 그 가게 얘기, 근거 없는 소문입니다. 저는 오래 다녔는데 그런 일 없었어요. 확인 안 된 말 옮기지 말아주세요. 문 닫게 생겼습니다.",
           effect: { reputation: 5, followers: 150 },
         },
         {
@@ -1088,6 +1092,8 @@ export const SETTON_STORY_3: DmStory = {
           reply: "…거짓말을 시키려던 건 아니었는데. 그래도 고맙다.",
           next: "morning",
           delayDays: 3,
+          postTweet:
+            "그날 그 시간에 저도 그 근처에 있었는데요. 헬멧 쓴 사람 여럿이었고 얼굴 보일 거리 아니었어요. 사진 한 장으로 사람 특정하는 거 그만합시다.",
           effect: { morality: -3, mental: 5 },
         },
         {
@@ -1103,6 +1109,8 @@ export const SETTON_STORY_3: DmStory = {
           reply: "…그래. 언젠가 이런 날이 올 줄 알았다. 원망은 안 한다.",
           next: "morning",
           delayDays: 3,
+          postTweet:
+            "다들 '뭔가 있었다'까지만 하고 마는데, 그냥 말할게요. 그 사진 속 사람 누군지 저는 압니다. 아는 사람이라 더 못 넘기겠어요.",
           effect: { followersPct: 18, morality: -12, reputation: -8 },
         },
       ],
@@ -1825,6 +1833,8 @@ export const NOCOLOR_STORY_3: DmStory = {
           me: "제가 올릴게요. 우리 이름으로요",
           reply: "그럼 그것이 우리 뜻입니다. 이의는 없습니다. 있을 수도 없고요.",
           next: "nobody",
+          postTweet:
+            "우리 이름으로 벌어진 일에 대해 사과드립니다. 누가 했는지는 밝히지 않습니다. 우리에게는 그 구분이 없습니다. 이름을 쓴 이상 전부 우리 몫입니다.",
           effect: { reputation: 8, morality: 8, followers: -150 },
         },
         {
