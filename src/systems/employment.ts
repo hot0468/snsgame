@@ -1,6 +1,6 @@
 import type { Email, GameState, JobTrack, SkillStatId } from "@/core/types";
 import type { JobPosting } from "@/data/jobs";
-import { MORNING_SLOT } from "@/core/state";
+import { MORNING_SLOT, pushEmail } from "@/core/state";
 import { TIERS, jobRankOf } from "@/data/jobs";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { NIGL_COMPANY, NIGL_REQ_IT, NIGL_REQ_KNOWLEDGE } from "@/data/niglnigl";
@@ -204,7 +204,7 @@ export function deliverJobResultEmail(state: GameState): void {
         jobResult: { company: app.company, hired: app.hired },
       };
 
-  state.emails.unshift(email);
+  pushEmail(state, email);
   addSchedule(state, app.hired ? "채용 합격 메일 도착" : "채용 결과 메일 도착", "system");
 }
 
@@ -216,7 +216,7 @@ export function deliverJobResultEmail(state: GameState): void {
  *    하나만 빠뜨리면 겸직이 뚫리거나(신청 통과) 전환 시 옛 직업이 남는다.
  */
 export function hasAnyJob(state: GameState): boolean {
-  return !!state.employment || !!state.avJob || !!state.lecturerJob;
+  return !!state.employment || !!state.avJob || !!state.lecturerJob || !!state.coachJob;
 }
 
 /** 재직 중인 회사원의 직급(무직·타 직업이면 빈 문자열). */
@@ -229,6 +229,7 @@ export function currentJobLabel(state: GameState): string {
   if (state.employment) return state.employment.company;
   if (state.avJob) return "AV배우";
   if (state.lecturerJob) return "이비에듀 강사";
+  if (state.coachJob) return "배구부 코치";
   return "";
 }
 
@@ -254,6 +255,10 @@ export function quitCurrentJob(state: GameState): void {
   if (state.lecturerJob) {
     addSchedule(state, "이비에듀 강사 사직", "system");
     state.lecturerJob = null;
+  }
+  if (state.coachJob) {
+    addSchedule(state, "배구부 코치 사임", "system");
+    state.coachJob = null;
   }
 }
 

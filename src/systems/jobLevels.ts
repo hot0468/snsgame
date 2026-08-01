@@ -1,5 +1,6 @@
 import type { GameState } from "@/core/types";
 import { lecturerLevel, lecturerQuota, lessonPay } from "./lecturer";
+import { COACH_STAT_TARGET, coachLevel, coachSalaryOf, teamStrength } from "./coach";
 import { avSalaryOf, AV_PAY_PER_DAY } from "./avJob";
 import { authorPayPerWork } from "./author";
 import { salaryOf } from "./employment";
@@ -86,6 +87,12 @@ export const JOB_CATALOG: JobCatalogEntry[] = [
     adultOnly: true,
   },
   {
+    id: "coach",
+    emoji: "🏐",
+    label: "배구부 코치",
+    hint: "몸을 꾸준히 만들면 학교에서 섭외 카톡이 온다",
+  },
+  {
     id: "killer",
     emoji: "🔪",
     label: "청부업",
@@ -144,6 +151,23 @@ function unlockedDetail(state: GameState, id: string): { level: number; detail: 
         detail:
           `이번 달 ${av.workDaysThisMonth}회 · 누적 ${av.totalWorkDays}회 · ` +
           `회당 ${won(AV_PAY_PER_DAY)} (이번 달 ${won(avSalaryOf(state))})`,
+      };
+    }
+    case "coach": {
+      const c = state.coachJob;
+      if (!c) return { level: 0, detail: "지금은 팀을 맡고 있지 않다 (이력 있음)", active: false };
+      const pending =
+        c.pendingRaise > 0
+          ? ` · ${c.pendingRaiseYear}년부터 +${won(c.pendingRaise)}`
+          : "";
+      return {
+        level: coachLevel(state),
+        active: true,
+        detail:
+          `팀 완성도 ${teamStrength(state)}/${COACH_STAT_TARGET} · 누적 훈련 ${c.totalTrainings}회 · ` +
+          `월급 ${won(coachSalaryOf(state))}` +
+          (c.championships > 0 ? ` · 전국체전 ${c.championships}회 우승` : "") +
+          pending,
       };
     }
     case "killer": {

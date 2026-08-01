@@ -9,6 +9,7 @@ import { sendSalaryKakao, sendTwitterSettlementKakao } from "./kakao";
 import { offerLoan } from "./loan";
 import { AV_PAYDAY_DATE, avSalaryOf, firstAvWorkDay } from "./avJob";
 import { lecturerQuota, lecturerSalaryOf } from "./lecturer";
+import { maybeCoachPayday, maybeHoldMeet } from "./coach";
 import { NIGL_COMPANY, NIGL_SHIFT_GOAL } from "@/data/niglnigl";
 
 /** 강사 월급날 — 회사(10일)·AV(25일)와 안 겹치게 매월 15일. */
@@ -272,6 +273,10 @@ export function applyDailyCosts(state: GameState): void {
   maybeAvMonthReset(state);
   // 강사 월급(매월 15일) — 지급과 동시에 이번 달 수업 횟수를 리셋한다(지급일=사이클 경계).
   maybeLecturerPayday(state);
+  // 배구부: 대회(4·6·8·10월 15일) → 성적이 월급 인상분에 붙고, 코치 월급은 20일.
+  // ⚠️ 대회를 월급보다 **먼저** 처리한다 — 같은 달 대회 인상분이 그달 월급부터 반영되게.
+  maybeHoldMeet(state);
+  maybeCoachPayday(state);
 
   // 생활비. 소지금이 모자라면 굶은 것으로 친다(차감 자체는 그대로 — 빚을 만드는 자동 차감이다).
   // ⚠️ 굶주림 연속일수만 여기서 갱신하고, 체력 감소는 health.settleHunger가 한다.

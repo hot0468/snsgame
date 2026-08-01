@@ -4,6 +4,7 @@ import { SLOT_LABELS } from "@/core/state";
 import { NO_REPLY_SENDERS, FRIENDLY_SENDERS } from "@/systems/kakao";
 import { addAppointment } from "@/systems/appointments";
 import { acceptLoan } from "@/systems/loan";
+import { acceptCoachJob, SCHOOL_NAME } from "@/systems/coach";
 import { dateLabel } from "@/systems/time";
 import { el, formatNumber } from "@/utils/dom";
 import { avatar, icon } from "./icons";
@@ -190,6 +191,58 @@ export function renderKakaoModal(ctx: GameContext, threadId: string): HTMLElemen
           },
         },
         "다음에...",
+      );
+      return [decline, accept];
+    }
+
+    // 배구부 코치 섭외 — 수락하면 그 자리에서 부임한다(겸직 중이면 systems가 기존 직업을 정리한다).
+    if (thread.coachOffer) {
+      if (thread.coachOffer.responded) return [];
+      const accept = el(
+        "button",
+        {
+          class: "btn",
+          onclick: () => {
+            ctx.update((s) => {
+              const t = s.kakao.find((x) => x.id === threadId);
+              if (!t?.coachOffer) return;
+              t.coachOffer.responded = true;
+              acceptCoachJob(s);
+              t.messages.push({ id: uid("kkom"), from: "me", text: "네, 맡아보겠습니다.", day: s.day });
+              t.messages.push({
+                id: uid("kkom"),
+                from: "them",
+                text: "감사합니다! 평일 낮에 체육관으로 나와주시면 됩니다. 애들한테도 전해두겠습니다 🏐",
+                day: s.day,
+              });
+            });
+            ctx.toast(`🏐 ${SCHOOL_NAME} 배구부 코치가 됐어요! 평일 낮에 체육관으로 출근합니다`);
+            render();
+          },
+        },
+        "맡아보겠습니다",
+      );
+      const decline = el(
+        "button",
+        {
+          class: "btn btn--ghost",
+          onclick: () => {
+            ctx.update((s) => {
+              const t = s.kakao.find((x) => x.id === threadId);
+              if (!t?.coachOffer) return;
+              t.coachOffer.responded = true;
+              t.messages.push({ id: uid("kkom"), from: "me", text: "죄송합니다, 어려울 것 같습니다.", day: s.day });
+              t.messages.push({
+                id: uid("kkom"),
+                from: "them",
+                text: "아쉽네요. 혹시 마음 바뀌시면 언제든 연락 주세요.",
+                day: s.day,
+              });
+            });
+            render();
+          },
+        },
+        "어렵겠습니다",
       );
       return [decline, accept];
     }

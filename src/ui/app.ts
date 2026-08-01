@@ -17,6 +17,8 @@ import { isLoanDue } from "@/systems/loan";
 import { renderLoanModal } from "./loanModal";
 import { isWorkNow } from "@/systems/employment";
 import { renderWorkModal } from "./workModal";
+import { isCoachWorkNow } from "@/systems/coach";
+import { renderCoachModal } from "./coachModal";
 import { isLabNow } from "@/systems/lab";
 import { renderLabModal } from "./labModal";
 import { getControversy } from "@/data/controversies";
@@ -195,6 +197,9 @@ export function createApp(root: HTMLElement, store: Store): void {
         ui.modal = (c) => renderLabModal(c);
       } else if (isWorkNow(state)) {
         ui.modal = (c) => renderWorkModal(c);
+      } else if (isCoachWorkNow(state)) {
+        // 배구부 코치도 평일 낮 강제 출근 — 회사 근무와 같은 자리(둘은 겸직이 안 되므로 순서 무관).
+        ui.modal = (c) => renderCoachModal(c);
       } else if (dueAppointments(state).length > 0) {
         ui.modal = (c) => renderAppointmentModal(c);
       } else if (state.postSlotIncreasedTo != null) {

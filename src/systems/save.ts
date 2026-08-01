@@ -263,6 +263,11 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   state.pendingJobApp ??= null;
   // 강사 지원 대기는 신규 기능 — 구세이브엔 키가 없다(대기 없음이 정답).
   state.pendingLecturerApp ??= null;
+  // 배구부 코치직도 신규 — 구세이브엔 미부임·미제의가 정답.
+  state.coachJob ??= null;
+  // 시즌 진행도가 훈련 횟수에서 완성도 게이지로 바뀌었다 — 옛 값은 버리고 0에서 다시 쌓는다.
+  if (state.coachJob) state.coachJob.teamStat ??= 0;
+  state.coachOffered ??= false;
   // 직업 도감(해본 직업)은 신규 필드. 구세이브는 '지금 상태'에서 역산해 채운다 —
   // 빈 배열로 두면 이미 회사를 다니는 플레이어의 도감이 통째로 잠긴 채 시작한다.
   if (!Array.isArray(state.jobsExperienced)) {
@@ -272,6 +277,7 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
     if (state.avJob) state.jobsExperienced.push("av");
     if (state.authorContract) state.jobsExperienced.push("author");
     if (state.killerJob) state.jobsExperienced.push("killer");
+    if (state.coachJob) state.jobsExperienced.push("coach");
   }
   // ★직군(JobPosting.track) 폴백은 **일부러 두지 않았다** — 죽은 코드가 되기 때문이다.
   //   JobPosting은 세이브에 들어가지 않는다: 공고는 채용공고 모달을 열 때 makeJobPostings로

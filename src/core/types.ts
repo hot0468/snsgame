@@ -412,6 +412,8 @@ export interface KakaoThread {
   invite?: KakaoInvite;
   /** 대부업체의 대출 제안이 담긴 카톡이면 그 내용 */
   loanOffer?: KakaoLoanOffer;
+  /** 배구부 코치 섭외 카톡이면 그 응답 상태(수락/거절하면 버튼이 사라진다) */
+  coachOffer?: { responded: boolean };
   /** 기본 답장 대신 발신자가 지정한 답장 문구(단계별 독촉 등). 없으면 기본 문구 사용. */
   reply?: { me: string; them: string; label?: string };
 }
@@ -555,6 +557,41 @@ export interface LecturerJob {
   lessonsThisMonth: number;
   /** 누적 수업 횟수 — 레벨 근거라 리셋하지 않는다 */
   totalLessons: number;
+  /** 마지막으로 월급을 준 '달 키'(monthKey). -1이면 없음 */
+  lastSalaryMonth: number;
+}
+
+/** 배구부 대회 성적(좋은 순) */
+export type MeetResult = "champion" | "runnerup" | "semifinal" | "eliminated";
+
+/**
+ * 고등학교 배구부 코치직. 운동을 꾸준히 하면 카톡으로 섭외가 들어온다.
+ *
+ * - 근무는 **평일 낮 강제 출근**(회사원과 같은 취급 — `isCoachWorkNow`).
+ * - 월급은 **고정급**이다. 다만 4·6·8·10월 대회 성적이 좋으면 인상분이 영구히 붙는다.
+ * - 10월 전국체전 우승분은 **다음 해부터** 반영된다(`pendingRaise`/`pendingRaiseYear`).
+ */
+export interface CoachJob {
+  /** 부임한 날(day) */
+  hiredDay: number;
+  /** 누적 훈련 지도 횟수 — 직업 레벨 근거라 리셋하지 않는다 */
+  totalTrainings: number;
+  /**
+   * 팀 완성도 게이지(0~`COACH_STAT_TARGET`). **대회 성적을 가르는 값이자 화면에 보이는 스테이터스**다.
+   * 훈련 지도 1회마다 판정(실패/성공/대성공)에 따라 다른 폭으로 오르고, **대회를 치르면 0으로 리셋**된다.
+   * ⚠️ 코치 스킬은 이 값을 직접 올리지 않는다 — 훈련 1회의 상승폭에만 반영된다(작가 작업량과 같은 구조).
+   */
+  teamStat: number;
+  /** 대회 성적으로 확정된 월급 인상 누계(원) */
+  raise: number;
+  /** 전국체전 우승으로 예약된 인상분(원). `pendingRaiseYear`가 되면 raise에 합류한다 */
+  pendingRaise: number;
+  /** pendingRaise가 반영되는 연도(그 해 첫 월급날에 합류). 없으면 -1 */
+  pendingRaiseYear: number;
+  /** 마지막으로 대회를 치른 달 키(monthKey) — 한 달에 두 번 열리지 않게 한다. -1이면 없음 */
+  lastMeetMonth: number;
+  /** 전국체전 우승 횟수 */
+  championships: number;
   /** 마지막으로 월급을 준 '달 키'(monthKey). -1이면 없음 */
   lastSalaryMonth: number;
 }
@@ -1105,6 +1142,10 @@ export interface GameState {
   avOffered: boolean;
   /** 이비에듀 강사직(없으면 미채용). 이비에듀 '강사 신청'으로 생성. 초기 null */
   lecturerJob: LecturerJob | null;
+  /** 배구부 코치직(없으면 미부임). 운동 중 카톡 섭외 수락으로 생성. 초기 null */
+  coachJob: CoachJob | null;
+  /** 배구부 섭외 카톡을 이미 보냈는지(중복 제의 방지). 초기 false */
+  coachOffered: boolean;
   /**
    * 한 번이라도 해본 직업 id 목록(직업 도감 해금 근거). 초기 [].
    * ⚠️ 그만둬도 지우지 않는다 — 회사·AV·강사는 사직 시 상태가 통째로 사라지므로

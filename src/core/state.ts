@@ -2,6 +2,7 @@ import type {
   AttributeId,
   AuctionState,
   CheatState,
+  Email,
   GameState,
   LabState,
   PlayerAccount,
@@ -211,6 +212,8 @@ export function createInitialState(): GameState {
     avJob: null,
     avOffered: false,
     lecturerJob: null,
+    coachJob: null,
+    coachOffered: false,
     jobsExperienced: [],
     killerJob: null,
     momoOfferedDay: -1,
@@ -387,6 +390,39 @@ export function appendSchedule(state: GameState, ev: ScheduleEvent): void {
   state.schedule.push(ev);
   if (state.schedule.length > SCHEDULE_MAX) {
     state.schedule.splice(0, state.schedule.length - SCHEDULE_MAX);
+  }
+}
+
+/**
+ * 수신함 보관 상한. `TIMELINE_MAX`·`SCHEDULE_MAX`와 같은 이유의 누적 절벽 방어다.
+ *
+ * 메일은 13곳에서 각자 `unshift`하는데 **자르는 곳이 한 군데도 없었다.** 광고·스팸·대회·
+ * 자격증·취업 결과가 계속 쌓이고, 상태가 바뀔 때마다 전체 state를 JSON으로 직렬화해
+ * localStorage에 쓰므로 길게 플레이할수록 저장 비용이 그대로 커진다.
+ */
+export const EMAIL_MAX = 100;
+
+/**
+ * 지우면 진행이 막히는 메일 — **아직 응답하지 않은 오퍼류**.
+ * 합격 통보가 잘려 나가면 출근할 방법이 사라진다(경매 초대장도 그 링크가 유일한 입구다).
+ * 응답을 마치면 systems가 이 표식을 지우므로 그때부턴 평범한 메일로 잘려 나간다.
+ */
+function isProtectedEmail(mail: Email): boolean {
+  return !!mail.jobOffer || !!mail.lecturerOffer || !!mail.auctionLink;
+}
+
+/**
+ * 메일을 수신함 맨 앞에 넣고 상한을 넘으면 **오래된 것부터** 잘라낸다.
+ * **새 수신 경로는 반드시 이 헬퍼를 거쳐라** — `state.emails.unshift`를 직접 부르면
+ * 상한이 무효가 된다(`pushTimeline`·`appendSchedule`과 같은 규칙).
+ *
+ * ⚠️ 보호 대상(`isProtectedEmail`)은 아무리 오래돼도 안 지운다. 그래서 보호 메일만 남으면
+ *    상한을 넘긴 채로 유지된다 — 진행을 막느니 몇 통 더 들고 있는 쪽이 낫다.
+ */
+export function pushEmail(state: GameState, mail: Email): void {
+  state.emails.unshift(mail);
+  for (let i = state.emails.length - 1; i >= 0 && state.emails.length > EMAIL_MAX; i--) {
+    if (!isProtectedEmail(state.emails[i])) state.emails.splice(i, 1);
   }
 }
 

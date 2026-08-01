@@ -6,6 +6,7 @@ import { isAuthorPrepMonth, AUTHOR_WORKLOAD_TARGET, AUTHOR_MAX_MISS } from "@/sy
 import { avSalaryOf, canWorkAvNow, AV_MONTHLY_QUOTA } from "@/systems/avJob";
 import { lecturerLevel, lecturerQuota, lecturerSalaryOf, lessonPay } from "@/systems/lecturer";
 import { jobRankOf, nextRankIn } from "@/data/jobs";
+import { COACH_STAT_TARGET, coachLevel, coachSalaryOf, teamStrength } from "@/systems/coach";
 import { certById } from "@/systems/certification";
 import { actionMax } from "@/systems/stats";
 import type { SkillStatId } from "@/core/types";
@@ -126,7 +127,8 @@ function renderJobInfo(ctx: GameContext): HTMLElement | null {
   const av = s.avJob;
   const author = s.authorContract;
   const lecturer = s.lecturerJob;
-  if (!emp && !av && !author && !lecturer) return null;
+  const coach = s.coachJob;
+  if (!emp && !av && !author && !lecturer && !coach) return null;
 
   const rows: (HTMLElement | null)[] = [
     el("div", { style: "font-weight:700;color:var(--text)" }, "직업"),
@@ -194,6 +196,30 @@ function renderJobInfo(ctx: GameContext): HTMLElement | null {
           (met ? " · 필수 회차 달성 ✓" : ` · 회당 ${formatNumber(lessonPay(s))}원`),
       ),
     );
+  }
+  if (coach) {
+    rows.push(
+      el(
+        "div",
+        { style: "font-weight:700" },
+        `배구부 코치 Lv.${coachLevel(s)} · 월급 ${formatNumber(coachSalaryOf(s))}원 (20일)`,
+      ),
+      el(
+        "div",
+        {},
+        `팀 완성도 ${teamStrength(s)}/${COACH_STAT_TARGET}` +
+          (coach.championships > 0 ? ` · 전국체전 ${coach.championships}회 우승` : ""),
+      ),
+    );
+    if (coach.pendingRaise > 0) {
+      rows.push(
+        el(
+          "div",
+          { style: "color:var(--good);font-weight:700" },
+          `${coach.pendingRaiseYear}년부터 월급 +${formatNumber(coach.pendingRaise)}원`,
+        ),
+      );
+    }
   }
   if (author) {
     const prep = isAuthorPrepMonth(s);
