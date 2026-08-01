@@ -8,6 +8,7 @@ import { dateOfMonth, isLastDayOfMonth, isWeekday, monthKey } from "./calendar";
 import { sendSalaryKakao, sendTwitterSettlementKakao } from "./kakao";
 import { offerLoan } from "./loan";
 import { AV_PAYDAY_DATE, avSalaryOf, firstAvWorkDay } from "./avJob";
+import { INSURANCE_BASE_SALARY } from "@/data/insurance";
 import { lecturerQuota, lecturerSalaryOf } from "./lecturer";
 import { maybeCoachPayday, maybeHoldMeet } from "./coach";
 import { NIGL_COMPANY, NIGL_SHIFT_GOAL } from "@/data/niglnigl";
@@ -206,6 +207,24 @@ function maybeLecturerPayday(state: GameState): void {
 }
 
 /**
+ * 보험설계사 고정급 — 회사원과 같은 10일에 준다.
+ *
+ * ⚠️ **계약 수당은 여기서 안 준다.** 수당은 계약이 성사되는 그 자리에서 이미 들어갔다
+ *    (`systems/insurance.sellToKnown`·`sellToCold`). 여기서 또 주면 이중 지급이다.
+ *    이 직업이 고정급 + 수당인 이유는 급여 축 주석(systems/insurance.ts) 참조.
+ */
+function maybeInsurancePayday(state: GameState): void {
+  const job = state.insuranceJob;
+  if (!job) return;
+  if (dateOfMonth(state.day) !== 10) return;
+  const mk = monthKey(state.day);
+  if (job.lastSalaryMonth === mk) return;
+  job.lastSalaryMonth = mk;
+  state.money += INSURANCE_BASE_SALARY;
+  pushSchedule(state, `한백생명 기본급 +${fmt(INSURANCE_BASE_SALARY)}원`, "system");
+}
+
+/**
  * AV 근무일·노콘 월 리셋 — 월급 다음날인 매월 26일에 새 '달'이 시작된다(사용자 확정).
  * onNewDay가 하루 1회 부르고 26일은 월 1회뿐이라 별도 중복 가드 불필요.
  */
@@ -273,6 +292,7 @@ export function applyDailyCosts(state: GameState): void {
   maybeAvMonthReset(state);
   // 강사 월급(매월 15일) — 지급과 동시에 이번 달 수업 횟수를 리셋한다(지급일=사이클 경계).
   maybeLecturerPayday(state);
+  maybeInsurancePayday(state);
   // 배구부: 대회(4·6·8·10월 15일) → 성적이 월급 인상분에 붙고, 코치 월급은 20일.
   // ⚠️ 대회를 월급보다 **먼저** 처리한다 — 같은 달 대회 인상분이 그달 월급부터 반영되게.
   maybeHoldMeet(state);

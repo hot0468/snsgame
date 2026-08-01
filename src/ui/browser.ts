@@ -20,6 +20,8 @@ import { renderGoblinShop } from "./goblinShop";
 import { renderOnet } from "./onet";
 import { renderEbs } from "./ebs";
 import { renderTaxiSite } from "./taxiSite";
+import { renderCallCenterSite } from "./callCenterSite";
+import { renderInsuranceSite } from "./insuranceSite";
 import { renderGig } from "./gig";
 import { renderJobplanet } from "./jobplanet";
 import { renderAuction } from "./auction";
@@ -87,6 +89,8 @@ export function closeOverlays(ctx: GameContext): void {
   ctx.ui.ebsSiteOpen = false;
   ctx.ui.gigSiteOpen = false;
   ctx.ui.taxiSiteOpen = false;
+  ctx.ui.callCenterSiteOpen = false;
+  ctx.ui.insuranceSiteOpen = false;
   ctx.ui.hospitalSiteOpen = false;
   ctx.ui.jobplanetSiteOpen = false;
   ctx.ui.auctionSiteOpen = false;
@@ -619,6 +623,12 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
   } else if (ctx.ui.onetSiteOpen) {
     // O넷도 현재 탭 콘텐츠를 덮어쓴다('자격증' 검색으로 진입, 재진입 제한 없음).
     content.append(renderOnet(ctx));
+  } else if (ctx.ui.insuranceSiteOpen) {
+    // 한백생명도 현재 탭 콘텐츠를 덮어쓴다('보험' 검색으로 진입).
+    content.append(renderInsuranceSite(ctx));
+  } else if (ctx.ui.callCenterSiteOpen) {
+    // 한소리고객센터도 현재 탭 콘텐츠를 덮어쓴다('콜센터' 검색으로 진입).
+    content.append(renderCallCenterSite(ctx));
   } else if (ctx.ui.taxiSiteOpen) {
     // 달빛운수도 현재 탭 콘텐츠를 덮어쓴다('택시' 검색으로 진입).
     content.append(renderTaxiSite(ctx));

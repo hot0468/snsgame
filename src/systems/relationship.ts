@@ -34,6 +34,16 @@ function relOf(acc: PlayerAccount, charId: string): RelationshipProgress {
 }
 
 /**
+ * **변형용** 진행 레코드 — 없으면 만들어서 state에 붙인 뒤 돌려준다.
+ *
+ * ⚠️ 호감도를 바꿀 땐 반드시 이걸 써라. `relStateOf`는 **읽기 전용**이라 레코드가 없을 때
+ *    새 객체를 돌려주고, 거기에 쓰면 변경이 조용히 사라진다(실제로 그 버그를 냈다).
+ */
+export function mutableRelOf(state: GameState, charId: string): RelationshipProgress {
+  return relOf(getActiveAccount(state), charId);
+}
+
+/**
  * 읽기 전용 진행 조회(렌더용). 없으면 기본값의 **새 객체**를 돌려준다(공유 상수 오염 방지).
  * ui가 호감도 바·stage·bond를 그릴 때 이걸 쓴다(state를 변형하지 않는다).
  */
