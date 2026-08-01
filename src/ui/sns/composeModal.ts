@@ -390,14 +390,13 @@ export function renderComposeModal(
   /**
    * 카테고리 칩에 붙는 숙련 표시.
    *
-   * 등급을 딴 갈래는 등급(B/A/S/SS)을, 아직 첫 문턱(10개) 전이면 **게시 누적**을 보여준다.
+   * 등급을 딴 갈래는 등급(B/A/S/SS)을, 아직 첫 문턱(10개) 전이면 **게시 누적**을 `Lv.n`으로 보여준다.
    * ⚠️ 등급만 띄우던 시절엔 10개를 넘기기 전까진 칩이 전부 맨몸이라, 플레이어가
    *    "갈래마다 숙련이 쌓인다"는 사실 자체를 알 방법이 없었다. 초반이야말로 보여줘야 하는 구간이다.
-   * 한 번도 안 올린 갈래(0개)만 표시가 없다 — 0을 8개 띄우면 그냥 소음이다.
+   *    한 번도 안 올린 갈래도 `Lv.0`을 단다 — 아직 안 판 갈래가 어디인지도 정보다.
    */
-  function chipMastery(id: AttributeId): { text: string; earned: boolean } | null {
+  function chipMastery(id: AttributeId): { text: string; earned: boolean } {
     const count = s.tweetMastery[id] ?? 0;
-    if (count <= 0) return null;
     const grade = masteryGrade(masteryTierFor(count));
     // 등급 전엔 숫자만 띄우면 그게 뭔지 알 수 없어 "Lv."을 붙인다.
     // (여기 숫자는 그 갈래 **게시 누적**이다. 10개를 넘기면 등급 B로 승급한다.)
@@ -430,13 +429,7 @@ export function renderComposeModal(
           },
           icon(ATTR_ICON[id], { size: 14 }),
           categoryLabel(id),
-          m
-            ? el(
-                "span",
-                { class: "chip__grade" + (m.earned ? "" : " chip__grade--raw") },
-                m.text,
-              )
-            : null,
+          el("span", { class: "chip__grade" + (m.earned ? "" : " chip__grade--raw") }, m.text),
         );
       }),
       canScam
