@@ -581,6 +581,42 @@ export interface TaxiJob {
   rating: number;
 }
 
+/**
+ * 콜센터 상담원직.
+ *
+ * 축은 **정신력**이다. 한 번 앉으면 콜을 연속으로 받을 수 있고, 받을수록 단가가 오르되
+ * 정신력 소모가 가속한다 — "한 콜 더 받을까"가 이 직업의 유일한 결정이다.
+ */
+export interface CallCenterJob {
+  /** 입사한 날(day) */
+  hiredDay: number;
+  /** 누적 처리 콜 수 */
+  totalCalls: number;
+  /** 누적 수당(원) */
+  totalEarned: number;
+  /** 한 자리에서 받아낸 최다 연속 콜 — 기록이자 표시용 */
+  bestStreak: number;
+}
+
+/**
+ * 보험설계사직.
+ *
+ * 축은 **관계**다. 지인 영업은 성사율이 높은 대신 그 사람의 호감도를 태우고, 0이 되면
+ * 연락이 끊겨(`burnedContacts`) 다시는 영업할 수 없다 — 지인이 유한한 자원이 된다.
+ */
+export interface InsuranceJob {
+  /** 입사한 날(day) */
+  hiredDay: number;
+  /** 누적 계약 건수 */
+  contracts: number;
+  /** 누적 수당(원) */
+  totalCommission: number;
+  /** 연락이 끊긴 지인 id 목록 — 영업 대상에서 영구 제외 */
+  burnedContacts: string[];
+  /** 마지막으로 고정급을 준 '달 키'. -1이면 없음 */
+  lastSalaryMonth: number;
+}
+
 /** 배구부 대회 성적(좋은 순) */
 export type MeetResult = "champion" | "runnerup" | "semifinal" | "eliminated";
 
@@ -1168,6 +1204,10 @@ export interface GameState {
   coachOffered: boolean;
   /** 택시 기사직(없으면 미취업). 1종 보통 면허 보유 시 택시회사 지원으로 생성. 초기 null */
   taxiJob: TaxiJob | null;
+  /** 콜센터 상담원직(없으면 미취업). 자격 조건 없이 지원 가능. 초기 null */
+  callCenterJob: CallCenterJob | null;
+  /** 보험설계사직(없으면 미취업). 평일 낮 강제 출근. 초기 null */
+  insuranceJob: InsuranceJob | null;
   /**
    * 한 번이라도 해본 직업 id 목록(직업 도감 해금 근거). 초기 [].
    * ⚠️ 그만둬도 지우지 않는다 — 회사·AV·강사는 사직 시 상태가 통째로 사라지므로

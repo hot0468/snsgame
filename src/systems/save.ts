@@ -269,8 +269,14 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   // 시즌 진행도가 훈련 횟수에서 완성도 게이지로 바뀌었다 — 옛 값은 버리고 0에서 다시 쌓는다.
   if (state.coachJob) state.coachJob.teamStat ??= 0;
   state.coachOffered ??= false;
-  // 택시 기사직도 신규 — 구세이브엔 미취업이 정답.
+  // 택시·콜센터도 신규 — 구세이브엔 미취업이 정답.
   state.taxiJob ??= null;
+  state.callCenterJob ??= null;
+  state.insuranceJob ??= null;
+  // 태운 지인 목록이 배열이 아니면 knownContacts의 includes가 터진다.
+  if (state.insuranceJob && !Array.isArray(state.insuranceJob.burnedContacts)) {
+    state.insuranceJob.burnedContacts = [];
+  }
   // 평점은 요금 단가에 곱해진다 — undefined/NaN이면 요금이 통째로 NaN이 되어 소지금을 오염시킨다.
   if (state.taxiJob && !Number.isFinite(state.taxiJob.rating)) {
     state.taxiJob.rating = TAXI_RATING_START;

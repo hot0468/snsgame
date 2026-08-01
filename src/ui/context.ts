@@ -117,6 +117,10 @@ export interface UIState {
   gigSiteOpen: boolean;
   /** 달빛운수(택시 채용) 오버레이가 열려 있는지 — 네이놈 '택시' 검색으로 진입 */
   taxiSiteOpen: boolean;
+  /** 한소리고객센터(콜센터 채용) 오버레이 — 네이놈 '콜센터' 검색으로 진입 */
+  callCenterSiteOpen: boolean;
+  /** 한백생명(보험설계사 채용) 오버레이 — 네이놈 '보험' 검색으로 진입 */
+  insuranceSiteOpen: boolean;
   /** 세이신내과의원 사이트가 열려 있는지(네이놈 '내과'/'순환기내과' 검색으로 진입, 탭 이동 시 닫힘) */
   hospitalSiteOpen: boolean;
   /** 직플래닛(기업정보) 사이트가 열려 있는지(채용공고 '직플래닛' 버튼으로 진입, 탭 이동 시 닫힘) */
@@ -196,6 +200,8 @@ export function createUIState(): UIState {
     ebsSiteOpen: false,
     gigSiteOpen: false,
     taxiSiteOpen: false,
+    callCenterSiteOpen: false,
+    insuranceSiteOpen: false,
     hospitalSiteOpen: false,
     jobplanetSiteOpen: false,
     jobplanetQuery: "",

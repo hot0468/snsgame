@@ -63,6 +63,13 @@ import { renderKillerWorkModal } from "./killerWorkModal";
 import { estimateFare, isNightShift, ratingLabel, resolveRide, rollPassenger } from "@/systems/taxi";
 import type { TaxiChoice } from "@/data/taxi";
 import { clampAction } from "@/systems/stats";
+import {
+  canTakeCall,
+  callMentalCost,
+  endShift,
+  rollCall,
+  takeCall,
+} from "@/systems/callCenter";
 import { advanceTime } from "@/systems/time";
 
 /** +/- 부호를 붙인 수치 문자열 */
@@ -213,6 +220,11 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           // 택시 운행은 승객을 먼저 태운다 — 응대를 고른 뒤에야 요금·평점이 정해진다.
           if (act.taxiWork) {
             showTaxiRide(act);
+            return;
+          }
+          // 콜센터는 자리에 앉는 비용만 먼저 치르고, 콜은 루프로 받는다.
+          if (act.callWork) {
+            showCallShift(act);
             return;
           }
           runActivity(act);
@@ -373,6 +385,118 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
    *    정하기 때문이다. 대신 행동력·시간 소모는 **활동 정의(act.action)를 그대로 써서** 목록에
    *    적힌 값과 어긋나지 않게 한다.
    */
+  /**
+   * 콜센터 상담 — 자리에 앉으면 콜을 연속으로 받는다.
+   *
+   * ⚠️ 행동력·시간은 **자리에 앉을 때 한 번만** 치른다. 콜마다 슬롯을 먹으면
+   *    '연속으로 받는다'는 이 직업의 축이 성립하지 않는다.
+   * ⚠️ 정신력 하한(CALL_MENTAL_FLOOR) 때문에 강제로 끊기는 경우가 있다 —
+   *    0까지 긁어 퇴근시키면 우울 모드에 갇혀 다음 날이 통째로 망가지기 때문이다.
+   */
+  function showCallShift(act: OfflineActivity): void {
+    let streak = 0;
+    let earned = 0;
+
+    // 자리에 앉는 비용(행동력 + 시간 1칸)은 여기서 한 번만.
+    ctx.update((st) => {
+      st.resources.action = clampAction(st, st.resources.action + act.action);
+      advanceTime(st, 1);
+    });
+
+    const leave = (): void => {
+      ctx.update((st) => endShift(st, streak, earned));
+      container.replaceChildren(
+        el(
+          "div",
+          { class: "modal__head" },
+          el("span", { class: "modal__head-title" }, icon("walk", { size: 18 }), "퇴근"),
+          closeBtn(),
+        ),
+        el(
+          "div",
+          { class: "modal__body" },
+          el(
+            "p",
+            { class: "taxi__result" },
+            streak === 0
+              ? "헤드셋만 만지작거리다 일어섰다."
+              : `오늘 ${streak}콜을 받았다. 헤드셋을 내려놓으니 귀가 멍했다.`,
+          ),
+          el(
+            "div",
+            { class: "taxi__payout" },
+            el("span", { class: "taxi__fare" }, `+${earned.toLocaleString("ko-KR")}원`),
+            el("span", { class: "taxi__rating" }, `${streak}콜`),
+          ),
+          el(
+            "div",
+            { class: "compose-actions" },
+            el("button", { class: "btn", onclick: () => ctx.closeModal() }, "확인"),
+          ),
+        ),
+      );
+    };
+
+    /** 콜 하나를 보여주고, 받으면 결과와 함께 '한 콜 더'를 묻는다. */
+    const nextCall = (): void => {
+      const line = rollCall();
+      const s1 = ctx.store.getState();
+      const nextCost = callMentalCost(streak + 1);
+
+      const answer = (): void => {
+        let pay = 0;
+        let canContinue = false;
+        ctx.update((st) => {
+          const r = takeCall(st, line, streak + 1);
+          if (r) {
+            pay = r.pay;
+            canContinue = r.canContinue;
+          }
+        });
+        streak += 1;
+        earned += pay;
+        if (!canContinue) {
+          leave();
+          return;
+        }
+        nextCall();
+      };
+
+      container.replaceChildren(
+        el(
+          "div",
+          { class: "modal__head" },
+          el("span", { class: "modal__head-title" }, icon("walk", { size: 18 }), `${streak + 1}번째 콜`),
+          closeBtn(),
+        ),
+        el(
+          "div",
+          { class: "modal__body" },
+          el(
+            "p",
+            { class: "compose-hint", style: "margin-top:0" },
+            `지금까지 ${streak}콜 · ${earned.toLocaleString("ko-KR")}원 · ` +
+              `정신력 ${s1.resources.mental} (이번 콜 -${nextCost} 예상)`,
+          ),
+          el("p", { class: "taxi__scene" }, line.text),
+          el(
+            "div",
+            { class: "taxi__choices" },
+            el("button", { class: "btn taxi__choice", onclick: answer }, "받는다"),
+            el("button", { class: "btn btn--ghost taxi__choice", onclick: () => leave() }, "퇴근한다"),
+          ),
+        ),
+      );
+    };
+
+    // 앉자마자 정신력이 모자라면(이미 지쳐 있으면) 첫 콜도 못 받는다.
+    if (!canTakeCall(ctx.store.getState(), 1)) {
+      leave();
+      return;
+    }
+    nextCall();
+  }
+
   function showTaxiRide(act: OfflineActivity): void {
     const s0 = ctx.store.getState();
     const passenger = rollPassenger(s0);
@@ -530,6 +654,7 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         (!act.authorWork || showAuthorWork) &&
         (!act.lecturerWork || isLecturer) &&
         (!act.taxiWork || state.taxiJob != null) &&
+        (!act.callWork || state.callCenterJob != null) &&
         (!act.adultOnly || adultMode), // 해피타임 등 성인 활동은 성인물 보기 ON일 때만
     ).map((act) => activityItem(act));
 

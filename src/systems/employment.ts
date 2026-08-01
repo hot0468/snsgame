@@ -221,7 +221,9 @@ export function hasAnyJob(state: GameState): boolean {
     !!state.avJob ||
     !!state.lecturerJob ||
     !!state.coachJob ||
-    !!state.taxiJob
+    !!state.taxiJob ||
+    !!state.callCenterJob ||
+    !!state.insuranceJob
   );
 }
 
@@ -237,6 +239,8 @@ export function currentJobLabel(state: GameState): string {
   if (state.lecturerJob) return "이비에듀 강사";
   if (state.coachJob) return "배구부 코치";
   if (state.taxiJob) return "택시 기사";
+  if (state.callCenterJob) return "콜센터 상담원";
+  if (state.insuranceJob) return "보험설계사";
   return "";
 }
 
@@ -271,6 +275,14 @@ export function quitCurrentJob(state: GameState): void {
   if (state.taxiJob) {
     addSchedule(state, "달빛운수 퇴사", "system");
     state.taxiJob = null;
+  }
+  if (state.callCenterJob) {
+    addSchedule(state, "한소리고객센터 퇴사", "system");
+    state.callCenterJob = null;
+  }
+  if (state.insuranceJob) {
+    addSchedule(state, "한백생명 퇴사", "system");
+    state.insuranceJob = null;
   }
 }
 

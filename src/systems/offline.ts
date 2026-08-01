@@ -68,6 +68,8 @@ export interface OfflineActivity {
    * 실제 정산은 ui가 `systems/taxi.resolveRide`로 처리한다.
    */
   taxiWork?: boolean;
+  /** 콜센터 상담 활동인지 — 택시와 같은 '하위 화면' 패턴(연속 콜 루프를 ui가 돌린다). */
+  callWork?: boolean;
   /** 휴가 — 10만원 소비, 20개 이벤트 중 하나가 랜덤 발생해 특정 스킬이 오른다(행동력·정신력은 기본 회복) */
   vacation?: boolean;
   /** 결과 팝업에 뜨는 분위기 문구(랜덤 선택) */
@@ -900,10 +902,32 @@ export const OFFLINE_ACTIVITIES: OfflineActivity[] = [
       "새벽 운행 끝. 해 뜨는 거 보면서 퇴근하는 기분 아는 사람만 앎",
     ],
   },
+  {
+    // ⚠️ 콜센터 상담. 자리에 앉는 비용만 여기서 받고, 콜 단위 정신력·수당은 systems/callCenter가 센다.
+    //    행동력은 data/callCenter.CALL_ACTION_COST와 같은 값이어야 한다.
+    id: "call_shift",
+    label: "상담 시작",
+    emoji: "",
+    group: "work",
+    description:
+      "헤드셋을 쓰고 자리에 앉는다. 원하는 만큼 콜을 받을 수 있지만, 받을수록 더 지친다.",
+    action: -10,
+    mental: 0,
+    callWork: true,
+    results: ["헤드셋을 내려놓았다."],
+    tweetAttr: "daily",
+    tweetLines: [
+      "오늘 진상 한 명 받고 멘탈 나감 근데 다음 콜이 바로 옴",
+      "고맙다고 전화 주신 분 덕분에 오늘 하루 버팀",
+    ],
+  },
 ];
 
 /** 작가 원고 작업 활동(계약 중일 때만 노출) — 심야 선택창 등에서 재사용 */
 export const AUTHOR_WORK_ACTIVITY = OFFLINE_ACTIVITIES.find((a) => a.authorWork)!;
+
+/** 콜센터 상담 활동(상담원 재직 중일 때만 노출) */
+export const CALL_ACTIVITY = OFFLINE_ACTIVITIES.find((a) => a.callWork)!;
 
 /** 택시 운행 활동(기사 재직 중일 때만 노출) */
 export const TAXI_ACTIVITY = OFFLINE_ACTIVITIES.find((a) => a.taxiWork)!;

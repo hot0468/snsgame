@@ -15274,3 +15274,36 @@ button.np-menu__item:hover {
 .taxi__rating--down {
   color: var(--danger);
 }
+
+/* ===================== 보험 영업 (지인 목록) ===================== */
+/* 지인 버튼 한 줄: 닉네임 · 성사 가능성 문구 · 남은 호감도 */
+.ins__name {
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+.ins__odds {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.ins__aff {
+  margin-left: auto;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 지인 버튼은 세 조각이 한 줄에 늘어서야 한다(.taxi__choice가 왼쪽 정렬을 이미 건다). */
+.taxi__choice .ins__name,
+.taxi__choice .ins__odds,
+.taxi__choice .ins__aff {
+  display: inline-flex;
+  align-items: center;
+}
+.taxi__choice:has(.ins__name) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
