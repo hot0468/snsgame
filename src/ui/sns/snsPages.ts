@@ -52,7 +52,7 @@ import { resolveEyeDeal } from "@/systems/auction";
 import { resolveLabOffer } from "@/systems/lab";
 import { renderEyeDealResultModal } from "@/ui/auctionModals";
 import { addAppointment } from "@/systems/appointments";
-import { dateLabel } from "@/systems/time";
+import { dateLabel, weekdayLabel } from "@/systems/time";
 import { SLOT_LABELS, MORNING_SLOT } from "@/core/state";
 import {
   exploreAccounts,
@@ -1588,26 +1588,50 @@ function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement 
   // 방금 연 스레드면 안 읽은 첫 말풍선에 표식을 단다(app.ts가 이걸 찾아 맨 위로 스크롤한다).
   const anchor = ctx.ui.dmUnreadAnchor;
   const anchorAt = anchor && anchor.threadId === thread.id ? anchor.index : -1;
-  const bubbles = thread.messages.map((m, i) => {
+  /**
+   * 날짜가 바뀌는 자리에 끼우는 구분선.
+   *
+   * ⚠️ 스토리 DM은 `delayDays`로 며칠씩 건너뛰는데(예: "며칠 지났으니"로 시작하는 노드),
+   *    구분선이 없으면 어제 말과 오늘 말이 붙어 보여 그 공백이 화면에서 사라진다.
+   *    메시지마다 `day`가 이미 박혀 있으므로 표시만 하면 된다.
+   */
+  const daySeparator = (day: number): HTMLElement =>
+    el(
+      "div",
+      { class: "dm__daysep" },
+      el("span", { class: "dm__daysep-label" }, `${dateLabel(day)} (${weekdayLabel(day)})`),
+    );
+
+  let lastDay: number | null = null;
+  const bubbles = thread.messages.flatMap((m, i) => {
     const mark = i === anchorAt ? " dm__bubble--unread-start" : "";
+    // 첫 말풍선 앞에도 넣는다 — 대화가 언제 시작했는지가 첫 줄부터 보여야 한다.
+    const sep = m.day !== lastDay ? [daySeparator(m.day)] : [];
+    lastDay = m.day;
     // 성기 사진: 모자이크 타일 + 크기 라벨(노골적 이미지 없이 자리만)
     if (m.photoSize) {
-      return el(
-        "div",
-        { class: "dm__bubble dm__bubble--them dm__bubble--photo" + mark },
+      return [
+        ...sep,
         el(
           "div",
-          { class: "dm-photo", title: "성기 사진" },
-          el("span", { class: "dm-photo__mosaic" }, "🔞"),
-          el("span", { class: "dm-photo__cap" }, `크기: ${DICK_SIZE_LABELS[m.photoSize]}`),
+          { class: "dm__bubble dm__bubble--them dm__bubble--photo" + mark },
+          el(
+            "div",
+            { class: "dm-photo", title: "성기 사진" },
+            el("span", { class: "dm-photo__mosaic" }, "🔞"),
+            el("span", { class: "dm-photo__cap" }, `크기: ${DICK_SIZE_LABELS[m.photoSize]}`),
+          ),
         ),
-      );
+      ];
     }
-    return el(
-      "div",
-      { class: "dm__bubble dm__bubble--" + (m.from === "me" ? "me" : "them") + mark },
-      m.text,
-    );
+    return [
+      ...sep,
+      el(
+        "div",
+        { class: "dm__bubble dm__bubble--" + (m.from === "me" ? "me" : "them") + mark },
+        m.text,
+      ),
+    ];
   });
 
   // 톤 이름이 아니라 '실제로 보낼 문장'을 버튼에 깐다. 후보는 스레드 상태로 고정돼 있어
