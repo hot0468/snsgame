@@ -10,6 +10,14 @@ import {
   watchLecture,
   isFreeLectureToday,
 } from "@/systems/ebs";
+import {
+  canSubmitLecturerApp,
+  hasPendingLecturerOffer,
+  lecturerLevel,
+  lecturerQuota,
+  lessonPay,
+  submitLecturerApplication,
+} from "@/systems/lecturer";
 import { SKILL_STATS } from "@/data/stats";
 import { el, formatNumber } from "@/utils/dom";
 import { icon } from "./icons";
@@ -148,6 +156,68 @@ function lectureCard(ctx: GameContext, lec: EbsLecture, i: number, rank?: number
   );
 }
 
+/**
+ * 강사 채용 배너 — 지식이 기준을 넘으면 지원 버튼이 활성화된다.
+ * 겸직은 안 되므로 다른 직업이 있으면 버튼 대신 사유를 적어둔다(눌렀다가 거절당하는 경험을 안 만든다).
+ *
+ * ⚠️ **채용 문턱(지식 400)도 강사료 공식도 화면에 쓰지 마라.** 채용 공고가 자기네 심사 기준과
+ *    급여 산식을 숫자로 적어두는 일은 없다 — 게임을 계산기로 만들 뿐이다.
+ *    부족할 땐 "지식이 부족합니다" 같은 **질적 신호만** 준다(작성 모달의 타이밍 배지와 같은 원칙).
+ */
+function lecturerSection(ctx: GameContext): HTMLElement {
+  const s = ctx.store.getState();
+  const job = s.lecturerJob;
+
+  if (job) {
+    return el(
+      "section",
+      { class: "eb-hire eb-hire--on" },
+      el("div", { class: "eb-hire__title" }, `이비에듀 강사 Lv.${lecturerLevel(s)}`),
+      el(
+        "p",
+        { class: "eb-hire__sub" },
+        `이번 달 수업 ${job.lessonsThisMonth}/${lecturerQuota(s)}회 · 회당 ${formatNumber(lessonPay(s))}원 · 매월 15일 정산. ` +
+          "수업은 '현생 살기 → 일' 탭의 '수업하기'로 진행합니다. 시간대·요일은 상관없습니다.",
+      ),
+    );
+  }
+
+  // 결과 대기 중이면 지원 버튼 대신 대기 안내를 띄운다(같은 지원을 두 번 넣지 못하게).
+  const waiting = !!s.pendingLecturerApp;
+  const offered = hasPendingLecturerOffer(s);
+  const canApply = canSubmitLecturerApp(s);
+
+  return el(
+    "section",
+    { class: "eb-hire" },
+    el("div", { class: "eb-hire__title" }, "이비에듀 강사 모집"),
+    el(
+      "p",
+      { class: "eb-hire__sub" },
+      waiting
+        ? "지원서를 접수했습니다. 심사 결과는 피메일로 보내드립니다."
+        : offered
+          ? "심사 결과가 피메일로 도착했습니다. 확인해 주세요."
+          : "아는 것이 깊은 분을 모십니다. 수업은 하는 만큼 강사료로 드리고, 매월 15일에 정산합니다.",
+    ),
+    el(
+      "button",
+      {
+        class: "eb-hero__cta",
+        disabled: !canApply,
+        onclick: () => {
+          if (!canApply) return;
+          ctx.update((st) => submitLecturerApplication(st));
+          // ⚠️ 여기서 합격 여부를 흘리지 마라 — 결과는 내일 메일로만 알아야 한다.
+          ctx.toast("지원해주셔서 감사합니다. 결과는 메일로 전달드리도록 하겠습니다.");
+          ctx.refresh();
+        },
+      },
+      waiting ? "심사 중" : offered ? "결과 메일 확인" : "강사 모집 지원",
+    ),
+  );
+}
+
 export function renderEbs(ctx: GameContext): HTMLElement {
   const s = ctx.store.getState();
   const top = EBS_LECTURES.slice(0, 3);
@@ -210,6 +280,8 @@ export function renderEbs(ctx: GameContext): HTMLElement {
           "수강 시작하기",
         ),
       ),
+      // 강사 채용 — 수강생이 아니라 '가르치는 쪽'으로 들어가는 입구.
+      lecturerSection(ctx),
       // Top
       el("h2", { class: "eb-h2" }, "이비에듀 Top"),
       el(

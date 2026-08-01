@@ -10,6 +10,7 @@ import {
   hasAnyJob,
   switchToCompanyJob,
 } from "@/systems/employment";
+import { acceptLecturerOffer, declineLecturerOffer } from "@/systems/lecturer";
 import { applyEsthetic } from "@/systems/esthetic";
 import { canSpend } from "@/systems/economy";
 import { openSpamEmail } from "@/systems/spam";
@@ -46,6 +47,7 @@ function categoryOf(mail: Email): MailTab {
   if (mail.adOffer) return "promotions";
   if (mail.esthetic) return "promotions";
   if (mail.jobOffer) return "updates";
+  if (mail.lecturerOffer) return "updates";
   return "primary";
 }
 
@@ -309,6 +311,55 @@ function emailView(ctx: GameContext, mail: Email | null): HTMLElement {
           ),
         )
       : null,
+    // 이비에듀 강사 합격 메일 — 회사 오퍼와 같은 자리·같은 문구 규칙(출근한다/안 한다).
+    mail.lecturerOffer
+      ? el(
+          "div",
+          { class: "mail__actions" },
+          el(
+            "button",
+            {
+              class: "btn btn--ghost",
+              onclick: () => {
+                ctx.update((s) => declineLecturerOffer(s, mail.id));
+                ctx.toast("이비에듀 강사 출근을 거절했어요");
+                ctx.refresh();
+              },
+            },
+            "안 한다",
+          ),
+          el(
+            "button",
+            {
+              class: "btn",
+              onclick: () => {
+                const st = ctx.store.getState();
+                const accept = (): void => {
+                  ctx.update((s) => acceptLecturerOffer(s, mail.id));
+                  ctx.toast("🎓 이비에듀 강사로 출근합니다! '현생 살기 → 일'에서 수업하세요");
+                  ctx.refresh();
+                };
+                // 겸직 불가 — 기존 직업이 해지되므로 되돌릴 수 없다. 반드시 물어본다.
+                if (hasAnyJob(st)) {
+                  const jobLabel = currentJobLabel(st);
+                  confirmPurchase(ctx, {
+                    title: "직업 변경",
+                    itemName: `${jobLabel} → 이비에듀 강사`,
+                    message:
+                      `강사는 겸직이 안 됩니다. 출근하면 ${jobLabel}을(를) 그만두게 되고, 그동안 쌓은 ` +
+                      "성과·근무 실적은 돌아오지 않습니다. 정말 바꾸시겠습니까?",
+                    confirmLabel: "직업 바꾸기",
+                    onConfirm: accept,
+                  });
+                  return;
+                }
+                accept();
+              },
+            },
+            "출근한다",
+          ),
+        )
+      : null,
     offer
       ? el(
           "div",
@@ -504,17 +555,32 @@ function labelItem(
   );
 }
 
-/** 카테고리 탭 */
+/**
+ * 그 탭의 안 읽은 메일 수.
+ *
+ * ⚠️ 검색어(searchQuery)를 타지 않는다 — 신규 알림은 "지금 뭘 검색 중인가"와 무관하게
+ *    항상 같은 값이어야 한다. visibleEmails를 재사용하지 않는 이유가 이것이다.
+ * ⚠️ 스팸은 세지 않는다. 받은편지함에 안 보이는 걸 세면 눌러도 안 사라지는 배지가 된다.
+ */
+function tabUnread(emails: readonly Email[], tab: MailTab): number {
+  return emails.filter((m) => !m.spam && !m.read && categoryOf(m) === tab).length;
+}
+
+/** 카테고리 탭. 안 읽은 메일이 있으면 개수 배지가 붙는다. */
 function tabItem(
   ctx: GameContext,
   key: MailTab,
   text: string,
   iconName: Parameters<typeof icon>[0],
+  unread: number,
 ): HTMLElement {
   return el(
     "button",
     {
-      class: "mail-tab" + (activeTab === key ? " mail-tab--on" : ""),
+      class:
+        "mail-tab" +
+        (activeTab === key ? " mail-tab--on" : "") +
+        (unread > 0 ? " mail-tab--unread" : ""),
       onclick: () => {
         activeTab = key;
         ctx.refresh();
@@ -522,6 +588,7 @@ function tabItem(
     },
     icon(iconName, { size: 16 }),
     el("span", {}, text),
+    unread > 0 ? el("span", { class: "mail-tab__badge" }, String(unread)) : null,
   );
 }
 
@@ -558,12 +625,14 @@ export function renderMail(ctx: GameContext): HTMLElement {
 
   // ----- 액션바 — 안 읽은 메일이 있을 때만 '모두 읽음 표시' 버튼 하나 -----
   // 열람(openSpamEmail)을 거치지 않으므로 스팸 해킹 위험 없이 안 읽은 표시(메일 탭 빨간 점)를 없앤다.
-  const unreadCount = emails.filter((m) => !m.read).length;
-  const actionBar = unreadCount
+  // ⚠️ 이름을 unreadCount로 두면 아래 탭 배지가 쓰는 동명 함수(unreadCount(emails, tab))를 가려
+  //    "Number는 호출할 수 없다"로 터진다. 전체 합계라는 뜻이 드러나게 unreadTotal로 둔다.
+  const unreadTotal = emails.filter((m) => !m.read).length;
+  const actionBar = unreadTotal
     ? el(
         "div",
         { class: "mail__actionbar" },
-        el("span", { class: "mail__actionbar-count" }, `안 읽은 메일 ${unreadCount}개`),
+        el("span", { class: "mail__actionbar-count" }, `안 읽은 메일 ${unreadTotal}개`),
         el(
           "button",
           {
@@ -587,10 +656,10 @@ export function renderMail(ctx: GameContext): HTMLElement {
       ? el(
           "div",
           { class: "mail-tabs" },
-          tabItem(ctx, "primary", "기본", "mail"),
-          tabItem(ctx, "promotions", "프로모션", "megaphone"),
-          tabItem(ctx, "social", "소셜", "comment"),
-          tabItem(ctx, "updates", "업데이트", "article"),
+          tabItem(ctx, "primary", "기본", "mail", tabUnread(emails, "primary")),
+          tabItem(ctx, "promotions", "프로모션", "megaphone", tabUnread(emails, "promotions")),
+          tabItem(ctx, "social", "소셜", "comment", tabUnread(emails, "social")),
+          tabItem(ctx, "updates", "업데이트", "article", tabUnread(emails, "updates")),
         )
       : null;
 

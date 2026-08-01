@@ -4,6 +4,9 @@ import { pick, uid } from "@/utils/random";
 import { applyDailyCosts, daysUntilRent, settleMonthlyIncome } from "./economy";
 import { settleAuthorMonthly } from "./author";
 import { deliverJobResultEmail } from "./employment";
+// ⚠️ lecturer도 여기서 addSchedule을 가져가므로 순환이지만, employment와 완전히 같은 모양이다
+//    (모듈 초기화 때 실행되는 코드가 없어 ESM이 알아서 푼다).
+import { deliverLecturerResultEmail } from "./lecturer";
 import { deliverExamResultEmail } from "./certification";
 import { resolveContest } from "./contest";
 import { resolveRace } from "./marathon";
@@ -223,6 +226,8 @@ function onNewDay(state: GameState): void {
   settleAuthorMonthly(state);
   // 취업 지원 결과 메일(지원 익일) 도착
   deliverJobResultEmail(state);
+  // 이비에듀 강사 지원 결과 메일(지원 익일) 도착
+  deliverLecturerResultEmail(state);
   // 네이놈 대회 결과 메일(신청 1주 뒤) 도착
   resolveContest(state);
   // 마라톤 대회일(신청 1주 뒤) — 기록 판정 + 결과 메일
