@@ -60,6 +60,10 @@ import { icon, ACTIVITY_ICON } from "./icons";
 import { renderJobBoardModal } from "./jobBoardModal";
 import { renderSystemNotice } from "./systemNotice";
 import { renderKillerWorkModal } from "./killerWorkModal";
+import { estimateFare, isNightShift, ratingLabel, resolveRide, rollPassenger } from "@/systems/taxi";
+import type { TaxiChoice } from "@/data/taxi";
+import { clampAction } from "@/systems/stats";
+import { advanceTime } from "@/systems/time";
 
 /** +/- 부호를 붙인 수치 문자열 */
 function signed(n: number): string {
@@ -204,6 +208,11 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           // 아직 아무것도 발견 전이면 지금처럼 바로 실행한다(불필요한 클릭을 안 만든다).
           if (act.petWalk && state.walkPlaces.length > 0) {
             showWalkPlaces(act);
+            return;
+          }
+          // 택시 운행은 승객을 먼저 태운다 — 응대를 고른 뒤에야 요금·평점이 정해진다.
+          if (act.taxiWork) {
+            showTaxiRide(act);
             return;
           }
           runActivity(act);
@@ -357,6 +366,100 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
    * 여행 목적지 선택 화면 — 휴가를 누르면 활동 실행 전에 먼저 뜬다.
    * 소지금이 모자란 목적지는 비활성(활동 자체는 가장 싼 목적지 기준으로 열려 있다).
    */
+  /**
+   * 택시 운행 — 승객 상황을 보여주고 응대를 고르게 한다.
+   *
+   * ⚠️ 일반 활동(runActivity)을 타지 않는다. 등급 굴림도 트윗 소재도 없고, 결과를 승객 응대가
+   *    정하기 때문이다. 대신 행동력·시간 소모는 **활동 정의(act.action)를 그대로 써서** 목록에
+   *    적힌 값과 어긋나지 않게 한다.
+   */
+  function showTaxiRide(act: OfflineActivity): void {
+    const s0 = ctx.store.getState();
+    const passenger = rollPassenger(s0);
+    const night = isNightShift(s0);
+
+    const pick = (choice: TaxiChoice): void => {
+      let fare = 0;
+      let ratingDelta = 0;
+      let rating = 0;
+      ctx.update((st) => {
+        st.resources.action = clampAction(st, st.resources.action + act.action);
+        const r = resolveRide(st, choice);
+        if (r) {
+          fare = r.fare;
+          ratingDelta = r.ratingDelta;
+          rating = r.rating;
+        }
+        advanceTime(st, 1);
+      });
+      container.replaceChildren(
+        el(
+          "div",
+          { class: "modal__head" },
+          el("span", { class: "modal__head-title" }, icon("walk", { size: 18 }), "운행 종료"),
+          closeBtn(),
+        ),
+        el(
+          "div",
+          { class: "modal__body" },
+          el("p", { class: "taxi__result" }, choice.result),
+          el(
+            "div",
+            { class: "taxi__payout" },
+            el("span", { class: "taxi__fare" }, `+${fare.toLocaleString("ko-KR")}원`),
+            el(
+              "span",
+              { class: "taxi__rating" + (ratingDelta < 0 ? " taxi__rating--down" : "") },
+              `평점 ${ratingDelta > 0 ? "+" : ""}${ratingDelta} · ${ratingLabel(rating)}`,
+            ),
+          ),
+          el(
+            "div",
+            { class: "compose-actions" },
+            el("button", { class: "btn", onclick: () => ctx.closeModal() }, "확인"),
+          ),
+        ),
+      );
+    };
+
+    container.replaceChildren(
+      el(
+        "div",
+        { class: "modal__head" },
+        el(
+          "span",
+          { class: "modal__head-title" },
+          icon("walk", { size: 18 }),
+          night ? "심야 운행" : "주간 운행",
+        ),
+        closeBtn(),
+      ),
+      el(
+        "div",
+        { class: "modal__body" },
+        el(
+          "p",
+          { class: "compose-hint", style: "margin-top:0" },
+          `${ratingLabel(s0.taxiJob!.rating)} · 예상 요금 ${estimateFare(s0).toLocaleString("ko-KR")}원` +
+            (night ? " (심야 할증)" : ""),
+        ),
+        el("p", { class: "taxi__scene" }, passenger.text),
+        el(
+          "div",
+          { class: "taxi__choices" },
+          ...passenger.choices.map((c) =>
+            el("button", { class: "btn btn--ghost taxi__choice", onclick: () => pick(c) }, c.label),
+          ),
+        ),
+        el(
+          "div",
+          { class: "compose-actions" },
+          el("button", { class: "btn btn--ghost", onclick: () => showChoices() }, "돌아가기"),
+        ),
+      ),
+    );
+  }
+
   function showDestinations(act: OfflineActivity): void {
     const s = ctx.store.getState();
     container.replaceChildren(
@@ -426,6 +529,7 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         act.group === lifeTab &&
         (!act.authorWork || showAuthorWork) &&
         (!act.lecturerWork || isLecturer) &&
+        (!act.taxiWork || state.taxiJob != null) &&
         (!act.adultOnly || adultMode), // 해피타임 등 성인 활동은 성인물 보기 ON일 때만
     ).map((act) => activityItem(act));
 

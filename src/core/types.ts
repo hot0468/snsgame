@@ -561,6 +561,26 @@ export interface LecturerJob {
   lastSalaryMonth: number;
 }
 
+/**
+ * 택시 기사직.
+ *
+ * 다른 직업과 갈리는 축: **고정급이 없다.** 운행할 때마다 요금이 그 자리에서 들어온다
+ * (회사 10일·강사 15일·AV 26일·작가 1일은 전부 월급제). 안 뛰면 수입이 0이다.
+ */
+export interface TaxiJob {
+  /** 입사한 날(day) */
+  hiredDay: number;
+  /** 누적 운행 횟수 — 경력이자 표시용 */
+  totalRides: number;
+  /** 누적 운행 요금(원). 도감·통계 표시용 */
+  totalEarned: number;
+  /**
+   * 승객 평점(0~100). 운행 중 승객 응대 선택으로 오르내리고 **요금 단가에 곱해진다**.
+   * 초기값은 중립(TAXI_RATING_START).
+   */
+  rating: number;
+}
+
 /** 배구부 대회 성적(좋은 순) */
 export type MeetResult = "champion" | "runnerup" | "semifinal" | "eliminated";
 
@@ -1146,6 +1166,8 @@ export interface GameState {
   coachJob: CoachJob | null;
   /** 배구부 섭외 카톡을 이미 보냈는지(중복 제의 방지). 초기 false */
   coachOffered: boolean;
+  /** 택시 기사직(없으면 미취업). 1종 보통 면허 보유 시 택시회사 지원으로 생성. 초기 null */
+  taxiJob: TaxiJob | null;
   /**
    * 한 번이라도 해본 직업 id 목록(직업 도감 해금 근거). 초기 [].
    * ⚠️ 그만둬도 지우지 않는다 — 회사·AV·강사는 사직 시 상태가 통째로 사라지므로

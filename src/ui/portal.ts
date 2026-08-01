@@ -719,6 +719,13 @@ function searchBar(ctx: GameContext): HTMLElement {
       ctx.refresh();
       return;
     }
+    // '택시' → 달빛운수 채용. O넷·EBS와 동일한 오버레이 방식.
+    if (q === "택시" || q === "달빛운수" || q === "대리운전") {
+      input.value = "";
+      ctx.ui.taxiSiteOpen = true;
+      ctx.refresh();
+      return;
+    }
     // '외주' → 재능마켓(프리랜서 외주 수주/작업). O넷·EBS와 동일한 오버레이 방식.
     if (q === "외주") {
       input.value = "";

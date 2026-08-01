@@ -62,6 +62,12 @@ export interface OfflineActivity {
   authorWork?: boolean;
   /** 이비에듀 강사 수업 — 이번 달 수업 횟수를 채운다(강사 채용 중일 때만 노출) */
   lecturerWork?: boolean;
+  /**
+   * 택시 운행 활동인지. **클릭하면 바로 실행되지 않는다** — 승객 상황을 먼저 보여주고
+   * 응대를 고르게 한다(vacation·petWalk과 같은 '하위 화면' 패턴).
+   * 실제 정산은 ui가 `systems/taxi.resolveRide`로 처리한다.
+   */
+  taxiWork?: boolean;
   /** 휴가 — 10만원 소비, 20개 이벤트 중 하나가 랜덤 발생해 특정 스킬이 오른다(행동력·정신력은 기본 회복) */
   vacation?: boolean;
   /** 결과 팝업에 뜨는 분위기 문구(랜덤 선택) */
@@ -874,10 +880,33 @@ export const OFFLINE_ACTIVITIES: OfflineActivity[] = [
       "수업하다 보면 내가 더 배움 이거 진짜임",
     ],
   },
+  {
+    // ⚠️ 택시 운행. 행동력 소모는 data/taxi.TAXI_ACTION_COST와 같은 값이어야 한다.
+    //    다른 활동과 달리 등급 굴림·트윗 소재가 없다 — 결과를 승객 응대 선택이 정하기 때문이다.
+    id: "taxi_drive",
+    label: "운행하기",
+    emoji: "",
+    group: "work",
+    description:
+      "달빛운수 차를 몰고 나간다. 손님 응대에 따라 평점과 요금이 갈린다. (심야에 나가면 할증이 붙는다)",
+    action: -14,
+    // 정신력 증감은 승객 응대 선택이 정한다(data/taxi.ts) — 여기선 0.
+    mental: 0,
+    taxiWork: true,
+    results: ["오늘 몫을 채우고 차를 세웠다."],
+    tweetAttr: "daily",
+    tweetLines: [
+      "오늘 손님 한 분이 내리면서 고맙다고 두 번 인사하심 이런 날도 있다",
+      "새벽 운행 끝. 해 뜨는 거 보면서 퇴근하는 기분 아는 사람만 앎",
+    ],
+  },
 ];
 
 /** 작가 원고 작업 활동(계약 중일 때만 노출) — 심야 선택창 등에서 재사용 */
 export const AUTHOR_WORK_ACTIVITY = OFFLINE_ACTIVITIES.find((a) => a.authorWork)!;
+
+/** 택시 운행 활동(기사 재직 중일 때만 노출) */
+export const TAXI_ACTIVITY = OFFLINE_ACTIVITIES.find((a) => a.taxiWork)!;
 
 /** 이비에듀 수업 활동(강사 채용 중일 때만 노출) */
 export const LECTURE_ACTIVITY = OFFLINE_ACTIVITIES.find((a) => a.lecturerWork)!;

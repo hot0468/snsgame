@@ -19,6 +19,7 @@ import { renderWishSite } from "./wishSite";
 import { renderGoblinShop } from "./goblinShop";
 import { renderOnet } from "./onet";
 import { renderEbs } from "./ebs";
+import { renderTaxiSite } from "./taxiSite";
 import { renderGig } from "./gig";
 import { renderJobplanet } from "./jobplanet";
 import { renderAuction } from "./auction";
@@ -85,6 +86,7 @@ export function closeOverlays(ctx: GameContext): void {
   ctx.ui.onetSiteOpen = false;
   ctx.ui.ebsSiteOpen = false;
   ctx.ui.gigSiteOpen = false;
+  ctx.ui.taxiSiteOpen = false;
   ctx.ui.hospitalSiteOpen = false;
   ctx.ui.jobplanetSiteOpen = false;
   ctx.ui.auctionSiteOpen = false;
@@ -617,6 +619,9 @@ export function renderBrowser(ctx: GameContext): HTMLElement {
   } else if (ctx.ui.onetSiteOpen) {
     // O넷도 현재 탭 콘텐츠를 덮어쓴다('자격증' 검색으로 진입, 재진입 제한 없음).
     content.append(renderOnet(ctx));
+  } else if (ctx.ui.taxiSiteOpen) {
+    // 달빛운수도 현재 탭 콘텐츠를 덮어쓴다('택시' 검색으로 진입).
+    content.append(renderTaxiSite(ctx));
   } else if (ctx.ui.ebsSiteOpen) {
     // EBS 강의 사이트도 현재 탭 콘텐츠를 덮어쓴다('듄' 검색으로 진입, 재진입 제한 없음).
     content.append(renderEbs(ctx));

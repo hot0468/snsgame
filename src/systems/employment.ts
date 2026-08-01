@@ -216,7 +216,13 @@ export function deliverJobResultEmail(state: GameState): void {
  *    하나만 빠뜨리면 겸직이 뚫리거나(신청 통과) 전환 시 옛 직업이 남는다.
  */
 export function hasAnyJob(state: GameState): boolean {
-  return !!state.employment || !!state.avJob || !!state.lecturerJob || !!state.coachJob;
+  return (
+    !!state.employment ||
+    !!state.avJob ||
+    !!state.lecturerJob ||
+    !!state.coachJob ||
+    !!state.taxiJob
+  );
 }
 
 /** 재직 중인 회사원의 직급(무직·타 직업이면 빈 문자열). */
@@ -230,6 +236,7 @@ export function currentJobLabel(state: GameState): string {
   if (state.avJob) return "AV배우";
   if (state.lecturerJob) return "이비에듀 강사";
   if (state.coachJob) return "배구부 코치";
+  if (state.taxiJob) return "택시 기사";
   return "";
 }
 
@@ -259,6 +266,11 @@ export function quitCurrentJob(state: GameState): void {
   if (state.coachJob) {
     addSchedule(state, "배구부 코치 사임", "system");
     state.coachJob = null;
+  }
+  // lecturer와 같은 이유로 systems/taxi.quitTaxi를 부르지 않는다(순환 import).
+  if (state.taxiJob) {
+    addSchedule(state, "달빛운수 퇴사", "system");
+    state.taxiJob = null;
   }
 }
 

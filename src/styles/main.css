@@ -15218,3 +15218,59 @@ button.np-menu__item:hover {
   font-weight: 800;
   text-align: center;
 }
+
+/* ===================== 택시 운행 ===================== */
+/* 승객 상황 → 응대 선택 → 정산. 현생 살기 모달 안에서 화면만 바꿔 쓴다. */
+.taxi__scene {
+  white-space: pre-line;
+  line-height: 1.65;
+  padding: 14px 16px;
+  margin: 4px 0 14px;
+  border-radius: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+}
+
+.taxi__choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.taxi__choice {
+  width: 100%;
+  text-align: left;
+  justify-content: flex-start;
+}
+
+.taxi__result {
+  line-height: 1.65;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+}
+
+.taxi__payout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 14px 0 4px;
+}
+
+.taxi__fare {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--good);
+}
+
+.taxi__rating {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.taxi__rating--down {
+  color: var(--danger);
+}

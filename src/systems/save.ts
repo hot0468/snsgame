@@ -15,6 +15,7 @@ import { ensureMissions } from "./missions";
 import { currentMaxPostSlots } from "./followers";
 import { PART_TIME_LEGACY_ID } from "./offline";
 import { initialMarket } from "@/data/market";
+import { TAXI_RATING_START } from "@/data/taxi";
 
 // 다계정 구조로 바뀌며 v2로 올림(구 v1 저장본은 무시하고 새로 시작).
 const SAVE_KEY = "snsgame:save:v2";
@@ -268,6 +269,12 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   // 시즌 진행도가 훈련 횟수에서 완성도 게이지로 바뀌었다 — 옛 값은 버리고 0에서 다시 쌓는다.
   if (state.coachJob) state.coachJob.teamStat ??= 0;
   state.coachOffered ??= false;
+  // 택시 기사직도 신규 — 구세이브엔 미취업이 정답.
+  state.taxiJob ??= null;
+  // 평점은 요금 단가에 곱해진다 — undefined/NaN이면 요금이 통째로 NaN이 되어 소지금을 오염시킨다.
+  if (state.taxiJob && !Number.isFinite(state.taxiJob.rating)) {
+    state.taxiJob.rating = TAXI_RATING_START;
+  }
   // 직업 도감(해본 직업)은 신규 필드. 구세이브는 '지금 상태'에서 역산해 채운다 —
   // 빈 배열로 두면 이미 회사를 다니는 플레이어의 도감이 통째로 잠긴 채 시작한다.
   if (!Array.isArray(state.jobsExperienced)) {
