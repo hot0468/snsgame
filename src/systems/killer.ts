@@ -4,6 +4,7 @@ import { uid } from "@/utils/random";
 import { dateOf } from "./calendar";
 import { MAX_SKILL } from "@/data/stats";
 import { clampResource, gainStamina } from "./stats";
+import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { KILLER_TARGETS, targetById, targetFullTweets } from "@/data/killerTargets";
 import {
   DOCTOR_ACCEPT_REPLY,
@@ -178,6 +179,7 @@ export function acceptKillerJob(state: GameState, threadId: string): void {
     assignment: null,
     recruiter: byDoctor ? "doctor" : "momo",
   };
+  markJobExperienced(state, JOB_ID.killer); // 직업 도감 해금
   t.messages.push({
     id: uid("dmm"),
     from: "me",

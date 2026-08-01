@@ -4,6 +4,7 @@ import { GACHA_COST, canDrawGacha, drawGacha, gachaBragLines } from "@/systems/g
 import { postTweet } from "@/systems/tweetSystem";
 import { pick } from "@/utils/random";
 import { el, formatNumber } from "@/utils/dom";
+import { renderPhotoCard } from "./photoCard";
 
 /**
  * 포토카드/굿즈 가챠 팝업. 뽑기 → 등급별 결과. SR·SSR은 자랑 트윗 가능.
@@ -79,9 +80,19 @@ export function renderGachaModal(ctx: GameContext): HTMLElement {
       el(
         "div",
         { class: "modal__body" },
-        el("div", { class: `gacha-card gacha-card--${res.rarity}` }, el("span", {}, res.label)),
-        el("p", { style: "font-size:15px;font-weight:800;text-align:center;margin:12px 0 4px" }, res.name),
-        el("p", { style: "font-size:14px;line-height:1.6;text-align:center;margin:0 0 8px" }, res.message),
+        // 꽝은 카드가 아니다(서랍장에도 안 들어간다) — 기존 등급 패널 그대로.
+        res.rarity === "empty"
+          ? el("div", { class: "gacha-card gacha-card--empty" }, el("span", {}, res.label))
+          : el(
+              "div",
+              { style: "display:flex;justify-content:center;padding:6px 0" },
+              renderPhotoCard(res.id, res.name, { label: res.label, copy: res.copy }),
+            ),
+        // 이름은 꽝일 때만 따로 적는다 — 카드에는 이미 이름이 달려 있다(중복 표기 방지).
+        res.rarity === "empty"
+          ? el("p", { style: "font-size:15px;font-weight:800;text-align:center;margin:12px 0 4px" }, res.name)
+          : null,
+        el("p", { style: "font-size:14px;line-height:1.6;text-align:center;margin:12px 0 8px" }, res.message),
         parts.length
           ? el("p", { style: "font-size:12.5px;color:var(--text-muted);text-align:center;margin:0" }, parts.join(" · "))
           : null,

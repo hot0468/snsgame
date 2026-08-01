@@ -6,7 +6,7 @@ import { meetSuccessChance } from "@/systems/relationship";
 import { dateLabel } from "@/systems/time";
 import { randInt, pick, chance } from "@/utils/random";
 import { el } from "@/utils/dom";
-import { avatar, icon } from "./icons";
+import { icon, relAvatar } from "./icons";
 
 /** 내가 만남을 제안하는 카톡 말풍선 템플릿(요일/시간대 보간). */
 const PROPOSE_LINES = [
@@ -91,7 +91,7 @@ export function renderMeetChatModal(
       return el(
         "div",
         { class: "kk-row kk-row--" + (isMe ? "me" : "them") },
-        isMe ? null : avatar(name, 38),
+        isMe ? null : relAvatar(name, 38),
         el(
           "div",
           { class: "kk-col" },
@@ -104,7 +104,7 @@ export function renderMeetChatModal(
     const head = el(
       "div",
       { class: "kk-head" },
-      avatar(name, 34),
+      relAvatar(name, 34),
       el(
         "div",
         { class: "kk-head__info" },

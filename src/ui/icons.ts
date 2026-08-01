@@ -133,6 +133,18 @@ export function avatar(seed: string, size = 40): HTMLSpanElement {
   return span;
 }
 
+/**
+ * 관계 캐릭터(호감도를 쌓아 친구·연인이 될 수 있는 상대)의 아바타.
+ * 이니셜 대신 하트를 넣어 "이 사람은 호감도 대상"임을 프로필 자리에서 바로 보여준다.
+ * 색은 그대로 이름 해시라 사람마다 다르다(하트만 공통).
+ */
+export function relAvatar(seed: string, size = 40): HTMLSpanElement {
+  const span = avatar(seed, size);
+  span.textContent = "♥";
+  span.style.fontSize = `${Math.max(13, Math.round(size * 0.5))}px`; // 하트는 이니셜보다 작아 보여 조금 키운다
+  return span;
+}
+
 function hashString(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;

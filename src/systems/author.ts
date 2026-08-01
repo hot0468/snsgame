@@ -7,6 +7,7 @@ import { dateOfMonth, monthKey } from "./calendar";
 import { totalFollowers } from "./economy";
 import { skillTo100 } from "./stats";
 import { pushKakao } from "./kakao";
+import { JOB_ID, markJobExperienced } from "./jobExperience";
 
 /**
  * 플랫폼 작가 계약 시스템.
@@ -26,6 +27,10 @@ export const AUTHOR_BASE_SALARY = 200_000;
 export const AUTHOR_MONTH_RAISE = 50_000;
 /** 팔로워 1명당 월급 가산액 */
 export const AUTHOR_FOLLOWER_RATE = 1;
+/** 작업 1회당 원고료(연차 0일 때) */
+export const AUTHOR_PAY_PER_WORK = 60_000;
+/** 연차(개월) 1당 회당 원고료 인상액 */
+export const AUTHOR_WORK_RAISE = 10_000;
 /** 작업량 미달이 이 횟수(누적) 도달하면 계약 해지 */
 export const AUTHOR_MAX_MISS = 3;
 
@@ -50,9 +55,31 @@ export function authorWorkGain(state: GameState): number {
   return Math.round(6 + skillTo100(sum) / 16);
 }
 
-/** 다음 월 정산 시 받을 '기본' 월급(작업량 달성 기준). 미달 시 절반. */
+/**
+ * 웹툰 **인기 지표**(원고료 규모 환산액). 편집자 코멘트·SNS 반응 구간을 가르는 값이라
+ * 연차와 팔로워로만 계산한다 — 이번 달 작업 횟수와 무관해야 "이번 달 덜 그렸다고 인기가 죽는"
+ * 이상한 그림이 안 나온다.
+ * ⚠️ 실지급액은 이 값이 아니라 `authorWorkPay`다(작업 횟수 비례).
+ */
 export function authorMonthlySalary(state: GameState, monthsWorked: number): number {
   return AUTHOR_BASE_SALARY + monthsWorked * AUTHOR_MONTH_RAISE + totalFollowers(state) * AUTHOR_FOLLOWER_RATE;
+}
+
+/** 작업 1회당 원고료 — 연차가 쌓일수록 회당 단가가 오른다. */
+export function authorPayPerWork(state: GameState): number {
+  const months = state.authorContract?.monthsWorked ?? 0;
+  return AUTHOR_PAY_PER_WORK + months * AUTHOR_WORK_RAISE;
+}
+
+/**
+ * 실지급 원고료 = **이번 달 작업 횟수 × 회당 단가** + 팔로워 가산.
+ * 일반 직장인만 고정 월급이고 나머지 직업은 일한 횟수만큼 받는다(사용자 확정 규칙).
+ * 작업량 게이지(workload)는 지급액이 아니라 **계약 유지 판정**에만 쓴다.
+ */
+export function authorWorkPay(state: GameState): number {
+  const c = state.authorContract;
+  if (!c) return 0;
+  return c.worksThisMonth * authorPayPerWork(state) + totalFollowers(state) * AUTHOR_FOLLOWER_RATE;
 }
 
 /**
@@ -128,11 +155,13 @@ export function signAuthorContract(state: GameState, adult = false, penName = ""
     signedDay: state.day,
     monthsWorked: 0,
     workload: 0,
+    worksThisMonth: 0,
     missCount: 0,
     lastSettledMonth: monthKey(state.day),
     adult,
     penName: penName.trim() || getActiveAccount(state).name,
   };
+  markJobExperienced(state, JOB_ID.author); // 직업 도감 해금(계약 해지해도 남는다)
   pushSchedule(state, adult ? "성인물 작가 계약 체결" : "작가 계약 체결", "system");
   pushSchedule(state, `작가 필명 결정: ${state.authorContract.penName}`, "system");
 }
@@ -215,6 +244,7 @@ export function doAuthorWork(state: GameState): AuthorWorkResult | null {
   if (!c) return null;
   const gain = authorWorkGain(state);
   c.workload = Math.min(AUTHOR_WORKLOAD_TARGET, c.workload + gain);
+  c.worksThisMonth += 1; // 지급액은 이 횟수에 비례한다(게이지는 계약 유지 판정용)
   return { gain, workload: c.workload, target: AUTHOR_WORKLOAD_TARGET, done: c.workload >= AUTHOR_WORKLOAD_TARGET };
 }
 
@@ -245,14 +275,17 @@ export function settleAuthorMonthly(state: GameState): void {
   // 익월 1일: 준비 기간이 끝나고 첫 작업 달이 시작된다(게이지 리셋만, 월급 없음).
   if (mk === signMk + 1) {
     c.workload = 0;
+    c.worksThisMonth = 0;
     return;
   }
 
-  // 익월+1 1일 이후: 직전 한 달치 작업량을 평가해 월급을 지급한다.
+  // 익월+1 1일 이후: 직전 한 달치를 정산한다.
+  // ⚠️ 지급액은 **작업 횟수**가 정하고(authorWorkPay), 게이지(workload)는 계약 유지 판정만 한다.
+  //    예전처럼 미달 반감을 또 걸면 "덜 그려서 적게 받는데 거기서 또 반감"인 이중 페널티가 된다.
   const met = c.workload >= AUTHOR_WORKLOAD_TARGET;
   c.monthsWorked += 1;
-  const full = authorMonthlySalary(state, c.monthsWorked);
-  const salary = met ? full : Math.round(full * 0.5);
+  const full = authorMonthlySalary(state, c.monthsWorked); // 인기 지표(편집자 코멘트용)
+  const salary = authorWorkPay(state);
   state.money += salary;
 
   // 월급날, 담당 편집자가 이번 달 웹툰 인기(=원고료 액수 기준)와 입금 내역을 카톡으로 전한다.
@@ -266,7 +299,7 @@ export function settleAuthorMonthly(state: GameState): void {
     : [
         "작가님, 이번 달 정산 안내예요.",
         popLine,
-        `다만 이번 달은 작업량이 부족해서 원고료가 절반인 ${won(salary)}원만 나갔어요. 다음 달엔 마감 꼭 지켜주세요! (미달 ${c.missCount + 1}/${AUTHOR_MAX_MISS})`,
+        `그린 만큼 ${won(salary)}원 나갔어요. 다만 이번 달 작업량이 목표에 못 미쳤네요. 다음 달엔 마감 꼭 지켜주세요! (미달 ${c.missCount + 1}/${AUTHOR_MAX_MISS})`,
       ];
   pushKakao(state, "담당 편집자", editorMsgs, {
     hue: 265,
@@ -278,12 +311,16 @@ export function settleAuthorMonthly(state: GameState): void {
   });
 
   if (met) {
-    pushSchedule(state, `작가 월급 +${won(salary)}원 (${c.monthsWorked}개월차)`, "system");
+    pushSchedule(
+      state,
+      `작가 월급 +${won(salary)}원 (${c.worksThisMonth}회 작업 · ${c.monthsWorked}개월차)`,
+      "system",
+    );
   } else {
     c.missCount += 1;
     pushSchedule(
       state,
-      `작업량 미달 — 월급 50% (+${won(salary)}원, 미달 ${c.missCount}/${AUTHOR_MAX_MISS})`,
+      `작업량 미달 — +${won(salary)}원 (${c.worksThisMonth}회, 미달 ${c.missCount}/${AUTHOR_MAX_MISS})`,
       "system",
     );
     if (c.missCount >= AUTHOR_MAX_MISS) {
@@ -293,4 +330,5 @@ export function settleAuthorMonthly(state: GameState): void {
     }
   }
   c.workload = 0; // 새 달 작업량 리셋
+  c.worksThisMonth = 0; // 지급 근거(작업 횟수)도 같이 리셋 — 안 하면 월급이 눈덩이처럼 불어난다
 }

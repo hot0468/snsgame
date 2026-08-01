@@ -9,7 +9,7 @@ import {
   relStateOf,
 } from "@/systems/relationship";
 import { el } from "@/utils/dom";
-import { avatar, icon } from "./icons";
+import { avatar, icon, relAvatar } from "./icons";
 import { renderRelEventModal } from "./relEventModal";
 import { renderMeetChatModal } from "./meetChatModal";
 import { renderBossChatModal } from "./bossChatModal";
@@ -59,7 +59,7 @@ export function renderKakaoListView(ctx: GameContext): HTMLElement {
       el(
         "span",
         { class: "kklist__ava" },
-        avatar(name, 44),
+        relAvatar(name, 44),
         el("span", { class: "kklist__dot" }),
       ),
       el(
@@ -104,7 +104,7 @@ export function renderKakaoListView(ctx: GameContext): HTMLElement {
     return el(
       "div",
       { class: "kklist__row" },
-      el("span", { class: "kklist__ava" }, avatar(name, 44)),
+      el("span", { class: "kklist__ava" }, relAvatar(name, 44)),
       el(
         "div",
         { class: "kklist__main" },

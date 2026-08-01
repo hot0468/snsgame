@@ -3,6 +3,7 @@ import { GACHA_ITEMS } from "@/data/gacha";
 import { pick, randInt } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { clampResource } from "./stats";
+import { ownedCount } from "./shop";
 
 /**
  * 포토카드/굿즈 가챠(뽑기).
@@ -36,6 +37,14 @@ const TABLE: RarityDef[] = [
 export interface GachaResult {
   rarity: GachaRarity;
   label: string;
+  /** 뽑힌 실물의 아이템 id — ui가 이걸로 사진과 프레임을 찾는다. */
+  id: string;
+  /**
+   * 이번에 뽑은 게 그 굿즈의 **몇 번째 사본인지**(0부터). 포토카드에 여러 컷을 등록해 두면
+   * 이 순번으로 컷이 갈린다 — 같은 카드를 또 뽑으면 다음 컷이 나온다(data/photoCardImages.ts).
+   * 서랍장도 같은 순번으로 그리므로, 방금 본 컷이 서랍장에서도 그대로 보인다.
+   */
+  copy: number;
   name: string;
   mental: number;
   followers: number;
@@ -65,6 +74,8 @@ export function drawGacha(state: GameState): GachaResult | null {
   const item = pick(GACHA_ITEMS[def.rarity]);
   const name = item.name;
   // 꽝을 제외한 실물은 서랍장(ownedItems)에 담긴다 — 리졸버 등록은 shop.ts ITEM_INDEX(GACHA_ALL_ITEMS).
+  // 사본 순번은 **담기 전 보유 수**다(0부터). 꽝은 담기지 않으니 0으로 둔다.
+  const copy = def.rarity === "empty" ? 0 : ownedCount(state, item.id);
   if (def.rarity !== "empty") state.ownedItems.push(item.id);
   state.resources.mental = clampResource(state.resources.mental + def.mental);
   const followers = randInt(def.followers[0], def.followers[1]);
@@ -79,7 +90,7 @@ export function drawGacha(state: GameState): GachaResult | null {
           ? `오오 「${name}」 SR 획득! 최애 나왔다 심장 나감 💖`
           : `「${name}」 ${def.label} 획득!`;
 
-  return { rarity: def.rarity, label: def.label, name, mental: def.mental, followers, brag: def.brag, message: msg };
+  return { rarity: def.rarity, label: def.label, id: item.id, copy, name, mental: def.mental, followers, brag: def.brag, message: msg };
 }
 
 /** 자랑(SR·SSR) 트윗 문구 */

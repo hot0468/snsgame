@@ -4,14 +4,19 @@ import { makeRandomAccount } from "@/data/accounts";
 import { chance, pick, uid } from "@/utils/random";
 import { clampAction, clampResource, gainSkill } from "./stats";
 import { hasAnyJob, quitCurrentJob } from "./employment";
+import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { dateOfMonth } from "./calendar";
 import { addSchedule, advanceTime } from "./time";
 
-/** AV 월 기본급(원) — 회사 최고 등급 60만의 2.5배 */
-export const AV_BASE_SALARY = 1_500_000;
+/**
+ * AV 촬영 1회(=하루)당 일당.
+ * ⚠️ 예전엔 월 기본급 150만에 '20일 미만이면 반감'이었다. 지금은 **일한 횟수만큼** 준다
+ *    (일반 직장인만 고정 월급). 150만 ÷ 20일 = 7.5만이라, 만근하면 예전 만액과 같다.
+ */
+export const AV_PAY_PER_DAY = 75_000;
 /** 노콘 촬영 승락 1회당 '이번 달' 월급 가산액(원). 영구 아님 — 월 정산 시 0으로 리셋된다. */
 export const AV_CONDOMLESS_BONUS = 300_000;
-/** 월 근무일이 이 미만이면 월급 반감 */
+/** 월 근무일 권장치(표시용). 이 이상 채우면 예전 만액 이상이 된다 — 미달해도 반감은 없다. */
 export const AV_MONTHLY_QUOTA = 20;
 /** 이 성인 트윗 누적 수를 넘으면 AV배우 제의 DM이 온다 */
 export const AV_OFFER_ADULT_TWEETS = 30;
@@ -72,6 +77,7 @@ export function acceptAvJob(state: GameState, threadId: string): void {
   state.avJob = {
     joinedDay: state.day,
     workDaysThisMonth: 0,
+    totalWorkDays: 0,
     lastWorkDay: -1,
     condomlessThisMonth: 0,
     lastSalaryMonth: -1,
@@ -79,6 +85,7 @@ export function acceptAvJob(state: GameState, threadId: string): void {
   };
   const thread = getActiveAccount(state).dms.find((t) => t.id === threadId);
   if (thread) thread.avOffer = false;
+  markJobExperienced(state, JOB_ID.av); // 직업 도감 해금(계약 해지해도 남는다)
   addSchedule(state, "AV배우 계약", "system");
 }
 
@@ -126,15 +133,14 @@ export function rollCondomlessOffer(_state: GameState): boolean {
 }
 
 /**
- * 표시·지급용 이번 달 AV 월급.
- * 기본급 + 노콘 누적 가산. 월 근무일이 쿼터 미만이면 반감.
+ * 표시·지급용 이번 달 AV 월급 = **이번 달 근무일 × 일당** + 노콘 누적 가산.
  * maybeAvPayday(economy.ts)와 UI 직업란이 동일 공식을 쓴다(표시=실지급).
+ * 안 나가면 0원이다 — 반감 규칙은 없앴다(무노동 무임금).
  */
 export function avSalaryOf(state: GameState): number {
   const job = state.avJob;
   if (!job) return 0;
-  const full = AV_BASE_SALARY + job.condomlessThisMonth * AV_CONDOMLESS_BONUS;
-  return job.workDaysThisMonth < AV_MONTHLY_QUOTA ? Math.round(full / 2) : full;
+  return job.workDaysThisMonth * AV_PAY_PER_DAY + job.condomlessThisMonth * AV_CONDOMLESS_BONUS;
 }
 
 /* content-author: AV 촬영 서사 문구 10종(성인) — resolveAvWork에서 랜덤 1개 선택 */
@@ -421,6 +427,7 @@ export function resolveAvWork(state: GameState, acceptCondomless: boolean): stri
   // 근무일 카운트는 하루 1회만(스탯 효과는 매회)
   if (job.lastWorkDay !== state.day) {
     job.workDaysThisMonth += 1;
+    job.totalWorkDays += 1; // 누적은 월 리셋을 안 탄다 — 직업 레벨 근거
     job.lastWorkDay = state.day;
   }
 

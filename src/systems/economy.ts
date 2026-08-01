@@ -8,7 +8,11 @@ import { dateOfMonth, isLastDayOfMonth, isWeekday, monthKey } from "./calendar";
 import { sendSalaryKakao, sendTwitterSettlementKakao } from "./kakao";
 import { offerLoan } from "./loan";
 import { AV_PAYDAY_DATE, avSalaryOf, firstAvWorkDay } from "./avJob";
+import { lecturerQuota, lecturerSalaryOf } from "./lecturer";
 import { NIGL_COMPANY, NIGL_SHIFT_GOAL } from "@/data/niglnigl";
+
+/** 강사 월급날 — 회사(10일)·AV(25일)와 안 겹치게 매월 15일. */
+export const LECTURER_PAYDAY_DATE = 15;
 
 /** 하루 생활비 */
 export const DAILY_LIVING_COST = 10_000;
@@ -176,6 +180,31 @@ function maybeAvPayday(state: GameState): void {
 }
 
 /**
+ * 강사 월급날(매월 15일). **이번 달 수업 횟수 × 회당 강사료**를 주고 그 자리에서 횟수를 리셋한다.
+ * AV와 달리 리셋을 다음날로 미루지 않는다 — 강사는 '지급일이 곧 한 달의 끝'이라 경계가 하루면 충분하다.
+ * 필수 회차(레벨에 따라 감소)를 못 채워도 지급은 한다. 채운 만큼 받는 게 이 직업의 규칙이다.
+ */
+function maybeLecturerPayday(state: GameState): void {
+  const job = state.lecturerJob;
+  if (!job) return;
+  if (dateOfMonth(state.day) !== LECTURER_PAYDAY_DATE) return;
+  const mk = monthKey(state.day);
+  if (job.lastSalaryMonth === mk) return;
+  job.lastSalaryMonth = mk;
+  const lessons = job.lessonsThisMonth;
+  const quota = lecturerQuota(state);
+  const salary = lecturerSalaryOf(state);
+  job.lessonsThisMonth = 0;
+  if (salary > 0) {
+    state.money += salary;
+    const short = lessons < quota ? ` — 필수 ${quota}회 미달` : "";
+    pushSchedule(state, `강사료 +${fmt(salary)}원 (${lessons}회 수업)${short}`, "system");
+  } else {
+    pushSchedule(state, `이번 달 수업이 없어 강사료가 없다 (필수 ${quota}회)`, "system");
+  }
+}
+
+/**
  * AV 근무일·노콘 월 리셋 — 월급 다음날인 매월 26일에 새 '달'이 시작된다(사용자 확정).
  * onNewDay가 하루 1회 부르고 26일은 월 1회뿐이라 별도 중복 가드 불필요.
  */
@@ -241,6 +270,8 @@ export function applyDailyCosts(state: GameState): void {
   // AV 월급(매월 25일) — 회사 월급과 독립. 다음날 26일에 근무일·노콘 리셋.
   maybeAvPayday(state);
   maybeAvMonthReset(state);
+  // 강사 월급(매월 15일) — 지급과 동시에 이번 달 수업 횟수를 리셋한다(지급일=사이클 경계).
+  maybeLecturerPayday(state);
 
   // 생활비. 소지금이 모자라면 굶은 것으로 친다(차감 자체는 그대로 — 빚을 만드는 자동 차감이다).
   // ⚠️ 굶주림 연속일수만 여기서 갱신하고, 체력 감소는 health.settleHunger가 한다.

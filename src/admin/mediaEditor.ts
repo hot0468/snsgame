@@ -12,6 +12,10 @@
  * | 트윗 카테고리 | `src/assets/tweetcat/` | **트윗 속성**(목록에서 고름) | `tweet.attribute` 정확일치 + 트윗 id 해시로 택1 |
  * | 야밤 영상 | `src/assets/yabam/` | **영상 id**(목록에서 고름) | id 1:1 정확 매칭. 확률 없음(아이템과 같은 결) |
  * | 창작 | `src/assets/creation/` | **자동**(`creation`·`creation__2`…) | `tweet.creation`만 본다 + 트윗 id 해시로 택1(성인과 같은 결) |
+ * | 포토카드 | `src/assets/photocards/` | **아이템 id**(+`__2`…) | id 일치 + **보유 순번**으로 택1(해시가 아니다) |
+ *
+ * ⚠️ 「아이템」과 「포토카드」는 화면(TARGETS)만 다른 게 아니라 **폴더와 성격이 다르다.**
+ *    아이템은 id 1:1이라 같은 이름 저장 = 교체, 포토카드는 같은 이름 저장 = **한 장 추가**다.
  *
  * ⚠️ 「너튜브」와 「트윗 카테고리」는 둘 다 '카테고리'지만 **다른 축이다.** 너튜브는 영상
  *    카테고리(VideoAttribute), 트윗 카테고리는 트윗 속성(AttributeId)이다. 겹치는 이름이
@@ -34,6 +38,9 @@ import { YABAM_VIDEOS } from "@/data/yabam";
 import type { VideoAttribute } from "@/data/videos";
 import { ATTRIBUTES } from "@/data/attributes";
 import { SHOP_ITEMS } from "@/data/shop";
+import { GACHA_CARD_ITEMS, GACHA_RARITY_OF, isFramedCard } from "@/data/gacha";
+import { photoCountFor } from "@/data/photoCardImages";
+import { renderPhotoCard } from "@/ui/photoCard";
 import { PEEMANG_ITEMS } from "@/data/peemang";
 import { INGREDIENTS } from "@/data/grocery";
 import { HOUSINGS } from "@/data/housing";
@@ -78,6 +85,18 @@ const TARGETS: Target[] = [
   { key: "peemang", label: "피망마켓", w: 240, h: 240, items: PEEMANG_ITEMS },
   { key: "grocery", label: "마켓걸리버", w: 240, h: 240, items: INGREDIENTS },
   { key: "housing", label: "남의방", w: 160, h: 120, items: HOUSINGS },
+  // 포토카드/굿즈: 프레임 안쪽 사진 자리가 5:7 세로형이라 240x336으로 저장한다(ui/photoCard.ts).
+  // ⚠️ 이 타겟만 저장 폴더가 items가 아니라 **photocards**다(save() 참조) — 같은 굿즈로 또
+  //    저장하면 교체가 아니라 __2로 한 장 더 쌓이고, 보유 순번대로 컷이 갈린다.
+  { key: "gacha", label: "포토카드/굿즈", w: 240, h: 336, items: GACHA_CARD_ITEMS },
+];
+
+/** 프레임 비교 줄에 세울 등급들 — 꽝(empty)은 카드가 아니라 뺀다. 순서 = 화려함 순. */
+const FRAME_GRADES: [string, string][] = [
+  ["common", "일반"],
+  ["rare", "레어"],
+  ["sr", "SR"],
+  ["ssr", "SSR"],
 ];
 
 /**
@@ -400,8 +419,10 @@ async function save(): Promise<void> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       // dir는 서버가 아는 키만 받는다(자유 경로가 아니다). item 모드만 키 이름이 다르다(items).
+      // 포토카드만 items가 아니라 photocards로 간다 — 같은 id로 또 저장하면 덮어쓰기가 아니라
+      // **한 장 더 추가**여야 해서다(서버 DEDUP_DIRS가 __2를 붙인다). 폴더를 가른 이유가 그것이다.
       body: JSON.stringify({
-        dir: mode === "item" ? "items" : mode,
+        dir: mode === "item" ? (target.key === "gacha" ? "photocards" : "items") : mode,
         name: outName(),
         dataUrl,
       }),
@@ -444,6 +465,8 @@ async function save(): Promise<void> {
       JSON.stringify({
         mode,
         screen: screenSelect.value,
+        // 고른 굿즈까지 넘긴다 — 한 카드에 컷을 여러 장 쌓을 때 매번 첫 항목으로 튕기지 않게.
+        item: itemSelect.value,
         cat: catSelect.value,
         tweetCat: tweetCatSelect.value,
         yabam: yabamSelect.value,
@@ -459,16 +482,19 @@ async function save(): Promise<void> {
 
 /* ===================== 모드 · 화면 · 아이템 선택 ===================== */
 
-/** 아이템 목록 — 이미 이미지가 있으면 ✓. 없으면 뭐가 비었는지 몰라 중복·누락이 난다. */
+/**
+ * 아이템 목록 — 이미 이미지가 있으면 ✓. 없으면 뭐가 비었는지 몰라 중복·누락이 난다.
+ * 포토카드만 폴더가 달라(photocards) 등록 **장수**를 세어 `✓2`처럼 보여준다.
+ * ⚠️ target이 바뀌면 반드시 다시 불러라 — 안 부르면 화면과 목록이 어긋난다.
+ */
 function fillItems(): void {
+  const isCards = target.key === "gacha";
   itemSelect.replaceChildren(
-    ...target.items.map((it) =>
-      el(
-        "option",
-        { value: it.id },
-        `${ITEM_IMAGES[it.id] ? "✓" : "—"} ${it.name} (${it.id})`,
-      ),
-    ),
+    ...target.items.map((it) => {
+      const shots = isCards ? photoCountFor(it.id) : ITEM_IMAGES[it.id] ? 1 : 0;
+      const mark = shots === 0 ? "—" : shots > 1 ? `✓${shots}` : "✓";
+      return el("option", { value: it.id }, `${mark} ${it.name} (${it.id})`);
+    }),
   );
 }
 
@@ -701,14 +727,82 @@ function fillSaved(): void {
     );
     return;
   }
-  const done = target.items.filter((it) => ITEM_IMAGES[it.id]);
-  savedTitle.textContent = `${target.label} 이미지 (${done.length}/${target.items.length})`;
+  // 포토카드는 한 굿즈에 여러 장이 붙으므로 '몇 종에 사진이 있나'와 '총 몇 장인가'를 같이 센다.
+  const isCards = target.key === "gacha";
+  const hasImg = (id: string): boolean => (isCards ? photoCountFor(id) > 0 : !!ITEM_IMAGES[id]);
+  const done = target.items.filter((it) => hasImg(it.id));
+  const totalShots = isCards
+    ? target.items.reduce((n, it) => n + photoCountFor(it.id), 0)
+    : done.length;
+  savedTitle.textContent = isCards
+    ? `${target.label} 사진 (${done.length}/${target.items.length}종 · 총 ${totalShots}장)`
+    : `${target.label} 이미지 (${done.length}/${target.items.length})`;
+  /** 지금 고른 굿즈의 사진을 4등급 프레임에 각각 끼운 비교 줄(사진이 없으면 빈 카드로 보인다). */
+  function framePreview(): HTMLElement {
+    const it = target.items.find((x) => x.id === itemSelect.value) ?? target.items[0];
+    const shots = it ? photoCountFor(it.id) : 0;
+    // 카드가 아닌 실물(배지·아크릴 등)은 프레임을 안 씌우므로 등급 비교줄이 거짓말이 된다.
+    const framed = it ? isFramedCard(it.id) : true;
+    return el(
+      "div",
+      {},
+      el(
+        "p",
+        { class: "frames__note" },
+        !framed
+          ? `「${it!.name}」는 카드가 아니라 실물 굿즈라 **프레임이 붙지 않습니다** — 사진만 그대로 나옵니다.` +
+              (shots ? ` (${shots}장 등록됨)` : "")
+          : shots
+            ? `「${it!.name}」에 ${shots}장 등록됨 — 아래는 등급별 프레임에 끼워 본 모습입니다. ` +
+                `같은 굿즈로 또 저장하면 덮어쓰지 않고 한 장 더 쌓입니다(뽑을 때마다 다음 컷).`
+            : `아직 사진이 없는 굿즈입니다 — 프레임만 보입니다. 저장하면 여기에 바로 끼워집니다.`,
+      ),
+      framed
+        ? el(
+            "div",
+            { class: "frames" },
+            ...FRAME_GRADES.map(([rarity, label]) =>
+              renderPhotoCard(it?.id ?? "", label, { rarity, label }),
+            ),
+          )
+        : el(
+            "div",
+            { class: "frames" },
+            renderPhotoCard(it?.id ?? "", it?.name ?? "", {}),
+          ),
+      // 등록된 컷이 2장 이상이면 그 컷들을 순서대로 늘어놓는다(몇 번째가 무슨 그림인지 확인용).
+      shots > 1
+        ? el(
+            "div",
+            { class: "frames", style: "--pcard-w:96px;margin-top:4px" },
+            ...Array.from({ length: shots }, (_, i) =>
+              renderPhotoCard(it!.id, `${i + 1}번째`, { copy: i }),
+            ),
+          )
+        : null,
+    );
+  }
   savedBox.replaceChildren(
+    // 포토카드 모드에서만: 지금 고른 굿즈의 사진을 **4등급 프레임에 각각 끼워** 보여준다.
+    // 등급은 굿즈마다 고정이라(GACHA_RARITY_OF) 이 줄이 없으면 프레임 4종을 나란히 볼 방법이 없다.
+    ...(target.key === "gacha" ? [framePreview()] : []),
     el(
       "div",
       { class: "saved" },
       ...target.items.map((it) => {
         const url = ITEM_IMAGES[it.id];
+        // 포토카드는 잘린 사진이 아니라 **게임에서 보일 그대로**(등급 프레임 포함) 보여준다 —
+        // 프레임에 가려 얼굴이 잘리는지는 여기서만 알 수 있다.
+        if (isCards) {
+          const shots = photoCountFor(it.id);
+          return el(
+            "div",
+            { class: "saved__item saved__item--card" + (shots ? "" : " saved__item--empty") },
+            renderPhotoCard(it.id, shots > 1 ? `${it.name} ×${shots}` : it.name, {
+              label: GACHA_RARITY_OF[it.id]?.toUpperCase(),
+            }),
+          );
+        }
         return el(
           "div",
           { class: "saved__item" + (url ? "" : " saved__item--empty") },
@@ -1060,6 +1154,7 @@ if (root) {
       const s = JSON.parse(sel) as {
         mode: Mode;
         screen: string;
+        item?: string;
         cat: string;
         tweetCat: string;
         yabam?: string;
@@ -1072,7 +1167,14 @@ if (root) {
       if (s.screen) {
         screenSelect.value = s.screen;
         target = TARGETS.find((t) => t.key === s.screen) ?? target;
+        // ⚠️ target을 바꿨으면 **반드시 fillItems()를 다시 부른다.** 위(1127행)의 fillItems()는
+        //    기본 화면(쇼핑) 기준으로 이미 채워졌기 때문에, 안 부르면 화면은 '포토카드/굿즈'인데
+        //    아이템 목록엔 '명품 원피스'가 남는다(실제로 그 버그가 있었다).
+        fillItems();
       }
+      // 목록을 채운 뒤여야 .value가 먹는다 — 연속 저장 시 같은 굿즈에 머물게 하는 값이다
+      // (한 카드에 여러 컷을 쌓는 작업에서 매번 첫 항목으로 튕기면 못 쓴다).
+      if (s.item) itemSelect.value = s.item;
       if (s.cat) catSelect.value = s.cat;
       if (s.tweetCat) tweetCatSelect.value = s.tweetCat;
       if (s.yabam) yabamSelect.value = s.yabam;

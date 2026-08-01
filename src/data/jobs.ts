@@ -44,6 +44,30 @@ export const TIERS: Record<CompanyTier, TierDef> = {
 export const TIER_ORDER: CompanyTier[] = ["micro", "small", "medium", "large"];
 
 /**
+ * 회사원 직급 사다리 — **성과 레벨(`Employment.perfLevel`)이 곧 직급**이다.
+ * 인덱스 = 성과 레벨. 레벨이 표를 넘으면 마지막 직급(임원)에 머문다.
+ *
+ * ⚠️ 승진에 별도 조건을 두지 않는 게 의도다. 성과 레벨업(성과 100 도달)이 이미
+ *    "월급 인상"이라는 보상을 갖고 있는데, 거기에 직급 조건을 따로 걸면 두 축이 어긋난다.
+ *    직급은 그 레벨업을 **눈에 보이게** 만드는 표시일 뿐이다.
+ * ⚠️ 표를 늘리면 그만큼 승진이 늦어진다(레벨당 성과 100). 지금은 6단계까지만 둔다 —
+ *    그 위는 실제 플레이 길이를 넘어서 아무도 못 본다.
+ */
+export const JOB_RANKS = ["사원", "주임", "대리", "과장", "차장", "부장", "이사"] as const;
+
+/** 성과 레벨에 해당하는 직급. 표를 넘어서면 마지막 직급으로 고정된다. */
+export function jobRankOf(perfLevel: number): string {
+  const i = Math.min(Math.max(perfLevel, 0), JOB_RANKS.length - 1);
+  return JOB_RANKS[i];
+}
+
+/** 다음 승진 직급(이미 최고 직급이면 null) — UI가 "다음 승진: 대리"를 그릴 때 쓴다. */
+export function nextRankIn(perfLevel: number): string | null {
+  const i = Math.max(perfLevel, 0) + 1;
+  return i < JOB_RANKS.length ? JOB_RANKS[i] : null;
+}
+
+/**
  * 직군(트랙) 표시 라벨. UI가 공고 태그를 그릴 때 쓴다.
  * ⚠️ `JobTrack`(core/types)에 값을 추가하면 여기와 systems/employment의 `TRACK_WEIGHTS`를
  *    **반드시 함께** 채워라. 둘 다 `Record<JobTrack, ...>`이라 typecheck가 누락을 잡는다.

@@ -8,7 +8,7 @@ import {
 } from "@/data/grocery";
 import { postTweet } from "@/systems/tweetSystem";
 import { recordCooking, cookedCount, DISH_TOTAL, type CookingRecord } from "@/systems/cooking";
-import { renderCookingDexModal } from "./cookingDexModal";
+import { renderDexModal } from "./dexModal";
 import type { LemonZResult } from "@/systems/eggs";
 import { tryLemonZ } from "@/systems/eggs";
 import { pick } from "@/utils/random";
@@ -382,7 +382,7 @@ export function renderGrocery(ctx: GameContext): HTMLElement {
           "button",
           {
             class: "grocery__dex-btn",
-            onclick: () => ctx.openModal(renderCookingDexModal),
+            onclick: () => ctx.openModal((c) => renderDexModal(c, "cooking")),
           },
           `🍳 요리 도감 ${cookedCount(s)}/${DISH_TOTAL}`,
         ),

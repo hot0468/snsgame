@@ -11,7 +11,12 @@ import {
   ticketingTimeLimitMs,
   type ComicconMode,
 } from "@/systems/appointments";
-import { meetSuccessChance, resolveMeet } from "@/systems/relationship";
+import {
+  REL_STAGE_THRESHOLDS,
+  meetSuccessChance,
+  relStateOf,
+  resolveMeet,
+} from "@/systems/relationship";
 import { canOfferPrivateCrew, joinPrivateCrew } from "@/systems/crew";
 import { PRIVATE_CREW_INVITE } from "@/data/crewSecret";
 import { renderCrewSecretModal } from "./sns/crewSecretModal";
@@ -223,11 +228,68 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
     );
   }
 
-  /** 관계 만남 확정 — resolveMeet 판정 후 약속을 제거하고 결과 문구를 보여준다. */
+  /**
+   * 만남 직후 호감도 게이지 — 이번 만남으로 오른 몫(gain)만 진한 색으로 덧붙여 차오른다.
+   * 눈금은 **다음 관계 이야기가 열리는 임계**(REL_STAGE_THRESHOLDS[stage])라 "얼마나 남았나"가 바로 읽힌다.
+   */
+  function affinityGauge(charId: string, name: string, gain: number): HTMLElement {
+    const rel = relStateOf(ctx.store.getState(), charId);
+    const goal = REL_STAGE_THRESHOLDS[rel.stage] ?? 90; // 완주(stage 3)면 마지막 임계를 그대로 눈금으로
+    const pct = (v: number): number => Math.min(v / goal, 1) * 100;
+    const beforePct = pct(rel.affinity - gain);
+    // 오른 몫은 0에서 시작해 차오르게 한다(모달 노드는 캐시되므로 재렌더에 애니메이션이 끊기지 않는다).
+    const grown = el("div", {
+      class: "bar__fill",
+      style: "width:0;height:100%;transition:width .7s ease-out",
+    });
+    requestAnimationFrame(() => {
+      grown.style.width = `${pct(rel.affinity) - beforePct}%`;
+    });
+    const left = goal - rel.affinity;
+    return el(
+      "div",
+      { style: "margin:0 0 18px" },
+      el(
+        "div",
+        {
+          style:
+            "display:flex;justify-content:space-between;font-size:12.5px;color:var(--text-muted);margin-bottom:6px",
+        },
+        el("span", {}, `${name} 호감도`),
+        el(
+          "span",
+          { style: "font-variant-numeric:tabular-nums" },
+          `${rel.affinity - gain} → ${rel.affinity} (+${gain})`,
+        ),
+      ),
+      el(
+        "div",
+        { class: "bar" },
+        el(
+          "div",
+          { style: "display:flex;height:100%" },
+          el("div", { class: "bar__fill--skill", style: `width:${beforePct}%;height:100%` }),
+          grown,
+        ),
+      ),
+      el(
+        "div",
+        { class: "compose-hint", style: "margin-top:6px" },
+        rel.stage >= 3
+          ? "관계 완주 — 더 볼 이야기가 없다"
+          : left > 0
+            ? `다음 이야기까지 ${left}`
+            : "새 이야기가 열렸다!",
+      ),
+    );
+  }
+
+  /** 관계 만남 확정 — resolveMeet 판정 후 약속을 제거하고 결과 문구·호감도 게이지를 보여준다. */
   function resolveRelMeet(appt: Appointment, skip = false): void {
     const name = appt.partnerName ?? "친구";
     let msg = "";
     let met = false;
+    let gain = 0;
     ctx.update((s) => {
       s.appointments = s.appointments.filter((a) => a.id !== appt.id);
       if (skip) {
@@ -236,12 +298,14 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
       }
       const r = resolveMeet(s, appt.charId!, appt.confirmed ?? false);
       met = r.success;
+      gain = r.gain;
       msg = r.success
-        ? `${name}을(를) 만나 즐거운 시간을 보냈다. 부쩍 가까워진 기분이다. (호감도 +${r.gain})`
-        : `한참을 기다렸지만 ${name}은(는) 끝내 나오지 않았다... 바람맞았다. (호감도 +${r.gain})`;
+        ? `${name}을(를) 만나 즐거운 시간을 보냈다. 부쩍 가까워진 기분이다.`
+        : `한참을 기다렸지만 ${name}은(는) 끝내 나오지 않았다... 바람맞았다.`;
       if (r.pending !== null) msg += "\n\n카톡에 새 이벤트가 도착했다!";
     });
-    showResult(msg, met ? appt : undefined); // 성사(실제로 만남)했을 때만 후기 트윗
+    // 수치는 게이지가 말한다(문구의 "(호감도 +N)"은 뺐다). 안 나간 날은 오른 게 없으니 게이지도 없다.
+    showResult(msg, met ? appt : undefined, skip ? undefined : affinityGauge(appt.charId!, name, gain));
   }
 
   /** 티켓팅 도입: 좌석 미니게임을 시작할지, 포기할지 */
@@ -577,7 +641,7 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
   }
 
   /** 결과 화면. attendedAppt가 있으면(실제로 다녀온 약속) 후기 트윗 버튼을 함께 띄운다. */
-  function showResult(result: string, attendedAppt?: Appointment): void {
+  function showResult(result: string, attendedAppt?: Appointment, extra?: HTMLElement): void {
     const actions = attendedAppt
       ? [
           el("button", { class: "btn btn--ghost", onclick: () => ctx.closeModal() }, "안 올린다"),
@@ -591,6 +655,7 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
         "div",
         { class: "modal__body" },
         el("p", { style: "font-size:15px;line-height:1.6;margin:0 0 18px" }, result),
+        extra,
         el("div", { class: "compose-actions", style: "gap:10px" }, ...actions),
       ),
     );

@@ -1,7 +1,8 @@
 import type { Email, GameState, JobTrack, SkillStatId } from "@/core/types";
 import type { JobPosting } from "@/data/jobs";
 import { MORNING_SLOT } from "@/core/state";
-import { TIERS } from "@/data/jobs";
+import { TIERS, jobRankOf } from "@/data/jobs";
+import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { NIGL_COMPANY, NIGL_REQ_IT, NIGL_REQ_KNOWLEDGE } from "@/data/niglnigl";
 import { chance, uid } from "@/utils/random";
 import { isLastDayOfMonth, isWeekday } from "./calendar";
@@ -207,17 +208,27 @@ export function deliverJobResultEmail(state: GameState): void {
   addSchedule(state, app.hired ? "채용 합격 메일 도착" : "채용 결과 메일 도착", "system");
 }
 
-/* ─────────────────── 직업 배타(회사·AV 택1) ─────────────────── */
+/* ─────────────────── 직업 배타(회사·AV·강사 택1) ─────────────────── */
 
-/** 회사·AV 중 어느 직업이든 하나라도 재직 중인지. */
+/**
+ * 회사·AV·강사 중 어느 직업이든 하나라도 재직 중인지.
+ * ⚠️ 새 직업을 추가하면 **여기와 `quitCurrentJob`·`currentJobLabel` 셋을 같이** 고쳐야 한다.
+ *    하나만 빠뜨리면 겸직이 뚫리거나(신청 통과) 전환 시 옛 직업이 남는다.
+ */
 export function hasAnyJob(state: GameState): boolean {
-  return !!state.employment || !!state.avJob;
+  return !!state.employment || !!state.avJob || !!state.lecturerJob;
 }
 
-/** 현재 직업의 표시 라벨(회사명 또는 "AV배우"). 직업 없으면 빈 문자열. */
+/** 재직 중인 회사원의 직급(무직·타 직업이면 빈 문자열). */
+export function currentRank(state: GameState): string {
+  return state.employment ? jobRankOf(state.employment.perfLevel) : "";
+}
+
+/** 현재 직업의 표시 라벨(회사명·"AV배우"·"이비에듀 강사"). 직업 없으면 빈 문자열. */
 export function currentJobLabel(state: GameState): string {
   if (state.employment) return state.employment.company;
   if (state.avJob) return "AV배우";
+  if (state.lecturerJob) return "이비에듀 강사";
   return "";
 }
 
@@ -237,6 +248,12 @@ export function quitCurrentJob(state: GameState): void {
   if (state.avJob) {
     addSchedule(state, "AV배우 계약 해지", "system");
     state.avJob = null;
+  }
+  // ⚠️ systems/lecturer.quitLecturer를 부르지 않는다 — 그쪽이 이 파일을 import하고 있어 순환이 된다.
+  //    해지 동작이 상태 한 줄이라 여기서 직접 끊는다(문구도 그쪽과 같게 유지할 것).
+  if (state.lecturerJob) {
+    addSchedule(state, "이비에듀 강사 사직", "system");
+    state.lecturerJob = null;
   }
 }
 
@@ -286,6 +303,7 @@ export function acceptJobOffer(state: GameState, emailId: string): void {
   };
   email.jobOffer = undefined;
   email.read = true;
+  markJobExperienced(state, JOB_ID.office); // 직업 도감 해금(퇴사해도 남는다)
   addSchedule(state, `${company} 입사!`, "system");
 }
 
@@ -322,6 +340,7 @@ export function hireNigl(state: GameState): void {
     lastSalaryMonth: -1,
   };
   state.niglShifts = 0;
+  markJobExperienced(state, JOB_ID.office);
   addSchedule(state, "니글니글 합격 — 다음달 1일 출근", "system");
 }
 
@@ -440,7 +459,16 @@ export function doWork(state: GameState, mode: "work" | "slack"): WorkResult {
   }
 
   if (leveledUp) {
-    addSchedule(state, `성과 레벨 ${emp.perfLevel} 달성! (월급 인상)`, "system");
+    // 성과 레벨 = 직급이라, 레벨업은 곧 승진이다(직급표 상한에 닿으면 승진 문구는 안 뜬다).
+    const rank = jobRankOf(emp.perfLevel);
+    const promoted = rank !== jobRankOf(emp.perfLevel - 1);
+    addSchedule(
+      state,
+      promoted
+        ? `${rank}(으)로 승진! 성과 레벨 ${emp.perfLevel} (월급 인상)`
+        : `성과 레벨 ${emp.perfLevel} 달성! (월급 인상)`,
+      "system",
+    );
   }
   // 니글니글은 처음부터 정규직 — 이번 '달' 출근 일수를 센다(월급날 20일 미달이면 반감 후 리셋).
   if (emp.company === NIGL_COMPANY) state.niglShifts += 1;

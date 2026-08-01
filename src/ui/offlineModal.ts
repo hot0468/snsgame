@@ -419,10 +419,13 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
     const showAuthorWork = underContract && !isAuthorPrepMonth(state);
 
     const adultMode = state.adultMode;
+    // 강사 수업은 채용 중일 때만. 작가 작업과 달리 준비 기간이 없어 채용 즉시 노출된다.
+    const isLecturer = state.lecturerJob != null;
     const items = OFFLINE_ACTIVITIES.filter(
       (act) =>
         act.group === lifeTab &&
         (!act.authorWork || showAuthorWork) &&
+        (!act.lecturerWork || isLecturer) &&
         (!act.adultOnly || adultMode), // 해피타임 등 성인 활동은 성인물 보기 ON일 때만
     ).map((act) => activityItem(act));
 
@@ -1306,7 +1309,9 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
       if (cr) {
         const id = cr.id;
         bodyChildren.push(
-          el("p", { class: "life-result__unlock" }, `${cr.emoji} ${cr.encounterText}`),
+          // 도감(creaturesModal)이 쓰는 것과 같은 그림 = 크리처 이모지. 조우 화면에선 초상처럼 크게 띄운다.
+          el("div", { class: "creature-portrait" }, cr.emoji),
+          el("p", { class: "life-result__unlock" }, cr.encounterText),
           el(
             "p",
             { class: "compose-hint", style: "margin-top:14px" },

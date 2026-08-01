@@ -1,6 +1,6 @@
 import type { GameContext } from "./context";
 import { doWork, WORK_ACTION_COST } from "@/systems/employment";
-import { TIERS, DEV_JOB_COMPANY } from "@/data/jobs";
+import { TIERS, DEV_JOB_COMPANY, jobRankOf } from "@/data/jobs";
 import { NIGL_COMPANY, NIGL_SHIFT_GOAL } from "@/data/niglnigl";
 import { MORNING_SLOT } from "@/core/state";
 import { getAdultOfflineEncounter, type AdultOfflineEncounterId } from "@/data/adultOffline";
@@ -46,8 +46,8 @@ export function renderWorkModal(ctx: GameContext): HTMLElement {
           "p",
           { style: "font-size:15px;line-height:1.6;margin:0 0 6px" },
           isNigl
-            ? `「${emp.company}」 자유 출근. 오늘 나온 김에 어떻게 보낼까?`
-            : `「${emp.company}」 (${tier.label})${overtime ? " 야근이다. 오늘 정시 퇴근은 글렀다." : " 근무 시간이다."} 어떻게 보낼까?`,
+            ? `「${emp.company}」 ${jobRankOf(emp.perfLevel)} · 자유 출근. 오늘 나온 김에 어떻게 보낼까?`
+            : `「${emp.company}」 ${jobRankOf(emp.perfLevel)} (${tier.label})${overtime ? " 야근이다. 오늘 정시 퇴근은 글렀다." : " 근무 시간이다."} 어떻게 보낼까?`,
         ),
         emp.company === DEV_JOB_COMPANY
           ? el(

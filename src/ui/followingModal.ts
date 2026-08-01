@@ -1,6 +1,7 @@
 import type { GameContext } from "./context";
 import { getActiveAccount } from "@/core/state";
 import { ATTRIBUTES } from "@/data/attributes";
+import { hasNextChapter, storyTriggerFor } from "@/systems/dmStory";
 import { el, formatNumber } from "@/utils/dom";
 import { avatar } from "./icons";
 
@@ -8,8 +9,17 @@ import { avatar } from "./icons";
  * '팔로우 목록' 모달 — 현재 활성 계정이 팔로우한 계정들을 보여준다.
  * 목록은 활성 계정의 followingAccounts라, 계정을 바꾸면 자동으로 그 계정의 목록이 뜬다(계정별 분리).
  */
+/** 트리거 동사별 배지 문구 — 이 계정에서 지금 뭘 하면 새 회차가 열리는지. */
+const NEXT_CHAPTER_LABEL: Record<string, string> = {
+  like: "좋아요 하면 새 DM",
+  retweet: "리트윗하면 새 DM",
+  follow: "새 DM 있음",
+  engage: "반응 쌓으면 새 DM",
+};
+
 export function renderFollowingModal(ctx: GameContext): HTMLElement {
-  const me = getActiveAccount(ctx.store.getState());
+  const state = ctx.store.getState();
+  const me = getActiveAccount(state);
   const list = me.followingAccounts;
 
   return el(
@@ -51,6 +61,15 @@ export function renderFollowingModal(ctx: GameContext): HTMLElement {
                   { class: "following-row__meta" },
                   el("div", { class: "following-row__name" }, a.name),
                   el("div", { class: "following-row__handle" }, `@${a.handle}`),
+                  // 스토리 계정인데 다음 회차가 열려 있으면 알려준다. 안 그러면 2·3회차는
+                  // 앞 회차를 끝냈다는 사실 자체를 플레이어가 잊어서 영영 안 열린다.
+                  hasNextChapter(state, a.handle)
+                    ? el(
+                        "div",
+                        { class: "following-row__dm" },
+                        NEXT_CHAPTER_LABEL[storyTriggerFor(a.handle) ?? "follow"],
+                      )
+                    : null,
                 ),
                 el(
                   "div",

@@ -8,6 +8,7 @@ import { clampAction, clampResource, gainSkill, gainStamina, STAMINA_MAX_CAP } f
 import { REST_STAMINA, WORKOUT_STAMINA, WORKOUT_STAMINA_MAX_GAIN, AUTHOR_WORK_STAMINA } from "./health";
 import { addSchedule, advanceTime } from "./time";
 import { doAuthorWork } from "./author";
+import { doLecture } from "./lecturer";
 import { estheticBeautyMult, maybeSpawnEstheticAd } from "./esthetic";
 import { unlockAttribute } from "./attributeUnlock";
 import { recordMission } from "./missions";
@@ -58,6 +59,8 @@ export interface OfflineActivity {
   petWalk?: boolean;
   /** 작가 계약 원고 작업 — 작업량 게이지를 채운다(계약 중일 때만 노출) */
   authorWork?: boolean;
+  /** 이비에듀 강사 수업 — 이번 달 수업 횟수를 채운다(강사 채용 중일 때만 노출) */
+  lecturerWork?: boolean;
   /** 휴가 — 10만원 소비, 20개 이벤트 중 하나가 랜덤 발생해 특정 스킬이 오른다(행동력·정신력은 기본 회복) */
   vacation?: boolean;
   /** 결과 팝업에 뜨는 분위기 문구(랜덤 선택) */
@@ -902,10 +905,44 @@ export const OFFLINE_ACTIVITIES: OfflineActivity[] = [
     tweetAttr: "daily",
     tweetLines: ["오늘도 마감과 사투 중... 그래도 조금씩 나아간다", "작업 진척 있음 이 맛에 창작하지"],
   },
+  {
+    // ⚠️ 강사 수업. 시간대·요일 제약이 없다 — 한 달 안에 필수 회차만 채우면 되는 게 이 직업의 규칙이다.
+    //    행동력 소모는 systems/lecturer.LECTURE_ACTION_COST와 같은 값이어야 한다.
+    id: "lecture_class",
+    label: "수업하기",
+    emoji: "",
+    group: "work",
+    description:
+      "이비에듀 강의를 한 편 찍는다. 이번 달 수업 회차가 한 칸 채워진다. (지식·어휘력·개그가 높을수록 강사료가 오름)",
+    action: -12,
+    mental: -6,
+    lecturerWork: true,
+    results: [
+      "카메라 앞에 서서 한 편을 끝까지 찍었다.",
+      "판서를 빼곡히 채우며 한 강을 마쳤다.",
+      "질문 게시판에 달린 것까지 답해주고 수업을 닫았다.",
+    ],
+    failResults: [
+      "말이 계속 꼬여서 같은 구간을 세 번이나 다시 찍었다.",
+      "머릿속이 하얘져서 준비한 예시를 절반도 못 썼다.",
+    ],
+    greatResults: [
+      "설명이 술술 풀려서 예정보다 진도를 훨씬 많이 나갔다.",
+      "농담 하나가 제대로 먹혀서 수강생 반응이 터졌다.",
+    ],
+    tweetAttr: "daily",
+    tweetLines: [
+      "오늘 강의 한 편 찍고 옴 목이 다 쉬었다",
+      "수업하다 보면 내가 더 배움 이거 진짜임",
+    ],
+  },
 ];
 
 /** 작가 원고 작업 활동(계약 중일 때만 노출) — 심야 선택창 등에서 재사용 */
 export const AUTHOR_WORK_ACTIVITY = OFFLINE_ACTIVITIES.find((a) => a.authorWork)!;
+
+/** 이비에듀 수업 활동(강사 채용 중일 때만 노출) */
+export const LECTURE_ACTIVITY = OFFLINE_ACTIVITIES.find((a) => a.lecturerWork)!;
 
 /** "하루 그냥 보내기"의 회복 기준이 되는 휴식 활동(action+25/mental+30) */
 export const REST_ACTIVITY = OFFLINE_ACTIVITIES.find((a) => a.id === "rest")!;
@@ -1229,6 +1266,15 @@ export function doOfflineActivity(
     if (r) {
       message = `${message} 작업량 +${r.gain} (${r.workload}/${r.target})` +
         (r.done ? " — 이번 달 목표 달성!" : "");
+    }
+  }
+  if (activity.lecturerWork) {
+    const r = doLecture(state);
+    if (r) {
+      message =
+        `${message} 수업 ${r.lessons}/${r.quota}회 · 강사료 +${r.pay.toLocaleString("ko-KR")}원` +
+        (r.metQuota ? " — 이번 달 필수 회차 달성!" : "") +
+        (r.leveledUp ? ` 강사 레벨 업! (필수 회차 ${r.quota}회로 감소)` : "");
     }
   }
 

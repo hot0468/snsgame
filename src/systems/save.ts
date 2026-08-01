@@ -227,6 +227,8 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   state.lingerieContract ??= false;
   state.lingerieOffered ??= false;
   state.animeTweetsPosted ??= 0;
+  // 갈래 숙련은 신규 기능 — 구세이브엔 키가 없다(전 갈래 0에서 시작이 정답).
+  state.tweetMastery ??= {};
   state.lastCosplayDay ??= 0;
   state.employment ??= null;
   // AV배우 직업은 신규 기능 — 구세이브엔 키가 없다(미계약·미제의가 정답).
@@ -251,9 +253,26 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   // 구세이브(condomlessCount 또는 필드 부재)는 이번 달 0에서 다시 시작한다.
   if (state.avJob) state.avJob.condomlessThisMonth ??= 0;
   if (state.avJob) state.avJob.stdUntilDay ??= -1; // 성병 상태 신규 필드(구세이브는 건강)
+  // 누적 근무일은 직업 레벨이 생기며 추가됐다. 구세이브엔 과거 근무 이력이 없으므로
+  // 이번 달 근무일로 시작한다(0으로 두면 오래 뛴 플레이어의 레벨이 통째로 날아간다).
+  if (state.avJob) state.avJob.totalWorkDays ??= state.avJob.workDaysThisMonth ?? 0;
   state.avOffered ??= false;
+  // 강사직은 신규 기능 — 구세이브엔 키가 없다(미채용이 정답).
+  state.lecturerJob ??= null;
   state.niglShifts ??= 0;
   state.pendingJobApp ??= null;
+  // 강사 지원 대기는 신규 기능 — 구세이브엔 키가 없다(대기 없음이 정답).
+  state.pendingLecturerApp ??= null;
+  // 직업 도감(해본 직업)은 신규 필드. 구세이브는 '지금 상태'에서 역산해 채운다 —
+  // 빈 배열로 두면 이미 회사를 다니는 플레이어의 도감이 통째로 잠긴 채 시작한다.
+  if (!Array.isArray(state.jobsExperienced)) {
+    state.jobsExperienced = [];
+    if (state.employment || (state.pastEmployers?.length ?? 0) > 0) state.jobsExperienced.push("office");
+    if (state.lecturerJob) state.jobsExperienced.push("lecturer");
+    if (state.avJob) state.jobsExperienced.push("av");
+    if (state.authorContract) state.jobsExperienced.push("author");
+    if (state.killerJob) state.jobsExperienced.push("killer");
+  }
   // ★직군(JobPosting.track) 폴백은 **일부러 두지 않았다** — 죽은 코드가 되기 때문이다.
   //   JobPosting은 세이브에 들어가지 않는다: 공고는 채용공고 모달을 열 때 makeJobPostings로
   //   그때그때 생성돼 메모리에만 살고, 세이브로 넘어가는 건 company/tier/role뿐인
@@ -349,6 +368,9 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   state.authorContract ??= null;
   if (state.authorContract) {
     state.authorContract.adult ??= false; // 구세이브: 성인 계약 필드 보강
+    // 원고료가 '개월수 고정'에서 '이번 달 작업 횟수 비례'로 바뀌며 추가된 필드.
+    // 구세이브는 이번 달 실적을 알 수 없으니 0에서 시작한다(다음 정산부터 정상 반영).
+    state.authorContract.worksThisMonth ??= 0;
     // 필명은 신규 필드다. 없으면 검색 대상이 사라져 기능 자체가 죽으므로 계정명으로 채운다.
     if (!state.authorContract.penName) {
       // ⚠️ accounts는 배열이라 activeAccountId(문자열)로 인덱싱하면 안 된다 — 셀렉터를 쓴다.

@@ -43,6 +43,9 @@ const DIRS: Record<string, string> = {
   creation: "src/assets/creation",
   // events=이벤트 창 이미지(파일명=이벤트 id 1:1, 선명). data/eventImages.ts 글롭이 붙인다.
   events: "src/assets/events",
+  // photocards=포토카드 사진. **items와 일부러 갈라 둔 폴더다** — 한 굿즈에 여러 컷을 두고
+  // 보유 순번으로 돌려 쓰는 설계라 덮어쓰기가 아니라 '한 장 더 추가'여야 하기 때문이다.
+  photocards: "src/assets/photocards",
 };
 
 /**
@@ -52,7 +55,7 @@ const DIRS: Record<string, string> = {
  * tweetcat은 한 속성에 여러 장을 두고 트윗 id 해시로 택1하는 설계다(youtube와 같다) —
  * 빼면 아이돌 이미지를 두 장 넣을 수 없다.
  */
-const DEDUP_DIRS = new Set(["media", "youtube", "adult", "tweetcat", "creation"]);
+const DEDUP_DIRS = new Set(["media", "youtube", "adult", "tweetcat", "creation", "photocards"]);
 
 async function exists(path: string): Promise<boolean> {
   try {

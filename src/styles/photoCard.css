@@ -1,0 +1,213 @@
+/**
+ * 포토카드 프레임 — ui/photoCard.ts 전용 스타일. **main.css에서 분리된 이유가 있다:**
+ * 어드민 이미지 편집기(admin-media.html)는 게임 CSS(main.css)를 일부러 안 불러오는데,
+ * 거기서도 카드 미리보기를 봐야 해서다. photoCard.ts가 이 파일을 직접 import하므로
+ * 카드를 쓰는 화면은 게임이든 어드민이든 자동으로 스타일을 얻는다.
+ * ⚠️ 여기에 카드와 무관한 규칙을 넣지 마라 — 어드민 페이지까지 같이 물든다.
+ */
+
+/* ===================== 포토카드 프레임(등급별) =====================
+   사진은 사용자가 넣는다(src/assets/items/{아이템id}.webp) — 여기는 그 사진을 감싸는 테두리만.
+   화려함 계단: common 무광 → rare 색 테두리+광택 → sr 그라데이션+글로우 → ssr 홀로그램+반짝임.
+   ⚠️ 등급 클래스명은 systems/gacha.ts의 GachaRarity와 같아야 한다(꽝(empty)은 카드가 아니다). */
+.pcard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+/* 카드 폭은 --pcard-w로 바깥에서 갈아끼운다(어드민 목록처럼 좁은 칸에 넣을 때 씀).
+   높이는 5:7에서 유도한다 — 두 수를 따로 적으면 프레임과 사진 비율이 어긋난다. */
+.pcard__frame {
+  position: relative;
+  width: var(--pcard-w, 200px);
+  aspect-ratio: 5 / 7;
+  padding: 7px;
+  border-radius: 14px;
+  overflow: hidden;
+  flex: none;
+}
+.pcard__photo {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  background: #fff center/cover no-repeat;
+}
+/* 사진을 아직 안 넣은 카드 — 프레임만 보여준다(빈 칸이 아니라 '자리'로 읽히게) */
+.pcard__photo--none {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: repeating-linear-gradient(45deg, #f3f4f6 0 8px, #e9ebef 8px 16px);
+}
+.pcard__ph {
+  font-size: 34px;
+  opacity: 0.5;
+}
+.pcard__grade {
+  position: absolute;
+  z-index: 3;
+  top: 12px;
+  left: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+}
+.pcard__name {
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+}
+
+/* 광택 스윕 — 프레임 위를 지나가는 흰 띠. common은 무광이라 끈다. */
+.pcard__shine {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+.pcard__shine::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 40%;
+  height: 200%;
+  transform: rotate(18deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  animation: pcardShine 3.4s ease-in-out infinite;
+}
+@keyframes pcardShine {
+  0% { left: -60%; }
+  55%, 100% { left: 130%; }
+}
+.pcard--common .pcard__shine { display: none; }
+
+.pcard--common .pcard__frame { background: linear-gradient(150deg, #d7dae0, #b9bec7); }
+.pcard--rare .pcard__frame {
+  background: linear-gradient(150deg, #7dd3fc, #2563eb);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
+}
+.pcard--sr .pcard__frame {
+  background: linear-gradient(140deg, #f0abfc, #a855f7 45%, #4f46e5);
+  box-shadow: 0 0 22px rgba(147, 51, 234, 0.5);
+}
+.pcard--sr .pcard__shine::after { animation-duration: 2.4s; }
+
+/* SSR — 테두리 자체가 도는 홀로그램. 회전판을 프레임보다 크게 깔고 사진으로 가운데를 덮는다. */
+.pcard--ssr .pcard__frame {
+  padding: 9px;
+  box-shadow: 0 0 26px rgba(245, 158, 11, 0.55);
+  animation: ssrGlow 1.2s ease-in-out infinite alternate;
+}
+.pcard--ssr .pcard__frame::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: -45%;
+  background: conic-gradient(from 0deg, #f472b6, #fbbf24, #34d399, #38bdf8, #a78bfa, #f472b6);
+  animation: pcardSpin 3.5s linear infinite;
+}
+@keyframes pcardSpin {
+  to { transform: rotate(1turn); }
+}
+.pcard--ssr .pcard__shine::after { animation-duration: 1.8s; }
+/* 반짝이 — 홀로그램 위에 뜨는 점들. 스윕과 주기를 어긋나게 둬서 규칙적으로 안 보이게 한다. */
+.pcard--ssr .pcard__shine::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle 2px at 22% 18%, #fff 0 100%, transparent),
+    radial-gradient(circle 3px at 78% 32%, #fff 0 100%, transparent),
+    radial-gradient(circle 2px at 38% 74%, #fff 0 100%, transparent),
+    radial-gradient(circle 2px at 66% 86%, #fff 0 100%, transparent);
+  animation: pcardTwinkle 2.1s ease-in-out infinite alternate;
+}
+@keyframes pcardTwinkle {
+  from { opacity: 0.15; }
+  to { opacity: 0.9; }
+}
+
+/* 서랍장 썸네일 크기. 목록에 수십 장이 깔리므로 **애니메이션은 전부 끈다**(스크롤이 끊긴다). */
+.pcard--sm .pcard__frame {
+  --pcard-w: 46px;
+  padding: 3px;
+  border-radius: 7px;
+}
+.pcard--sm .pcard__photo { border-radius: 4px; }
+.pcard--sm .pcard__ph { font-size: 16px; }
+.pcard--sm .pcard__shine { display: none; }
+.pcard--sm .pcard__frame,
+.pcard--sm .pcard__frame::before { animation: none; }
+
+/* ── 카드가 아닌 실물(배지·아크릴·폴라로이드·굿즈세트·엽서·포스터) ──
+   등급 액자를 두르면 그게 뭔지 알아볼 수 없어 **사진만** 보여준다(data/gacha.ts의 noFrame).
+   등급은 배지 글자로만 남는다. 테두리·광택·홀로그램을 여기서 전부 끈다. */
+.pcard--plain .pcard__frame {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  animation: none;
+}
+.pcard--plain .pcard__frame::before { content: none; }
+.pcard--plain .pcard__shine { display: none; }
+.pcard--plain .pcard__photo { border-radius: 10px; }
+
+/* ── 프레임 그림(src/assets/frames/)이 있는 카드 ──
+   그림이 테두리 노릇을 하므로 CSS 테두리·회전 홀로그램을 끄고, 사진을 카드 끝까지 채운 뒤
+   그 위에 프레임 층을 덮는다. 프레임 층은 그림을 **마스크**로 써서(알파만 사용) 등급 색을
+   칠한다 — 그래서 초록색 그림 한 장으로 은색·파랑·보라·홀로그램이 다 나온다.
+   그림마다 안쪽 구멍 크기가 다르니 --pcard-inset으로 사진 여백을 맞춘다. */
+.pcard--imgframe .pcard__frame {
+  padding: var(--pcard-inset, 3%);
+  background: none;
+  box-shadow: none;
+  animation: none;
+}
+.pcard--imgframe .pcard__frame::before { content: none; }
+.pcard--imgframe .pcard__photo { border-radius: 6px; }
+
+.pcard__framing {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+  /* --frame-src는 photoCard.ts가 인라인으로 넣는다(파일 URL이 빌드마다 바뀌므로) */
+  -webkit-mask-image: var(--frame-src);
+  mask-image: var(--frame-src);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  background: var(--frame-paint, linear-gradient(150deg, #c9ced6, #8d949e));
+}
+.pcard--common .pcard__framing { --frame-paint: linear-gradient(150deg, #dfe3e9, #949aa4); }
+.pcard--rare .pcard__framing { --frame-paint: linear-gradient(150deg, #7dd3fc, #2563eb); }
+.pcard--sr .pcard__framing { --frame-paint: linear-gradient(140deg, #f0abfc, #a855f7 45%, #4f46e5); }
+/* SSR만 색이 돈다 — 마스크는 부모에 걸려 있어서, 안에서 도는 무지개가 선 위에만 보인다. */
+.pcard--ssr .pcard__framing { background: none; overflow: hidden; }
+.pcard--ssr .pcard__framing::before {
+  content: "";
+  position: absolute;
+  inset: -45%;
+  background: conic-gradient(from 0deg, #f472b6, #fbbf24, #34d399, #38bdf8, #a78bfa, #f472b6);
+  animation: pcardSpin 3.5s linear infinite;
+}
+/* 등급 글로우는 그림 프레임에서도 유지한다(카드 바깥으로 번지는 빛). */
+.pcard--sr.pcard--imgframe .pcard__frame { filter: drop-shadow(0 0 10px rgba(147, 51, 234, 0.55)); }
+.pcard--ssr.pcard--imgframe .pcard__frame { filter: drop-shadow(0 0 12px rgba(245, 158, 11, 0.6)); }
+/* 광택은 그림 위로 지나가야 자연스럽다(그림보다 위층). */
+.pcard--imgframe .pcard__shine { z-index: 3; }
+.pcard--imgframe .pcard__grade { z-index: 4; }
+/* 썸네일은 애니메이션을 끄는 규칙(위)과 같은 이유로 무지개 회전도 멈춘다. */
+.pcard--sm .pcard__framing::before { animation: none; }

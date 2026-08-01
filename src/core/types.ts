@@ -529,6 +529,11 @@ export interface AvJob {
   lastWorkDay: number;
   /** 이번 달 노콘 촬영 승락 횟수 → 이번 달 월급 +30만/회. 월 정산 시 0으로 리셋(영구 아님). */
   condomlessThisMonth: number;
+  /**
+   * 계약 이후 **누적** 근무일. 월 리셋을 안 탄다 — 직업 레벨(`systems/jobLevels.ts`)의 근거다.
+   * ⚠️ workDaysThisMonth와 함께 올려야 한다. 한쪽만 올리면 레벨이 멈추거나 월급이 어긋난다.
+   */
+  totalWorkDays: number;
   /** 마지막으로 월급을 준 '달 키'(monthKey). -1이면 없음 */
   lastSalaryMonth: number;
   /**
@@ -536,6 +541,22 @@ export interface AvJob {
    * state.day가 이 값 이하면 아직 아픈 상태. -1이면 건강.
    */
   stdUntilDay: number;
+}
+
+/**
+ * 이비에듀 강사직. 지식이 기준치를 넘으면 강사 신청으로 채용된다(겸직 불가).
+ * 월급은 **이번 달 수업 횟수 × 회당 강사료**(지식·어휘력·개그 가중합)로 매월 15일 정산한다.
+ * 레벨은 누적 수업 횟수에서 파생되고(`systems/jobLevels.ts`), 오를수록 월 필수 회차가 준다.
+ */
+export interface LecturerJob {
+  /** 채용된 날(day) */
+  hiredDay: number;
+  /** 이번 달 진행한 수업 횟수. 정산(15일) 시 0으로 리셋 */
+  lessonsThisMonth: number;
+  /** 누적 수업 횟수 — 레벨 근거라 리셋하지 않는다 */
+  totalLessons: number;
+  /** 마지막으로 월급을 준 '달 키'(monthKey). -1이면 없음 */
+  lastSalaryMonth: number;
 }
 
 /** 킬러의 현재 주간 임무(없으면 null) */
@@ -680,6 +701,11 @@ export interface AuthorContract {
   monthsWorked: number;
   /** 이번 달 작업량 게이지(0~목표치). 매달 1일에 리셋된다 */
   workload: number;
+  /**
+   * 이번 달 '작업' 횟수 — **월급이 이 횟수에 비례한다**(게이지가 아니라 횟수다).
+   * 게이지(workload)는 계약 유지 판정에만 쓰이고, 지급액은 이 값이 정한다. 월 정산 시 0으로 리셋.
+   */
+  worksThisMonth: number;
   /** 작업량 미달 누적 횟수(목표 도달 시 계약 해지) */
   missCount: number;
   /** 마지막으로 월 정산한 달(monthKey) — 중복 정산 방지 */
@@ -749,6 +775,12 @@ export interface Email {
    * 대회 결과 메일(입상/탈락)이면 그 표식. ui가 '결과 트윗하기' 버튼을 렌더한다(메일당 1회).
    */
   contestResult?: { name: string; won: boolean; tweeted?: boolean };
+  /**
+   * 이비에듀 강사 합격 메일이면 true — ui가 '출근한다/안 한다' 버튼을 렌더한다. 응답하면 사라진다.
+   * ⚠️ jobOffer를 재사용하지 않는 건 의도다 — 그쪽 수락은 `employment`(회사 재직)을 만들지만
+   *    강사는 `lecturerJob`으로 간다. 같은 필드에 태우면 수락 경로가 엉킨다.
+   */
+  lecturerOffer?: boolean;
   /** 스팸(피싱) 메일인지 — 클릭(열람) 시 낮은 확률로 계정 해킹 */
   spam?: boolean;
   /**
@@ -954,6 +986,11 @@ export interface GameState {
   lingerieOffered: boolean;
   /** 애니덕(anime) 트윗 누적 작성 수 — 코스프레 촬영 제의 트리거용(성인 무관) */
   animeTweetsPosted: number;
+  /**
+   * 갈래별 게시 누적(숙련도). 안 올린 갈래는 키가 없다.
+   * 문턱·배율은 data/tweetMastery.ts가, state→배율 변환은 systems/followers.ts가 소유한다.
+   */
+  tweetMastery: Partial<Record<AttributeId, number>>;
   /** 마지막 코스프레 촬영 제의가 온 날(day). 0=아직 없음. 제의 간 최소 쿨다운 판정용. */
   lastCosplayDay: number;
   /** 유료 구독 채널 개설 여부 — 매월 구독 수익이 정산된다 */
@@ -1066,6 +1103,14 @@ export interface GameState {
   avJob: AvJob | null;
   /** AV배우 제의 DM을 이미 한 번 보냈는지(중복 제의 방지). 초기 false */
   avOffered: boolean;
+  /** 이비에듀 강사직(없으면 미채용). 이비에듀 '강사 신청'으로 생성. 초기 null */
+  lecturerJob: LecturerJob | null;
+  /**
+   * 한 번이라도 해본 직업 id 목록(직업 도감 해금 근거). 초기 [].
+   * ⚠️ 그만둬도 지우지 않는다 — 회사·AV·강사는 사직 시 상태가 통째로 사라지므로
+   *    이 목록이 없으면 도감이 다시 잠긴다. 기록은 `systems/jobExperience.ts`가 한다.
+   */
+  jobsExperienced: string[];
   /** 킬러 직업(없으면 미취직). momo.com 서적요청 → DM 수락으로 생성. 초기 null */
   killerJob: KillerJob | null;
   /** momo 서적요청 제의 DM을 보낸 마지막 day(중복 제의 방지). 초기 -1 */
@@ -1082,6 +1127,11 @@ export interface GameState {
   niglShifts: number;
   /** 결과 대기 중인 취업 지원(익일 메일 통보). 없으면 null */
   pendingJobApp: JobApplication | null;
+  /**
+   * 결과 대기 중인 이비에듀 강사 지원(익일 메일 통보). 없으면 null.
+   * ⚠️ `hired`는 **지원 시점에 확정**된다(pendingJobApp과 같은 규칙) — 결과 통보는 다시 판정하지 않는다.
+   */
+  pendingLecturerApp: { hired: boolean; resultDay: number } | null;
   /** 결과 대기 중인 네이놈 대회 신청(1주 뒤 메일 통보, 동시 1건). 없으면 null */
   pendingContest: { id: string; appliedDay: number } | null;
   /** 취득한 자격증 id 목록 */

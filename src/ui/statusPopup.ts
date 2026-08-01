@@ -4,6 +4,8 @@ import { daysUntilRent, livingCostToday, rentAmount } from "@/systems/economy";
 import { salaryOf } from "@/systems/employment";
 import { isAuthorPrepMonth, AUTHOR_WORKLOAD_TARGET, AUTHOR_MAX_MISS } from "@/systems/author";
 import { avSalaryOf, canWorkAvNow, AV_MONTHLY_QUOTA } from "@/systems/avJob";
+import { lecturerLevel, lecturerQuota, lecturerSalaryOf, lessonPay } from "@/systems/lecturer";
+import { jobRankOf, nextRankIn } from "@/data/jobs";
 import { certById } from "@/systems/certification";
 import { actionMax } from "@/systems/stats";
 import type { SkillStatId } from "@/core/types";
@@ -18,9 +20,9 @@ import { icon, type IconName } from "./icons";
 import { renderOfflineModal } from "./offlineModal";
 import { renderInventoryModal } from "./inventory";
 import { renderAchievementsModal } from "./achievementsModal";
-import { renderCreaturesModal } from "./creaturesModal";
-import { renderDollDexModal } from "./dollDexModal";
+import { renderDexModal } from "./dexModal";
 import { renderMissionsModal } from "./missionsModal";
+import { renderJobLevelModal } from "./jobLevelModal";
 import { renderAvWorkModal } from "./avWorkModal";
 
 /** 세부 스탯 아이콘 */
@@ -123,7 +125,8 @@ function renderJobInfo(ctx: GameContext): HTMLElement | null {
   const emp = s.employment;
   const av = s.avJob;
   const author = s.authorContract;
-  if (!emp && !av && !author) return null;
+  const lecturer = s.lecturerJob;
+  if (!emp && !av && !author && !lecturer) return null;
 
   const rows: (HTMLElement | null)[] = [
     el("div", { style: "font-weight:700;color:var(--text)" }, "직업"),
@@ -133,9 +136,14 @@ function renderJobInfo(ctx: GameContext): HTMLElement | null {
       el(
         "div",
         { style: "color:var(--good);font-weight:700" },
-        `재직: ${emp.company} · 월급 ${formatNumber(salaryOf(s))}원 (10일)`,
+        `재직: ${emp.company} ${jobRankOf(emp.perfLevel)} · 월급 ${formatNumber(salaryOf(s))}원 (10일)`,
       ),
-      el("div", {}, `업무 성과 Lv.${emp.perfLevel} (${Math.round(emp.performance)}/100)`),
+      el(
+        "div",
+        {},
+        `업무 성과 Lv.${emp.perfLevel} (${Math.round(emp.performance)}/100)` +
+          (nextRankIn(emp.perfLevel) ? ` · 다음 승진 ${nextRankIn(emp.perfLevel)}` : " · 최고 직급"),
+      ),
       // 오늘 회사 얘기 트윗(선택·하루 1번) — 긍정/부정 톤을 골라 올린다. 안 써도 됨.
       el(
         "button",
@@ -152,16 +160,12 @@ function renderJobInfo(ctx: GameContext): HTMLElement | null {
     );
   }
   if (av) {
-    const halved = av.workDaysThisMonth < AV_MONTHLY_QUOTA;
     rows.push(
       el("div", { style: "font-weight:700" }, `AV배우 · 월급 ${formatNumber(avSalaryOf(s))}원 (25일)`),
     );
+    // 반감 규칙은 없앴다 — 일한 횟수만큼 받는다. 20일은 '예전 만액과 같아지는' 권장선일 뿐이다.
     rows.push(
-      el(
-        "div",
-        { style: halved ? "color:var(--danger);font-weight:700" : "" },
-        `이번달 근무 ${av.workDaysThisMonth}/${AV_MONTHLY_QUOTA}일` + (halved ? " · 월급 반감 중" : ""),
-      ),
+      el("div", {}, `이번달 근무 ${av.workDaysThisMonth}회 (권장 ${AV_MONTHLY_QUOTA}회)`),
     );
     rows.push(el("div", {}, `이번 달 노콘 ${av.condomlessThisMonth}회 (월급 +${formatNumber(av.condomlessThisMonth * 300000)}원)`));
     if (av.stdUntilDay >= s.day) {
@@ -173,6 +177,23 @@ function renderJobInfo(ctx: GameContext): HTMLElement | null {
         ),
       );
     }
+  }
+  if (lecturer) {
+    const quota = lecturerQuota(s);
+    const met = lecturer.lessonsThisMonth >= quota;
+    rows.push(
+      el(
+        "div",
+        { style: "font-weight:700" },
+        `이비에듀 강사 Lv.${lecturerLevel(s)} · 강사료 ${formatNumber(lecturerSalaryOf(s))}원 (15일)`,
+      ),
+      el(
+        "div",
+        { style: met ? "color:var(--good)" : "" },
+        `이번 달 수업 ${lecturer.lessonsThisMonth}/${quota}회` +
+          (met ? " · 필수 회차 달성 ✓" : ` · 회당 ${formatNumber(lessonPay(s))}원`),
+      ),
+    );
   }
   if (author) {
     const prep = isAuthorPrepMonth(s);
@@ -438,17 +459,29 @@ function statusInner(ctx: GameContext): HTMLElement[] {
       staminaRow,
       renderMoneyInfo(s),
       renderJobInfo(ctx),
+      // 두 링크 버튼은 세로로 쌓는다(가로로 붙여두면 팝업 폭에서 서로 밀린다).
       el(
-        "button",
-        {
-          class: "link-btn",
-          onclick: () => {
-            detailOpen = !detailOpen;
-            ctx.refresh();
+        "div",
+        { class: "status-links" },
+        el(
+          "button",
+          {
+            class: "link-btn",
+            onclick: () => {
+              detailOpen = !detailOpen;
+              ctx.refresh();
+            },
           },
-        },
-        icon("chevron", { size: 14, className: detailOpen ? "chev chev--open" : "chev" }),
-        detailOpen ? " 상세 스탯 닫기" : " 상세 스탯 보기",
+          icon("chevron", { size: 14, className: detailOpen ? "chev chev--open" : "chev" }),
+          detailOpen ? " 상세 스탯 닫기" : " 상세 스탯 보기",
+        ),
+        // 직업 레벨은 스탯과 성격이 달라 상세 스탯 팝오버에 안 넣고 별도 모달로 뺐다.
+        el(
+          "button",
+          { class: "link-btn", onclick: () => ctx.openModal(renderJobLevelModal) },
+          icon("article", { size: 14 }),
+          " 직업 보기",
+        ),
       ),
     ),
   ];
@@ -486,23 +519,10 @@ export function renderStatusDock(ctx: GameContext): HTMLElement {
           "button",
           {
             class: "life-btn life-btn--sub",
-            onclick: () => ctx.openModal(renderCreaturesModal),
+            onclick: () => ctx.openModal((c) => renderDexModal(c)),
           },
           icon("book", { size: 18 }),
-          "크리처 도감",
-        ),
-      ),
-      el(
-        "div",
-        { class: "life-btn-row" },
-        el(
-          "button",
-          {
-            class: "life-btn life-btn--sub",
-            onclick: () => ctx.openModal(renderDollDexModal),
-          },
-          icon("book", { size: 18 }),
-          "인형 도감",
+          "도감",
         ),
       ),
       el(

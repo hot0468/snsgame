@@ -4,7 +4,7 @@ import { ARCADE_INTRO, CLAW_MISS_LINES, CLAW_SLIP_LINES } from "@/data/arcade";
 import { pick } from "@/utils/random";
 import { CLAW_COST, collectDoll, payClaw, type ClawResult } from "@/systems/arcade";
 import { postTweet } from "@/systems/tweetSystem";
-import { renderDollDexModal } from "./dollDexModal";
+import { renderDexModal } from "./dexModal";
 import { el, formatNumber } from "@/utils/dom";
 
 /**
@@ -135,7 +135,7 @@ export function renderArcadeModal(ctx: GameContext): HTMLElement {
           ),
           el(
             "button",
-            { class: "btn btn--ghost", onclick: () => ctx.openModal(renderDollDexModal) },
+            { class: "btn btn--ghost", onclick: () => ctx.openModal((c) => renderDexModal(c, "doll")) },
             "도감 보기",
           ),
           el("button", { class: "btn btn--ghost", onclick: leave }, "나가기"),
@@ -149,7 +149,7 @@ export function renderArcadeModal(ctx: GameContext): HTMLElement {
     el("button", { class: "btn btn--ghost", onclick: leave }, "그만하기"),
     el(
       "button",
-      { class: "btn btn--ghost", onclick: () => ctx.openModal(renderDollDexModal) },
+      { class: "btn btn--ghost", onclick: () => ctx.openModal((c) => renderDexModal(c, "doll")) },
       "도감",
     ),
   );

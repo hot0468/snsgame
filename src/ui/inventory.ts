@@ -10,6 +10,8 @@ import {
   sellPrice,
 } from "@/systems/shop";
 import { SKILL_STATS } from "@/data/stats";
+import { GACHA_RARITY_OF } from "@/data/gacha";
+import { renderPhotoCard } from "./photoCard";
 import type { SkillStatId } from "@/core/types";
 import { el, formatNumber } from "@/utils/dom";
 import { icon } from "./icons";
@@ -124,16 +126,25 @@ export function openSellConfirm(ctx: GameContext, item: OwnedItemInfo): void {
  * 보유 아이템 목록. sellable이면 각 줄에 판매 버튼이 붙는다(피망마켓 판매 탭).
  * 개수 묶음(mouse ×3)은 ownedInventory가 이미 해준다.
  */
-export function inventoryList(ctx: GameContext, sellable: boolean): HTMLElement {
-  const items = ownedInventory(ctx.store.getState());
+export function inventoryList(
+  ctx: GameContext,
+  sellable: boolean,
+  only?: "normal" | "goods",
+): HTMLElement {
+  // 굿즈 = 뽑기로 나온 실물(GACHA_RARITY_OF에 등급이 있는 것). 나머지는 전부 일반 아이템.
+  const items = ownedInventory(ctx.store.getState()).filter(
+    ({ item }) => !only || !!GACHA_RARITY_OF[item.id] === (only === "goods"),
+  );
 
   if (items.length === 0) {
     return el(
       "div",
       { class: "empty" },
-      sellable
-        ? "팔 물건이 없어요. 서랍장이 텅 비었습니다."
-        : "서랍장이 텅 비었어요. 쇼핑에서 뭐라도 사보는 건 어때요?",
+      only === "goods"
+        ? "모은 굿즈가 없어요. 뽑기를 돌려보는 건 어때요?"
+        : sellable
+          ? "팔 물건이 없어요. 서랍장이 텅 비었습니다."
+          : "서랍장이 텅 비었어요. 쇼핑에서 뭐라도 사보는 건 어때요?",
     );
   }
 
@@ -145,6 +156,18 @@ export function inventoryList(ctx: GameContext, sellable: boolean): HTMLElement 
       return el(
         "div",
         { class: "inv-row" },
+        // 뽑기로 얻은 굿즈는 서랍장에서도 등급 프레임을 단 채로 보인다(사진을 넣었으면 그 사진으로).
+        // 여러 장 갖고 있으면 사본별 컷이 다를 수 있어 최대 3장까지 겹쳐 보여준다
+        // (사본 순번 = 가챠가 뽑을 때 쓴 것과 같은 값이라, 뽑기 화면에서 본 컷이 여기 그대로 있다).
+        GACHA_RARITY_OF[item.id]
+          ? el(
+              "div",
+              { class: "inv-row__cards" },
+              ...Array.from({ length: Math.min(count, 3) }, (_, i) =>
+                renderPhotoCard(item.id, item.name, { size: "sm", copy: i }),
+              ),
+            )
+          : null,
         el(
           "div",
           { class: "inv-row__copy" },
@@ -178,24 +201,51 @@ export function inventoryList(ctx: GameContext, sellable: boolean): HTMLElement 
 
 /** 서랍장 모달 — 스테이터스 독의 '서랍장' 버튼으로 연다. 판매는 피망마켓에서 한다. */
 export function renderInventoryModal(ctx: GameContext): HTMLElement {
-  return el(
-    "div",
-    { class: "modal" },
-    el(
-      "div",
-      { class: "modal__head" },
-      el("span", { class: "modal__head-title" }, icon("drawer", { size: 18 }), "서랍장"),
-      el("button", { class: "popup__close", onclick: () => ctx.closeModal() }, "✕"),
-    ),
-    el(
-      "div",
-      { class: "modal__body" },
+  const container = el("div", { class: "modal" });
+  let tab: "normal" | "goods" = "normal";
+
+  function draw(): void {
+    const tabBtn = (id: "normal" | "goods", label: string) =>
       el(
-        "p",
-        { class: "compose-hint", style: "margin:0 0 12px" },
-        "지금까지 사 모은 물건들이에요. 피망마켓에서 정가의 50%에 되팔 수 있지만, 팔면 그 물건으로 올랐던 스탯도 같이 사라져요.",
+        "div",
+        {
+          class: "feed__tab" + (tab === id ? " feed__tab--active" : ""),
+          onclick: () => {
+            tab = id;
+            draw();
+          },
+        },
+        el("span", { class: "feed__tab-label" }, label),
+      );
+
+    container.replaceChildren(
+      el(
+        "div",
+        { class: "modal__head" },
+        el("span", { class: "modal__head-title" }, icon("drawer", { size: 18 }), "서랍장"),
+        el("button", { class: "popup__close", onclick: () => ctx.closeModal() }, "✕"),
       ),
-      inventoryList(ctx, false),
-    ),
-  );
+      el(
+        "div",
+        { class: "modal__body" },
+        el(
+          "div",
+          { class: "feed__tabs life-tabs" },
+          tabBtn("normal", "일반 아이템"),
+          tabBtn("goods", "굿즈"),
+        ),
+        el(
+          "p",
+          { class: "compose-hint", style: "margin:0 0 12px" },
+          tab === "goods"
+            ? "뽑기로 모은 굿즈예요. 피망마켓에서 정가의 50%에 되팔 수 있어요."
+            : "지금까지 사 모은 물건들이에요. 피망마켓에서 정가의 50%에 되팔 수 있지만, 팔면 그 물건으로 올랐던 스탯도 같이 사라져요.",
+        ),
+        inventoryList(ctx, false, tab),
+      ),
+    );
+  }
+
+  draw();
+  return container;
 }
