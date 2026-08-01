@@ -426,6 +426,22 @@ body {
   margin: 8px 0 0;
 }
 
+/* 산책 크리처 조우 초상 — 도감(ach-row__emoji)과 같은 그림(이모지)을 크게 띄운다.
+   도감에 실제 이미지 에셋이 생기면 여기와 creaturesModal을 같이 바꿔야 한다. */
+.creature-portrait {
+  width: 96px;
+  height: 96px;
+  margin: 10px auto 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 52px;
+  line-height: 1;
+  border-radius: 50%;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+}
+
 /* ⑤ 컨디션 판정 배지(펫·크리처 조우 결과 화면 전용) — sys-notice__grade와 같은 톤 규칙. */
 .life-result__grade {
   display: inline-flex;
@@ -2892,6 +2908,13 @@ body {
   padding: 4px 0;
 }
 
+/* 스테이터스 팝업 하단 링크 묶음(상세 스탯 / 직업 보기) — 세로 정렬 */
+.status-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 /* ===== SNS 화면 (트위터/X 스타일) ===== */
 .sns {
   display: grid;
@@ -4607,6 +4630,17 @@ body {
 .following-row__handle {
   font-size: 12px;
   color: var(--text-muted);
+}
+/* 스토리 DM 새 회차 알림 — 팔로우 목록에서 눈에 띄어야 하므로 강조색 배지로 둔다. */
+.following-row__dm {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
 }
 .following-row__side {
   text-align: right;
@@ -6372,6 +6406,7 @@ body {
   align-items: center;
   gap: 18px;
   background: linear-gradient(180deg, #ffe6b3 0%, #ffd0a1 42%, #fff 100%);
+  border-radius: 22px;
 }
 
 /* 지평선 위로 떠오르는 해 */
@@ -8923,6 +8958,21 @@ input.mail-search__field::placeholder { color: var(--text-muted); }
   border-bottom-color: #d93025;
 }
 .mail-tab--on .icon { color: #d93025; }
+/* 안 읽은 메일이 있는 탭 — 비활성 탭도 눈에 띄어야 '새 메일이 저기 있다'가 전달된다. */
+.mail-tab--unread { color: var(--text); font-weight: 700; }
+.mail-tab__badge {
+  flex-shrink: 0;
+  min-width: 17px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #d93025;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 17px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
 
 /* 리스트 */
 .mail__list { overflow-y: auto; flex: 1; min-height: 0; }
@@ -9496,6 +9546,10 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
   to { box-shadow: 0 0 40px rgba(245, 158, 11, 0.9); }
 }
 
+/* 포토카드 프레임(.pcard*)은 styles/photoCard.css로 분리했다 — 어드민 편집기가 main.css 없이도
+   카드를 그려야 해서다. ui/photoCard.ts가 그 파일을 직접 import한다. */
+
+
 /* ===================== 푸시타임(포스타입 스타일 성인 콘텐츠) ===================== */
 /* 포스타임 룩: 밝은 톤 고정(다크에서도 흰 배경 유지). 좌·중·우 3열. */
 .pt { display: flex; flex-direction: column; height: 100%; background: #f2f2f4; color: #1a1a1a; }
@@ -9998,6 +10052,56 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
   flex-direction: column;
   gap: 8px;
 }
+/* ---- 직업 레벨 목록(직업 보기 모달) ---- */
+.joblv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.joblv-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+}
+/* 재직 중인 직업만 강조 — 알바 이력과 한눈에 갈린다. */
+.joblv-row--on { border-color: var(--accent); }
+/* 안 해본 직업 — 도감의 미수집 칸과 같은 톤(존재는 보이되 흐리게). */
+.joblv-row--locked { opacity: 0.45; }
+.joblv-row--locked .joblv-row__lv { color: var(--text-muted); }
+.joblv-row__emoji { font-size: 20px; flex-shrink: 0; }
+.joblv-row__copy { min-width: 0; flex: 1; }
+.joblv-row__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 13.5px;
+}
+.joblv-row__badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+}
+.joblv-row__desc {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  word-break: keep-all;
+}
+.joblv-row__lv {
+  flex-shrink: 0;
+  font-weight: 900;
+  font-size: 15px;
+  color: var(--accent);
+}
+
 .ach-row {
   display: flex;
   align-items: flex-start;
@@ -10392,6 +10496,25 @@ input.portal-search__field::placeholder { color: #9aa4b0; }
   cursor: pointer;
 }
 .eb-hero__cta:hover { background: #ec4d15; }
+.eb-hero__cta:disabled { background: #d5d5d5; color: #8a8a8a; cursor: default; }
+/* 강사 채용 배너 — 수강(주황) 톤과 구분되게 파랑 계열로 둔다(가르치는 쪽 입구). */
+.eb-hire {
+  margin: 22px 0 4px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #eef4ff;
+  border: 1px solid #d3e0fb;
+}
+.eb-hire--on { background: #eafaf0; border-color: #cbeed9; }
+.eb-hire__title { font-size: 15px; font-weight: 900; color: #1b3f7a; }
+.eb-hire--on .eb-hire__title { color: #1c6b3d; }
+.eb-hire__sub {
+  margin: 6px 0 12px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: #4a5a72;
+  word-break: keep-all;
+}
 /* 섹션 제목 */
 .eb-h2 {
   display: flex;
@@ -12992,6 +13115,16 @@ button.np-menu__item:hover {
   background: #fff;
 }
 
+/* 포토카드 사본 겹쳐 보이기 — 여러 장 가진 굿즈는 컷이 다를 수 있어 최대 3장을 부채처럼 겹친다.
+   뒤 장이 앞 장에 가리도록 순서를 뒤집는다(첫 장이 제일 앞). */
+.inv-row__cards {
+  display: flex;
+  flex: none;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+.inv-row__cards .pcard + .pcard { margin-right: -32px; }
+
 .inv-row__copy {
   flex: 1 1 auto;
   min-width: 0;
@@ -13572,6 +13705,136 @@ button.np-menu__item:hover {
 @keyframes ddeoksang-spark {
   0% { opacity: 1; transform: rotate(var(--a)) translateY(0) scale(1); }
   100% { opacity: 0; transform: rotate(var(--a)) translateY(calc(-1 * var(--d))) scale(0.4); }
+}
+
+/* ===================== 게시 결과 화면 ===================== */
+/* 트윗을 올린 직후 뜨는 성과 + 숙련 게이지. 떡상 오버레이가 닫힌 뒤 이어서 뜨기도 한다. */
+.tweet-result__levelup {
+  text-align: center;
+  font-weight: 700;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #ffd76e33, #ff9f4333);
+  border: 1px solid #ffb85c66;
+}
+
+.tweet-result__nums {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin: 6px 0 14px;
+}
+
+.tweet-result__num {
+  font-size: 1.15rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tweet-result__num--follow {
+  color: var(--good);
+}
+
+.tweet-result__num--bad {
+  color: var(--danger);
+}
+
+.tweet-result__badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.tweet-result__badge {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.tweet-result__mastery {
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+}
+
+.tweet-result__mastery-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.tweet-result__mastery-count {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mastery-bar {
+  height: 10px;
+  border-radius: 999px;
+  /* ⚠️ 모달은 **밝은** 표면이다. 반투명 흰색 트랙은 그냥 안 보인다(실제로 그랬다). */
+  background: #dfe4ea;
+  overflow: hidden;
+}
+
+/* 폭은 인라인 style로 오고, 채워지는 애니는 여기가 맡는다. */
+.mastery-bar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #56b6f5, #7ee7c7);
+  animation: mastery-fill 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes mastery-fill {
+  0% { transform: scaleX(0); transform-origin: left; }
+  100% { transform: scaleX(1); transform-origin: left; }
+}
+
+.tweet-result__mastery-tier {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.82rem;
+}
+
+.tweet-result__mastery-tier--none {
+  color: var(--text-muted);
+}
+
+/* 등급 배지(B/A/S/SS). 밝은 배경 위라 금색 글씨는 안 읽힌다 — 금색 판에 어두운 글씨로. */
+.mastery-grade,
+.chip__grade {
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: var(--game-gold);
+  color: #4a3200;
+}
+
+.chip__grade {
+  margin-left: 4px;
+}
+
+/* 아직 등급 전(첫 문턱 미달) — 게시 누적을 조용히 보여준다. 등급을 딴 금색과 확실히 구분돼야 한다. */
+.chip__grade--raw {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ===================== 인용 트윗(QRT) ===================== */

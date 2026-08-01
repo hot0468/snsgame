@@ -9,7 +9,17 @@ import { el, formatNumber } from "@/utils/dom";
  */
 export function showDdeoksang(
   ctx: GameContext,
-  opts: { likes: number; retweets: number; gain: number },
+  opts: {
+    likes: number;
+    retweets: number;
+    gain: number;
+    /**
+     * 오버레이가 닫힌 뒤 이어서 할 일(예: 게시 결과 모달 열기).
+     * 주면 closeModal 대신 이걸 부른다 — 콜백이 openModal로 다음 화면을 띄우기 때문이다.
+     * 생략하면 기존대로 모달을 닫는다(quoteModal·workTweetModal이 그 경로다).
+     */
+    onNext?: () => void;
+  },
 ): void {
   ctx.openModal((c) => {
     const likesEl = el("span", { class: "ddeoksang__num" }, "0");
@@ -57,19 +67,19 @@ export function showDdeoksang(
       cancelAnimationFrame(raf);
       window.clearTimeout(timer);
     };
-    const timer = window.setTimeout(() => {
+    /** 정리 후 다음 화면으로 넘어간다(없으면 그냥 닫는다). */
+    const finish = (): void => {
       cleanup();
-      c.closeModal();
-    }, 2600);
+      if (opts.onNext) opts.onNext();
+      else c.closeModal();
+    };
+    const timer = window.setTimeout(finish, 2600);
 
     const backdrop = el(
       "div",
       {
         class: "ddeoksang-layer",
-        onclick: () => {
-          cleanup();
-          c.closeModal();
-        },
+        onclick: finish,
       },
       card,
     );

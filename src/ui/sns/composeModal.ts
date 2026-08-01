@@ -44,6 +44,8 @@ import { pick } from "@/utils/random";
 import { el } from "@/utils/dom";
 import { icon, ATTR_ICON } from "@/ui/icons";
 import { showDdeoksang } from "@/ui/ddeoksang";
+import { showTweetResult } from "@/ui/sns/tweetResultModal";
+import { masteryGrade, masteryTierFor } from "@/data/tweetMastery";
 
 /** 창작 모드 — 꺼짐 / 1차창작 / 2차창작 */
 type CreationMode = "off" | "original" | "fan";
@@ -385,13 +387,32 @@ export function renderComposeModal(
     );
   }
 
+  /**
+   * 카테고리 칩에 붙는 숙련 표시.
+   *
+   * 등급을 딴 갈래는 등급(B/A/S/SS)을, 아직 첫 문턱(10개) 전이면 **게시 누적**을 보여준다.
+   * ⚠️ 등급만 띄우던 시절엔 10개를 넘기기 전까진 칩이 전부 맨몸이라, 플레이어가
+   *    "갈래마다 숙련이 쌓인다"는 사실 자체를 알 방법이 없었다. 초반이야말로 보여줘야 하는 구간이다.
+   * 한 번도 안 올린 갈래(0개)만 표시가 없다 — 0을 8개 띄우면 그냥 소음이다.
+   */
+  function chipMastery(id: AttributeId): { text: string; earned: boolean } | null {
+    const count = s.tweetMastery[id] ?? 0;
+    if (count <= 0) return null;
+    const grade = masteryGrade(masteryTierFor(count));
+    // 등급 전엔 숫자만 띄우면 그게 뭔지 알 수 없어 "Lv."을 붙인다.
+    // (여기 숫자는 그 갈래 **게시 누적**이다. 10개를 넘기면 등급 B로 승급한다.)
+    return grade ? { text: grade, earned: true } : { text: `Lv.${count}`, earned: false };
+  }
+
   // ── 1단계: 어떤 글을 쓸까? (카테고리) ────────────────────
   function renderStep1(): HTMLElement {
     const attrChips = el(
       "div",
       { class: "chip-row chip-row--center" },
-      ...categories.map((id) =>
-        el(
+      ...categories.map((id) => {
+        // 숙련 배지 — 칩 목록이 곧 숙련 현황이 된다(별도 도감 화면을 만들지 않는 이유).
+        const m = chipMastery(id);
+        return el(
           "button",
           {
             class:
@@ -409,8 +430,15 @@ export function renderComposeModal(
           },
           icon(ATTR_ICON[id], { size: 14 }),
           categoryLabel(id),
-        ),
-      ),
+          m
+            ? el(
+                "span",
+                { class: "chip__grade" + (m.earned ? "" : " chip__grade--raw") },
+                m.text,
+              )
+            : null,
+        );
+      }),
       canScam
         ? el(
             "button",
@@ -684,20 +712,28 @@ export function renderComposeModal(
         disabled: !canPostTweet(s) || needsFanWork || needsKind || !slotOk,
         onclick: () => {
           const general = isGeneralTweet();
-          // 떡상 연출은 모달을 닫은 뒤 띄운다(닫기가 오버레이를 지우지 않게). 게시 시 여기에 담는다.
-          let ddPayload: { likes: number; retweets: number; gain: number } | null = null;
+          // 떡상 연출은 게시 결과 화면보다 **먼저** 뜬다(onNext로 결과 화면에 이어진다).
+          // 게시 시 여기에 담고, 아래에서 담겨 있으면 오버레이부터 띄운다.
+          let ddPayload:
+            | { likes: number; retweets: number; gain: number; onNext: () => void }
+            | null = null;
           // 일반 트윗은 선택된 성격 카드의 문구를, 특수 모드는 기존 풀에서 뽑는다.
           const finalText =
             general && selectedKind
               ? kindCandidates?.[selectedKind]?.text ?? pickFreshText(currentPool())
               : pickFreshText(currentPool());
+          // 사기 트윗은 갈래 숙련이 없으므로 결과 화면을 타지 않는다 — 토스트로 끝낸다.
           if (scamMode) {
             let earned = 0;
             ctx.update((st) => {
               earned = postScamTweet(st, finalText).earned;
             });
             ctx.toast(`사기 트윗 등록... +${earned.toLocaleString("ko-KR")}원`);
-          } else {
+            ctx.closeModal();
+            ctx.afterAction("tweet");
+            return;
+          }
+          {
             const finalAttr: AttributeId = gloomy || articleTitle ? "daily" : selectedAttr ?? "daily";
             const finalAdult = !gloomy && !articleTitle && !trend && isAdultTweet();
             // 창작 가중 / 뷰티 신상품 홍보 가중
@@ -726,17 +762,27 @@ export function renderComposeModal(
             let unlockedMeeting = false;
             let statChanges: { label: string; delta: number }[] = [];
             let streak = 1;
+            let masteryCount = 0;
+            let masteryTierUp = 0;
+            let likes = 0;
+            let retweets = 0;
             ctx.update((st) => {
               const res = postTweet(st, finalAttr, finalText, finalAdult, adultKind, mult, opts);
               delta = res.followerDelta;
               unlockedMeeting = res.unlockedMeeting;
               statChanges = res.statChanges;
               streak = res.streak;
+              masteryCount = res.masteryCount;
+              masteryTierUp = res.masteryTierUp;
+              likes = res.tweet.likes;
+              retweets = res.tweet.retweets;
               if (res.ddeoksang) {
                 ddPayload = {
                   likes: res.tweet.likes,
                   retweets: res.tweet.retweets,
                   gain: res.followerDelta + res.ddeoksangGain,
+                  // 오버레이가 닫히면 결과 화면으로 잇는다. 호출 시점엔 아래 지역변수가 다 채워져 있다.
+                  onNext: () => openResult(),
                 };
               }
               // 창작 트윗 누적 → 20개 이상이면 작가 계약 제안 DM이 올 수 있다
@@ -747,22 +793,30 @@ export function renderComposeModal(
               // 편승 성사 시 트렌드를 '오늘 편승함'으로 기록(부스트 1회/일 보장 — rideTrend가 중복 push 방지).
               if (rode) rideTrend(st, trend!.id);
             });
-            const statText = statChanges
-              .map((c) => `${c.label} ${c.delta > 0 ? "+" : ""}${c.delta}`)
-              .join(" · ");
-            ctx.toast(
-              (delta >= 0 ? `트윗 등록! +${delta} 팔로워` : `트윗 등록... ${delta} 팔로워`) +
-                (statText ? ` · ${statText}` : "") +
-                (rode ? " · 🔥 트렌드 편승!" : "") +
-                (streak >= 2 ? ` · ⚡${streak}연타!` : ""),
-            );
             if (unlockedMeeting) ctx.toast("🔓 성인 콘텐츠가 풀렸다 — 새로운 만남의 문이 열렸다.");
+            // 게시 결과 화면 — 토스트 대신 성과와 숙련 게이지를 보여준다.
+            // ⚠️ afterAction은 여기서 부르지 않는다. 결과 모달의 [닫기]가 부른다.
+            const openResult = (): void =>
+              showTweetResult(
+                ctx,
+                {
+                  attr: finalAttr,
+                  likes,
+                  retweets,
+                  followerDelta: delta,
+                  masteryCount,
+                  masteryTierUp,
+                  streak,
+                  statChanges,
+                  rodeTrend: rode,
+                },
+                // [한 번 더] — 작성 모달을 새로 연다(1단계부터). 연타 콤보와 맞물린다.
+                () => ctx.openModal((c) => renderComposeModal(c)),
+              );
+            // 떡상이면 오버레이가 먼저(닫히면 payload의 onNext가 결과 화면을 연다), 아니면 곧장 결과 화면.
+            if (ddPayload) showDdeoksang(ctx, ddPayload);
+            else openResult();
           }
-          // 트윗은 슬롯을 넘기지 않는다 — 닫고 이벤트 판정만.
-          ctx.closeModal();
-          // 떡상이면 닫은 직후 연출 오버레이를 띄운다(afterAction 이벤트보다 우선 — 이벤트는 다음 행동으로).
-          if (ddPayload) showDdeoksang(ctx, ddPayload);
-          ctx.afterAction("tweet");
         },
       },
       postLabel,

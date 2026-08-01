@@ -16,6 +16,7 @@ import {
   COMBO_MAX_STEP,
   COMBO_CONTROVERSY_RATE,
 } from "@/data/tweetFun";
+import { masteryTierFor } from "@/data/tweetMastery";
 import { imageForTweet } from "./mediaImages";
 import { recordMission } from "./missions";
 import { PC_UPGRADE_ID } from "@/data/shop";
@@ -75,6 +76,13 @@ export interface PostTweetResult {
   statChanges: { label: string; delta: number }[];
   /** 이번 트윗 포함 같은 갈래 연타 수(1=콤보 없음) — ui가 2연타부터 표시한다. */
   streak: number;
+  /** 이번 트윗 적립 후 그 갈래의 숙련 누적(결과 화면 게이지의 분자). */
+  masteryCount: number;
+  /**
+   * 이번 트윗으로 숙련 tier가 올랐으면 새 tier(1~4), 아니면 0.
+   * ui가 이 값으로 승급 연출을 띄운다.
+   */
+  masteryTierUp: number;
 }
 
 /**
@@ -158,6 +166,14 @@ export function postTweet(
   const outcome = calcTweetOutcome(state, attr, kind);
   // 같은 갈래 연타 콤보 — 도달이 오르는 대신 아래에서 논란 확률도 같이 오른다.
   const streak = bumpTweetStreak(state, attr);
+  // 갈래 숙련 적립. ⚠️ **반드시 calcTweetOutcome 뒤다.** 문턱을 넘는 트윗이 넘은 뒤의
+  // 배율까지 받으면 결과 화면이 보여주는 "이번 성과"와 표시 tier가 어긋난다.
+  // 무료 게시(opts.free)도 적립한다 — 면제되는 건 행동력·게시 슬롯뿐이다.
+  const masteryBefore = state.tweetMastery[attr] ?? 0;
+  const masteryCount = masteryBefore + 1;
+  state.tweetMastery[attr] = masteryCount;
+  const tierAfter = masteryTierFor(masteryCount);
+  const masteryTierUp = tierAfter > masteryTierFor(masteryBefore) ? tierAfter : 0;
   // 성인 트윗은 신규 팔로워 1.5배, 박학다식 달성 시 정보성 트윗 성과 상승,
   // 창작(1차/2차)·이달의 인기작 적중 시 followerMultiplier로 추가 가중.
   const followers = applyTchinReach(
@@ -311,6 +327,8 @@ export function postTweet(
     ddeoksangGain,
     statChanges,
     streak,
+    masteryCount,
+    masteryTierUp,
   };
 }
 

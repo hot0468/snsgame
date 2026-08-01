@@ -4,6 +4,7 @@ import { ATTRIBUTES, getAffinity } from "@/data/attributes";
 import { NIGL_COMPANY } from "@/data/niglnigl";
 import { MAX_SKILL } from "@/data/stats";
 import { isTrending, TRENDING_MULTIPLIER } from "@/data/trends";
+import { masteryMulFor, masteryTierFor } from "@/data/tweetMastery";
 import {
   SLOT_TIMING_MULTIPLIERS,
   TIMING_TIERS,
@@ -34,6 +35,10 @@ import { checkWin } from "./winEnding";
  *     실전은 육성·생활에 행동력을 나눠 써 더 느리되, 스킬 성장·트렌드·
  *     이벤트 보너스가 중반을 당긴다 → 집중 육성 시 체감 4~8개월(150~250 게임일).
  * 스킬은 skillMul에만 남는다. 그래야 집·평판·궁합·트렌드가 의미를 갖는다.
+ *
+ * ⚠️ **위 도달일 표는 갈래 숙련(masteryMul, 최대 ×1.32) 도입 이후 재측정하지 않았다.**
+ *    숙련은 한 갈래를 300개 게시해야 만렙이라 종반에만 붙지만, 그만큼 표보다 빠르다.
+ *    체감이 너무 빠르면 `data/tweetMastery.ts`의 MASTERY_TIER_BONUS 하나만 낮춰라.
  */
 export const TWEET_CONV_RATE = 0.32;
 
@@ -171,6 +176,30 @@ export function reputationFactor(state: GameState): number {
  * 최저 월요일 낮 0.85 ~ 최고 토요일 심야 1.5 — 약 1.75배 차이다.
  * ⚠️ 표에 없는 슬롯/요일은 1로 떨어뜨린다(SLOTS_PER_DAY가 늘어도 크래시하지 않게).
  */
+/* ─────────────────── 갈래 숙련 ─────────────────── */
+
+/** 그 갈래의 게시 누적(숙련도). 안 올린 갈래는 0. */
+export function masteryCountOf(state: GameState, attr: AttributeId): number {
+  return state.tweetMastery?.[attr] ?? 0;
+}
+
+/** 그 갈래의 숙련 tier(0~4). */
+export function masteryTier(state: GameState, attr: AttributeId): number {
+  return masteryTierFor(masteryCountOf(state, attr));
+}
+
+/**
+ * 갈래 숙련에 따른 도달 배율(1.0 ~ 1.32).
+ *
+ * ⚠️ calcTweetOutcome에서 **base에** 곱한다(likes 계산 앞). 팔로워에만 곱하면
+ *    "반응은 그대론데 팔로워만 다른" 결과가 된다 — timingMul 주석이 경고하는 것과 같은 함정이다.
+ * ⚠️ 배율 공식은 data/tweetMastery.ts의 masteryMulFor 하나뿐이다. UI가 표시용으로 재계산하지 말고
+ *    이 함수를 불러라.
+ */
+export function masteryMul(state: GameState, attr: AttributeId): number {
+  return masteryMulFor(masteryTier(state, attr));
+}
+
 export function timingMultiplier(day: number, slot: number): number {
   const slotMul = SLOT_TIMING_MULTIPLIERS[slot] ?? 1;
   const dayMul = WEEKDAY_TIMING_MULTIPLIERS[dayOfWeek(day)] ?? 1;
@@ -213,7 +242,10 @@ export function calcTweetOutcome(
   const timingMul = timingMultiplier(state.day, state.slot);
 
   // 성격별 도달 배율(자극↑·정보↓·감성↑)과 분산(자극은 대박/폭망이 갈림)을 반영한다.
-  const base = reach * skillMul * affinityMul * trendMul * timingMul * eff.reachMul;
+  // 갈래 숙련 배율(1.0~1.32) — 그 갈래를 파온 만큼 도달이 오른다. base에 곱해야
+  // 좋아요·RT·팔로워가 함께 움직인다(팔로워에만 곱하면 어긋난다).
+  const base =
+    reach * skillMul * affinityMul * trendMul * timingMul * eff.reachMul * masteryMul(state, attr);
   const likes = Math.round(base * (eff.varLow + Math.random() * eff.varRange));
   const retweets = Math.round(likes * (0.15 + Math.random() * 0.2));
 
