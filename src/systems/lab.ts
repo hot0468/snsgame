@@ -1,5 +1,5 @@
 import type { DMThread, Email, GameState } from "@/core/types";
-import { MORNING_SLOT, getActiveAccount } from "@/core/state";
+import { MORNING_SLOT, getActiveAccount, pushEmail } from "@/core/state";
 import {
   ARREST_MAIL_BODY,
   ARREST_MAIL_FROM,
@@ -191,7 +191,7 @@ export function doLabShift(state: GameState): LabShiftResult {
       day: state.day,
       read: false,
     };
-    state.emails.unshift(email);
+    pushEmail(state, email);
     addSchedule(state, "터커 박사 체포 — 연구실 폐쇄", "system");
   }
 

@@ -12,6 +12,7 @@ import { pick, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { clampResource, STAMINA_RECOVER_BASE, STAMINA_MAX_CAP } from "./stats";
 import { addSchedule } from "./time";
+import { pushEmail } from "@/core/state";
 
 /**
  * 마라톤 대회(신청 → 대회일 기록 판정 → 결과 메일).
@@ -155,7 +156,7 @@ export function resolveRace(state: GameState): RaceOutcome | null {
     : out.finished
       ? pick(RACE_FINISH_LINES)
       : pick(RACE_DNF_LINES);
-  state.emails.unshift({
+  pushEmail(state, {
     id: uid("mail"),
     from: race.name,
     subject:

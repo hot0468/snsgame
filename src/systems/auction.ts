@@ -1,6 +1,6 @@
 import type { AuctionItem } from "@/data/auction";
 import type { DMThread, Email, GameState, ScheduleEvent, SkillStatId } from "@/core/types";
-import { getActiveAccount, appendSchedule } from "@/core/state";
+import { appendSchedule, getActiveAccount, pushEmail } from "@/core/state";
 import {
   AUCTION_ITEMS,
   AUCTION_MAIL_BODY,
@@ -164,7 +164,7 @@ export function maybeSendAuctionMail(state: GameState): void {
     read: false,
     auctionLink: true,
   };
-  state.emails.unshift(email);
+  pushEmail(state, email);
   pushSchedule(state, "서던피스 경매 초대장 도착", "system");
 }
 
@@ -286,7 +286,7 @@ export function maybeStealCrimsonEye(state: GameState): boolean {
     day: state.day,
     read: false,
   };
-  state.emails.unshift(email);
+  pushEmail(state, email);
   pushSchedule(state, "진홍안이 사라졌다", "system");
   return true;
 }

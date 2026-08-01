@@ -12,6 +12,7 @@ import { chance, hashInt, pick, uid } from "@/utils/random";
 import { postTweet, type PostTweetResult } from "./tweetSystem";
 import { clampResource } from "./stats";
 import { addSchedule } from "./time";
+import { pushEmail } from "@/core/state";
 
 /**
  * 네이놈 대회(신청 → 1주 뒤 결과 메일).
@@ -88,7 +89,7 @@ export function resolveContest(state: GameState): void {
     state.money += contest.prize;
     state.resources.reputation = clampResource(state.resources.reputation + CONTEST_WIN_REP);
   }
-  state.emails.unshift({
+  pushEmail(state, {
     id: uid("mail"),
     from: contest.name,
     subject: `[${won ? "입상" : "결과"}] ${contest.name} 결과 안내`,

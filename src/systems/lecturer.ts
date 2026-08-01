@@ -4,6 +4,7 @@ import { hasAnyJob, quitCurrentJob } from "./employment";
 import { clampResource, gainSkill, skillTo100 } from "./stats";
 import { addSchedule } from "./time";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
+import { pushEmail } from "@/core/state";
 
 /**
  * 이비에듀 강사직.
@@ -153,7 +154,7 @@ export function deliverLecturerResultEmail(state: GameState): void {
         read: false,
       };
 
-  state.emails.unshift(email);
+  pushEmail(state, email);
   addSchedule(state, app.hired ? "강사 합격 메일 도착" : "강사 결과 메일 도착", "system");
 }
 

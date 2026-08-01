@@ -5,6 +5,7 @@ import { chance, hashInt, hashUnit, uid } from "@/utils/random";
 import { dateOf } from "./calendar";
 import { skillTo100 } from "./stats";
 import { addSchedule } from "./time";
+import { pushEmail } from "@/core/state";
 
 /**
  * 자격증 시험 시스템.
@@ -236,7 +237,7 @@ function deliverExamSlot(state: GameState, slot: "pendingExam" | "pendingSpecial
         read: false,
       };
 
-  state.emails.unshift(email);
+  pushEmail(state, email);
   addSchedule(state, exam.passed ? `${cert.name} 합격!` : `${cert.name} 불합격`, "system");
 }
 

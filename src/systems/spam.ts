@@ -1,5 +1,5 @@
 import type { Email, GameState, ScheduleEvent, Tweet } from "@/core/types";
-import { getActiveAccount, pushTimeline, appendSchedule } from "@/core/state";
+import { appendSchedule, getActiveAccount, pushEmail, pushTimeline } from "@/core/state";
 import { chance, pick, randInt, uid } from "@/utils/random";
 import { changeFollowers } from "./followers";
 import { clampResource } from "./stats";
@@ -85,7 +85,7 @@ export function maybeSpawnSpamEmail(state: GameState): void {
   const unreadSpam = state.emails.filter((e) => e.spam && !e.read).length;
   if (unreadSpam >= SPAM_MAX_UNREAD) return;
   if (!chance(SPAM_EMAIL_CHANCE)) return;
-  state.emails.unshift(makeSpamEmail(state));
+  pushEmail(state, makeSpamEmail(state));
 }
 
 /**
@@ -93,7 +93,7 @@ export function maybeSpawnSpamEmail(state: GameState): void {
  * 심리테스트 피싱(psychoTest.resolvePsychoTest)에서 사용한다.
  */
 export function spawnSpamEmails(state: GameState, count: number): void {
-  for (let i = 0; i < count; i++) state.emails.unshift(makeSpamEmail(state));
+  for (let i = 0; i < count; i++) pushEmail(state, makeSpamEmail(state));
 }
 
 function pushSchedule(state: GameState, title: string, kind: ScheduleEvent["kind"]): void {

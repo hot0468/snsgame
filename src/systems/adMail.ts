@@ -8,6 +8,7 @@ import { gainSkill } from "./stats";
 import { salePrice } from "./seasonal";
 // monthKey는 calendar.ts에서 직접 가져온다(time.ts가 이 파일을 import하므로 순환 참조 방지).
 import { monthKey } from "./calendar";
+import { pushEmail } from "@/core/state";
 
 /**
  * 광고 메일(50% 특가).
@@ -77,7 +78,7 @@ export function maybeSpawnAdEmail(state: GameState): void {
     read: false,
     adOffer: offer,
   };
-  state.emails.unshift(email);
+  pushEmail(state, email);
 }
 
 /** 오퍼 대상 상품 (id 유실 시 null) */

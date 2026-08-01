@@ -4,6 +4,7 @@ import { chance, pick, uid } from "@/utils/random";
 import { clampAction, clampResource, gainSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 import { scheduleNextEsthetic } from "./appointments";
+import { pushEmail } from "@/core/state";
 
 /**
  * 에스테틱 정기권 (평판 분기 사기).
@@ -52,7 +53,7 @@ export function maybeSpawnEstheticAd(state: GameState): boolean {
   if (state.emails.some((e) => e.esthetic)) return false;
   if (!chance(ESTHETIC_AD_CHANCE)) return false;
 
-  state.emails.unshift({
+  pushEmail(state, {
     id: uid("mail"),
     from: ESTHETIC_AD_FROM,
     subject: ESTHETIC_AD_MAIL.subject,
@@ -111,7 +112,7 @@ export function resolveEsthetic(state: GameState): string {
 export function checkEstheticScam(state: GameState): boolean {
   if (state.estheticScamDay <= 0 || state.day < state.estheticScamDay) return false;
   state.estheticScamDay = 0;
-  state.emails.unshift({
+  pushEmail(state, {
     id: uid("mail"),
     from: ESTHETIC_AD_FROM,
     subject: "[안내] 에스테틱 폐업 공지",
