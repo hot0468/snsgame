@@ -1,4 +1,6 @@
-import { defineConfig, type Plugin } from "vite";
+// vitest/config의 defineConfig는 vite의 것을 그대로 확장한다(아래 test 옵션을 쓰려면 필요).
+import { defineConfig } from "vitest/config";
+import type { Plugin } from "vite";
 import { fileURLToPath, URL } from "node:url";
 import { access, mkdir, writeFile } from "node:fs/promises";
 
@@ -169,5 +171,19 @@ export default defineConfig({
   server: {
     port: 5173,
     open: true,
+  },
+  test: {
+    /**
+     * 기본값 5초는 이 저장소에 안 맞는다.
+     *
+     * 확률을 검증하는 테스트 몇 개가 몬테카를로다(`exploreTweets`를 수백~수천 번 돌려
+     * 노출률을 실측한다 — 표본을 줄이면 통계 근거가 무너지므로 반복은 줄일 수 없다).
+     * 단독으로는 300ms면 끝나지만, 파일 84개를 병렬로 돌릴 때 CPU 경합으로 20배까지
+     * 느려져 5초를 넘긴다. "단독 실행하면 통과"가 반복되던 원인이 이것이다.
+     *
+     * ⚠️ 무작정 크게 잡지 마라 — 무한 루프를 늦게 잡게 된다. 대부분의 테스트는 ms 단위로
+     *    끝나므로 20초면 경합은 흡수하면서 진짜 멈춤도 잡는다.
+     */
+    testTimeout: 20_000,
   },
 });
