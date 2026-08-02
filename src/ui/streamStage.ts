@@ -72,7 +72,7 @@ function frameKeyframes(n: number): string {
       el(
         "style",
         { id: name },
-        `@keyframes ${name}{0%,${(pct - 0.1).toFixed(2)}%{opacity:1}${pct.toFixed(2)}%,100%{opacity:0}}`,
+        `@keyframes ${name}{0%,${(pct - 0.1).toFixed(2)}%{visibility:visible}${pct.toFixed(2)}%,100%{visibility:hidden}}`,
       ),
     );
   }
