@@ -23,12 +23,12 @@ import { changeFollowers } from "./followers";
 /** 날짜/주차가 바뀌었으면 해당 미션 세트를 다시 굴린다(onNewDay·세이브 마이그레이션에서 호출). */
 export function ensureMissions(state: GameState): void {
   if (state.missions.day !== state.day) {
-    state.missions.daily = rollDaily(state.day);
+    state.missions.daily = rollDaily(state.day, state);
     state.missions.day = state.day;
   }
   const wk = currentWeek(state.day);
   if (state.missions.week !== wk) {
-    state.missions.weekly = rollWeekly(wk);
+    state.missions.weekly = rollWeekly(wk, state);
     state.missions.week = wk;
   }
 }

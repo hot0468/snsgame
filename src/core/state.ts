@@ -337,7 +337,13 @@ export function createInitialState(): GameState {
     pendingAchievements: [],
     statMilestones: [],
     pendingMilestones: [],
-    missions: { day: 1, week: currentWeek(1), daily: rollDaily(1), weekly: rollWeekly(currentWeek(1)) },
+    // 새 게임은 아직 state가 없다 — null을 넘겨 직업 전용 미션을 제외한다(무직이므로 정답).
+    missions: {
+      day: 1,
+      week: currentWeek(1),
+      daily: rollDaily(1, null),
+      weekly: rollWeekly(currentWeek(1), null),
+    },
     pendingMissions: [],
   };
 }

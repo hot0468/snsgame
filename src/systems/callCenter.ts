@@ -12,6 +12,7 @@ import {
 import { hasAnyJob, quitCurrentJob } from "./employment";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { clampMental, gainSkill } from "./stats";
+import { recordMission } from "./missions";
 import { addSchedule } from "./time";
 import { pick } from "@/utils/random";
 
@@ -115,6 +116,7 @@ export function takeCall(state: GameState, line: CallLine, streak: number): Call
   if (streak > job.bestStreak) job.bestStreak = streak;
 
   gainSkill(state, "sociability", line.sociability ?? 3);
+  recordMission(state, "call"); // 도전과제: 콜 카운트
 
   return { pay, mentalDelta, streak, canContinue: canTakeCall(state, streak + 1) };
 }

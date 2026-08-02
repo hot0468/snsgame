@@ -27,6 +27,7 @@ import { hasAnyJob, quitCurrentJob } from "./employment";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { mutableRelOf, relStateOf } from "./relationship";
 import { clampMental, clampResource, gainSkill, skillTo100 } from "./stats";
+import { recordMission } from "./missions";
 import { addSchedule } from "./time";
 import { chance, pick } from "@/utils/random";
 
@@ -137,6 +138,7 @@ export function sellToKnown(state: GameState, charId: string): SalesResult | nul
     state.money += commission;
     job.contracts += 1;
     job.totalCommission += commission;
+    recordMission(state, "sale"); // 도전과제: **성사된** 계약만 센다(허탕은 실적이 아니다)
   }
 
   // 호감도가 바닥나면 연락이 끊긴다 — 영업 대상에서도, 관계 서사에서도 빠진다.
@@ -189,6 +191,7 @@ export function sellToCold(state: GameState): SalesResult | null {
     state.money += commission;
     job.contracts += 1;
     job.totalCommission += commission;
+    recordMission(state, "sale"); // 도전과제: **성사된** 계약만 센다(허탕은 실적이 아니다)
   }
 
   addSchedule(

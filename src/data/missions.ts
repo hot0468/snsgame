@@ -6,12 +6,24 @@
  *
  * metric은 systems/missions.ts의 recordMission이 각 행동 지점에서 올려 주는 카운터 키다.
  * 새 metric을 추가하려면 그 행동이 일어나는 systems 함수에서 recordMission을 호출해야 한다.
- * 지금 5종은 모두 **직업·상태와 무관하게 늘 달성 가능한** 행동만 골랐다(막힌 미션 방지).
+ * 기본 5종은 **직업·상태와 무관하게 늘 달성 가능한** 행동이다(막힌 미션 방지).
+ * 직업 전용 미션은 `requires`로 게이트를 걸어, **그 직업일 때만 후보 풀에 들어간다** —
+ * 그래야 "택시 3회 운행"이 무직인 날의 죽은 미션이 되지 않는다.
  */
-import type { MissionInstance, SkillStatId } from "@/core/types";
+import type { GameState, MissionInstance, SkillStatId } from "@/core/types";
 import { hashInt } from "@/utils/random";
 
-export type MissionMetric = "tweet" | "like" | "retweet" | "follow" | "offline";
+export type MissionMetric =
+  | "tweet"
+  | "like"
+  | "retweet"
+  | "follow"
+  | "offline"
+  // ── 직업 전용(반드시 requires와 짝지어 쓸 것) ──
+  | "ride"
+  | "call"
+  | "sale"
+  | "cut";
 
 export interface MissionReward {
   money?: number;
@@ -27,6 +39,14 @@ export interface MissionDef {
   metric: MissionMetric;
   goal: number;
   reward: MissionReward;
+  /**
+   * 이 미션이 **후보 풀에 들어갈 조건**(없으면 항상 후보).
+   * 순수 판정 — 상태를 읽기만 한다(업적의 `condition`과 같은 규칙).
+   *
+   * ⚠️ 직업 전용 metric(ride·call·sale·cut)에는 **반드시** 이걸 붙여라.
+   *    안 붙이면 그 직업이 없는 날 절대 못 깨는 미션이 떠서 그날 세트 하나가 죽는다.
+   */
+  requires?: (s: GameState) => boolean;
 }
 
 /** 하루/한 주에 노출되는 미션 개수 */
@@ -40,6 +60,11 @@ export const DAILY_MISSIONS: MissionDef[] = [
   { id: "d_rt3", label: "리트윗 3번", metric: "retweet", goal: 3, reward: { mental: 12 } },
   { id: "d_follow2", label: "새 계정 2개 팔로우", metric: "follow", goal: 2, reward: { money: 15_000 } },
   { id: "d_offline1", label: "현생 살기 1회", metric: "offline", goal: 1, reward: { mental: 10 } },
+  // ── 직업 전용(requires로 게이트) ──
+  { id: "d_ride3", label: "택시 3회 운행", metric: "ride", goal: 3, reward: { money: 40_000 }, requires: (s) => !!s.taxiJob },
+  { id: "d_call6", label: "상담 6콜 처리", metric: "call", goal: 6, reward: { mental: 15 }, requires: (s) => !!s.callCenterJob },
+  { id: "d_sale1", label: "보험 계약 1건", metric: "sale", goal: 1, reward: { money: 60_000 }, requires: (s) => !!s.insuranceJob },
+  { id: "d_cut4", label: "시술 4건", metric: "cut", goal: 4, reward: { skills: { beauty: 15 } }, requires: (s) => !!s.stylistJob },
 ];
 
 export const WEEKLY_MISSIONS: MissionDef[] = [
@@ -48,6 +73,11 @@ export const WEEKLY_MISSIONS: MissionDef[] = [
   { id: "w_like30", label: "이번 주 좋아요 30번", metric: "like", goal: 30, reward: { money: 80_000, action: 10 } },
   { id: "w_follow8", label: "이번 주 팔로우 8명", metric: "follow", goal: 8, reward: { money: 90_000 } },
   { id: "w_offline5", label: "이번 주 현생 살기 5회", metric: "offline", goal: 5, reward: { skills: { knowledge: 15 } } },
+  // ── 직업 전용(requires로 게이트) ──
+  { id: "w_ride15", label: "이번 주 택시 15회 운행", metric: "ride", goal: 15, reward: { money: 200_000 }, requires: (s) => !!s.taxiJob },
+  { id: "w_call30", label: "이번 주 상담 30콜", metric: "call", goal: 30, reward: { money: 150_000, mental: 15 }, requires: (s) => !!s.callCenterJob },
+  { id: "w_sale5", label: "이번 주 보험 계약 5건", metric: "sale", goal: 5, reward: { money: 250_000 }, requires: (s) => !!s.insuranceJob },
+  { id: "w_cut20", label: "이번 주 시술 20건", metric: "cut", goal: 20, reward: { skills: { beauty: 30 } }, requires: (s) => !!s.stylistJob },
 ];
 
 const MISSION_BY_ID = new Map<string, MissionDef>();
@@ -68,16 +98,27 @@ function pickBySeed(pool: MissionDef[], k: number, seed: string): MissionDef[] {
   return order.slice(0, Math.min(k, pool.length)).map((i) => pool[i]);
 }
 
-export function rollDaily(day: number): MissionInstance[] {
-  return pickBySeed(DAILY_MISSIONS, DAILY_PICK, `daily:${day}`).map((m) => ({
+/**
+ * 지금 상태에서 후보가 되는 미션만 남긴다(직업 전용은 그 직업일 때만).
+ *
+ * ⚠️ `state`가 null인 건 **새 게임 초기 상태를 만드는 중**이라 아직 GameState가 없을 때다
+ *    (`core/state.createInitialState`). 새 게임엔 직업이 없으므로 기본 풀만 쓰는 게 정답이다.
+ */
+function eligible(pool: MissionDef[], state: GameState | null): MissionDef[] {
+  if (!state) return pool.filter((m) => !m.requires);
+  return pool.filter((m) => !m.requires || m.requires(state));
+}
+
+export function rollDaily(day: number, state: GameState | null): MissionInstance[] {
+  return pickBySeed(eligible(DAILY_MISSIONS, state), DAILY_PICK, `daily:${day}`).map((m) => ({
     id: m.id,
     progress: 0,
     claimed: false,
   }));
 }
 
-export function rollWeekly(week: number): MissionInstance[] {
-  return pickBySeed(WEEKLY_MISSIONS, WEEKLY_PICK, `weekly:${week}`).map((m) => ({
+export function rollWeekly(week: number, state: GameState | null): MissionInstance[] {
+  return pickBySeed(eligible(WEEKLY_MISSIONS, state), WEEKLY_PICK, `weekly:${week}`).map((m) => ({
     id: m.id,
     progress: 0,
     claimed: false,
