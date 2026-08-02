@@ -46,6 +46,8 @@ import { icon, ATTR_ICON } from "@/ui/icons";
 import { showDdeoksang } from "@/ui/ddeoksang";
 import { showTweetResult } from "@/ui/sns/tweetResultModal";
 import { masteryGrade, masteryTierFor } from "@/data/tweetMastery";
+import { COMBO_MAX_STEP } from "@/data/tweetFun";
+import { comboControversy, comboMultiplier } from "@/systems/tweetSystem";
 
 /** 창작 모드 — 꺼짐 / 1차창작 / 2차창작 */
 type CreationMode = "off" | "original" | "fan";
@@ -417,6 +419,40 @@ export function renderComposeModal(
     return grade ? { text: grade, earned: true } : { text: `Lv.${count}`, earned: false };
   }
 
+  /**
+   * 연타 콤보 표시 — **지금 몇 연타이고 다음 트윗이 뭘 받는지.**
+   *
+   * ⚠️ 이 장치는 도달 배수를 올리는 **동시에 논란 확률도 올린다**(같은 얘기만 반복하는 대가).
+   *    보상과 리스크가 같이 걸린 선택인데 화면이 아무 말도 안 해서, 플레이어가 존재 자체를
+   *    모른 채 굴러가고 있었다(systems/tweetSystem의 bumpTweetStreak — UI 참조가 0이었다).
+   *
+   * ⚠️ 갈래를 고르기 전엔 **현재 연타**를, 고른 뒤엔 **그 갈래를 골랐을 때의 결과**를 보여준다.
+   *    다른 갈래를 고르면 콤보가 1로 끊긴다는 걸 고르는 순간 알아야 선택이 된다.
+   */
+  function comboBadge(state: GameState, picked: AttributeId | null): HTMLElement | null {
+    const streak = state.tweetStreak;
+    if (!streak || streak.count <= 0) return null;
+    const label = ATTRIBUTES[streak.attr]?.label ?? "";
+
+    // 이번에 그 갈래를 고르면 몇 연타가 되는가(안 골랐으면 현재 연타를 그대로 보여준다).
+    const next = picked == null ? streak.count : picked === streak.attr ? streak.count + 1 : 1;
+    const capped = Math.min(next, COMBO_MAX_STEP);
+    const mul = comboMultiplier(next);
+    const risk = comboControversy(next);
+    const broken = picked != null && picked !== streak.attr;
+
+    return el(
+      "div",
+      { class: "compose-hint", style: "margin:0 0 8px" },
+      broken
+        ? `🔥 ${label} ${streak.count}연타 → 다른 갈래를 고르면 콤보가 끊긴다 (배수 1.0배로 리셋)`
+        : `🔥 ${label} ${capped}연타${next > COMBO_MAX_STEP ? "(상한)" : ""} · ` +
+          `도달 ×${mul.toFixed(1)}` +
+          (risk > 0 ? ` · 논란 위험 +${Math.round(risk * 100)}%` : "") +
+          (picked == null ? " — 같은 갈래를 이어 쓰면 올라간다" : ""),
+    );
+  }
+
   // ── 1단계: 어떤 글을 쓸까? (카테고리) ────────────────────
   function renderStep1(): HTMLElement {
     const attrChips = el(
@@ -514,6 +550,7 @@ export function renderComposeModal(
       { class: "modal__body compose-step" },
       stepTitle("어떤 글을 쓸까?"),
       timingBadge(s),
+      comboBadge(s, selectedAttr),
       attrChips,
       !hasAction
         ? el("div", { class: "compose-hint" }, `행동력이 부족해 트윗할 수 없어요 (게시에 ${tweetActionCost(s)} 필요).`)

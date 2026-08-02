@@ -1,3 +1,4 @@
+import { WIN_DEX_ID, markEndingSeen } from "@/systems/endingDex";
 import type { GameContext } from "./context";
 import { RESOURCE_STATS, RESOURCE_STAT_IDS, SKILL_STATS, SKILL_STAT_IDS } from "@/data/stats";
 import { daysUntilRent, livingCostToday, rentAmount } from "@/systems/economy";
@@ -24,6 +25,7 @@ import { renderAchievementsModal } from "./achievementsModal";
 import { renderDexModal } from "./dexModal";
 import { renderMissionsModal } from "./missionsModal";
 import { renderJobLevelModal } from "./jobLevelModal";
+import { renderEndingDexModal } from "./endingDexModal";
 import { renderAvWorkModal } from "./avWorkModal";
 import { finishWithEnding, isFrozen } from "@/systems/winEnding";
 
@@ -510,6 +512,13 @@ function statusInner(ctx: GameContext): HTMLElement[] {
           icon("article", { size: 14 }),
           " 직업 보기",
         ),
+        // 엔딩 도감도 같은 자리에 — 목표가 뭔지 알 방법이 여기 말고 없다.
+        el(
+          "button",
+          { class: "link-btn", onclick: () => ctx.openModal(renderEndingDexModal) },
+          icon("star", { size: 14 }),
+          " 엔딩 보기",
+        ),
       ),
     ),
   ];
@@ -594,7 +603,10 @@ export function renderStatusDock(ctx: GameContext): HTMLElement {
             "button",
             {
               class: "life-btn life-btn--ending",
-              onclick: () => ctx.update((g) => finishWithEnding(g)),
+              onclick: () => {
+                ctx.update((g) => finishWithEnding(g));
+                markEndingSeen(WIN_DEX_ID); // 엔딩 도감 기록(localStorage — systems는 저장소를 모른다)
+              },
             },
             icon("star", { size: 18 }),
             "엔딩 보기",

@@ -1,3 +1,4 @@
+import { markEndingSeen } from "@/systems/endingDex";
 import type { GameContext } from "./context";
 import type { EndingOffer } from "@/systems/endings";
 import { el } from "@/utils/dom";
@@ -48,6 +49,8 @@ export function renderEndingOfferModal(ctx: GameContext, ending: EndingOffer): H
             onclick: () => {
               ctx.update((g) => {
                 g.gameOver = ending.reason;
+                // 엔딩 도감에 기록한다(게임 상태가 아니라 별도 저장소 — 새 판에도 남는다).
+                markEndingSeen(ending.id);
               });
             },
           },

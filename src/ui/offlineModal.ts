@@ -19,6 +19,8 @@ import {
 } from "@/systems/offline";
 import { postTweet } from "@/systems/tweetSystem";
 import { outdoorShoot, blackVanOrgy, wallHoleOrgy } from "@/systems/events";
+import { DONATION_TARGETS } from "@/data/donation";
+import { renderDonationModal } from "./donationModal";
 import { getAdultOfflineEncounter } from "@/data/adultOffline";
 import { resolveAdultOfflineEncounter } from "@/systems/adultOffline";
 import {
@@ -708,6 +710,8 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         lifeTab === "growth" ? salonSection() : null,
         lifeTab === "growth" ? bodyProfileSection() : null,
         lifeTab === "growth" ? raceSection() : null,
+        // 기부 — 돈을 평판·도덕성으로 바꾸는 유일한 창구(후반에 고이는 돈의 출구).
+        lifeTab === "growth" ? donationSection() : null,
         // 공부 탭: 미술·코딩 등은 EBS로 옮겼다 — 힌트로 안내(네이놈에서 검색해 접속).
         lifeTab === "study"
           ? el(
@@ -791,6 +795,34 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
    * 마라톤 대회 섹션(자기개발 탭) — **신청 대기 중일 때만** 대회일 카운트다운을 보여준다.
    * 신청 자체는 운동 중 제안 팝업에서만 열린다(상시 메뉴가 아니다).
    */
+  /**
+   * 기부 진입 — 자기개발 탭.
+   *
+   * ⚠️ 최소 기부액에 못 미치면 **버튼을 숨기지 않고 흐리게 둔다.** 숨기면 기부라는 게
+   *    있는 줄도 모른다(도감을 항상 보여주는 것과 같은 이유).
+   */
+  function donationSection(): HTMLElement {
+    const s = ctx.store.getState();
+    const cheapest = Math.min(...DONATION_TARGETS.map((t) => t.minAmount));
+    const afford = s.money >= cheapest;
+    return el(
+      "div",
+      { class: "life-section" },
+      el(
+        "button",
+        {
+          class: "life-btn" + (afford ? "" : " life-btn--off"),
+          disabled: !afford,
+          onclick: () => ctx.openModal(renderDonationModal),
+        },
+        icon("heart", { size: 18 }),
+        afford
+          ? " 기부하기 (도덕성)"
+          : ` 기부하기 (${formatNumber(cheapest)}원부터)`,
+      ),
+    );
+  }
+
   function raceSection(): HTMLElement | null {
     const s = ctx.store.getState();
     const pending = s.pendingRace;

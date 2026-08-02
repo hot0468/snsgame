@@ -9,6 +9,7 @@ import { renderCalendar } from "./calendar";
 import { rollEvent } from "@/systems/events";
 import { renderEventModal } from "./eventModal";
 import { renderGameOver } from "./gameOverModal";
+import { dexIdForReason, markEndingSeen } from "@/systems/endingDex";
 import { renderJobAdultModal } from "./jobAdultModal";
 import { isFrozen, shouldOfferWinEnding } from "@/systems/winEnding";
 import { renderWinOfferModal } from "./winOfferModal";
@@ -45,6 +46,11 @@ import { renderFireOfferModal } from "./fireModal";
 import { pendingEndingOffer } from "@/systems/endings";
 import { renderEndingOfferModal } from "./endingModal";
 import { renderDawnModal } from "./dawnModal";
+import { renderDecayModal, renderPopularityModal } from "./popularityModal";
+import { renderJobRankModal } from "./jobRankModal";
+import { renderAuthorRankModal } from "./authorRankModal";
+import { renderAwardsModal } from "./awardsModal";
+import { renderYearReviewModal } from "./yearReviewModal";
 import { renderSickModal } from "./sickModal";
 import { renderSleepModal } from "./sns/sleepModal";
 import { renderHauntModal } from "./sns/hauntModal";
@@ -178,6 +184,13 @@ export function createApp(root: HTMLElement, store: Store): void {
     loginNode = null; // 로그인 완료 — 다음 로그인(새 게임) 땐 새로 만든다.
 
     const gameOver = state.gameOver;
+    // 망해서 끝나는 결말(외도 발각·퇴거·사망·사채)은 systems가 사유만 박고 끝난다 —
+    // 수락 버튼이 없어서 기록할 자리가 여기뿐이다. 사유를 도감 id로 되짚어 남긴다.
+    // (markEndingSeen은 중복 호출이 무해하므로 재렌더마다 불려도 괜찮다.)
+    if (gameOver) {
+      const badId = dexIdForReason(gameOver);
+      if (badId) markEndingSeen(badId);
+    }
     // 100만 달성 후 엔딩 대기 — 화면은 살아 있지만 행동·시간은 멈춘다.
     const frozen = isFrozen(state);
 
@@ -236,6 +249,25 @@ export function createApp(root: HTMLElement, store: Store): void {
         // 여름 합숙 제안 — 8월 대회 다음 날. **평일 훈련(isCoachWorkNow)보다 먼저**다.
         // 뒤에 두면 그날이 평일일 때 훈련 모달이 가져가 제안이 영영 안 뜬다(연 1회뿐이다).
         ui.modal = (c) => renderCoachCampModal(c);
+      } else if (state.pendingYearReview) {
+        // 새해 결산(1월 1일) — 지난 한 해의 요약. 시상식 바로 다음 순번이다.
+        ui.modal = (c) => renderYearReviewModal(c);
+      } else if (state.pendingAwards) {
+        // 연말 시상식(12/29 송년회 · 12/30 방송미디어대상) — 한 해의 결산이라 다른 팝업보다 앞이다.
+        ui.modal = (c) => renderAwardsModal(c);
+      } else if (state.pendingAuthorRank) {
+        // 웹툰 연재 순위 발표(정산일) — 한 달치 원고의 결과라 근무·약속보다 앞이다.
+        ui.modal = (c) => renderAuthorRankModal(c);
+      } else if (state.pendingJobRank) {
+        // 직업 승급 — 한 계단 오른 그 순간. 근무·약속보다 앞에 둔다(뒤에 두면 평일엔 안 뜬다).
+        ui.modal = (c) => renderJobRankModal(c);
+      } else if (state.pendingPopularity) {
+        // 월간 인기 순위 발표(말일 집계) — 새 날 아침에 dawn 다음으로 뜬다.
+        // 한 달치 트윗의 결과라 근무·약속보다 앞에 둔다(뒤에 두면 평일엔 영영 안 뜬다).
+        ui.modal = (c) => renderPopularityModal(c);
+      } else if (state.pendingDecay) {
+        // 오래 안 써서 팔로워가 빠졌다는 알림. 순위 발표 다음(둘 다 뜨는 날은 순위가 먼저다).
+        ui.modal = (c) => renderDecayModal(c);
       } else if (state.pendingCoachChampion != null) {
         // 전국체전 우승 축하 — 대회 당일 아침(coach.maybeHoldMeet이 예약).
         // **평일 출근(isCoachWorkNow)보다 먼저**여야 한다. 대회일이 평일이면 훈련 모달이

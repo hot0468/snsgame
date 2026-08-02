@@ -457,6 +457,91 @@ export const ACHIEVEMENTS: Achievement[] = [
     emoji: "📚",
     condition: (s) => CHARACTER_GROUP_DEFS.every((g) => hasWholeGroup(s, g.handles)),
   },
+
+  /* ── 경력·수상·순위 ─────────────────────────────
+   * ⚠️ 이번에 만든 시스템(경력 등급·시상식·인기순위·협박·클럽)은 업적이 하나도 없었다.
+   *    도전과제 목록은 "그런 게 있는 줄도 모르는" 콘텐츠를 알리는 자리이기도 하다. */
+  {
+    id: "career_peak",
+    name: "정점",
+    desc: "직업이든 채널이든, 사다리 끝까지 올라가 봤다.",
+    emoji: "👑",
+    condition: (s) => (s.careerPeaks ?? []).length >= 1,
+  },
+  {
+    id: "career_peak3",
+    name: "세 번의 정점",
+    desc: "서로 다른 셋에서 정점을 찍었다. 한 우물만 판 게 아니다.",
+    emoji: "🏔️",
+    condition: (s) => (s.careerPeaks ?? []).length >= 3,
+  },
+  {
+    id: "award_first",
+    name: "첫 트로피",
+    desc: "연말 시상식에서 상을 받았다.",
+    emoji: "🎖️",
+    condition: (s) => (s.awardsWon ?? []).length >= 1,
+  },
+  {
+    id: "award_grand",
+    name: "대상",
+    desc: "시상식 대상. 그 해 그 바닥에서 가장 많이 불린 이름이 됐다.",
+    emoji: "🏆",
+    condition: (s) => (s.awardsWon ?? []).some((w) => w.grand),
+  },
+  {
+    id: "rank_top10",
+    name: "톱10",
+    desc: "월간 인기 순위 10위 안에 들었다.",
+    emoji: "📈",
+    condition: (s) => (s.popularity?.best ?? 999) <= 10,
+  },
+  {
+    id: "rank_first",
+    name: "정상",
+    desc: "월간 인기 순위 1위. 이 앱에서 당신보다 팔로워가 많은 사람은 없다.",
+    emoji: "🥇",
+    condition: (s) => (s.popularity?.best ?? 999) <= 1,
+  },
+  {
+    id: "author_rank_top3",
+    name: "연재 톱3",
+    desc: "웹툰 플랫폼 월간 순위 3위 안에 들었다.",
+    emoji: "🖊️",
+    condition: (s) => (s.authorRank?.best ?? 999) <= 3,
+  },
+  {
+    id: "sponsor_deal",
+    name: "그 바닥 사람",
+    desc: "한 갈래를 깊게 판 끝에 협찬 제안을 받았다.",
+    emoji: "🤝",
+    condition: (s) => s.emails.some((e) => !!e.sponsorOffer),
+  },
+  {
+    id: "donation_first",
+    name: "쓸 데 있는 돈",
+    desc: "번 돈의 일부를 기부했다.",
+    emoji: "💝",
+    condition: (s) => (s.donatedTotal ?? 0) > 0,
+  },
+  {
+    id: "blackmail_refused",
+    name: "안 보냅니다",
+    desc: "협박을 거절했다. 잃을 건 잃었지만 끌려다니지는 않았다.",
+    emoji: "🚫",
+    hidden: true,
+    adult: true,
+    condition: (s) => s.schedule.some((e) => e.title.startsWith("유출 —")),
+  },
+  {
+    id: "club_regular",
+    name: "화요일의 사람",
+    desc: "비공개 클럽에 가입해 정기 세션에 나간다.",
+    emoji: "🕯️",
+    hidden: true,
+    adult: true,
+    condition: (s) => !!s.privateClubJoined,
+  },
 ];
 
 /** 활성 계정이 이 핸들을 팔로우 중인지 */

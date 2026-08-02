@@ -1,3 +1,4 @@
+import { WIN_DEX_ID, markEndingSeen } from "@/systems/endingDex";
 import type { GameContext } from "./context";
 import { WIN_FOLLOWERS, declineWinEnding, finishWithEnding } from "@/systems/winEnding";
 import { totalFollowers } from "@/systems/economy";
@@ -60,7 +61,15 @@ export function renderWinOfferModal(ctx: GameContext): HTMLElement {
         ),
         el(
           "button",
-          { class: "btn", onclick: () => ctx.update((g) => finishWithEnding(g)) },
+          {
+            class: "btn",
+            onclick: () => {
+              ctx.update((g) => finishWithEnding(g));
+              // 엔딩 도감 기록. systems가 아니라 여기서 하는 이유: 도감은 localStorage에 살고,
+              // systems는 저장소를 몰라야 한다(순수 상태 변경만).
+              markEndingSeen(WIN_DEX_ID);
+            },
+          },
           "엔딩 보기",
         ),
       ),
