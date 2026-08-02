@@ -3150,6 +3150,11 @@ body {
 .event-choice--av > b {
   color: #e0247e;
 }
+/* 자원이 모자라 못 고르는 선택지(예: 행동력 부족한 사바나 방송) */
+.event-choice--off {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 /* 심야 약속이 있는 '남는다' 선택지 강조 */
 .event-choice--appt {
   border-color: var(--accent);

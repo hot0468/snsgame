@@ -7,7 +7,7 @@ import { changeFollowers } from "./followers";
 import { applyEffect } from "./events";
 import { legendBJMultiplier } from "./eggs";
 import { ownedCount } from "./shop";
-import { SKILL_SCALE, clampMental, gainSkill } from "./stats";
+import { SKILL_SCALE, clampAction, clampMental, gainSkill } from "./stats";
 import { addSchedule, advanceTime } from "./time";
 
 /**
@@ -16,6 +16,21 @@ import { addSchedule, advanceTime } from "./time";
  * - 계약하면 매 심야(취침 선택)마다 '사바나 라이브방송' 행동이 열린다.
  * - 방송 도네이션은 미용·어휘력·음란 수치가 높을수록 커진다.
  */
+
+/**
+ * 방송 1회 행동력 소모 — 너튜브 라이브(`livestream.STREAM_ACTION_COST`)와 **같은 값**이다.
+ *
+ * ⚠️ 예전엔 0이었다. 같은 시간 1칸을 쓰면서 수익은 가장 큰데(만렙 기준 회당 18~38만,
+ *    택시 4.9만의 4~8배) 행동력만 안 내서, 행동력이 바닥난 날에도 돌릴 수 있었다 —
+ *    행동력 관리라는 축을 통째로 우회하는 구멍이었다.
+ * ⚠️ 두 방송이 같은 값을 쓰는 건 의도다. 하나만 바꾸면 "어느 방송이 싼가"를 외워야 한다.
+ */
+export const SAVANNA_ACTION_COST = 18;
+
+/** 지금 방송을 켤 수 있는지(행동력이 모자라면 못 켠다). */
+export function canRunSavannaStream(state: GameState): boolean {
+  return state.resources.action >= SAVANNA_ACTION_COST;
+}
 
 /** 성인 트윗 직후 여캠 제의 DM이 올 확률 */
 export const SAVANNA_DM_CHANCE = 0.35;
@@ -211,6 +226,11 @@ export function resolveSavannaIntrusion(state: GameState, choiceIndex: number): 
  *   음란도가 높으면 장문 시나리오(scenario:true)로 연결하고, 낮으면 충격 종료(단발).
  */
 export function runSavannaStream(state: GameState): SavannaResult {
+  // ⚠️ 행동력은 **여기서 한 번만** 뺀다. 아래 네 갈래(난입 시나리오·충격 종료·성인 방송
+  //    시나리오·일반 방송) 중 어디로 빠지든 '방송을 켠 것'은 같기 때문이다.
+  //    종착점마다 빼면 시나리오 갈래(효과를 resolve로 미루는 쪽)에서 빠뜨리기 쉽다.
+  state.resources.action = clampAction(state, state.resources.action - SAVANNA_ACTION_COST);
+
   if (chance(SAVANNA_INTRUSION_CHANCE)) {
     if (
       state.skills.lewd >= SAVANNA_INTRUSION_LEWD_MIN &&

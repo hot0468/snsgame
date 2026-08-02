@@ -1,6 +1,12 @@
 import type { GameContext } from "@/ui/context";
 import { advanceTime } from "@/systems/time";
-import { runSavannaStream, pickSavannaShowScenario, resolveSavannaShow } from "@/systems/savanna";
+import {
+  runSavannaStream,
+  pickSavannaShowScenario,
+  resolveSavannaShow,
+  canRunSavannaStream,
+  SAVANNA_ACTION_COST,
+} from "@/systems/savanna";
 import { doOfflineActivity, AUTHOR_WORK_ACTIVITY } from "@/systems/offline";
 import { renderSavannaIntrusionModal } from "./savannaModal";
 import { renderScenarioReaderModal } from "./scenarioReader";
@@ -21,10 +27,20 @@ import { icon } from "@/ui/icons";
 export function renderSleepModal(ctx: GameContext): HTMLElement {
   const container = el("div", { class: "modal" });
 
-  function choice(title: string, desc: string, onclick: () => void, cls = ""): HTMLElement {
+  function choice(
+    title: string,
+    desc: string,
+    onclick: () => void,
+    cls = "",
+    disabled = false,
+  ): HTMLElement {
     return el(
       "button",
-      { class: "event-choice" + (cls ? " " + cls : ""), onclick },
+      {
+        class: "event-choice" + (cls ? " " + cls : "") + (disabled ? " event-choice--off" : ""),
+        disabled,
+        onclick,
+      },
       el("b", {}, title),
       el("div", { class: "sleep-choice__desc" }, desc),
     );
@@ -120,7 +136,9 @@ export function renderSleepModal(ctx: GameContext): HTMLElement {
         savannaJoined
           ? choice(
               "🔴 사바나 라이브방송",
-              "심야에 라이브 방송을 켜고 도네이션을 번다.",
+              canRunSavannaStream(state)
+                ? `심야에 라이브 방송을 켜고 도네이션을 번다. (행동력 -${SAVANNA_ACTION_COST})`
+                : `행동력이 부족해요 (필요 ${SAVANNA_ACTION_COST})`,
               () => {
                 let scenario = false;
                 let showScenario = false;
@@ -152,6 +170,8 @@ export function renderSleepModal(ctx: GameContext): HTMLElement {
                   showResult(msg);
                 }
               },
+              "",
+              !canRunSavannaStream(state),
             )
           : null,
         // AV 촬영 업무 — 심야 활동이라 취침 모달에서 접근한다(상태-독 버튼은 취침 모달에 가려짐).
