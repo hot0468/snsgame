@@ -194,6 +194,14 @@ function onLateNight(state: GameState): void {
 function onNewDay(state: GameState): void {
   // 새 날 아침이 밝았음을 표시(UI가 감지해 "또다시 해가 떴다" 딤팝업을 띄우고, 닫을 때 false로 되돌린다).
   state.dawnPending = true;
+  // ⚠️ **어제 심야에 켜진 취침 예약을 반드시 끈다.**
+  //    sleepPending은 낮→심야 전환(onLateNight)에서 켜지고 취침 모달의 선택지가 끄는데,
+  //    그 모달이 뜨기 전에 **다른 무언가가 시간을 또 밀면** 플래그만 남은 채 날이 바뀐다
+  //    (예: 현생 살기 결과를 닫자마자 뜬 이벤트가 '회식·고래 만남'처럼 시간을 진행시키는 경우).
+  //    그러면 새 날 낮에 취침 모달이 뜨고, 그 선택이 시간을 또 밀어 낮·심야가 두 번씩 도는
+  //    것처럼 보인다. spendDayResting이 같은 이유로 개별 방어를 하고 있었는데,
+  //    경로마다 막을 게 아니라 '날이 바뀌면 어제 예약은 무효'라는 규칙을 여기 한 곳에 둔다.
+  state.sleepPending = false;
   // 일일/주간 도전과제 리셋(날짜·주차 바뀌면 세트 재추첨)
   ensureMissions(state);
   // 자고 일어나면 정신력/행동력 회복. 단, 심야 트윗을 썼으면 수면 부족으로 회복이 줄어든다.

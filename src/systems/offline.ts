@@ -966,9 +966,10 @@ export function spendDayResting(state: GameState): { action: number; mental: num
     mental += state.resources.mental - mentalBefore;
     advanceTime(state, 1);
   }
-  // 하루를 통째로 쉬어 넘겼으므로 다음날 아침에 착지한다. 통과 중 심야에서 켜진 취침 예약은
-  // 실제로 취침 선택을 한 게 아니므로 지운다 — 안 지우면 새벽 팝업 뒤에 심야 선택창이 또 뜬다.
-  state.sleepPending = false;
+  // 하루를 통째로 쉬어 넘겼으므로 다음날 아침에 착지한다.
+  // ⚠️ 통과 중 심야에서 켜진 취침 예약은 `onNewDay`가 지운다(날이 바뀌면 어제 예약은 무효).
+  //    예전엔 여기서 개별로 지웠는데, 같은 함정이 다른 경로(이벤트가 시간을 미는 경우)에서
+  //    재발해 낮·심야가 두 번씩 도는 버그가 됐다 — 그래서 규칙을 time.onNewDay 한 곳으로 옮겼다.
   return { action, mental };
 }
 
