@@ -32,6 +32,18 @@ export function canRunSavannaStream(state: GameState): boolean {
   return state.resources.action >= SAVANNA_ACTION_COST;
 }
 
+/**
+ * 일반 방송 1회가 올리는 음란(선언값 — 실제 지급은 gainSkill 배율·감쇠 후).
+ *
+ * ⚠️ 예전엔 3이었다. 야밤 영상 **감상**이 10인데 직접 카메라 앞에 서는 방송이 그보다
+ *    적은 건 앞뒤가 안 맞았다. 컨셉이 곧 도네이션인 직업이라 방송을 돌릴수록 이 축이
+ *    자라는 게 맞다. 다만 매일 켤 수 있는 자리라 감상보다 크게 잡지는 않는다.
+ */
+export const SAVANNA_STREAM_LEWD_GAIN = 8;
+
+/** 시청자 난입에 놀라 급히 끈 방송이 올리는 음란 — 방송은 켰으니 절반은 남는다. */
+export const SAVANNA_SHOCK_LEWD_GAIN = 4;
+
 /** 성인 트윗 직후 여캠 제의 DM이 올 확률 */
 export const SAVANNA_DM_CHANCE = 0.35;
 
@@ -141,6 +153,8 @@ function runSavannaShock(state: GameState): SavannaResult {
   advanceTime(state, 1);
   const amount = 5_000 + randInt(0, 5_000);
   state.money += amount;
+  // 급히 껐어도 방송은 켰다 — 일반 방송의 절반만 남는다.
+  gainSkill(state, "lewd", SAVANNA_SHOCK_LEWD_GAIN);
   state.resources.mental = clampMental(state, state.resources.mental - 15);
   addSchedule(state, "사바나 시청자 난입 소동", "sns");
   return {
@@ -249,7 +263,9 @@ export function runSavannaStream(state: GameState): SavannaResult {
 
   const amount = savannaDonation(state);
   state.money += amount;
-  gainSkill(state, "lewd", 3);
+  // ⚠️ 문구에는 선언값이 아니라 **실제 반영 델타**를 쓴다(야밤·푸시타임과 같은 규칙).
+  //    gainSkill이 정신력 배율·감쇠를 태우므로 선언값과 다르게 들어온다.
+  const lewdGain = gainSkill(state, "lewd", SAVANNA_STREAM_LEWD_GAIN);
   state.resources.mental = clampMental(state, state.resources.mental - 8);
   state.lateTweetToday = true; // 밤샘 방송 → 다음날 회복 감소
   addSchedule(state, `사바나 라이브방송 (+${amount.toLocaleString("ko-KR")}원)`, "sns");
@@ -258,7 +274,8 @@ export function runSavannaStream(state: GameState): SavannaResult {
     amount,
     message:
       `심야 방송을 켰다. 채팅창이 북적이고 별풍선이 연달아 터졌다. ` +
-      `오늘 도네이션 ${amount.toLocaleString("ko-KR")}원을 벌었다! 다만 밤을 새워 몸은 무겁다.`,
+      `오늘 도네이션 ${amount.toLocaleString("ko-KR")}원을 벌었다! ` +
+      `카메라 앞에서 노는 게 조금씩 익숙해진다. (음란 +${lewdGain}) 다만 밤을 새워 몸은 무겁다.`,
   };
 }
 

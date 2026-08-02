@@ -2,9 +2,12 @@ import { describe, it, expect } from "vitest";
 import { createInitialState } from "@/core/state";
 import {
   SAVANNA_ACTION_COST,
+  SAVANNA_SHOCK_LEWD_GAIN,
+  SAVANNA_STREAM_LEWD_GAIN,
   canRunSavannaStream,
   runSavannaStream,
 } from "@/systems/savanna";
+import { YABAM_VIDEO_LEWD_GAIN } from "@/systems/yabam";
 import { STREAM_ACTION_COST } from "@/systems/livestream";
 import { TAXI_ACTION_COST } from "@/data/taxi";
 import type { GameState } from "@/core/types";
@@ -57,6 +60,42 @@ describe("행동력 비용", () => {
       runSavannaStream(s);
       expect(s.resources.action).toBe(100 - SAVANNA_ACTION_COST);
     }
+  });
+});
+
+describe("음란 상승", () => {
+  it("방송하면 음란이 오른다", () => {
+    const s = streamer();
+    const before = s.skills.lewd;
+    runSavannaStream(s);
+    expect(s.skills.lewd, "컨셉이 곧 도네이션인 직업이다").toBeGreaterThan(before);
+  });
+
+  it("보는 것(야밤 감상)보다 적지 않다 — 직접 하는 쪽이 덜 오르면 앞뒤가 안 맞는다", () => {
+    expect(SAVANNA_STREAM_LEWD_GAIN).toBeGreaterThanOrEqual(YABAM_VIDEO_LEWD_GAIN * 0.8);
+  });
+
+  it("매일 켤 수 있는 자리라 한 번에 크게 주지는 않는다", () => {
+    // 오프라인 성인 조우(1회 40~50)나 클럽 세션급으로 주면 방송만 돌려도 축이 끝난다.
+    expect(SAVANNA_STREAM_LEWD_GAIN).toBeLessThan(20);
+  });
+
+  it("놀라서 급히 끈 방송도 조금은 오른다 — 켜긴 켰다", () => {
+    expect(SAVANNA_SHOCK_LEWD_GAIN).toBeGreaterThan(0);
+    expect(SAVANNA_SHOCK_LEWD_GAIN).toBeLessThan(SAVANNA_STREAM_LEWD_GAIN);
+  });
+
+  it("결과 문구가 실제 반영분을 알려준다", () => {
+    // 예전엔 오르는데 문구에 없어서 '안 오른다'로 읽혔다.
+    const s = streamer();
+    let msg = "";
+    for (let i = 0; i < 60 && !msg.includes("음란"); i++) {
+      const fresh = streamer();
+      const r = runSavannaStream(fresh);
+      if (r.message) msg = r.message;
+    }
+    expect(msg, "일반 방송 문구에 음란 증가가 보여야 한다").toContain("음란 +");
+    expect(s).toBeTruthy();
   });
 });
 
