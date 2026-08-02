@@ -875,6 +875,17 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
   function showOffer(offer: OfflineOffer): void {
     const s = ctx.store.getState();
     const isBody = offer === "bodyProfile";
+    /**
+     * 제안 화면의 **모든 출구**. 활동은 이미 끝났으므로 다른 활동 결과와 똑같이 닫고 나간다.
+     *
+     * ⚠️ 예전엔 `showChoices()`로 활동 목록에 되돌아갔다. 그러면 운동으로 시간이 심야까지
+     *    갔는데도 현생 살기 창이 살아남아, 취침 모달·새 날 팝업이 그 뒤에 갇혔다.
+     *    (app의 강제 팝업 사슬은 `!ui.modal`일 때만 도는데 이 창이 계속 그 자리를 잡고 있었다.)
+     */
+    const done = (): void => {
+      ctx.closeModal();
+      ctx.afterAction("offline");
+    };
     const body = isBody
       ? el(
           "div",
@@ -893,11 +904,7 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           el(
             "div",
             { class: "compose-actions", style: "gap:10px" },
-            el(
-              "button",
-              { class: "btn btn--ghost", onclick: () => showChoices() },
-              "다음에요",
-            ),
+            el("button", { class: "btn btn--ghost", onclick: done }, "다음에요"),
             el(
               "button",
               {
@@ -905,8 +912,7 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
                 onclick: () => {
                   ctx.update((st) => startBodyProfile(st));
                   ctx.toast("바디프로필 도전 시작! 오늘부터 한 달이다");
-                  showChoices();
-                  ctx.refresh();
+                  done();
                 },
               },
               `예약한다 · ${formatNumber(BODY_PROFILE_FEE)}원`,
@@ -926,11 +932,11 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
             { class: "goal-section__meta" },
             `현재 운동 ${s.skills.fitness} — 코스를 고르면 참가비를 내고 신청한다. 기록은 대회 당일에 나온다.`,
           ),
-          raceList(() => showChoices()),
+          raceList(done),
           el(
             "div",
             { class: "compose-actions", style: "margin-top:12px" },
-            el("button", { class: "btn btn--ghost", onclick: () => showChoices() }, "관심 없어요"),
+            el("button", { class: "btn btn--ghost", onclick: done }, "관심 없어요"),
           ),
         );
 
