@@ -80,6 +80,22 @@ export const MLM_ENDING_REASON =
 export const STYLIST_ENDING_REASON =
   "✂️ 내 가게를 열다! 이름을 부르지 않아도 자리에 앉는 손님이 늘었고, 그들이 따라와 준 덕에 작은 가게를 냈습니다. 간판에 적힌 건 남의 상호가 아니라 당신의 이름입니다.";
 
+/** 회사원 임원 엔딩 사유 */
+export const OFFICE_ENDING_REASON =
+  "🏢 임원이 되다! 사원증 사진을 몇 번이나 갈아 끼운 끝에 이름 뒤에 '이사'가 붙었습니다. 회의실 상석에 앉아 창밖을 보다가, 처음 출근하던 날의 지하철 냄새를 떠올립니다. 여기까지 온 사람은 많지 않습니다.";
+
+/** 강사 엔딩 사유 */
+export const LECTURER_ENDING_REASON =
+  "🎓 일타강사 등극! 수강 신청이 열리자마자 당신 강좌부터 마감됩니다. 판서를 지우는 등 뒤로 박수가 터지고, 어떤 학생은 당신 덕에 진로를 바꿨다고 말합니다. 아는 것을 나누는 일로 이름을 남겼습니다.";
+
+/** AV배우 엔딩 사유 */
+export const AV_ENDING_REASON =
+  "🎬 이 바닥의 이름! 데뷔작 제목을 아무도 기억 못 하던 시절을 지나, 이제 당신 이름이 곧 장르가 됐습니다. 시상식 무대에서 후배들이 당신을 보고 이 일을 시작했다고 말합니다. 감추지 않고 끝까지 해낸 사람으로 남습니다.";
+
+/** 배구부 코치 엔딩 사유 */
+export const COACH_ENDING_REASON =
+  "🏐 명장의 자리! 전국체전 우승기를 세 번 들어 올렸습니다. 체육관 벽에 걸린 사진 속 아이들은 모두 다른 곳에서 어른이 됐고, 그중 몇은 아직도 스승의 날에 연락합니다. 이기는 법보다 버티는 법을 가르친 지도자로 기억됩니다.";
+
 /** 사채 3회 연체 엔딩 사유 — 일반 모드(부모님이 빚을 갚고 강제 귀향) */
 export const LOAN_DEFAULT_ENDING_REASON =
   "대부업체에 세 번이나 끌려간 끝에 결국 부모님께 모든 것이 들통났습니다. 빚은 다행히 모두 갚아주셨지만, 휴대폰을 빼앗긴 채 그대로 고향으로 내려가게 되었습니다...";
@@ -98,6 +114,10 @@ export const CELEBRATORY_ENDING_TITLES: Record<string, string> = {
   [CALL_CENTER_ENDING_REASON]: "🎧 상담 강사 엔딩",
   [MLM_ENDING_REASON]: "💎 다이아몬드 엔딩",
   [STYLIST_ENDING_REASON]: "✂️ 개업 엔딩",
+  [OFFICE_ENDING_REASON]: "🏢 임원 엔딩",
+  [LECTURER_ENDING_REASON]: "🎓 일타강사 엔딩",
+  [AV_ENDING_REASON]: "🎬 대표작 엔딩",
+  [COACH_ENDING_REASON]: "🏐 명장 엔딩",
 };
 
 /** 하루의 행동 슬롯 수 (0..SLOTS_PER_DAY-1) — 낮/심야 */

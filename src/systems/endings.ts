@@ -1,13 +1,18 @@
 import type { GameState } from "@/core/types";
 import {
   AUTHOR_ENDING_REASON,
+  AV_ENDING_REASON,
   CALL_CENTER_ENDING_REASON,
+  COACH_ENDING_REASON,
   DEBUT_ENDING_REASON,
+  LECTURER_ENDING_REASON,
   LEGEND_BJ_ENDING_REASON,
   MLM_ENDING_REASON,
+  OFFICE_ENDING_REASON,
   STYLIST_ENDING_REASON,
   TAXI_ENDING_REASON,
 } from "@/core/state";
+import { JOB_RANKS } from "@/data/jobs";
 import { TAXI_DELUXE_CERT } from "@/data/taxi";
 import { CALL_MAX_STREAK } from "@/data/callCenter";
 import { REGULAR_BONUS_MAX, REGULAR_FEE_BONUS } from "@/data/stylist";
@@ -73,6 +78,21 @@ export const MLM_ENDING_COMMISSION = 20_000_000;
 /** 헤어 엔딩: 단골이 단가 배율 상한에 닿는 인원(= 만렙) + 누적 시술. */
 export const STYLIST_ENDING_REGULARS = Math.ceil(REGULAR_BONUS_MAX / REGULAR_FEE_BONUS);
 export const STYLIST_ENDING_CUTS = 120;
+
+/**
+ * 회사원 엔딩: **최고 직급**(JOB_RANKS의 마지막 = 이사)에 오른다.
+ * 하드코딩(6) 대신 표 길이에서 뽑는다 — 직급을 늘리면 문턱도 따라 올라가야 한다.
+ */
+export const OFFICE_ENDING_LEVEL = JOB_RANKS.length - 1;
+
+/** 강사 엔딩: 누적 수업. 월 quota가 있어 한 달에 몇 회씩만 쌓인다. */
+export const LECTURER_ENDING_LESSONS = 60;
+
+/** AV 엔딩: 누적 근무일(하루 1회 가드가 걸려 있어 곧 '버틴 날 수'다). */
+export const AV_ENDING_WORKDAYS = 60;
+
+/** 코치 엔딩: 전국체전 우승 횟수. 대회는 짝수달 15일에만 열려 가장 오래 걸리는 문턱이다. */
+export const COACH_ENDING_CHAMPIONSHIPS = 3;
 
 export const ENDING_OFFERS: EndingOffer[] = [
   {
@@ -163,6 +183,50 @@ export const ENDING_OFFERS: EndingOffer[] = [
       !!s.stylistJob &&
       s.stylistJob.regulars >= STYLIST_ENDING_REGULARS &&
       s.stylistJob.cuts >= STYLIST_ENDING_CUTS,
+  },
+  {
+    id: "officeExec",
+    reason: OFFICE_ENDING_REASON,
+    offerTitle: "🏢 임원 승진 통보",
+    offerLead:
+      "인사팀에서 봉투를 건넸다. 이름 뒤에 붙을 직함이 바뀐다는 통보다. " +
+      "여기서 회사 사람으로 남는 삶을 택해볼까?",
+    confirmLabel: "임원이 된다 (엔딩)",
+    declineLabel: "아직은 SNS다",
+    condition: (s) => !!s.employment && s.employment.perfLevel >= OFFICE_ENDING_LEVEL,
+  },
+  {
+    id: "lecturerStar",
+    reason: LECTURER_ENDING_REASON,
+    offerTitle: "🎓 단독 강좌 제안",
+    offerLead:
+      "본원에서 당신 이름을 건 강좌를 열자고 한다. 수강 신청 경쟁이 붙을 거라고. " +
+      "가르치는 일에 이름을 걸어볼까?",
+    confirmLabel: "강단에 남는다 (엔딩)",
+    declineLabel: "조금 더 해본다",
+    condition: (s) => !!s.lecturerJob && s.lecturerJob.totalLessons >= LECTURER_ENDING_LESSONS,
+  },
+  {
+    id: "avIcon",
+    reason: AV_ENDING_REASON,
+    offerTitle: "🎬 전속 제안",
+    offerLead:
+      "제작사가 장기 전속을 제안해왔다. 이제 당신 이름만으로 기획이 돌아간다고 한다. " +
+      "이 바닥에서 이름을 굳혀볼까?",
+    confirmLabel: "이름을 건다 (엔딩)",
+    declineLabel: "아직은 SNS다",
+    condition: (s) => !!s.avJob && s.avJob.totalWorkDays >= AV_ENDING_WORKDAYS,
+  },
+  {
+    id: "coachMaster",
+    reason: COACH_ENDING_REASON,
+    offerTitle: "🏐 정식 감독 제안",
+    offerLead:
+      "교장이 직접 찾아와 정식 감독직을 제안했다. 우승기가 걸린 체육관을 맡아달라고. " +
+      "여기서 아이들을 계속 가르쳐볼까?",
+    confirmLabel: "감독을 맡는다 (엔딩)",
+    declineLabel: "아직은 SNS다",
+    condition: (s) => !!s.coachJob && s.coachJob.championships >= COACH_ENDING_CHAMPIONSHIPS,
   },
 ];
 
