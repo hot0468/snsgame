@@ -354,6 +354,11 @@ export interface DMThread {
   donation?: { amount: number; claimed?: boolean };
   /** AV배우 제의 스레드인지(성인 트윗 누적 시 유입). ui가 수락/거절 버튼을 렌더한다 */
   avOffer?: boolean;
+  /**
+   * 다단계 사업 제의 스레드인지(이사님 접선). ui가 수락/거절 버튼을 렌더한다.
+   * **다단계 사업자직의 유일한 입사 경로다** — 채용 사이트가 없다(systems/mlm.ts).
+   */
+  mlmOffer?: boolean;
   /** 란제리 모델 전속 계약 제의 스레드인지(매력·음란 충분+성인 시 유입). ui가 계약 버튼을 렌더한다 */
   lingerie?: boolean;
   /** 코스프레 촬영 제의 스레드인지(애니덕 트윗 누적 시 유입, 전연령). ui가 촬영 버튼을 렌더한다 */
@@ -601,21 +606,21 @@ export interface CallCenterJob {
 }
 
 /**
- * 보험설계사직.
+ * 다단계 사업자직.
  *
- * 축은 **관계**다. 지인 영업은 성사율이 높은 대신 그 사람의 호감도를 태우고, 0이 되면
- * 연락이 끊겨(`burnedContacts`) 다시는 영업할 수 없다 — 지인이 유한한 자원이 된다.
+ * 축은 **관계**다. 지인 판매는 성사율이 높은 대신 그 사람의 호감도를 태우고, 0이 되면
+ * 연락이 끊겨(`burnedContacts`) 다시는 권할 수 없다 — 지인이 유한한 자원이 된다.
  */
-export interface InsuranceJob {
-  /** 입사한 날(day) */
+export interface MlmJob {
+  /** 등록한 날(day) */
   hiredDay: number;
-  /** 누적 계약 건수 */
+  /** 누적 판매 건수 */
   contracts: number;
   /** 누적 수당(원) */
   totalCommission: number;
-  /** 연락이 끊긴 지인 id 목록 — 영업 대상에서 영구 제외 */
+  /** 연락이 끊긴 지인 id 목록 — 권유 대상에서 영구 제외 */
   burnedContacts: string[];
-  /** 마지막으로 고정급을 준 '달 키'. -1이면 없음 */
+  /** 마지막으로 재고 매입비를 뗀 '달 키'. -1이면 없음 */
   lastSalaryMonth: number;
 }
 
@@ -1233,10 +1238,30 @@ export interface GameState {
   taxiJob: TaxiJob | null;
   /** 콜센터 상담원직(없으면 미취업). 자격 조건 없이 지원 가능. 초기 null */
   callCenterJob: CallCenterJob | null;
-  /** 보험설계사직(없으면 미취업). 평일 낮 강제 출근. 초기 null */
-  insuranceJob: InsuranceJob | null;
+  /** 다단계 사업자직(없으면 미취업). 이사님 DM 제의 수락으로만 생성. 평일 낮 강제 출근. 초기 null */
+  mlmJob: MlmJob | null;
   /** 헤어디자이너직(없으면 미취업). 미용사 자격증 보유 시 미용실에서 지원. 초기 null */
   stylistJob: StylistJob | null;
+  /**
+   * 자발적 퇴사로 생긴 **경력 공백**이 끝나는 날(day). 이 날이 되기 전엔 새로 지원할 수 없다.
+   * 0이면 공백 없음. 초기 0.
+   *
+   * ⚠️ 직업 **전환**(갈아타기)은 이 값을 건드리지 않는다 — 끊김 없이 옮기는 것이므로 공백이 아니다.
+   *    공백은 `systems/employment.resignCurrentJob`(그냥 그만두기)만 만든다.
+   */
+  jobGapUntilDay: number;
+  /** 자발적 퇴사 누적 횟수. 많을수록 다음 공백이 길어진다(메뚜기의 대가). 초기 0 */
+  quitCount: number;
+  /**
+   * 팔로워 100만(최종 목표)에 도달했는지. 초기 false.
+   *
+   * ⚠️ 도달해도 **게임이 바로 끝나지 않는다.** 이 값이 true이고 gameOver가 비어 있는 동안은
+   *    '박제 상태'다 — 축하 팝업에서 '아직이야'를 고르면 화면을 둘러볼 수는 있지만
+   *    행동·시간은 전부 멈춘다(`systems/winEnding.isFrozen`). 엔딩을 보면 그때 gameOver가 선다.
+   */
+  winReached: boolean;
+  /** 100만 축하 팝업에서 '아직이야'를 골랐는지(다시 안 뜬다). 초기 false */
+  winOfferDeclined: boolean;
   /**
    * 한 번이라도 해본 직업 id 목록(직업 도감 해금 근거). 초기 [].
    * ⚠️ 그만둬도 지우지 않는다 — 회사·AV·강사는 사직 시 상태가 통째로 사라지므로

@@ -27,6 +27,8 @@ import { renderScenarioReaderModal } from "./scenarioReader";
 import { acceptAuthorContract } from "@/systems/author";
 import { openPenNameModal } from "../penNameModal";
 import { acceptAvJob, declineAvJob, switchToAvJob } from "@/systems/avJob";
+import { acceptMlmOffer, declineMlmOffer, switchToMlm } from "@/systems/mlm";
+import { MLM_COMPANY, MLM_TITLE } from "@/data/mlm";
 import {
   acceptKillerJob,
   declineKillerJob,
@@ -1339,6 +1341,50 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
           class: "btn btn--ghost",
           onclick: () => {
             ctx.update((s) => declineAvJob(s, thread.id));
+            ctx.toast("제의를 거절했어요.");
+          },
+        },
+        "거절한다",
+      ),
+    );
+  }
+  // 다단계 사업 제의 스레드: 등록/거절 버튼. AV 제의와 같은 자리·같은 규칙(직업 배타).
+  // ⚠️ 이게 다단계 사업자직의 유일한 입사 경로다 — 채용 사이트가 없다.
+  if (thread.mlmOffer) {
+    return el(
+      "div",
+      { class: "compose-actions", style: "gap:8px" },
+      el(
+        "button",
+        {
+          class: "btn",
+          onclick: () => {
+            const st = ctx.store.getState();
+            if (hasAnyJob(st)) {
+              confirmPurchase(ctx, {
+                title: "직업 변경",
+                message: `현재 '${currentJobLabel(st)}' 직업이 있어요. '${MLM_COMPANY} ${MLM_TITLE}'로 바꿀까요? (기존 직업은 그만둡니다)`,
+                confirmLabel: "바꾼다",
+                cancelLabel: "유지",
+                onConfirm: () => {
+                  ctx.update((s) => switchToMlm(s, thread.id));
+                  ctx.toast(`${MLM_COMPANY} ${MLM_TITLE}로 직업을 바꿨어요 ✨`);
+                },
+              });
+              return;
+            }
+            ctx.update((s) => acceptMlmOffer(s, thread.id));
+            ctx.toast(`${MLM_COMPANY} 등록 완료! 내일부터 평일 낮에 센터로 나갑니다 ✨`);
+          },
+        },
+        "설명회 나간다",
+      ),
+      el(
+        "button",
+        {
+          class: "btn btn--ghost",
+          onclick: () => {
+            ctx.update((s) => declineMlmOffer(s, thread.id));
             ctx.toast("제의를 거절했어요.");
           },
         },

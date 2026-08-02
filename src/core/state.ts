@@ -64,6 +64,22 @@ export const AUTHOR_ENDING_REASON =
 export const LEGEND_BJ_ENDING_REASON =
   "🎙️ 레전드 BJ 엔딩! 사바나를 대표하는 이름이 되었습니다. 켜면 사람이 모이고 그 방이 곧 기준이 되는 자리에서, 오래도록 전설로 불리며 살아갑니다.";
 
+/** 모범택시 엔딩 사유 */
+export const TAXI_ENDING_REASON =
+  "🚕 모범택시 엔딩! 밤과 낮을 가리지 않고 달린 거리가 어느새 지구 몇 바퀴가 됐습니다. 회사가 내건 '이달의 기사' 액자는 바뀌지 않은 지 오래고, 뒷자리에 앉은 사람들은 목적지보다 먼저 안부를 묻습니다. 오래 달릴 수 있는 사람으로 남았습니다.";
+
+/** 콜센터 엔딩 사유 */
+export const CALL_CENTER_ENDING_REASON =
+  "🎧 헤드셋을 벗다! 끊기지 않는 벨소리를 몇 년째 받아낸 끝에, 회사가 신입 교육을 맡겼습니다. 이제 화를 내는 목소리 앞에서 무엇을 해야 하는지 가르치는 자리에 앉습니다. 버텨낸 시간이 자격이 됐습니다.";
+
+/** 다단계 엔딩 사유 — 축하 목록에 있지만 톤은 서늘하다(그게 이 직업의 결말이다) */
+export const MLM_ENDING_REASON =
+  "💎 다이아몬드 등급 달성! 무대 위에서 이름이 불리고, 조명 아래에서 상패를 받았습니다. 객석에서 사람들이 일어나 박수를 칩니다. 그 안에 아는 얼굴은 하나도 없습니다.";
+
+/** 헤어디자이너 엔딩 사유 */
+export const STYLIST_ENDING_REASON =
+  "✂️ 내 가게를 열다! 이름을 부르지 않아도 자리에 앉는 손님이 늘었고, 그들이 따라와 준 덕에 작은 가게를 냈습니다. 간판에 적힌 건 남의 상호가 아니라 당신의 이름입니다.";
+
 /** 사채 3회 연체 엔딩 사유 — 일반 모드(부모님이 빚을 갚고 강제 귀향) */
 export const LOAN_DEFAULT_ENDING_REASON =
   "대부업체에 세 번이나 끌려간 끝에 결국 부모님께 모든 것이 들통났습니다. 빚은 다행히 모두 갚아주셨지만, 휴대폰을 빼앗긴 채 그대로 고향으로 내려가게 되었습니다...";
@@ -78,6 +94,10 @@ export const CELEBRATORY_ENDING_TITLES: Record<string, string> = {
   [DEBUT_ENDING_REASON]: "🌟 데뷔 엔딩",
   [AUTHOR_ENDING_REASON]: "✍️ 작가 엔딩",
   [LEGEND_BJ_ENDING_REASON]: "🎙️ 레전드 BJ 엔딩",
+  [TAXI_ENDING_REASON]: "🚕 모범택시 엔딩",
+  [CALL_CENTER_ENDING_REASON]: "🎧 상담 강사 엔딩",
+  [MLM_ENDING_REASON]: "💎 다이아몬드 엔딩",
+  [STYLIST_ENDING_REASON]: "✂️ 개업 엔딩",
 };
 
 /** 하루의 행동 슬롯 수 (0..SLOTS_PER_DAY-1) — 낮/심야 */
@@ -217,7 +237,11 @@ export function createInitialState(): GameState {
     coachOffered: false,
     taxiJob: null,
     callCenterJob: null,
-    insuranceJob: null,
+    mlmJob: null,
+    jobGapUntilDay: 0,
+    quitCount: 0,
+    winReached: false,
+    winOfferDeclined: false,
     stylistJob: null,
     jobsExperienced: [],
     killerJob: null,

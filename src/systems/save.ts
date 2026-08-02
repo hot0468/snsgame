@@ -1,4 +1,4 @@
-import type { GameState } from "@/core/types";
+import type { GameState, MlmJob } from "@/core/types";
 import {
   createInitialAuction,
   createInitialCheats,
@@ -276,11 +276,22 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   // 택시·콜센터도 신규 — 구세이브엔 미취업이 정답.
   state.taxiJob ??= null;
   state.callCenterJob ??= null;
-  state.insuranceJob ??= null;
+  // 보험설계사 → 다단계 사업자로 갈아치웠다. 필드 shape이 같아 진행도를 그대로 옮긴다
+  // (회사·문구만 바뀌었을 뿐 '지인을 태워 파는' 축은 동일하다).
+  const legacy = (state as unknown as { insuranceJob?: MlmJob | null }).insuranceJob;
+  if (legacy && !state.mlmJob) state.mlmJob = legacy;
+  delete (state as unknown as { insuranceJob?: MlmJob | null }).insuranceJob;
+  state.mlmJob ??= null;
   state.stylistJob ??= null;
+  // 경력 공백은 신규 — 구세이브는 공백 없이(0) 시작한다. NaN이 들어오면 지원이 영영 막힌다.
+  if (!Number.isFinite(state.jobGapUntilDay)) state.jobGapUntilDay = 0;
+  if (!Number.isFinite(state.quitCount)) state.quitCount = 0;
+  // 100만 달성 유예도 신규. 구세이브는 도달 즉시 gameOver로 끝났으므로 진행 중 세이브엔 미달성이 정답이다.
+  state.winReached ??= false;
+  state.winOfferDeclined ??= false;
   // 태운 지인 목록이 배열이 아니면 knownContacts의 includes가 터진다.
-  if (state.insuranceJob && !Array.isArray(state.insuranceJob.burnedContacts)) {
-    state.insuranceJob.burnedContacts = [];
+  if (state.mlmJob && !Array.isArray(state.mlmJob.burnedContacts)) {
+    state.mlmJob.burnedContacts = [];
   }
   // 평점은 요금 단가에 곱해진다 — undefined/NaN이면 요금이 통째로 NaN이 되어 소지금을 오염시킨다.
   if (state.taxiJob && !Number.isFinite(state.taxiJob.rating)) {

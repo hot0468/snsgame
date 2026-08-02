@@ -141,6 +141,7 @@ export function canOpenJobBoard(state: GameState): boolean {
     !state.employment &&
     !state.pendingJobApp &&
     !hasPendingJobOffer(state) &&
+    !inJobGap(state) &&
     state.lastJobBoardDay !== state.day &&
     isWeekday(state.day)
   );
@@ -223,7 +224,7 @@ export function hasAnyJob(state: GameState): boolean {
     !!state.coachJob ||
     !!state.taxiJob ||
     !!state.callCenterJob ||
-    !!state.insuranceJob ||
+    !!state.mlmJob ||
     !!state.stylistJob
   );
 }
@@ -241,14 +242,71 @@ export function currentJobLabel(state: GameState): string {
   if (state.coachJob) return "배구부 코치";
   if (state.taxiJob) return "택시 기사";
   if (state.callCenterJob) return "콜센터 상담원";
-  if (state.insuranceJob) return "보험설계사";
+  if (state.mlmJob) return "프리덤라이프 사업자";
   if (state.stylistJob) return "헤어디자이너";
   return "";
+}
+
+/* ─────────────────── 자발적 퇴사와 경력 공백 ─────────────────── */
+
+/**
+ * 자발적 퇴사가 만드는 **경력 공백**.
+ *
+ * 왜 대가가 필요한가: 강제 출근이 싫으면 그만두고, 돈이 필요하면 그날 바로 다시 붙는
+ * 회전문이 되면 직업 선택이 아무 무게도 없어진다. 그만두는 건 언제나 가능하되,
+ * **다시 시작하는 데 시간이 든다**는 게 이 직업 축의 유일한 마찰이다.
+ *
+ * ⚠️ 퇴사할수록 길어진다(메뚜기의 대가). 첫 퇴사는 3일로 가볍고, 반복하면 최대 2주다.
+ * ⚠️ 직업 **전환**은 공백을 만들지 않는다 — 끊김 없이 옮기는 것이므로.
+ */
+export const JOB_GAP_BASE = 3;
+export const JOB_GAP_STEP = 3;
+export const JOB_GAP_MAX = 14;
+
+/** 퇴사할 때 회복되는 정신력(해방감). 순수 페널티만 있으면 아무도 그만두지 않는다. */
+export const RESIGN_MENTAL_GAIN = 15;
+
+/** 이번이 `quitCount + 1`번째 퇴사일 때 생기는 공백 일수. */
+export function jobGapDaysFor(quitCount: number): number {
+  const n = Number.isFinite(quitCount) ? Math.max(0, quitCount) : 0;
+  return Math.min(JOB_GAP_MAX, JOB_GAP_BASE + JOB_GAP_STEP * n);
+}
+
+/** 지금 경력 공백 중인지 — 새로 **지원**할 수 없다(제의로 들어오는 자리는 막지 않는다). */
+export function inJobGap(state: GameState): boolean {
+  return jobGapRemaining(state) > 0;
+}
+
+/** 공백이 끝나기까지 남은 일수(공백이 아니면 0). */
+export function jobGapRemaining(state: GameState): number {
+  const until = state.jobGapUntilDay;
+  if (!Number.isFinite(until) || until <= state.day) return 0;
+  return until - state.day;
+}
+
+/**
+ * 지금 가진 직업을 **그냥 그만둔다**(전환이 아니라 퇴사).
+ *
+ * `quitCurrentJob`과의 차이가 이 함수의 전부다 — 상태 해지는 그쪽에 맡기고,
+ * 여기서는 **대가**만 붙인다: 경력 공백이 생기고, 퇴사 횟수가 늘고, 정신력이 회복된다.
+ */
+export function resignCurrentJob(state: GameState): void {
+  if (!hasAnyJob(state)) return;
+  const label = currentJobLabel(state);
+  quitCurrentJob(state);
+
+  const gap = jobGapDaysFor(state.quitCount);
+  state.quitCount += 1;
+  state.jobGapUntilDay = state.day + gap;
+  state.resources.mental = clampMental(state, state.resources.mental + RESIGN_MENTAL_GAIN);
+  addSchedule(state, `${label} 그만둠 — 경력 공백 ${gap}일`, "system");
 }
 
 /**
  * 현재 가진 직업(회사/AV)을 그만둔다 — 직업 전환(switch)의 선행 단계.
  * 월 정산 등 별도 마감 없이 상태만 해지한다(다음 정산부터 미지급).
+ *
+ * ⚠️ 대가(경력 공백)가 없다. 그냥 그만두는 건 `resignCurrentJob`이다.
  */
 export function quitCurrentJob(state: GameState): void {
   if (state.employment) {
@@ -282,9 +340,9 @@ export function quitCurrentJob(state: GameState): void {
     addSchedule(state, "한소리고객센터 퇴사", "system");
     state.callCenterJob = null;
   }
-  if (state.insuranceJob) {
-    addSchedule(state, "한백생명 퇴사", "system");
-    state.insuranceJob = null;
+  if (state.mlmJob) {
+    addSchedule(state, "프리덤라이프 탈퇴", "system");
+    state.mlmJob = null;
   }
   if (state.stylistJob) {
     addSchedule(state, "가위손 퇴사", "system");

@@ -8,7 +8,7 @@ import { dateOfMonth, isLastDayOfMonth, isWeekday, monthKey } from "./calendar";
 import { sendSalaryKakao, sendTwitterSettlementKakao } from "./kakao";
 import { offerLoan } from "./loan";
 import { AV_PAYDAY_DATE, avSalaryOf, firstAvWorkDay } from "./avJob";
-import { INSURANCE_BASE_SALARY } from "@/data/insurance";
+import { MLM_COMPANY, MLM_MONTHLY_STOCK_COST } from "@/data/mlm";
 import { lecturerQuota, lecturerSalaryOf } from "./lecturer";
 import { maybeCoachPayday, maybeHoldMeet } from "./coach";
 import { NIGL_COMPANY, NIGL_SHIFT_GOAL } from "@/data/niglnigl";
@@ -207,21 +207,25 @@ function maybeLecturerPayday(state: GameState): void {
 }
 
 /**
- * 보험설계사 고정급 — 회사원과 같은 10일에 준다.
+ * 다단계 재고 매입비 — 회사원 월급날과 같은 10일에, **반대 방향으로** 움직인다.
  *
- * ⚠️ **계약 수당은 여기서 안 준다.** 수당은 계약이 성사되는 그 자리에서 이미 들어갔다
- *    (`systems/insurance.sellToKnown`·`sellToCold`). 여기서 또 주면 이중 지급이다.
- *    이 직업이 고정급 + 수당인 이유는 급여 축 주석(systems/insurance.ts) 참조.
+ * ⚠️ 이 직업만 정산일에 돈이 **나간다.** 고정급이 없고, 안 팔아도 물량은 받아야 하기 때문이다.
+ *    매입비(40만)가 지인 판매 1건 수당(39만)보다 살짝 많아서 "한 달에 하나는 태워야 본전"이
+ *    되고, 그 압박이 이 직업의 전부다(설계 의도는 systems/mlm.ts 급여 축 주석 참조).
+ *
+ * ⚠️ **판매 수당은 여기서 안 준다.** 수당은 판매가 성사되는 그 자리에서 이미 들어갔다
+ *    (`systems/mlm.sellToKnown`·`sellToCold`). 여기서 또 주면 이중 지급이다.
  */
-function maybeInsurancePayday(state: GameState): void {
-  const job = state.insuranceJob;
+function maybeMlmStockCharge(state: GameState): void {
+  const job = state.mlmJob;
   if (!job) return;
   if (dateOfMonth(state.day) !== 10) return;
   const mk = monthKey(state.day);
   if (job.lastSalaryMonth === mk) return;
   job.lastSalaryMonth = mk;
-  state.money += INSURANCE_BASE_SALARY;
-  pushSchedule(state, `한백생명 기본급 +${fmt(INSURANCE_BASE_SALARY)}원`, "system");
+  // 잔고가 모자라도 그대로 뺀다(마이너스 허용) — 빚지면서까지 물량을 받는 게 이 직업이다.
+  state.money -= MLM_MONTHLY_STOCK_COST;
+  pushSchedule(state, `${MLM_COMPANY} 재고 매입비 -${fmt(MLM_MONTHLY_STOCK_COST)}원`, "system");
 }
 
 /**
@@ -292,7 +296,7 @@ export function applyDailyCosts(state: GameState): void {
   maybeAvMonthReset(state);
   // 강사 월급(매월 15일) — 지급과 동시에 이번 달 수업 횟수를 리셋한다(지급일=사이클 경계).
   maybeLecturerPayday(state);
-  maybeInsurancePayday(state);
+  maybeMlmStockCharge(state);
   // 배구부: 대회(4·6·8·10월 15일) → 성적이 월급 인상분에 붙고, 코치 월급은 20일.
   // ⚠️ 대회를 월급보다 **먼저** 처리한다 — 같은 달 대회 인상분이 그달 월급부터 반영되게.
   maybeHoldMeet(state);

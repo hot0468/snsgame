@@ -63,7 +63,7 @@ export const DAILY_MISSIONS: MissionDef[] = [
   // ── 직업 전용(requires로 게이트) ──
   { id: "d_ride3", label: "택시 3회 운행", metric: "ride", goal: 3, reward: { money: 40_000 }, requires: (s) => !!s.taxiJob },
   { id: "d_call6", label: "상담 6콜 처리", metric: "call", goal: 6, reward: { mental: 15 }, requires: (s) => !!s.callCenterJob },
-  { id: "d_sale1", label: "보험 계약 1건", metric: "sale", goal: 1, reward: { money: 60_000 }, requires: (s) => !!s.insuranceJob },
+  { id: "d_sale1", label: "제품 판매 1건", metric: "sale", goal: 1, reward: { money: 60_000 }, requires: (s) => !!s.mlmJob },
   { id: "d_cut4", label: "시술 4건", metric: "cut", goal: 4, reward: { skills: { beauty: 15 } }, requires: (s) => !!s.stylistJob },
 ];
 
@@ -76,7 +76,7 @@ export const WEEKLY_MISSIONS: MissionDef[] = [
   // ── 직업 전용(requires로 게이트) ──
   { id: "w_ride15", label: "이번 주 택시 15회 운행", metric: "ride", goal: 15, reward: { money: 200_000 }, requires: (s) => !!s.taxiJob },
   { id: "w_call30", label: "이번 주 상담 30콜", metric: "call", goal: 30, reward: { money: 150_000, mental: 15 }, requires: (s) => !!s.callCenterJob },
-  { id: "w_sale5", label: "이번 주 보험 계약 5건", metric: "sale", goal: 5, reward: { money: 250_000 }, requires: (s) => !!s.insuranceJob },
+  { id: "w_sale5", label: "이번 주 제품 판매 5건", metric: "sale", goal: 5, reward: { money: 250_000 }, requires: (s) => !!s.mlmJob },
   { id: "w_cut20", label: "이번 주 시술 20건", metric: "cut", goal: 20, reward: { skills: { beauty: 30 } }, requires: (s) => !!s.stylistJob },
 ];
 

@@ -59,6 +59,7 @@ function spawnDM(
   handle: string,
   lines: string[],
   scam = false,
+  mlmOffer = false,
 ): void {
   const account = getActiveAccount(state);
   account.dms.unshift({
@@ -73,6 +74,7 @@ function spawnDM(
     wantsToMeet: false,
     // 사기 접선(코인·다단계 등)은 만남 제안 흐름을 타면 안 된다(로맨스 아님).
     scam: scam || undefined,
+    mlmOffer: mlmOffer || undefined,
   });
 }
 
@@ -194,6 +196,9 @@ export function onLikeTweet(state: GameState, tweet: Tweet): void {
           "자리가 몇 개 안 남았어요. 지금 결정하는 사람만이 자유를 얻습니다.",
         ],
         true, // 다단계 접선 — 만남 제안 금지
+        // ⚠️ 이 제의 수락이 **다단계 사업자직의 유일한 입사 경로**다(systems/mlm.ts).
+        //    플래그를 빼면 그 직업에 영영 도달할 수 없다.
+        true,
       );
       addSchedule(state, "다단계 설명회 권유", "sns");
     }

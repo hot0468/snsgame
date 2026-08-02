@@ -22,7 +22,7 @@ export const JOB_ID = {
   coach: "coach",
   taxi: "taxi",
   callCenter: "callCenter",
-  insurance: "insurance",
+  mlm: "mlm",
   stylist: "stylist",
 } as const;
 

@@ -719,13 +719,6 @@ function searchBar(ctx: GameContext): HTMLElement {
       ctx.refresh();
       return;
     }
-    // '보험' → 한백생명 설계사 채용.
-    if (q === "보험" || q === "보험설계사" || q === "한백생명") {
-      input.value = "";
-      ctx.ui.insuranceSiteOpen = true;
-      ctx.refresh();
-      return;
-    }
     // '콜센터' → 한소리고객센터 채용. 자격 조건 없는 유일한 직업이라 검색어도 평범하다.
     if (q === "콜센터" || q === "상담원" || q === "한소리고객센터") {
       input.value = "";

@@ -9,6 +9,8 @@ import { renderCalendar } from "./calendar";
 import { rollEvent } from "@/systems/events";
 import { renderEventModal } from "./eventModal";
 import { renderGameOver } from "./gameOverModal";
+import { isFrozen, shouldOfferWinEnding } from "@/systems/winEnding";
+import { renderWinOfferModal } from "./winOfferModal";
 import { dueAppointments } from "@/systems/appointments";
 import { renderAppointmentModal } from "./appointmentModal";
 import { renderKakaoToast } from "./kakaoModal";
@@ -18,8 +20,8 @@ import { renderLoanModal } from "./loanModal";
 import { isWorkNow } from "@/systems/employment";
 import { renderWorkModal } from "./workModal";
 import { isCoachWorkNow } from "@/systems/coach";
-import { isInsuranceWorkNow } from "@/systems/insurance";
-import { renderInsuranceModal } from "./insuranceModal";
+import { isMlmWorkNow } from "@/systems/mlm";
+import { renderMlmModal } from "./mlmModal";
 import { renderCoachModal } from "./coachModal";
 import { isLabNow } from "@/systems/lab";
 import { renderLabModal } from "./labModal";
@@ -149,10 +151,14 @@ export function createApp(root: HTMLElement, store: Store): void {
     loginNode = null; // 로그인 완료 — 다음 로그인(새 게임) 땐 새로 만든다.
 
     const gameOver = state.gameOver;
+    // 100만 달성 후 엔딩 대기 — 화면은 살아 있지만 행동·시간은 멈춘다.
+    const frozen = isFrozen(state);
 
-    // 강제 팝업. 우선순위: 새 날 아침 > 괴담 방문 > 취침 > 논란 > 빚 상환 > 연구실 > 근무 > 약속.
-    // (연구실이 근무보다 앞이다 — 겹치는 저녁에 연구실이 이긴다.)
-    if (!ui.modal && !gameOver) {
+    // 달성 축하 팝업은 다른 어떤 강제 팝업보다 먼저다. 100만을 찍은 순간 뜬 근무·약속 팝업이
+    // 앞을 막으면, 박제 상태라 그 팝업을 처리할 수도 없어 화면이 잠긴다.
+    if (shouldOfferWinEnding(state)) {
+      ui.modal = (c) => renderWinOfferModal(c);
+    } else if (!ui.modal && !gameOver && !frozen) {
       const controversy = state.pendingControversy ? getControversy(state.pendingControversy) : null;
       if (state.dawnPending) {
         // 새 날이 밝으면 보던 화면과 무관하게 SNS 홈 추천탭으로 되돌린다(팝업이 막고 있어 무해).
@@ -202,9 +208,9 @@ export function createApp(root: HTMLElement, store: Store): void {
       } else if (isCoachWorkNow(state)) {
         // 배구부 코치도 평일 낮 강제 출근 — 회사 근무와 같은 자리(둘은 겸직이 안 되므로 순서 무관).
         ui.modal = (c) => renderCoachModal(c);
-      } else if (isInsuranceWorkNow(state)) {
-        // 보험설계사도 평일 낮 강제 출근. 출근하면 오늘 어디를 돌지(지인/무작위) 고른다.
-        ui.modal = (c) => renderInsuranceModal(c);
+      } else if (isMlmWorkNow(state)) {
+        // 다단계 사업자도 평일 낮 강제 출근. 나가면 오늘 누구를 볼지(지인/길거리) 고른다.
+        ui.modal = (c) => renderMlmModal(c);
       } else if (dueAppointments(state).length > 0) {
         ui.modal = (c) => renderAppointmentModal(c);
       } else if (state.postSlotIncreasedTo != null) {
@@ -417,6 +423,8 @@ export function createApp(root: HTMLElement, store: Store): void {
     root.classList.toggle("drunk-blur", !!state.drunkPending && !gameOver);
     // 시간대 앰비언트: 심야엔 데스크톱 배경을 밤 톤으로 어둡게(하루 안 시간 흐름 체감).
     root.classList.toggle("night", state.slot === LATE_SLOT && state.loggedIn && !gameOver);
+    // 박제 상태: 화면 전체의 포인터 입력을 끊는다. '엔딩 보기' 버튼만 예외로 살려둔다(main.css).
+    root.classList.toggle("app--frozen", frozen);
 
     for (const sel in savedScroll) {
       const e = root.querySelector<HTMLElement>(sel);
