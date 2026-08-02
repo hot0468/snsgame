@@ -315,6 +315,7 @@ export function createInitialState(): GameState {
     bookmarks: [],
     adultTweetsPosted: 0,
     punishTweetsPosted: 0,
+    pendingJobAdult: null,
     yabamProductsOwned: [],
     seenWorks: [],
     creationTweetCount: 0,

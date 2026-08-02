@@ -1449,6 +1449,13 @@ export interface GameState {
   adultTweetsPosted: number;
   /** 체벌(punish) 트윗 누적 작성 수(비공개 크루 권유 게이트용) */
   punishTweetsPosted: number;
+  /**
+   * 근무 뒤 뜰 직업 성인 씬의 id(`data/jobAdult`). 없으면 null.
+   *
+   * ⚠️ 근무 함수가 결과 화면을 띄우는 중이라 그 자리에서 모달을 열면 결과가 덮인다.
+   *    id만 세워두고 ui가 다음 렌더에서 띄운다(postSlotIncreasedTo와 같은 패턴).
+   */
+  pendingJobAdult: string | null;
   /** 야밤에서 구매한 성인용품 id 목록(중복 구매 방지) */
   yabamProductsOwned: string[];
   /** 감상한(본) 작품 id 목록 — 너튜브 애니 시청/미디북스 만화 감상. 2차창작 대상이 된다. */

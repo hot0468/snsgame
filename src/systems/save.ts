@@ -415,6 +415,7 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   state.pendingRegretTweetId ??= null;
   state.adultTweetsPosted ??= 0;
   state.punishTweetsPosted ??= 0;
+  state.pendingJobAdult ??= null;
   if (!Array.isArray(state.yabamProductsOwned)) state.yabamProductsOwned = [];
   if (!Array.isArray(state.seenWorks)) state.seenWorks = [];
   state.creationTweetCount ??= 0;

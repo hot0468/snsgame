@@ -19,6 +19,7 @@ import { hasAnyJob, inJobGap, quitCurrentJob } from "./employment";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { clampMental, clampResource, gainSkill } from "./stats";
 import { recordMission } from "./missions";
+import { maybeQueueJobScene } from "./jobAdult";
 import { addSchedule } from "./time";
 import { pick } from "@/utils/random";
 
@@ -168,6 +169,7 @@ export function resolveRide(state: GameState, choice: TaxiChoice): RideResult | 
   // 종일 사람을 상대하는 일이다 — 친화력이 조금 오른다.
   gainSkill(state, "sociability", 4);
 
+  maybeQueueJobScene(state, "taxi");
   recordMission(state, "ride"); // 도전과제: 운행 카운트
   addSchedule(state, `택시 운행 (+${fare.toLocaleString("ko-KR")}원)`, "offline");
   return { fare, ratingDelta, rating: job.rating, night };

@@ -32,6 +32,7 @@ import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { mutableRelOf, relStateOf } from "./relationship";
 import { clampMental, clampResource, gainSkill, skillTo100 } from "./stats";
 import { recordMission } from "./missions";
+import { maybeQueueJobScene } from "./jobAdult";
 import { addSchedule } from "./time";
 import { chance, pick, uid } from "@/utils/random";
 
@@ -183,6 +184,7 @@ export function sellToKnown(state: GameState, charId: string): SalesResult | nul
     job.contracts += 1;
     job.totalCommission += commission;
     recordMission(state, "sale"); // 도전과제: **성사된** 판매만 센다(허탕은 실적이 아니다)
+    maybeQueueJobScene(state, "mlm");
   }
 
   // 호감도가 바닥나면 연락이 끊긴다 — 권유 대상에서도, 관계 서사에서도 빠진다.
@@ -236,6 +238,7 @@ export function sellToCold(state: GameState): SalesResult | null {
     job.contracts += 1;
     job.totalCommission += commission;
     recordMission(state, "sale"); // 도전과제: **성사된** 판매만 센다(허탕은 실적이 아니다)
+    maybeQueueJobScene(state, "mlm");
   }
 
   addSchedule(

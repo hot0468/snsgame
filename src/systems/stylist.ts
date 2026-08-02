@@ -26,6 +26,7 @@ import { hasAnyJob, inJobGap, quitCurrentJob } from "./employment";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { clampMental, clampResource, gainSkill, skillTo100 } from "./stats";
 import { recordMission } from "./missions";
+import { maybeQueueJobScene } from "./jobAdult";
 import { addSchedule } from "./time";
 import { chance, pick } from "@/utils/random";
 
@@ -185,6 +186,7 @@ export function doCut(state: GameState, style: CutStyle): CutResult | null {
   state.resources.mental = clampMental(state, state.resources.mental - STYLIST_MENTAL_COST);
   gainSkill(state, "beauty", ok ? 6 : 3);
   gainSkill(state, "sociability", 2);
+  maybeQueueJobScene(state, "stylist");
   recordMission(state, "cut"); // 도전과제: 시술 카운트
 
   const line =

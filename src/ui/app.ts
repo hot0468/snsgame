@@ -9,6 +9,7 @@ import { renderCalendar } from "./calendar";
 import { rollEvent } from "@/systems/events";
 import { renderEventModal } from "./eventModal";
 import { renderGameOver } from "./gameOverModal";
+import { renderJobAdultModal } from "./jobAdultModal";
 import { isFrozen, shouldOfferWinEnding } from "@/systems/winEnding";
 import { renderWinOfferModal } from "./winOfferModal";
 import { dueAppointments } from "@/systems/appointments";
@@ -234,6 +235,9 @@ export function createApp(root: HTMLElement, store: Store): void {
         ui.modal = (c) => renderMlmModal(c);
       } else if (dueAppointments(state).length > 0) {
         ui.modal = (c) => renderAppointmentModal(c);
+      } else if (state.pendingJobAdult) {
+        // 근무 뒤 예약된 직업 성인 씬. 근무 결과 화면이 닫힌 다음 렌더에서 뜬다.
+        ui.modal = (c) => renderJobAdultModal(c);
       } else if (state.postSlotIncreasedTo != null) {
         // 팔로워 티어가 올라 오늘 게시 가능 트윗 수가 늘었다는 안내(확인 시 systems 플래그 클리어).
         ui.modal = (c) => renderPostSlotModal(c, state.postSlotIncreasedTo!);
