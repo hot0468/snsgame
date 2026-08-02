@@ -60,10 +60,26 @@ export const COACH_STAT_TARGET = 100;
  */
 export const COACH_WEIGHTS = { fitness: 0.5, sociability: 0.3, knowledge: 0.2 } as const;
 
-/** 훈련 1회 기본 상승폭(코치 스킬 0일 때) */
-export const TRAIN_GAIN_BASE = 4;
+/**
+ * 훈련 1회 기본 상승폭(코치 스킬 0일 때)과 스킬 가산.
+ *
+ * ⚠️ 시즌(대회~대회) 길이는 약 61일이고 훈련은 **평일 낮 1회**뿐이라 시즌당 최대 ~43회다.
+ *    예전 값(4·8)으론 우승선(95)에 8~22회면 닿아 시즌의 절반 이상이 남아돌았다 —
+ *    "이미 만렙이라 오늘 훈련은 의미 없음"이 시즌마다 반복됐다.
+ *    지금 값 + 아래 체감 곡선으로 우승은 시즌의 절반쯤을 써야 닿는다.
+ */
+export const TRAIN_GAIN_BASE = 3;
 /** 코치 스킬 가중합 100점당 추가 상승폭 — 스킬이 좋을수록 한 번에 많이 끌어올린다 */
-export const TRAIN_GAIN_PER_SKILL = 8;
+export const TRAIN_GAIN_PER_SKILL = 4;
+
+/**
+ * **완성도가 높을수록 덜 오른다**(체감). 남은 여백 비율에 이 구간을 곱한다:
+ * 0%일 때 `TRAIN_TAPER_MIN`, 100%일 때 1.0.
+ *
+ * 왜: 선형이면 마지막 1점과 첫 1점이 같은 값이라, 문턱을 넘긴 뒤의 훈련이 통째로 무의미해진다.
+ * 체감을 주면 초반엔 쭉쭉 오르고 우승선 근처에서 버티는 곡선이 되어 시즌 내내 훈련할 이유가 남는다.
+ */
+export const TRAIN_TAPER_MIN = 0.25;
 
 /**
  * 판정 등급별 상승 배율. 현생 활동의 컨디션 판정(`rollActivityGrade`)을 그대로 쓴다 —
@@ -122,7 +138,12 @@ export function teamStrength(state: GameState): number {
   return state.coachJob?.teamStat ?? 0;
 }
 
-/** 훈련 1회 상승폭(등급 반영 전). 코치 스킬이 좋을수록 크다. */
+/**
+ * 훈련 1회 상승폭(등급 반영 전). 코치 스킬이 좋을수록 크고, **완성도가 높을수록 작다**.
+ *
+ * ⚠️ 체감(taper)을 여기 넣는 이유: UI가 "예상 상승폭"을 보여줄 때도 같은 값이어야 한다.
+ *    doCoachTraining에만 넣으면 화면 숫자와 실제가 어긋난다.
+ */
 export function trainGain(state: GameState): number {
   const s = state.skills;
   const weighted = skillTo100(
@@ -130,7 +151,9 @@ export function trainGain(state: GameState): number {
       s.sociability * COACH_WEIGHTS.sociability +
       s.knowledge * COACH_WEIGHTS.knowledge,
   );
-  return TRAIN_GAIN_BASE + (weighted / 100) * TRAIN_GAIN_PER_SKILL;
+  const raw = TRAIN_GAIN_BASE + (weighted / 100) * TRAIN_GAIN_PER_SKILL;
+  const remaining = Math.max(0, COACH_STAT_TARGET - teamStrength(state)) / COACH_STAT_TARGET;
+  return raw * (TRAIN_TAPER_MIN + (1 - TRAIN_TAPER_MIN) * remaining);
 }
 
 /** 완성도 → 성적. 전국체전은 전국구라 한 단계씩 문턱이 높다. */
