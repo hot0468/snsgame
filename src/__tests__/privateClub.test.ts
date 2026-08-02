@@ -71,16 +71,27 @@ describe("시나리오 풀", () => {
   it("모든 편에 본문과 선택지가 있다", () => {
     // ⚠️ 페이지별 하한을 크게 잡지 마라 — 선택 직전 마지막 장은 질문 한 줄로 끊는 게
     //    이 형식의 리듬이다(crewSecret도 같다). 실질은 **편 전체 분량**으로 잰다.
+    //
+    // ⚠️ 하한 600자는 "체벌 씬이 너무 간략하다"는 지적 뒤에 올린 값이다. 처음엔 편당
+    //    423자로 러닝크루(1080자)의 40%밖에 안 됐다 — 집행 순간의 감각·신체 반응·심리를
+    //    거의 안 쓰고 사건만 요약했기 때문이다. 새 편을 추가할 때도 이 밀도를 지켜라.
     for (const sc of CLUB_SCENARIOS) {
-      expect(sc.pages.length, sc.id).toBeGreaterThanOrEqual(2);
+      expect(sc.pages.length, sc.id).toBeGreaterThanOrEqual(3);
       expect(sc.choices.length, sc.id).toBeGreaterThanOrEqual(2);
-      expect(sc.pages.join("").length, `${sc.id}: 본문이 너무 짧다`).toBeGreaterThan(300);
+      expect(sc.pages.join("").length, `${sc.id}: 본문이 너무 짧다`).toBeGreaterThan(600);
       for (const p of sc.pages) expect(p.length, `${sc.id}: 빈 페이지`).toBeGreaterThan(20);
       for (const c of sc.choices) {
         expect(c.label.length, sc.id).toBeGreaterThan(0);
         expect(c.result.length, sc.id).toBeGreaterThan(30);
       }
     }
+  });
+
+  it("편 전체가 러닝크루 시나리오와 같은 급이다", () => {
+    // 두 모임의 시나리오가 한쪽만 얇으면 같은 게임 안에서 밀도가 튄다.
+    const avg =
+      CLUB_SCENARIOS.reduce((a, s) => a + s.pages.join("").length, 0) / CLUB_SCENARIOS.length;
+    expect(Math.round(avg), "편당 평균 본문이 800자는 넘어야 한다").toBeGreaterThan(800);
   });
 
   it("모든 선택지가 음란을 올린다 — 변태력 파생이 lewd에 걸려 있다", () => {

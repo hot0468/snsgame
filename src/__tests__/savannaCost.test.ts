@@ -64,11 +64,20 @@ describe("행동력 비용", () => {
 });
 
 describe("음란 상승", () => {
-  it("방송하면 음란이 오른다", () => {
-    const s = streamer();
-    const before = s.skills.lewd;
-    runSavannaStream(s);
-    expect(s.skills.lewd, "컨셉이 곧 도네이션인 직업이다").toBeGreaterThan(before);
+  it("일반 방송을 마치면 음란이 오른다", () => {
+    // ⚠️ 확률로 시나리오 갈래(난입·성인 방송)로 빠지면 효과를 resolve로 미루므로
+    //    그 자리에서는 안 오른다. 반환값으로 갈래를 판정해 **일반 방송인 경우만** 잰다.
+    //    (이걸 무시하고 한 번만 돌렸다가 26% 확률로 깨지는 테스트를 만들었다.)
+    let checked = 0;
+    for (let i = 0; i < 60 && checked < 5; i++) {
+      const s = streamer();
+      const before = s.skills.lewd;
+      const r = runSavannaStream(s);
+      if (r.scenario || r.showScenario) continue; // 효과가 아직 적용 전인 갈래
+      expect(s.skills.lewd, "컨셉이 곧 도네이션인 직업이다").toBeGreaterThan(before);
+      checked += 1;
+    }
+    expect(checked, "일반 방송 갈래를 한 번도 못 밟았다").toBeGreaterThan(0);
   });
 
   it("보는 것(야밤 감상)보다 적지 않다 — 직접 하는 쪽이 덜 오르면 앞뒤가 안 맞는다", () => {
