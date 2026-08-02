@@ -1121,6 +1121,14 @@ export interface GameState {
   /** 비공개 엘리트 러닝크루(SM 규율) 가입 여부 — 가입 후 정기런에 규율 시나리오가 랜덤 표출된다 */
   privateCrewJoined: boolean;
   /**
+   * 비공개 클럽 '더 체임버'(체벌 위주 SM)에 가입했는지. 초기 false.
+   *
+   * ⚠️ 위 `privateCrewJoined`(러닝크루의 SM 규율)와 **다른 모임이다.** 그쪽은 훈련 미달을
+   *    빌미로 한 운동 기반 규율(목요일 정기런)이고, 이쪽은 운동과 무관한 체벌 세션
+   *    (화요일 심야, `systems/privateClub.ts`)이다. 둘은 따로 가입하고 따로 열린다.
+   */
+  privateClubJoined: boolean;
+  /**
    * 성인 그룹방 가입 여부('사람' 단위).
    * true면 매주 토요일 심야 정기 모임 약속이 유지된다.
    */

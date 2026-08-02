@@ -20,6 +20,8 @@ import {
 import { canOfferPrivateCrew, joinPrivateCrew } from "@/systems/crew";
 import { PRIVATE_CREW_INVITE } from "@/data/crewSecret";
 import { renderCrewSecretModal } from "./sns/crewSecretModal";
+import { renderClubSessionModal } from "./sns/clubSessionModal";
+import { CLUB_SESSION_ACTION_COST } from "@/systems/privateClub";
 import { renderScenarioReaderModal } from "./sns/scenarioReader";
 import { pickLingerieScenario, resolveLingerieShoot } from "@/systems/lingerie";
 import { resolveStudy } from "@/systems/studyGroup";
@@ -129,9 +131,11 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
     const needAction =
       appt.kind === "crew"
         ? CREW_RUN_ACTION_COST
-        : appt.kind === "groupRoom"
-          ? GROUP_NIGHT_ACTION_COST
-          : 10;
+        : appt.kind === "privateClub"
+          ? CLUB_SESSION_ACTION_COST
+          : appt.kind === "groupRoom"
+            ? GROUP_NIGHT_ACTION_COST
+            : 10;
     const canGo = action >= needAction;
 
     const prompt =
@@ -169,7 +173,7 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
             onclick: () => {
               if (!canGo) return;
               if (appt.kind === "crew") return handleCrewGo(appt);
-              if (appt.kind === "privateClub") return ctx.openModal(renderCrewSecretModal);
+              if (appt.kind === "privateClub") return ctx.openModal(renderClubSessionModal);
               if (appt.kind === "lingerie") return handleLingerieGo();
               if (appt.kind === "study") return handleStudyGo(appt);
               if (appt.kind === "esthetic") return handleEstheticGo(appt);
@@ -513,12 +517,16 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
   /**
    * 러닝 정기런.
    *
-   * ⚠️ 예전엔 클럽 가입자면 여기서 규율 세션을 띄웠다 — 그러면 러닝을 나가면 세션이 되고
-   *    세션을 하면 러닝이 사라졌다. 이제 세션은 화요일 심야 별도 일정(privateClub)이고,
-   *    목요일 러닝은 언제나 러닝이다. 여기 남은 분기는 **가입 권유**뿐이다.
+   * ⚠️ 여기서 뜨는 SM 규율은 **러닝크루의 안쪽 모임**(훈련 미달 → 체벌)이다.
+   *    운동과 무관한 체벌 모임인 비공개 클럽은 화요일 심야 별도 일정(`privateClub`)으로
+   *    따로 열린다 — 둘을 같은 자리에서 처리하지 마라.
    */
   function handleCrewGo(appt: Appointment): void {
     const s = ctx.store.getState();
+    if (s.privateCrewJoined) {
+      ctx.openModal(renderCrewSecretModal);
+      return;
+    }
     if (canOfferPrivateCrew(s)) {
       showCrewInvite(appt);
       return;

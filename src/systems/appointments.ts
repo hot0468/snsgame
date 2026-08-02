@@ -107,7 +107,7 @@ function nextPrivateClubDay(state: GameState): number {
 
 /** 다음 화요일 심야 클럽 세션을 예약한다(기존 privateClub 약속은 갈아끼운다). */
 export function scheduleNextPrivateClub(state: GameState): void {
-  if (!state.privateCrewJoined) return;
+  if (!state.privateClubJoined) return;
   state.appointments = state.appointments.filter((a) => a.kind !== "privateClub");
   addAppointment(state, {
     day: nextPrivateClubDay(state),

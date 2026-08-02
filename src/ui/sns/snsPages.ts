@@ -15,7 +15,8 @@ import {
 } from "@/systems/dm";
 import { isStoryOver, isStoryPending } from "@/systems/dmStory";
 import { canMeet, MEETING_ACTION_COST } from "@/systems/meeting";
-import { acceptPrivateClub, declinePrivateClub, joinCrew } from "@/systems/crew";
+import { joinCrew } from "@/systems/crew";
+import { acceptClubInvite, declineClubInvite } from "@/systems/privateClub";
 import { joinGroupRoom } from "@/systems/groupRoom";
 import { canJoinGroupBuy, joinGroupBuy } from "@/systems/groupBuy";
 import { joinSavanna } from "@/systems/savanna";
@@ -1358,7 +1359,7 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
         {
           class: "btn",
           onclick: () => {
-            ctx.update((s) => acceptPrivateClub(s, thread));
+            ctx.update((s) => acceptClubInvite(s, thread));
             ctx.toast("비공개 클럽 가입 🔞 매주 목요일 세션이 열려요");
           },
         },
@@ -1369,7 +1370,7 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
         {
           class: "btn btn--ghost",
           onclick: () => {
-            ctx.update((s) => declinePrivateClub(s, thread));
+            ctx.update((s) => declineClubInvite(s, thread));
             ctx.toast("제의를 거절했어요.");
           },
         },

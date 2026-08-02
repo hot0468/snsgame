@@ -239,6 +239,7 @@ export function createInitialState(): GameState {
     estheticMember: false,
     estheticScamDay: 0,
     privateCrewJoined: false,
+    privateClubJoined: false,
     groupRoomJoined: false,
     savannaJoined: false,
     lingerieContract: false,

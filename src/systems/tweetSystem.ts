@@ -26,7 +26,8 @@ import { maybeSpawnAvOfferDM } from "./avJob";
 import { maybeSpawnSavannaDM } from "./savanna";
 import { consumePostSlot, onTweetPosted, smartTweetMultiplier } from "./eggs";
 import { applyTchinReach, maybeSpawnTchinBoost } from "./tchin";
-import { maybeSpawnCrewInviteDM, maybeSpawnPrivateClubDM } from "./crew";
+import { maybeSpawnCrewInviteDM } from "./crew";
+import { maybeSpawnClubDM } from "./privateClub";
 import { maybeSpawnLingerieDM } from "./lingerie";
 import { maybeSpawnCosplayDM } from "./cosplay";
 import { maybeSpawnPushDM } from "./pushtime";
@@ -263,7 +264,7 @@ export function postTweet(
     if (adultKind === "punish") {
       state.punishTweetsPosted++;
       // 체벌 트윗이 쌓이면 비공개 클럽에서 연락이 온다(러닝크루를 안 거치는 우회로).
-      maybeSpawnPrivateClubDM(state);
+      maybeSpawnClubDM(state);
     }
     maybeSpawnMotelDM(state, adultKind);
     maybeSpawnDickPicDM(state);

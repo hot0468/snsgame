@@ -228,10 +228,16 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   state.estheticMember ??= false;
   state.estheticScamDay ??= 0;
   state.privateCrewJoined ??= false;
-  // 클럽 세션은 예전엔 러닝 정기런 자리에서 돌아 전용 일정이 없었다. 그때 가입한 세이브는
-  // 지금 코드에선 모임이 영영 안 열리므로(가입 시점에만 일정을 잡는다) 여기서 되살린다.
-  // ⚠️ 신규 가입은 joinPrivateCrew가 잡는다 — 여긴 **구세이브 백필 전용**이다.
-  if (state.privateCrewJoined && !state.appointments.some((a) => a.kind === "privateClub")) {
+  state.privateClubJoined ??= false;
+  // ★이관: 비공개 클럽이 러닝크루의 하위 개념이던 시절엔 가입이 privateCrewJoined에 기록됐다.
+  //   클럽 **전용 일정**을 갖고 있으면 그때 DM으로 들어온 사람이므로 새 플래그로 옮긴다
+  //   (러닝 정기런에서 가입한 사람은 이 일정이 없어 여기 안 걸린다 — 그쪽은 러닝 SM 그대로).
+  if (!state.privateClubJoined && state.appointments.some((a) => a.kind === "privateClub")) {
+    state.privateClubJoined = true;
+  }
+  // 클럽 일정은 가입 시점에만 잡히므로, 가입돼 있는데 없으면 되살린다.
+  // ⚠️ 신규 가입은 joinPrivateClub이 잡는다 — 여긴 **구세이브 백필 전용**이다.
+  if (state.privateClubJoined && !state.appointments.some((a) => a.kind === "privateClub")) {
     scheduleNextPrivateClub(state);
   }
   state.groupRoomJoined ??= false;

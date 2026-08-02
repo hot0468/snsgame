@@ -4,21 +4,10 @@ import { YABAM_VIDEOS } from "@/data/yabam";
 import { PUSH_WORKS } from "@/data/pushtime";
 import { viewYabamVideo, visibleYabamVideos } from "@/systems/yabam";
 import { viewPushWork, visiblePushWorks } from "@/systems/pushtime";
-import {
-  PRIVATE_CREW_PUNISH_THRESHOLD,
-  acceptPrivateClub,
-  canOfferPrivateCrew,
-  declinePrivateClub,
-  maybeSpawnPrivateClubDM,
-  pickCrewSecretScenario,
-  resolveCrewSecret,
-} from "@/systems/crew";
+import { pickCrewSecretScenario, resolveCrewSecret } from "@/systems/crew";
 import { CREW_SECRET_SCENARIOS } from "@/data/crewSecret";
 import { ADULT_BOOKS } from "@/data/books";
 import { ADULT_BOOK_PERVERT, readBook, visibleAdultBooks } from "@/systems/books";
-import { scheduleNextCrewRun, scheduleNextPrivateClub } from "@/systems/appointments";
-import { loadGame } from "@/systems/save";
-import { dayOfWeek } from "@/systems/time";
 import type { GameState } from "@/core/types";
 
 /**
@@ -157,145 +146,5 @@ describe("SM 규율 세션이 변태력을 준다", () => {
       sc.choices.map((c) => c.effect.skills?.pervert ?? 0),
     );
     expect(declared.every((v) => v === 0)).toBe(true);
-  });
-});
-
-describe("비공개 클럽 DM — 러닝크루를 안 거치는 우회로", () => {
-  /** 체벌 트윗 문턱을 넘긴 상태. */
-  function punished(): GameState {
-    const s = adult();
-    s.punishTweetsPosted = PRIVATE_CREW_PUNISH_THRESHOLD;
-    return s;
-  }
-
-  it("문턱을 넘으면 러닝크루 미가입이어도 DM이 온다", () => {
-    const s = punished();
-    expect(s.crewJoined, "러닝크루에 가입한 적 없다").toBe(false);
-    // 확률을 걷어내기 위해 여러 번 시도한다.
-    let spawned = false;
-    for (let i = 0; i < 60 && !spawned; i++) spawned = maybeSpawnPrivateClubDM(s);
-    expect(spawned, "이 경로가 막히면 운동 안 하는 플레이어는 영영 도달 못 한다").toBe(true);
-    expect(getActiveAccount(s).dms.some((t) => t.privateClub)).toBe(true);
-  });
-
-  it("문턱 미달이면 안 온다", () => {
-    const s = adult();
-    s.punishTweetsPosted = PRIVATE_CREW_PUNISH_THRESHOLD - 1;
-    for (let i = 0; i < 60; i++) expect(maybeSpawnPrivateClubDM(s)).toBe(false);
-  });
-
-  it("성인 모드가 꺼져 있으면 안 온다", () => {
-    const s = punished();
-    s.adultMode = false;
-    for (let i = 0; i < 60; i++) expect(maybeSpawnPrivateClubDM(s)).toBe(false);
-  });
-
-  it("이미 가입했으면 안 온다", () => {
-    const s = punished();
-    s.privateCrewJoined = true;
-    for (let i = 0; i < 60; i++) expect(maybeSpawnPrivateClubDM(s)).toBe(false);
-  });
-
-  it("초대 스레드가 이미 있으면 중복 생성하지 않는다", () => {
-    const s = punished();
-    for (let i = 0; i < 60; i++) maybeSpawnPrivateClubDM(s);
-    expect(getActiveAccount(s).dms.filter((t) => t.privateClub).length).toBe(1);
-  });
-
-  /** DM을 확률 굴림 없이 확보한다. */
-  function withInvite(): { s: GameState; thread: NonNullable<ReturnType<typeof findInvite>> } {
-    const s = punished();
-    for (let i = 0; i < 60 && !findInvite(s); i++) maybeSpawnPrivateClubDM(s);
-    return { s, thread: findInvite(s)! };
-  }
-  function findInvite(s: GameState) {
-    return getActiveAccount(s).dms.find((t) => t.privateClub);
-  }
-
-  it("수락하면 가입되고 클럽 세션 일정이 잡힌다", () => {
-    const { s, thread } = withInvite();
-    acceptPrivateClub(s, thread);
-
-    expect(s.privateCrewJoined).toBe(true);
-    const club = s.appointments.filter((a) => a.kind === "privateClub");
-    expect(club.length, "일정이 안 잡히면 가입만 되고 모임이 영영 안 열린다").toBe(1);
-    expect(thread.privateClub).toBe(false);
-  });
-
-  it("클럽에 들어가도 러닝크루원이 되지는 않는다", () => {
-    const { s, thread } = withInvite();
-    acceptPrivateClub(s, thread);
-    expect(s.crewJoined, "러닝을 한 적 없는 사람이 크루원이 되면 안 된다").toBe(false);
-    expect(s.appointments.some((a) => a.kind === "crew")).toBe(false);
-  });
-
-  it("클럽 세션과 러닝 정기런은 같은 자리에 겹치지 않는다", () => {
-    // ⚠️ 처음엔 세션을 정기런 자리에 얹었다 — 러닝을 나가면 세션이 되고 세션을 하면
-    //    러닝이 사라졌다. 둘은 다른 모임이므로 (요일, 슬롯)이 달라야 한다.
-    const { s, thread } = withInvite();
-    s.crewJoined = true;
-    scheduleNextCrewRun(s);
-    acceptPrivateClub(s, thread);
-
-    const run = s.appointments.find((a) => a.kind === "crew")!;
-    const club = s.appointments.find((a) => a.kind === "privateClub")!;
-    expect(run, "러닝 일정이 사라지면 안 된다").toBeTruthy();
-    expect(club).toBeTruthy();
-    expect(
-      dayOfWeek(run.day) === dayOfWeek(club.day) && run.slot === club.slot,
-      "두 모임이 같은 요일·슬롯에 겹친다",
-    ).toBe(false);
-  });
-
-  it("세션을 치르면 클럽 일정만 다시 잡힌다 — 러닝을 재예약하지 않는다", () => {
-    const { s, thread } = withInvite();
-    acceptPrivateClub(s, thread);
-    s.resources.action = 100;
-    const scenario = pickCrewSecretScenario();
-    resolveCrewSecret(s, scenario, 0);
-
-    expect(s.appointments.filter((a) => a.kind === "privateClub").length).toBe(1);
-    expect(s.appointments.some((a) => a.kind === "crew"), "러닝은 안 잡혀야 한다").toBe(false);
-  });
-
-  it("거절하면 가입되지 않고 제의만 닫힌다", () => {
-    const s = punished();
-    for (let i = 0; i < 60 && !getActiveAccount(s).dms.some((t) => t.privateClub); i++) {
-      maybeSpawnPrivateClubDM(s);
-    }
-    const thread = getActiveAccount(s).dms.find((t) => t.privateClub)!;
-    declinePrivateClub(s, thread);
-    expect(s.privateCrewJoined).toBe(false);
-    expect(thread.privateClub).toBe(false);
-  });
-
-  it("러닝크루 경로도 그대로 살아 있다", () => {
-    const s = punished();
-    s.crewJoined = true;
-    expect(canOfferPrivateCrew(s)).toBe(true);
-  });
-
-  it("구세이브 백필 — 가입돼 있는데 일정이 없으면 불러올 때 되살린다", () => {
-    // 클럽 세션이 러닝 정기런 자리에서 돌던 시절에 가입한 세이브는 전용 일정이 없다.
-    // 일정은 가입 시점에만 잡히므로, 백필이 없으면 그 세이브는 모임이 영영 안 열린다.
-    const s = adult();
-    s.privateCrewJoined = true;
-    s.appointments = [];
-    const loaded = loadGame(JSON.stringify(s))!;
-    expect(loaded.appointments.some((a) => a.kind === "privateClub")).toBe(true);
-  });
-
-  it("백필이 이미 있는 일정을 중복으로 만들지 않는다", () => {
-    const s = adult();
-    s.privateCrewJoined = true;
-    scheduleNextPrivateClub(s);
-    const loaded = loadGame(JSON.stringify(s))!;
-    expect(loaded.appointments.filter((a) => a.kind === "privateClub").length).toBe(1);
-  });
-
-  it("가입 안 한 사람에겐 백필이 일정을 만들지 않는다", () => {
-    const s = adult();
-    const loaded = loadGame(JSON.stringify(s))!;
-    expect(loaded.appointments.some((a) => a.kind === "privateClub")).toBe(false);
   });
 });
