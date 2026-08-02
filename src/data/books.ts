@@ -34,6 +34,16 @@ export interface Book {
   reviews: number;
   /** 표지 그라데이션 색상(hue) */
   hue: number;
+  /**
+   * 이 책이 추가로 올려주는 **변태력**(없으면 카테고리 기본값만).
+   *
+   * ⚠️ 성인 도서는 전부 변태력 기본치(ADULT_BOOK_PERVERT)를 주지만, 취향이 뚜렷한
+   *    책은 여기서 더 얹는다 — 변태력은 '얼마나 야한가'가 아니라 '어느 방향인가'라
+   *    같은 성인물이라도 로맨스와 규율서를 같은 값으로 묶으면 축이 뭉개진다.
+   */
+  pervertBonus?: number;
+  /** 읽으려면 필요한 최소 변태력(취향이 안 맞으면 목록에 안 뜬다). */
+  minPervert?: number;
 }
 
 export const BOOKS: Book[] = [
@@ -75,4 +85,13 @@ export const ADULT_BOOKS: Book[] = [
   { id: "ab4", title: "한밤의 개인 레슨", author: "야근요정", category: "adult", rating: 4.6, reviews: 1888, hue: 280 },
   { id: "ab5", title: "금지된 사이", author: "밤을잊은그대", category: "adult", rating: 4.8, reviews: 3355, hue: 355 },
   { id: "ab6", title: "닿을 듯 말 듯", author: "간질간질", category: "adult", rating: 4.7, reviews: 2199, hue: 315 },
+  // ── 취향 계열(변태력이 더 오른다) ─────────────────────────────
+  // 위 여섯은 로맨스 결이라 카테고리 기본치만 준다. 아래는 방향이 뚜렷한 책들이다.
+  // ⚠️ 활자는 실행이 아니라 취향 탐색이라, 같은 방향의 실제 경험(클럽 세션·야밤 영상)보다
+  //    상승폭을 작게 잡는다. 대신 게이트 밖에서 축을 여는 **진입로** 역할을 한다.
+  { id: "ab7", title: "규율의 문법", author: "채찍과당근", category: "adult", rating: 4.6, reviews: 1204, hue: 350, pervertBonus: 7 },
+  { id: "ab8", title: "목줄 사용 설명서", author: "가죽공방", category: "adult", rating: 4.5, reviews: 892, hue: 265, pervertBonus: 9 },
+  { id: "ab9", title: "매듭의 미학", author: "밧줄장인", category: "adult", rating: 4.7, reviews: 1533, hue: 200, pervertBonus: 10, minPervert: 60 },
+  { id: "ab10", title: "관객 앞에서", author: "유리방", category: "adult", rating: 4.4, reviews: 706, hue: 25, pervertBonus: 12, minPervert: 120 },
+  { id: "ab11", title: "복종 계약서 작성법", author: "계약의밤", category: "adult", rating: 4.6, reviews: 1077, hue: 290, pervertBonus: 11, minPervert: 120 },
 ];

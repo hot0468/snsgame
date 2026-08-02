@@ -1,6 +1,6 @@
 import type { AttributeId, GameState } from "@/core/types";
 import type { Book, BookCategory } from "@/data/books";
-import { BOOK_PRICE_BY_CATEGORY } from "@/data/books";
+import { ADULT_BOOKS, BOOKS, BOOK_PRICE_BY_CATEGORY } from "@/data/books";
 import { ATTRIBUTES } from "@/data/attributes";
 import { getActiveAccount } from "@/core/state";
 import { unlockAttribute } from "./attributeUnlock";
@@ -9,6 +9,22 @@ import { addSchedule, advanceTime } from "./time";
 
 /** 책 한 권 감상에 드는 행동력 */
 export const BOOK_ACTION_COST = 8;
+
+/** 성인 도서가 공통으로 주는 변태력(취향서는 `pervertBonus`가 여기에 더해진다). */
+export const ADULT_BOOK_PERVERT = 8;
+
+/** id로 책을 찾는다(일반·성인 통합). */
+export function bookById(id: string): Book | undefined {
+  return BOOKS.find((b) => b.id === id) ?? ADULT_BOOKS.find((b) => b.id === id);
+}
+
+/**
+ * 지금 성인 탭에 보여줄 책들 — `minPervert`가 걸린 취향서는 그만큼 열려야 뜬다.
+ * (야밤·푸시타임과 같은 규칙. 변태력이 오르면 서가가 늘어나는 게 보여야 한다.)
+ */
+export function visibleAdultBooks(state: GameState): Book[] {
+  return ADULT_BOOKS.filter((b) => state.skills.pervert >= (b.minPervert ?? 0));
+}
 
 /** 책 한 권 감상료(권당, 계열별) */
 export function bookPrice(book: Book): number {
@@ -64,8 +80,12 @@ export function readBook(
     // 변태력의 **진입로**다 — 강압·페티쉬 콘텐츠는 변태력 게이트 뒤에 있어서,
     // 게이트 밖에서 취향을 넓히는 수단이 없으면 그 축이 영영 0에 묶인다(자물쇠가 열쇠를 가둔다).
     // 활자는 실행이 아니라 취향 탐색이므로 음란보다 작게 준다.
-    gainSkill(state, "pervert", 8);
-    extra = "음란·변태력";
+    //
+    // 취향이 뚜렷한 책(pervertBonus)은 여기에 더 얹는다 — 같은 성인물이라도 로맨스와
+    // 규율서를 같은 값으로 묶으면 '어느 방향인가'라는 이 축의 의미가 뭉개진다.
+    const bonus = bookId ? (bookById(bookId)?.pervertBonus ?? 0) : 0;
+    gainSkill(state, "pervert", ADULT_BOOK_PERVERT + bonus);
+    extra = bonus > 0 ? "음란·변태력(취향서)" : "음란·변태력";
   } else {
     gainSkill(state, "creativity", 20);
     extra = "창작";

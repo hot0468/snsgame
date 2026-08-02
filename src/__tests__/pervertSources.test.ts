@@ -14,7 +14,10 @@ import {
   resolveCrewSecret,
 } from "@/systems/crew";
 import { CREW_SECRET_SCENARIOS } from "@/data/crewSecret";
-import { scheduleNextCrewRun } from "@/systems/appointments";
+import { ADULT_BOOKS } from "@/data/books";
+import { ADULT_BOOK_PERVERT, readBook, visibleAdultBooks } from "@/systems/books";
+import { scheduleNextCrewRun, scheduleNextPrivateClub } from "@/systems/appointments";
+import { loadGame } from "@/systems/save";
 import { dayOfWeek } from "@/systems/time";
 import type { GameState } from "@/core/types";
 
@@ -66,6 +69,49 @@ describe("야밤·푸시타임에 변태력 물건이 있다", () => {
     const s = adult();
     viewPushWork(s, kinky);
     expect(s.skills.pervert).toBeGreaterThan(0);
+  });
+});
+
+describe("미디북스 취향서", () => {
+  it("변태력을 더 주는 성인 도서가 있다", () => {
+    expect(ADULT_BOOKS.filter((b) => (b.pervertBonus ?? 0) > 0).length).toBeGreaterThan(0);
+  });
+
+  /**
+   * 한 권 읽고 오른 변태력.
+   * ⚠️ 절대값으로 재지 마라 — gainSkill이 정신력 배율·감쇠를 태우므로 선언값과 다르게 들어온다
+   *    (기본 상태에서 8을 선언해도 10이 들어와 테스트가 깨졌다). 두 책의 **관계**로 잰다.
+   */
+  function pervertFrom(book: (typeof ADULT_BOOKS)[number]): number {
+    const s = adult();
+    s.resources.action = 100;
+    readBook(s, "adult", book.title, book.id);
+    return s.skills.pervert;
+  }
+
+  it("로맨스 결 성인서도 변태력을 준다 — 이게 축의 진입로다", () => {
+    const plain = ADULT_BOOKS.find((b) => !b.pervertBonus)!;
+    expect(pervertFrom(plain)).toBeGreaterThan(0);
+  });
+
+  it("취향서는 로맨스서보다 많이 준다", () => {
+    const plain = ADULT_BOOKS.find((b) => !b.pervertBonus)!;
+    const kinky = ADULT_BOOKS.find((b) => (b.pervertBonus ?? 0) > 0 && !b.minPervert)!;
+    expect(pervertFrom(kinky)).toBeGreaterThan(pervertFrom(plain));
+  });
+
+  it("변태력이 오르면 서가가 늘어난다", () => {
+    const low = adult();
+    const high = adult();
+    high.skills.pervert = 999;
+    expect(visibleAdultBooks(high).length).toBeGreaterThan(visibleAdultBooks(low).length);
+    expect(visibleAdultBooks(low).length, "처음부터 볼 책은 있어야 한다").toBeGreaterThan(0);
+  });
+
+  it("책은 같은 방향의 실제 경험보다 덜 준다 — 활자는 탐색이지 실행이 아니다", () => {
+    const maxBook = Math.max(...ADULT_BOOKS.map((b) => ADULT_BOOK_PERVERT + (b.pervertBonus ?? 0)));
+    const maxVideo = Math.max(...YABAM_VIDEOS.map((v) => v.pervert ?? 0));
+    expect(maxBook).toBeLessThanOrEqual(maxVideo + ADULT_BOOK_PERVERT);
   });
 });
 
@@ -227,5 +273,29 @@ describe("비공개 클럽 DM — 러닝크루를 안 거치는 우회로", () =
     const s = punished();
     s.crewJoined = true;
     expect(canOfferPrivateCrew(s)).toBe(true);
+  });
+
+  it("구세이브 백필 — 가입돼 있는데 일정이 없으면 불러올 때 되살린다", () => {
+    // 클럽 세션이 러닝 정기런 자리에서 돌던 시절에 가입한 세이브는 전용 일정이 없다.
+    // 일정은 가입 시점에만 잡히므로, 백필이 없으면 그 세이브는 모임이 영영 안 열린다.
+    const s = adult();
+    s.privateCrewJoined = true;
+    s.appointments = [];
+    const loaded = loadGame(JSON.stringify(s))!;
+    expect(loaded.appointments.some((a) => a.kind === "privateClub")).toBe(true);
+  });
+
+  it("백필이 이미 있는 일정을 중복으로 만들지 않는다", () => {
+    const s = adult();
+    s.privateCrewJoined = true;
+    scheduleNextPrivateClub(s);
+    const loaded = loadGame(JSON.stringify(s))!;
+    expect(loaded.appointments.filter((a) => a.kind === "privateClub").length).toBe(1);
+  });
+
+  it("가입 안 한 사람에겐 백필이 일정을 만들지 않는다", () => {
+    const s = adult();
+    const loaded = loadGame(JSON.stringify(s))!;
+    expect(loaded.appointments.some((a) => a.kind === "privateClub")).toBe(false);
   });
 });

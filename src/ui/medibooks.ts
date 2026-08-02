@@ -1,6 +1,6 @@
 import type { GameContext } from "./context";
 import type { Book } from "@/data/books";
-import { BOOKS, ADULT_BOOKS, BOOK_CATEGORY_LABEL } from "@/data/books";
+import { BOOKS, BOOK_CATEGORY_LABEL } from "@/data/books";
 import {
   readBook,
   BOOK_ACTION_COST,
@@ -8,6 +8,7 @@ import {
   canReadBook,
   bookTweetAttr,
   bookTweetLines,
+  visibleAdultBooks,
 } from "@/systems/books";
 import { hasAction } from "@/systems/stats";
 import { postTweet } from "@/systems/tweetSystem";
@@ -334,7 +335,12 @@ export function renderMediBooks(ctx: GameContext): HTMLElement {
     tab === "adult"
       ? [
           el("div", { class: "mb__sec-title" }, "🔞 성인 · 지금 인기 있는 작품"),
-          el("div", { class: "mb__books" }, ...ADULT_BOOKS.map((b, i) => bookRow(ctx, b, i + 1))),
+          // 취향서(minPervert)는 변태력이 열려야 서가에 뜬다 — 야밤·푸시타임과 같은 규칙.
+          el(
+            "div",
+            { class: "mb__books" },
+            ...visibleAdultBooks(ctx.store.getState()).map((b, i) => bookRow(ctx, b, i + 1)),
+          ),
         ]
       : [
           chips(),
