@@ -138,6 +138,22 @@ export interface TweetKindEffect {
 }
 
 /**
+ * 진심 트윗이 내는 정신력.
+ *
+ * ⚠️ **이 값이 이 성격의 전부다.** 싸면 무난의 상위호환이 되어 5장 중 4장이 죽고,
+ *    너무 비싸면 아무도 안 고른다. 정신력 상한(기본 100 · 최대 145)에 견줘
+ *    "하루에 한두 번이 한계"인 선이라야 한다.
+ * ⚠️ 이 값보다 정신력이 적으면 **카드 자체가 잠긴다**(`canWriteSoul`) — 0으로 깎이고
+ *    우울 모드에 갇히는 것보다 못 쓰게 막는 편이 낫다.
+ */
+export const SOUL_MENTAL_COST = 25;
+
+/** 지금 진심 트윗을 쓸 수 있는지(정신력이 대가를 감당하는지). */
+export function canWriteSoul(state: GameState): boolean {
+  return state.resources.mental >= SOUL_MENTAL_COST;
+}
+
+/**
  * ⚠️ **4성격은 서로 트레이드오프여야 한다.** 어느 하나가 다른 하나의 완전 상위호환이 되면
  *    카드가 4장 떠도 실질 선택지는 그만큼 줄어들고, 작성이 기계적인 클릭이 된다.
  *    지금 축: 도달(reachMul) ↔ 정신력(mentalDelta) ↔ 평판·논란 ↔ 안정성(varRange).
@@ -155,7 +171,12 @@ export const TWEET_KIND_EFFECTS: Record<TweetKind, TweetKindEffect> = {
   // 감성: 유입 ×1.2(공감·확산)의 **대가로 정신력을 낸다**. 속을 꺼내 파는 글이라 소모된다.
   //       연속으로 쓰면 정신력이 바닥나 우울 모드에 걸리는 게 의도된 제동이다.
   emotional: { reachMul: 1.2, varLow: 0.8, varRange: 0.6, controversyBonus: 0, reputationDelta: 0, knowledgeDelta: 0, mentalDelta: -3 },
+  // 진심: 도달 최고(1.9배)에 분산도 낮아 **안정적으로 크다**. 대가는 정신력 -25.
+  //       자극(1.35배·고분산)보다 세지만 자극은 공짜고 이건 자원을 낸다 — 그게 두 카드가 갈리는 지점이다.
+  //       평판이 조금 오르는 건 "진짜 하고 싶은 말을 했다"의 값이다.
+  soul: { reachMul: 1.9, varLow: 0.85, varRange: 0.5, controversyBonus: 0, reputationDelta: 2, knowledgeDelta: 0, mentalDelta: -SOUL_MENTAL_COST },
 };
+
 
 /**
  * 평판에 따른 팔로워 '증가분' 배율(0.3~1.0).

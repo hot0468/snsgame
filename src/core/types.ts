@@ -36,8 +36,10 @@ export type AttributeId =
  * - provoke(자극): 고성과·고분산 + 논란 확률↑·평판 리스크
  * - info(정보): 유입 소폭↓ 대신 평판↑·지식 스킬↑
  * - emotional(감성): 유입↑, 부가 이득 없음
+ * - soul(진심): **정신력을 크게 태우고 도달이 가장 크다.** 정신력이 모자라면 아예 못 고른다 —
+ *   자원을 걸고 한 방을 노리는 유일한 선택지이자, 늘어난 정신력 상한의 쓸 곳이다.
  */
-export const TWEET_KINDS = ["plain", "provoke", "info", "emotional"] as const;
+export const TWEET_KINDS = ["plain", "provoke", "info", "emotional", "soul"] as const;
 export type TweetKind = (typeof TWEET_KINDS)[number];
 
 /** 데려올 수 있는 반려동물 종류 */

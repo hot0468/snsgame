@@ -8,7 +8,7 @@ import { ATTRIBUTES, getAffinity } from "@/data/attributes";
 import { isTrending } from "@/data/trends";
 import type { TrendTopic } from "@/data/trendTopics";
 import { TREND_MULTIPLIER, rideTrend } from "@/systems/trends";
-import { currentMaxPostSlots, timingMultiplier, timingTier } from "@/systems/followers";
+import { canWriteSoul, currentMaxPostSlots, SOUL_MENTAL_COST, timingMultiplier, timingTier } from "@/systems/followers";
 import { canPostBySlot, remainingPostSlots } from "@/systems/eggs";
 import {
   ADULT_KINDS,
@@ -64,6 +64,7 @@ const KIND_META: Record<TweetKind, { label: string; hint: string; warn?: boolean
   provoke: { label: "자극", hint: "🔥 대박 가능 · 논란 위험 · 정신력↓", warn: true },
   info: { label: "정보", hint: "평판↑ · 지식↑ · 꾸준" },
   emotional: { label: "감성", hint: "유입↑ · 정신력↓", warn: true },
+  soul: { label: "진심", hint: "🔥 도달 최고 · 정신력 크게 소모", warn: true },
 };
 
 /** "일상계" → "일상" 처럼 카테고리 라벨의 '계' 접미사를 뗀다. */
@@ -289,17 +290,29 @@ export function renderComposeModal(
         const meta = KIND_META[kind];
         const cand = kindCandidates?.[kind];
         const media = cand?.media;
+        // 진심은 정신력을 크게 낸다 — 감당 못 하면 아예 잠근다.
+        // 0까지 깎여 우울 모드(20 미만)에 갇히는 것보다 못 쓰게 막는 편이 낫다.
+        const locked = kind === "soul" && !canWriteSoul(s);
         return el(
           "button",
           {
-            class: "compose-kind-card" + (selectedKind === kind ? " compose-kind-card--active" : ""),
+            class:
+              "compose-kind-card" +
+              (selectedKind === kind ? " compose-kind-card--active" : "") +
+              (locked ? " compose-kind-card--locked" : ""),
+            disabled: locked,
             onclick: () => {
+              if (locked) return;
               selectedKind = kind;
               paint();
             },
           },
           // 롱트윗이면 문구가 길다 → CSS로 3줄 클램프(...말줄임). short는 그대로 보임.
-          el("div", { class: "compose-kind-card__text" }, cand?.text ?? ""),
+          el(
+            "div",
+            { class: "compose-kind-card__text" },
+            locked ? `지금은 이런 글을 쓸 기운이 없다 (정신력 ${SOUL_MENTAL_COST} 필요)` : (cand?.text ?? ""),
+          ),
           // 미디어 후보면 뱃지(📷/🎬) + 축약 프롬프트. 게시 시 media는 자동 첨부됨.
           media
             ? el(

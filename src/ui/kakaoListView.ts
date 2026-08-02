@@ -22,6 +22,7 @@ const KIND_LABEL: Record<TweetKind, string> = {
   provoke: "자극",
   info: "정보",
   emotional: "감성",
+  soul: "진심",
 };
 
 /**
