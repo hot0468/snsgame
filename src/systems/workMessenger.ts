@@ -81,6 +81,31 @@ export function maybeSpawnWorkMsg(state: GameState): void {
     toastPending: true,
     resolved: false,
   });
+  trimWorkMsgs(state);
+}
+
+/**
+ * 업무 메신저 보관 상한. `KAKAO_MAX`와 같은 이유의 누적 절벽 방어다 —
+ * 재직 중이면 거의 매일 한 건씩 쌓이는데 자르는 곳이 없었다.
+ */
+export const WORK_MSG_MAX = 60;
+
+/**
+ * 상한을 넘으면 **처리 끝난 것부터, 오래된 순으로** 지운다.
+ *
+ * ⚠️ 미처리(`!resolved`)·토스트 대기(`toastPending`) 건은 남긴다 — 아직 플레이어가
+ *    수락/거절할 수 있는 요청이라, 지우면 성과 기회가 조용히 사라진다(`trimKakao`와 같은 규칙).
+ */
+function trimWorkMsgs(state: GameState): void {
+  let over = state.workMsgs.length - WORK_MSG_MAX;
+  if (over <= 0) return;
+  state.workMsgs = state.workMsgs.filter((m) => {
+    if (over > 0 && m.resolved && !m.toastPending) {
+      over--;
+      return false;
+    }
+    return true;
+  });
 }
 
 /**
