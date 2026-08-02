@@ -45,21 +45,42 @@ export function currentContest(day: number): Contest {
   return CONTESTS[idx];
 }
 
-/** 지금 대회를 신청할 수 있는지(결과 대기 중이 아니어야 한다). */
+/**
+ * 같은 대회 재신청 쿨다운(일).
+ *
+ * ⚠️ 배너 회전(2주)보다 **길어야 한다.** 결과가 1주면 나오므로, 쿨다운이 없으면 같은
+ *    배너 주기 안에 같은 대회를 두 번 신청할 수 있었다. 한 달을 두면 배너가 최소 한 번은
+ *    다른 대회로 바뀐 뒤에야 돌아온다.
+ */
+export const CONTEST_COOLDOWN_DAYS = 30;
+
+/** 그 대회를 다시 신청하기까지 남은 일수(0이면 지금 신청 가능). */
+export function contestCooldownLeft(state: GameState, contestId: string): number {
+  const last = state.contestAppliedDays?.[contestId];
+  if (last == null || !Number.isFinite(last)) return 0;
+  return Math.max(0, last + CONTEST_COOLDOWN_DAYS - state.day);
+}
+
+/** 지금 배너 대회를 신청할 수 있는지(결과 대기 중이 아니고, 쿨다운도 끝났어야 한다). */
 export function canApplyContest(state: GameState): boolean {
-  return state.pendingContest === null;
+  if (state.pendingContest !== null) return false;
+  return contestCooldownLeft(state, currentContest(state.day).id) === 0;
 }
 
 /**
  * 현재 배너 대회에 신청한다.
- * @returns "ok"(신청됨) | "busy"(이미 결과 대기 중) | "poor"(참가비 부족 — 차감 없음)
+ * @returns "ok"(신청됨) | "busy"(이미 결과 대기 중) | "cooldown"(같은 대회 재신청 대기) | "poor"(참가비 부족 — 차감 없음)
  */
-export function applyContest(state: GameState): "ok" | "busy" | "poor" {
+export function applyContest(state: GameState): "ok" | "busy" | "cooldown" | "poor" {
   if (state.pendingContest !== null) return "busy";
   const contest = currentContest(state.day);
+  if (contestCooldownLeft(state, contest.id) > 0) return "cooldown";
   if (contest.fee > state.money) return "poor";
   state.money -= contest.fee;
   state.pendingContest = { id: contest.id, appliedDay: state.day };
+  // ⚠️ 신청 시점을 박는다(결과 시점이 아니라). 결과를 안 기다리고 취소해도 쿨다운은 돈다.
+  if (!state.contestAppliedDays) state.contestAppliedDays = {};
+  state.contestAppliedDays[contest.id] = state.day;
   addSchedule(state, `${contest.name} 신청`, "system");
   return "ok";
 }

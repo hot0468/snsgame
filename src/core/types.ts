@@ -316,6 +316,15 @@ export interface DMThread {
   /** 러닝크루 가입 권유 스레드인지(운동 트윗으로 유입) */
   crew?: boolean;
   /**
+   * 비공개 클럽(SM 규율) 가입 권유 스레드인지 — 체벌 트윗 누적으로 유입.
+   * ui가 수락/거절 버튼을 렌더한다.
+   *
+   * ⚠️ 러닝크루 정기런 중 권유(`canOfferPrivateCrew`)와 **같은 목적지**로 간다.
+   *    그쪽은 러닝크루에 먼저 가입해야만 닿아서, 운동을 안 하는 플레이어는 체벌 트윗을
+   *    아무리 써도 도달할 수 없었다 — 이 DM이 그 우회로다.
+   */
+  privateClub?: boolean;
+  /**
    * 성인 그룹방 초대 스레드인지(성인 트윗 좋아요로 유입).
    * 수락 시 매주 토 심야 '정기 모임' 약속이 잡힌다.
    */
@@ -674,6 +683,17 @@ export interface CoachJob {
   lastMeetMonth: number;
   /** 전국체전 우승 횟수 */
   championships: number;
+  /**
+   * 여름 합숙을 다녀온 마지막 연도. -1이면 없음(연 1회 제한).
+   * 구세이브엔 없다 — save.sanitize가 -1로 채운다.
+   */
+  campYear?: number;
+  /** 대회를 한 번이라도 치른 마지막 연도. 이듬해 2월 졸업생 이벤트의 조건이다. -1이면 없음 */
+  lastMeetYear?: number;
+  /** 졸업생 모임을 겪은 마지막 연도. -1이면 없음(연 1회 제한) */
+  alumniYear?: number;
+  /** 전국체전 뒤풀이를 겪은 마지막 연도. -1이면 없음(연 1회 제한) */
+  nationalPartyYear?: number;
   /** 마지막으로 월급을 준 '달 키'(monthKey). -1이면 없음 */
   lastSalaryMonth: number;
 }
@@ -1291,6 +1311,13 @@ export interface GameState {
   pendingLecturerApp: { hired: boolean; resultDay: number } | null;
   /** 결과 대기 중인 네이놈 대회 신청(1주 뒤 메일 통보, 동시 1건). 없으면 null */
   pendingContest: { id: string; appliedDay: number } | null;
+  /**
+   * 대회 id → 마지막으로 **신청한** 날(day). 같은 대회 재신청 쿨다운(30일) 판정에 쓴다.
+   *
+   * ⚠️ 배너는 2주마다 바뀌는데 결과는 1주면 나와서, 같은 배너 주기 안에 같은 대회를
+   *    두 번 신청할 수 있었다. 키는 CONTESTS의 id뿐이라 무한히 늘지 않는다. 초기 {}
+   */
+  contestAppliedDays: Record<string, number>;
   /** 취득한 자격증 id 목록 */
   certifications: string[];
   /** 결과 대기 중인 **일반** 자격증 시험(동시 1건만). 없으면 null */

@@ -284,6 +284,7 @@ export function createInitialState(): GameState {
     pendingJobApp: null,
     pendingLecturerApp: null,
     pendingContest: null,
+    contestAppliedDays: {},
     certifications: [],
     pendingExam: null,
     pendingSpecialExam: null,

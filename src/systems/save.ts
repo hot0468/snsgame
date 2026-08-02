@@ -272,6 +272,13 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   state.coachJob ??= null;
   // 시즌 진행도가 훈련 횟수에서 완성도 게이지로 바뀌었다 — 옛 값은 버리고 0에서 다시 쌓는다.
   if (state.coachJob) state.coachJob.teamStat ??= 0;
+  // 합숙·졸업생 모임 기록은 신규 — 구세이브는 '아직 안 겪음'(-1)에서 시작한다.
+  if (state.coachJob) {
+    state.coachJob.campYear ??= -1;
+    state.coachJob.lastMeetYear ??= -1;
+    state.coachJob.alumniYear ??= -1;
+    state.coachJob.nationalPartyYear ??= -1;
+  }
   state.coachOffered ??= false;
   // 택시·콜센터도 신규 — 구세이브엔 미취업이 정답.
   state.taxiJob ??= null;
@@ -320,6 +327,10 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   //      덮여 있어 부재를 구분 못 한다 — 위 youtubeUnlocked 주석 참고).
   // 네이놈 대회는 신규 기능 — 구세이브엔 키가 없다(대기 없음이 정답).
   state.pendingContest ??= null;
+  // 대회 쿨다운은 신규 — 구세이브는 기록이 없으니 전부 신청 가능에서 시작한다.
+  if (!state.contestAppliedDays || typeof state.contestAppliedDays !== "object") {
+    state.contestAppliedDays = {};
+  }
   // 자격증은 신규 기능이라 구세이브엔 키 자체가 없다 — 미취득/대기 없음으로 시작.
   if (!Array.isArray(state.certifications)) state.certifications = [];
   state.pendingExam ??= null;

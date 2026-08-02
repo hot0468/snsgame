@@ -18,7 +18,12 @@ import {
   lottoStatus,
 } from "@/systems/lotto";
 import { canEnterGoblinShop, enterGoblinShop } from "@/systems/goblin";
-import { currentContest, contestWinChance, applyContest } from "@/systems/contest";
+import {
+  currentContest,
+  contestWinChance,
+  applyContest,
+  contestCooldownLeft,
+} from "@/systems/contest";
 import { ensureTrendBoard, getTrends, hasRiddenTrend } from "@/systems/trends";
 import { openComposeModal } from "./postLimitModal";
 
@@ -1096,8 +1101,8 @@ function contestBanner(ctx: GameContext): HTMLElement {
 }
 
 /** 현재 대회 신청 후 결과 상태를 돌려준다(update 안에서 systems 호출만). */
-function submitContest(ctx: GameContext): "ok" | "busy" | "poor" {
-  let result: "ok" | "busy" | "poor" = "busy";
+function submitContest(ctx: GameContext): "ok" | "busy" | "cooldown" | "poor" {
+  let result: "ok" | "busy" | "cooldown" | "poor" = "busy";
   ctx.update((g) => {
     result = applyContest(g);
   });
@@ -1116,6 +1121,9 @@ function renderContestApplyModal(ctx: GameContext): HTMLElement {
   const s = ctx.store.getState();
   const contest = currentContest(s.day);
   const pending = s.pendingContest != null;
+  // 같은 대회 재신청 쿨다운 — 왜 못 누르는지 안 보여주면 버그로 읽힌다.
+  const cooldown = contestCooldownLeft(s, contest.id);
+  const blocked = pending || cooldown > 0;
   const hint = contestChanceHint(contestWinChance(s, contest));
 
   return el(
@@ -1149,6 +1157,13 @@ function renderContestApplyModal(ctx: GameContext): HTMLElement {
       ),
       el("div", { class: "contest-apply__hint" }, `“${hint}”`),
       pending && el("div", { class: "contest-apply__pending" }, "이미 신청한 대회 결과를 기다리는 중이에요. 결과는 메일로 도착해요 📩"),
+      !pending && cooldown > 0
+        ? el(
+            "div",
+            { class: "contest-apply__pending" },
+            `한 번 나간 대회는 한 달 뒤에 다시 나갈 수 있어요. ${cooldown}일 남았어요 🗓️`,
+          )
+        : null,
       el(
         "div",
         { class: "compose-actions", style: "gap:10px" },
@@ -1156,8 +1171,8 @@ function renderContestApplyModal(ctx: GameContext): HTMLElement {
         el(
           "button",
           {
-            class: "btn" + (pending ? " btn--ghost" : ""),
-            disabled: pending,
+            class: "btn" + (blocked ? " btn--ghost" : ""),
+            disabled: blocked,
             onclick: () => {
               const result = submitContest(ctx);
               if (result === "ok") {
@@ -1165,12 +1180,14 @@ function renderContestApplyModal(ctx: GameContext): HTMLElement {
                 ctx.closeModal();
               } else if (result === "busy") {
                 ctx.toast("이미 신청한 대회 결과를 기다리는 중이에요");
+              } else if (result === "cooldown") {
+                ctx.toast(`같은 대회는 한 달에 한 번만 나갈 수 있어요 (${cooldown}일 남음)`);
               } else {
                 ctx.toast("참가비가 부족해요");
               }
             },
           },
-          "신청하기",
+          cooldown > 0 && !pending ? `신청하기 (${cooldown}일 뒤)` : "신청하기",
         ),
       ),
     ),
