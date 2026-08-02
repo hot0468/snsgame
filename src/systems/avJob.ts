@@ -3,6 +3,7 @@ import { getActiveAccount, LATE_SLOT } from "@/core/state";
 import { makeRandomAccount } from "@/data/accounts";
 import { chance, pick, uid } from "@/utils/random";
 import { clampAction, clampMental, clampResource, gainSkill } from "./stats";
+import { recordMission } from "./missions";
 import { hasAnyJob, quitCurrentJob } from "./employment";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { dateOfMonth } from "./calendar";
@@ -429,6 +430,8 @@ export function resolveAvWork(state: GameState, acceptCondomless: boolean): stri
     job.workDaysThisMonth += 1;
     job.totalWorkDays += 1; // 누적은 월 리셋을 안 탄다 — 직업 레벨 근거
     job.lastWorkDay = state.day;
+    // 도전과제도 **같은 가드 안**에서 센다 — 밖으로 빼면 하루에 여러 번 찍혀 목표가 무의미해진다.
+    recordMission(state, "shoot");
   }
 
   let narration = pick(AV_WORK_NARRATIONS);

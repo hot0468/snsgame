@@ -5,6 +5,7 @@ import { hasAnyJob, quitCurrentJob } from "./employment";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { pushKakao } from "./kakao";
 import { clampAction, clampMental, gainSkill, skillTo100 } from "./stats";
+import { recordMission } from "./missions";
 import { rollActivityGrade, type ActivityGrade } from "./condition";
 import { addSchedule } from "./time";
 
@@ -244,6 +245,7 @@ export function doCoachTraining(state: GameState, mode: "drill" | "easy"): Train
   state.resources.mental = clampMental(state, state.resources.mental - 8);
   job.teamStat = Math.min(COACH_STAT_TARGET, job.teamStat + gained);
   job.totalTrainings += 1;
+  recordMission(state, "training");
   gainSkill(state, "fitness", 5);
   gainSkill(state, "sociability", 4);
 

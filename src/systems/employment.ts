@@ -10,6 +10,7 @@ import { certJobBonus } from "./certification";
 import { markOvertime } from "./health";
 import { currentSalary } from "./economy";
 import { clampAction, clampMental, skillTo100 } from "./stats";
+import { recordMission } from "./missions";
 import { addSchedule, advanceTime } from "./time";
 
 /**
@@ -536,6 +537,8 @@ export function doWork(state: GameState, mode: "work" | "slack"): WorkResult {
       leveledUp = gainPerformance(state, PERF_GAIN);
       state.resources.mental = clampMental(state, state.resources.mental - 12);
       message = "맡은 일을 야무지게 처리했다. 성과가 차곡차곡 쌓였지만 정신력이 닳았다.";
+      // 도전과제: **성실 근무만** 센다. 실수한 근무·딴짓은 실적이 아니다(mlm의 '성사된 판매만'과 같은 규칙).
+      recordMission(state, "work");
     }
   } else {
     state.resources.action = clampAction(state, state.resources.action - SLACK_ACTION_COST);

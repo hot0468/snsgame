@@ -23,7 +23,11 @@ export type MissionMetric =
   | "ride"
   | "call"
   | "sale"
-  | "cut";
+  | "cut"
+  | "work" // 회사원 성실 근무(딴짓은 안 센다)
+  | "lesson" // 강사 수업
+  | "shoot" // AV 촬영(하루 1회 — 근무일 카운트와 같은 가드 안에서 센다)
+  | "training"; // 배구부 훈련
 
 export interface MissionReward {
   money?: number;
@@ -65,6 +69,11 @@ export const DAILY_MISSIONS: MissionDef[] = [
   { id: "d_call6", label: "상담 6콜 처리", metric: "call", goal: 6, reward: { mental: 15 }, requires: (s) => !!s.callCenterJob },
   { id: "d_sale1", label: "제품 판매 1건", metric: "sale", goal: 1, reward: { money: 60_000 }, requires: (s) => !!s.mlmJob },
   { id: "d_cut4", label: "시술 4건", metric: "cut", goal: 4, reward: { skills: { beauty: 15 } }, requires: (s) => !!s.stylistJob },
+  // 아래 넷은 강제 출근·하루 1회 제한이 걸린 직업이라 goal이 1~2다(신규 4직업처럼 여러 번 못 돈다).
+  { id: "d_work1", label: "성실하게 근무하기", metric: "work", goal: 1, reward: { money: 30_000 }, requires: (s) => !!s.employment },
+  { id: "d_lesson1", label: "수업 1회 진행", metric: "lesson", goal: 1, reward: { skills: { vocabulary: 12 } }, requires: (s) => !!s.lecturerJob },
+  { id: "d_shoot1", label: "촬영 1회", metric: "shoot", goal: 1, reward: { money: 50_000 }, requires: (s) => !!s.avJob },
+  { id: "d_training1", label: "훈련 1회 지도", metric: "training", goal: 1, reward: { skills: { fitness: 12 } }, requires: (s) => !!s.coachJob },
 ];
 
 export const WEEKLY_MISSIONS: MissionDef[] = [
@@ -78,6 +87,11 @@ export const WEEKLY_MISSIONS: MissionDef[] = [
   { id: "w_call30", label: "이번 주 상담 30콜", metric: "call", goal: 30, reward: { money: 150_000, mental: 15 }, requires: (s) => !!s.callCenterJob },
   { id: "w_sale5", label: "이번 주 제품 판매 5건", metric: "sale", goal: 5, reward: { money: 250_000 }, requires: (s) => !!s.mlmJob },
   { id: "w_cut20", label: "이번 주 시술 20건", metric: "cut", goal: 20, reward: { skills: { beauty: 30 } }, requires: (s) => !!s.stylistJob },
+  // 주5일 강제 출근이라 주간 목표는 4회 — 하루 빠져도 닿는다(5로 잡으면 결근 한 번에 실패 확정).
+  { id: "w_work4", label: "이번 주 성실 근무 4회", metric: "work", goal: 4, reward: { money: 180_000 }, requires: (s) => !!s.employment },
+  { id: "w_lesson4", label: "이번 주 수업 4회", metric: "lesson", goal: 4, reward: { money: 150_000, skills: { knowledge: 15 } }, requires: (s) => !!s.lecturerJob },
+  { id: "w_shoot3", label: "이번 주 촬영 3회", metric: "shoot", goal: 3, reward: { money: 220_000 }, requires: (s) => !!s.avJob },
+  { id: "w_training4", label: "이번 주 훈련 4회", metric: "training", goal: 4, reward: { money: 140_000, skills: { fitness: 20 } }, requires: (s) => !!s.coachJob },
 ];
 
 const MISSION_BY_ID = new Map<string, MissionDef>();

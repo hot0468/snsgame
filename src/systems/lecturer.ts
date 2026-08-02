@@ -2,6 +2,7 @@ import type { Email, GameState } from "@/core/types";
 import { uid } from "@/utils/random";
 import { hasAnyJob, inJobGap, quitCurrentJob } from "./employment";
 import { clampMental, gainSkill, skillTo100 } from "./stats";
+import { recordMission } from "./missions";
 import { addSchedule } from "./time";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { pushEmail } from "@/core/state";
@@ -243,6 +244,7 @@ export function doLecture(state: GameState): LessonResult | null {
 
   job.lessonsThisMonth += 1;
   job.totalLessons += 1;
+  recordMission(state, "lesson");
   gainSkill(state, "vocabulary", 6);
   gainSkill(state, "sociability", 4);
   state.resources.mental = clampMental(state, state.resources.mental - 6);
