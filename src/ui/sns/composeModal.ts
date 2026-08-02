@@ -298,6 +298,7 @@ export function renderComposeModal(
           {
             class:
               "compose-kind-card" +
+              (kind === "soul" ? " compose-kind-card--soul" : "") +
               (selectedKind === kind ? " compose-kind-card--active" : "") +
               (locked ? " compose-kind-card--locked" : ""),
             disabled: locked,

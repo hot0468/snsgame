@@ -323,6 +323,57 @@ body {
   background: var(--accent-hover);
 }
 
+/* ── 100만 달성 후 엔딩 대기(박제 상태) ─────────────────────────────
+   화면은 그대로 보이되 입력만 끊는다. 어둡게 덮지 않는 건 의도다 —
+   '아직이야'를 고른 이유가 이 화면을 더 보려는 것이기 때문. */
+.app--frozen {
+  pointer-events: none;
+}
+/* 잠긴 화면에서 유일하게 살아 있는 버튼. 조상이 pointer-events:none이어도
+   자손에서 auto로 되살릴 수 있다(상속이 아니라 히트 테스트 규칙). */
+.app--frozen .life-btn--ending {
+  pointer-events: auto;
+}
+.life-btn--ending {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  animation: ending-pulse 1.8s ease-in-out infinite;
+}
+.life-btn--ending:hover {
+  background: linear-gradient(135deg, #f59e0b, #dc2626);
+}
+@keyframes ending-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(245, 158, 11, 0);
+  }
+}
+
+/* 100만 달성 축하 팝업 */
+.win-offer__count {
+  margin: 0 0 10px;
+  font-size: 30px;
+  font-weight: 900;
+  text-align: center;
+  background: linear-gradient(135deg, var(--accent), #ec4899);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.win-offer__lead {
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 1.8;
+}
+.win-offer__note {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
 /* 현생살기 팝업의 활동 항목 */
 .life-item {
   display: flex;
@@ -4219,6 +4270,15 @@ body {
   margin: 12px auto 2px;
   text-align: left;
 }
+/*
+ * 진심 카드는 **의도적으로 한 줄을 통째로 쓴다.**
+ * 장문이라 좁은 칸에선 3줄 클램프에 걸려 아무 맛도 안 나고, 넓게 두면
+ * "이 카드만 다르다"는 위계가 생긴다(대가를 내는 유일한 성격이라 그 편이 맞다).
+ * 앞 4장이 한 줄에 들어가고 진심이 아래 전체 폭을 쓰는 게 정상 배치다.
+ */
+.compose-kind-card--soul {
+  flex: 1 1 100%;
+}
 .compose-kind-card {
   display: block;
   flex: 1 1 190px;
@@ -4286,6 +4346,9 @@ body {
 .compose-kind-card__label {
   font-weight: 800;
   color: var(--accent);
+  /* 힌트가 길면 라벨이 "자/극"으로 세로 분해된다 — 라벨은 절대 안 쪼갠다. */
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .compose-kind-card__hint {
   color: var(--text-muted);
@@ -14661,11 +14724,15 @@ button.np-menu__item:hover {
    각자 다른 delay로 자기 차례에만 보인다(플립북).
    ⚠️ animation의 name·duration·delay는 streamStage.ts가 인라인으로 준다 —
       노출 구간이 1/N이라 풀 크기마다 키프레임이 달라지기 때문이다. */
+/* ⚠️ 노출 토글은 opacity가 아니라 visibility로 한다. opacity는 합성 가속 속성이라
+   크롬이 8장 전부를 각자 GPU 레이어로 승격시키고(장당 텍스처 상주) 컴포지터가 쉬지 않는다.
+   visibility는 가속 대상이 아니라 안 보이는 장은 아예 페인트·텍스처 업로드에서 빠진다
+   → 레이어 8장이 1장으로 준다. steps(1, end)라 깜빡임 없이 딱 끊긴다. */
 .live-art__vtimg,
 .live-art__chatimg {
   position: absolute;
   height: auto;
-  opacity: 0;
+  visibility: hidden;
   animation-timing-function: steps(1, end);
   animation-iteration-count: infinite;
 }
