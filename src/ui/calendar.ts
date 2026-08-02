@@ -8,6 +8,7 @@ import { icon, type IconName } from "./icons";
 /** 약속 종류별 아이콘 */
 const KIND_ICON: Record<Appointment["kind"], IconName> = {
   crew: "walk",
+  privateClub: "heart",
   friend: "smile",
   event: "star",
   ticketing: "ticket",

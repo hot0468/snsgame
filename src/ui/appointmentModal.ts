@@ -137,6 +137,8 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
     const prompt =
       appt.kind === "crew"
         ? "목요일 낮, 러닝크루 정기런 시간이다. 체력 부담은 적지만 함께 뛰면 운동 효과가 쏠쏠하다. 오늘 나갈까?"
+        : appt.kind === "privateClub"
+        ? "화요일 심야, 비공개 클럽 세션이다. 문자로 찍힌 주소로 가면 오늘의 규율이 기다린다. 나갈까?"
         : appt.kind === "groupRoom"
           ? "토요일 심야, 그룹방 정기 모임 시간이다. 단톡에 찍힌 장소로 가면 인원이 모여 교대 플레이가 이어진다. 오늘 나갈까?"
           : appt.kind === "lingerie"
@@ -167,6 +169,7 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
             onclick: () => {
               if (!canGo) return;
               if (appt.kind === "crew") return handleCrewGo(appt);
+              if (appt.kind === "privateClub") return ctx.openModal(renderCrewSecretModal);
               if (appt.kind === "lingerie") return handleLingerieGo();
               if (appt.kind === "study") return handleStudyGo(appt);
               if (appt.kind === "esthetic") return handleEstheticGo(appt);
@@ -507,12 +510,15 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
     showResult(msg, appt);
   }
 
+  /**
+   * 러닝 정기런.
+   *
+   * ⚠️ 예전엔 클럽 가입자면 여기서 규율 세션을 띄웠다 — 그러면 러닝을 나가면 세션이 되고
+   *    세션을 하면 러닝이 사라졌다. 이제 세션은 화요일 심야 별도 일정(privateClub)이고,
+   *    목요일 러닝은 언제나 러닝이다. 여기 남은 분기는 **가입 권유**뿐이다.
+   */
   function handleCrewGo(appt: Appointment): void {
     const s = ctx.store.getState();
-    if (s.privateCrewJoined) {
-      ctx.openModal(renderCrewSecretModal);
-      return;
-    }
     if (canOfferPrivateCrew(s)) {
       showCrewInvite(appt);
       return;

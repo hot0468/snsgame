@@ -7,7 +7,11 @@ import { addSchedule, advanceTime } from "./time";
 import { applyEffect } from "./events";
 import { clampAction, gainSkill } from "./stats";
 import { PERVERT_GAIN_RATIO } from "./adultOffline";
-import { CREW_RUN_ACTION_COST, scheduleNextCrewRun } from "./appointments";
+import {
+  CREW_RUN_ACTION_COST,
+  scheduleNextCrewRun,
+  scheduleNextPrivateClub,
+} from "./appointments";
 
 /**
  * 러닝크루 가입 흐름.
@@ -94,20 +98,18 @@ export function canOfferPrivateCrew(state: GameState): boolean {
 }
 
 /**
- * 비공개 엘리트 크루(SM 규율)에 가입한다.
- * 오늘 런은 일반으로 진행되고, 다음 정기런부터 규율 시나리오가 랜덤 표출된다.
+ * 비공개 클럽(SM 규율)에 가입한다. 다음 **화요일 심야**부터 정기 세션이 열린다.
  * (초대 서사·환영 문구는 ui가 PRIVATE_CREW_INVITE로 표시한다 — 여기선 상태만 확정.)
  *
- * ⚠️ 러닝크루를 안 거치고 DM으로 들어온 경우엔 정기런 일정이 없다 — 여기서 잡아준다.
- *    안 잡으면 가입만 되고 모임이 영영 안 열린다.
+ * ⚠️ **러닝 정기런과 별개 일정이다.** 처음엔 세션을 정기런(목요일 낮) 자리에 얹었는데,
+ *    그러면 러닝을 나가면 세션이 되고 세션을 하면 러닝이 사라진다 — 둘은 다른 모임이다.
+ *    이제 러닝크루원은 목요일 러닝과 화요일 세션을 둘 다 한다.
+ * ⚠️ `crewJoined`를 건드리지 않는다. DM으로 들어온 사람은 러닝을 한 적이 없다.
  */
 export function joinPrivateCrew(state: GameState): void {
   state.privateCrewJoined = true;
-  if (!state.crewJoined) {
-    state.crewJoined = true; // 정기런 사이클에 편입(모임 자리를 이 일정이 나른다)
-    scheduleNextCrewRun(state);
-  }
-  addSchedule(state, "비공개 엘리트 러닝크루 가입", "system");
+  scheduleNextPrivateClub(state);
+  addSchedule(state, "비공개 클럽 가입", "system");
 }
 
 /* ─────────────────── 비공개 클럽 DM(러닝크루 우회로) ─────────────────── */
@@ -202,7 +204,8 @@ export function resolveCrewSecret(
   const choice = scenario.choices[choiceIndex];
   if (!choice) return "";
   // 정기 일정이므로 다음 주를 먼저 다시 잡는다(resolveCrewRun과 동일 순서).
-  scheduleNextCrewRun(state);
+  // ⚠️ 클럽 세션은 **클럽 일정**을 재예약한다 — 러닝 정기런을 다시 잡으면 안 된다.
+  scheduleNextPrivateClub(state);
   const dynamic = applyEffect(state, choice.effect);
   // SM 규율 세션인데 변태력이 안 올랐다 — 시나리오 80개가 전부 lewd만 준다.
   // adultOffline과 같은 규칙으로 여기서 파생시킨다: **음란이 오른 선택 = 그 방향을 받아들인

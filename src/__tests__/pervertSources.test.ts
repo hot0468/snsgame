@@ -14,6 +14,8 @@ import {
   resolveCrewSecret,
 } from "@/systems/crew";
 import { CREW_SECRET_SCENARIOS } from "@/data/crewSecret";
+import { scheduleNextCrewRun } from "@/systems/appointments";
+import { dayOfWeek } from "@/systems/time";
 import type { GameState } from "@/core/types";
 
 /**
@@ -154,18 +156,60 @@ describe("비공개 클럽 DM — 러닝크루를 안 거치는 우회로", () =
     expect(getActiveAccount(s).dms.filter((t) => t.privateClub).length).toBe(1);
   });
 
-  it("수락하면 가입되고 정기 모임 일정이 잡힌다", () => {
+  /** DM을 확률 굴림 없이 확보한다. */
+  function withInvite(): { s: GameState; thread: NonNullable<ReturnType<typeof findInvite>> } {
     const s = punished();
-    for (let i = 0; i < 60 && !getActiveAccount(s).dms.some((t) => t.privateClub); i++) {
-      maybeSpawnPrivateClubDM(s);
-    }
-    const thread = getActiveAccount(s).dms.find((t) => t.privateClub)!;
+    for (let i = 0; i < 60 && !findInvite(s); i++) maybeSpawnPrivateClubDM(s);
+    return { s, thread: findInvite(s)! };
+  }
+  function findInvite(s: GameState) {
+    return getActiveAccount(s).dms.find((t) => t.privateClub);
+  }
+
+  it("수락하면 가입되고 클럽 세션 일정이 잡힌다", () => {
+    const { s, thread } = withInvite();
     acceptPrivateClub(s, thread);
 
     expect(s.privateCrewJoined).toBe(true);
-    expect(s.crewJoined, "정기런 사이클에 편입돼야 모임이 열린다").toBe(true);
-    expect(s.appointments.length, "모임 일정이 안 잡히면 가입만 되고 끝난다").toBeGreaterThan(0);
+    const club = s.appointments.filter((a) => a.kind === "privateClub");
+    expect(club.length, "일정이 안 잡히면 가입만 되고 모임이 영영 안 열린다").toBe(1);
     expect(thread.privateClub).toBe(false);
+  });
+
+  it("클럽에 들어가도 러닝크루원이 되지는 않는다", () => {
+    const { s, thread } = withInvite();
+    acceptPrivateClub(s, thread);
+    expect(s.crewJoined, "러닝을 한 적 없는 사람이 크루원이 되면 안 된다").toBe(false);
+    expect(s.appointments.some((a) => a.kind === "crew")).toBe(false);
+  });
+
+  it("클럽 세션과 러닝 정기런은 같은 자리에 겹치지 않는다", () => {
+    // ⚠️ 처음엔 세션을 정기런 자리에 얹었다 — 러닝을 나가면 세션이 되고 세션을 하면
+    //    러닝이 사라졌다. 둘은 다른 모임이므로 (요일, 슬롯)이 달라야 한다.
+    const { s, thread } = withInvite();
+    s.crewJoined = true;
+    scheduleNextCrewRun(s);
+    acceptPrivateClub(s, thread);
+
+    const run = s.appointments.find((a) => a.kind === "crew")!;
+    const club = s.appointments.find((a) => a.kind === "privateClub")!;
+    expect(run, "러닝 일정이 사라지면 안 된다").toBeTruthy();
+    expect(club).toBeTruthy();
+    expect(
+      dayOfWeek(run.day) === dayOfWeek(club.day) && run.slot === club.slot,
+      "두 모임이 같은 요일·슬롯에 겹친다",
+    ).toBe(false);
+  });
+
+  it("세션을 치르면 클럽 일정만 다시 잡힌다 — 러닝을 재예약하지 않는다", () => {
+    const { s, thread } = withInvite();
+    acceptPrivateClub(s, thread);
+    s.resources.action = 100;
+    const scenario = pickCrewSecretScenario();
+    resolveCrewSecret(s, scenario, 0);
+
+    expect(s.appointments.filter((a) => a.kind === "privateClub").length).toBe(1);
+    expect(s.appointments.some((a) => a.kind === "crew"), "러닝은 안 잡혀야 한다").toBe(false);
   });
 
   it("거절하면 가입되지 않고 제의만 닫힌다", () => {

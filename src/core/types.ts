@@ -462,6 +462,8 @@ export interface KakaoLoanOffer {
 /** 예정된 약속의 종류 */
 export type AppointmentKind =
   | "crew"
+  /** 비공개 클럽(SM 규율) 정기 세션 — 러닝 정기런과 **다른 요일**이어야 한다 */
+  | "privateClub"
   | "friend"
   | "event"
   | "ticketing"

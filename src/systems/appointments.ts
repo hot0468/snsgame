@@ -88,6 +88,35 @@ export function scheduleNextCrewRun(state: GameState): void {
   });
 }
 
+/* ─────────────────── 비공개 클럽 정기 세션 ─────────────────── */
+
+/**
+ * 클럽 세션은 **화요일 심야**다.
+ *
+ * ⚠️ 러닝 정기런(목요일 낮)·그룹방(토요일 심야)과 **겹치면 안 된다.** 처음엔 클럽 세션을
+ *    러닝 정기런 자리에 얹었는데, 그러면 러닝을 나가면 세션이 되고 세션을 하면 러닝이
+ *    사라진다 — 둘은 다른 모임이다. 요일을 바꿀 땐 위 둘과 안 겹치는지 확인하라.
+ */
+function nextPrivateClubDay(state: GameState): number {
+  let d = state.day;
+  while (!(dayOfWeek(d) === TUESDAY && (d > state.day || state.slot < LATE_SLOT))) {
+    d += 1;
+  }
+  return d;
+}
+
+/** 다음 화요일 심야 클럽 세션을 예약한다(기존 privateClub 약속은 갈아끼운다). */
+export function scheduleNextPrivateClub(state: GameState): void {
+  if (!state.privateCrewJoined) return;
+  state.appointments = state.appointments.filter((a) => a.kind !== "privateClub");
+  addAppointment(state, {
+    day: nextPrivateClubDay(state),
+    slot: LATE_SLOT,
+    kind: "privateClub",
+    title: "비공개 클럽 세션",
+  });
+}
+
 /** 참석 누적 횟수가 마일스톤과 맞으면 특별 이벤트 효과를 적용하고 결과에 덧붙일 문구를 돌려준다(없으면 ""). */
 function meetMilestoneBonus(
   state: GameState,
