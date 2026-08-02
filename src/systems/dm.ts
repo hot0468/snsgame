@@ -44,6 +44,44 @@ function fanDMsToday(account: PlayerAccount, day: number): number {
 }
 
 /**
+ * 팬 DM 보관 상한. `TIMELINE_MAX`·`KAKAO_MAX`와 같은 이유의 누적 절벽 방어다.
+ *
+ * dms는 12곳이 각자 `unshift`하는데 **자르는 곳이 한 군데도 없었다.** 그중 팬 DM만
+ * 유일하게 무한 유입이다(하루 최대 MAX_FAN_DM_PER_DAY=2통 × 플레이 일수). 250일이면
+ * 스레드 500개에 대화까지 딸려 붙고, 상태가 바뀔 때마다 state 전체를 JSON으로 직렬화해
+ * localStorage에 쓰므로 저장 비용이 그대로 커진다(쿼터 ~5MB를 넘기면 조용히 실패한다).
+ *
+ * 나머지 스레드(크루·사바나·작가·경매·모텔·사기 접선 등)는 콘텐츠 수만큼만 생기는
+ * 유한한 것들이라 **애초에 자르지 않는다** — 아래 필터가 fan만 고르는 이유다.
+ */
+export const FAN_DM_MAX = 60;
+
+/**
+ * 팬 DM이 상한을 넘으면 **오래된 것부터** 잘라낸다(스레드는 unshift라 배열 뒤가 오래된 쪽).
+ *
+ * ⚠️ **읽었고 아무것도 걸려 있지 않은 잡담만 지운다.** `trimKakao`와 같은 규칙이다 —
+ *    안 읽은 스레드, 진행 중인 스토리, 아직 유효한 만남 제안, 안 받은 후원은 남긴다.
+ *    이걸 지우면 플레이어가 못 본 제안이 조용히 사라져 진행이 막힌다.
+ *    (지울 게 없으면 상한을 넘긴 채로 둔다 — 유실보다 낫다.)
+ */
+export function trimFanDMs(account: PlayerAccount): void {
+  let over = account.dms.filter((t) => t.fan).length - FAN_DM_MAX;
+  if (over <= 0) return;
+  const disposable = (t: DMThread): boolean =>
+    !!t.fan &&
+    !t.unread &&
+    !t.story &&
+    !(t.wantsToMeet && !t.metOffline) &&
+    !(t.donation && !t.donation.claimed);
+  for (let i = account.dms.length - 1; i >= 0 && over > 0; i--) {
+    if (disposable(account.dms[i])) {
+      account.dms.splice(i, 1);
+      over--;
+    }
+  }
+}
+
+/**
  * 팬 DM 상대로 등장할 수 있는 속성 목록.
  *
  * 기존에는 `makeRandomAccount`가 전체 속성에서 균일 랜덤으로 뽑은 NPC의 속성을
@@ -399,6 +437,9 @@ function dmContext(thread: DMThread): DMContext {
   if (thread.messages.some((m) => m.from === "me")) return "followup";
   if (thread.genitalSize) return "photo";
   if (
+    // 사기 접선(코인 리딩방·다단계 설명회)도 첫 마디가 '제안'이다. 이게 빠져 있어서
+    // "이번 주말 무료 사업 설명회가 있어요"에 "아 반가워요 ㅎㅎ 편하게 소통해요"로 답했다.
+    thread.scam ||
     thread.ticketKind ||
     thread.donation ||
     thread.motel ||

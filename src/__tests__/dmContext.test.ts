@@ -51,6 +51,23 @@ describe("DM 답장 맥락", () => {
     expect(PARTNER_REPLIES_BY_CTX.offer.cool).toContain(partnerText);
   });
 
+  it("사기 접선(다단계·코인 리딩방)의 첫 답장도 제안 맥락 풀에서 나온다", () => {
+    const s = createInitialState();
+    const t = threadOn(s, {
+      scam: true,
+      messages: [
+        { id: "m0", from: "partner", text: "이번 주말 무료 사업 설명회가 있어요.", day: s.day },
+      ],
+    });
+    const { partnerText } = replyDM(s, t, "cool");
+
+    const myText = t.messages.find((m) => m.from === "me")?.text ?? "";
+    expect(REPLY_LINES_BY_CTX.offer.cool).toContain(myText);
+    expect(PARTNER_REPLIES_BY_CTX.offer.cool).toContain(partnerText);
+    // 첫인사 풀로 새면 설명회 권유에 "반가워요 편하게 소통해요"라고 답하게 된다
+    expect(REPLY_LINES_BY_CTX.greet.cool).not.toContain(myText);
+  });
+
   it("일반 팬 스레드의 첫 답장은 첫인사 풀, 두 번째부터는 상대가 던진 화제의 대답 풀", () => {
     const s = createInitialState();
     const t = threadOn(s, { fan: true });
