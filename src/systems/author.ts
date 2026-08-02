@@ -1,3 +1,4 @@
+import { recordAuthorRank } from "./authorRank";
 import type { AuthorContract, DMThread, GameState, PlayerAccount, ScheduleEvent, Tweet } from "@/core/types";
 import { getActiveAccount, appendSchedule } from "@/core/state";
 import { randomName } from "@/data/accounts";
@@ -329,6 +330,11 @@ export function settleAuthorMonthly(state: GameState): void {
       return;
     }
   }
+  // 플랫폼 월간 연재 순위를 확정한다.
+  // ⚠️ **정산 뒤(monthsWorked 반영) · 게이지 리셋 앞**이라야 한다 — 앞뒤가 바뀌면 연차가
+  //    한 달 모자란 점수로 매겨지거나, 이번 달 작업량이 0으로 잡혀 매달 휴재 취급이 된다.
+  recordAuthorRank(state, mk);
+
   c.workload = 0; // 새 달 작업량 리셋
   c.worksThisMonth = 0; // 지급 근거(작업 횟수)도 같이 리셋 — 안 하면 월급이 눈덩이처럼 불어난다
 }

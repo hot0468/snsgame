@@ -6,6 +6,7 @@ import { authorPayPerWork } from "./author";
 import { salaryOf } from "./employment";
 import { isDeluxeTaxi } from "./taxi";
 import { hasJobExperience } from "./jobExperience";
+import { currentRankStep, rankTitle, toNextRank, trackCount } from "./jobRanks";
 import { jobRankOf, nextRankIn } from "@/data/jobs";
 
 /**
@@ -44,6 +45,14 @@ export interface JobCatalogEntry {
 }
 
 export interface JobLevelRow extends JobCatalogEntry {
+  /** 경력 등급명(계단 0이면 null) — 숫자 레벨과 달리 정점이 있는 사다리다(systems/jobRanks) */
+  rankTitle: string | null;
+  /** 등급 계단(0~5) */
+  rankStep: number;
+  /** 다음 계단까지 남은 횟수(정점이면 null) */
+  toNextRank: number | null;
+  /** 정점에 닿은 적 있는지 — 그만둬도 남는 기록 */
+  peaked: boolean;
   /** 한 번이라도 해봤는지(도감 해금) */
   unlocked: boolean;
   /** 지금 그 일을 하고 있는지 */
@@ -256,24 +265,87 @@ function unlockedDetail(state: GameState, id: string): { level: number; detail: 
           (st.botched > 0 ? ` · 망친 시술 ${st.botched}회` : ""),
       };
     }
+    // 방송 채널 — 재직 개념이 없어 '지금 하는 중'이 없다. 누적 방송 횟수만 보여준다.
+    case "stream":
+      return {
+        level: levelFromCount(state.streamCount ?? 0),
+        detail: `누적 방송 ${state.streamCount ?? 0}회`,
+        active: false,
+      };
+    case "savanna":
+      return {
+        level: levelFromCount(state.savannaCount ?? 0),
+        detail: `누적 방송 ${state.savannaCount ?? 0}회` + (state.savannaJoined ? " · 등록됨" : ""),
+        active: !!state.savannaJoined,
+      };
     default:
       return { level: 0, detail: "", active: false };
   }
 }
 
+/**
+ * 방송 채널 칸 — 직업은 아니지만 **등급 사다리를 타는 것은 같다**.
+ *
+ * ⚠️ 채널을 도감에서 빼두면 승급 팝업만 뜨고 **그 뒤로 내 등급을 볼 데가 없다**
+ *    (실제로 그 상태로 한 번 냈다). 사다리를 붙였으면 볼 자리도 같이 있어야 한다.
+ *
+ * ⚠️ 해금 판정이 직업과 다르다: 채널은 `jobsExperienced`에 안 들어가므로
+ *    **한 번이라도 켰는가**(누적 > 0)로 본다.
+ */
+const CHANNEL_CATALOG: JobCatalogEntry[] = [
+  {
+    id: "stream",
+    emoji: "🎥",
+    label: "너튜브 채널",
+    hint: "너튜브에서 라이브 방송을 켠다",
+  },
+  {
+    id: "savanna",
+    emoji: "🎙️",
+    label: "사바나 방송",
+    hint: "사바나 여캠에 등록하고 방송한다",
+    adultOnly: true,
+  },
+];
+
 export function jobLevelRows(state: GameState): JobLevelRow[] {
   const rows: JobLevelRow[] = [];
 
-  for (const entry of JOB_CATALOG) {
-    const unlocked = hasJobExperience(state, entry.id);
+  for (const entry of [...JOB_CATALOG, ...CHANNEL_CATALOG]) {
+    const isChannel = CHANNEL_CATALOG.some((c) => c.id === entry.id);
+    // 채널은 `jobsExperienced`에 안 들어간다(취업이 아니다) — 한 번이라도 켰는가로 해금한다.
+    const unlocked = isChannel
+      ? trackCount(state, entry.id) > 0
+      : hasJobExperience(state, entry.id);
     // 성인 직업은 성인물 보기 OFF면 숨긴다(이미 해본 칸은 남긴다 — 해금이 설정으로 사라지면 안 된다).
     if (entry.adultOnly && !state.adultMode && !unlocked) continue;
     if (!unlocked) {
-      rows.push({ ...entry, unlocked: false, active: false, level: 0, detail: entry.hint });
+      rows.push({
+        ...entry,
+        unlocked: false,
+        active: false,
+        level: 0,
+        detail: entry.hint,
+        rankTitle: null,
+        rankStep: 0,
+        toNextRank: null,
+        peaked: false,
+      });
       continue;
     }
     const { level, detail, active } = unlockedDetail(state, entry.id);
-    rows.push({ ...entry, unlocked: true, active, level, detail });
+    const rankStep = currentRankStep(state, entry.id);
+    rows.push({
+      ...entry,
+      unlocked: true,
+      active,
+      level,
+      detail,
+      rankTitle: rankTitle(entry.id, rankStep),
+      rankStep,
+      toNextRank: toNextRank(state, entry.id),
+      peaked: (state.careerPeaks ?? []).includes(entry.id),
+    });
   }
 
   return rows;

@@ -65,7 +65,12 @@ describe("안 해본 직업", () => {
     const s = createInitialState();
     s.adultMode = true;
     const rows = jobLevelRows(s);
-    expect(rows.length).toBe(JOB_CATALOG.length);
+    // 도감엔 직업 + **방송 채널**(너튜브·사바나) 칸이 함께 뜬다. 채널은 직업이 아니지만
+    // 같은 등급 사다리를 타므로 볼 자리가 여기다(systems/jobLevels의 CHANNEL_CATALOG).
+    expect(rows.length).toBeGreaterThanOrEqual(JOB_CATALOG.length);
+    for (const id of JOB_CATALOG.map((e) => e.id)) {
+      expect(rows.some((r) => r.id === id), `${id}가 도감에서 빠졌다`).toBe(true);
+    }
     for (const r of rows) {
       expect(r.unlocked).toBe(false);
       expect(r.detail).toBe(r.hint);

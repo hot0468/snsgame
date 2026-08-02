@@ -14,6 +14,10 @@ import { resolveContest } from "./contest";
 import { resolveRace } from "./marathon";
 import { resolveBodyProfile } from "./bodyProfile";
 import { maybeSpawnBlackmailDM } from "./blackmail";
+import { maybeRankMonth } from "./popularity";
+import { maybeSpawnSponsorOffer } from "./genreSponsor";
+import { checkJobPromotions } from "./jobRanks";
+import { maybeHoldAwards, snapshotYearStart } from "./awards";
 import { maybeSpawnTuckerDM, maybeStartTuckerLine } from "./lab";
 import {
   maybeOpenConsoleReview,
@@ -114,14 +118,30 @@ export const SLEEP_ACTION_RECOVER = 35;
 export const LATE_ACTION_RECOVER = 12;
 
 /** 3일 이상 트윗을 안 올린 계정의 팔로워 소폭 감소 */
-const INACTIVE_DAYS = 3;
+export const INACTIVE_DAYS = 3;
+/**
+ * 무활동 하루당 빠지는 팔로워 비율.
+ *
+ * ⚠️ 예전엔 이 감소가 **아무 데도 안 알려졌다.** 숫자만 조용히 줄어서, 팔로워가 안 느는 게
+ *    내 트윗이 안 먹혀서인지 그냥 안 써서인지 구분이 안 됐다. 이제 `pendingDecay`를 세워
+ *    ui가 팝업으로 알린다(app.ts) — 나가라고 등 떠미는 게 이 감소의 목적이다.
+ */
+export const INACTIVE_LOSS_RATE = 0.01;
+
 function applyInactivityDecay(state: GameState): void {
+  let lost = 0;
+  let days = 0;
   for (const acc of state.accounts) {
-    if (state.day - (acc.lastTweetDay ?? state.day) >= INACTIVE_DAYS && acc.followers > 0) {
-      const loss = Math.max(1, Math.round(acc.followers * 0.01));
+    const idle = state.day - (acc.lastTweetDay ?? state.day);
+    if (idle >= INACTIVE_DAYS && acc.followers > 0) {
+      const loss = Math.max(1, Math.round(acc.followers * INACTIVE_LOSS_RATE));
       acc.followers = Math.max(0, acc.followers - loss);
+      lost += loss;
+      days = Math.max(days, idle);
     }
   }
+  // 여러 계정이 함께 빠져도 팝업은 하나로 묶는다 — 계정마다 띄우면 아침이 팝업으로 막힌다.
+  if (lost > 0) state.pendingDecay = { days, lost };
 }
 
 /** 시:분 형태의 대략적 표시용 시계 문자열 (낮 13시 / 심야 1시) */
@@ -264,6 +284,16 @@ function onNewDay(state: GameState): void {
   maybeStealCrimsonEye(state);
   // 낡은 게임기 보유 + 9월 10일이면 리뷰 트윗 선택창 예약
   maybeOpenConsoleReview(state);
+  // 해가 바뀌면 분야별 누적치를 찍는다(연말 시상식의 '올해 실적' 기준선)
+  snapshotYearStart(state);
+  // 12/29 송년회 · 12/30 방송미디어대상
+  maybeHoldAwards(state);
+  // 직업 경력 등급 승급 감지(카운터가 8개 시스템에 흩어져 있어 여기 한 곳에서 본다)
+  checkJobPromotions(state);
+  // 한 갈래를 깊게 판 계정에 협찬 제안이 온다(특화 보상 — 흩뿌린 플레이는 못 받는다)
+  maybeSpawnSponsorOffer(state);
+  // 말일이면 월간 인기 순위를 확정한다(발표는 ui가 팝업으로)
+  maybeRankMonth(state);
   // 협박 카톡 도착일(강압 씬에서 씨가 심긴 뒤 며칠 후) — 돈/만남/거절 카드가 붙어 온다
   maybeSpawnBlackmailDM(state);
   // 스팸(피싱) 메일이 간간이 온다

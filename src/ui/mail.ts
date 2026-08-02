@@ -3,6 +3,7 @@ import type { AdOffer, Email } from "@/core/types";
 import type { ShopItem } from "@/data/shop";
 import { SKILL_STATS } from "@/data/stats";
 import { adOfferItem, adOfferPrice, adOfferStatus, buyFromAdOffer } from "@/systems/adMail";
+import { acceptSponsor, declineSponsor } from "@/systems/genreSponsor";
 import {
   acceptJobOffer,
   currentJobLabel,
@@ -48,6 +49,8 @@ function categoryOf(mail: Email): MailTab {
   if (mail.esthetic) return "promotions";
   if (mail.jobOffer) return "updates";
   if (mail.lecturerOffer) return "updates";
+  // 갈래 협찬도 '제안' 계열이라 업데이트 탭 — 프로모션에 두면 광고 메일에 섞여 묻힌다.
+  if (mail.sponsorOffer) return "updates";
   return "primary";
 }
 
@@ -165,6 +168,42 @@ function emptyMessage(): string {
   if (activeTab === "promotions") return "프로모션 메일이 없어요.";
   if (activeTab === "updates") return "업데이트 메일이 없어요.";
   return "받은 메일이 없어요.";
+}
+
+/**
+ * 갈래 협찬 제안 — 수락/거절. 한 갈래를 깊게 판 계정에만 오는 메일이다.
+ *
+ * ⚠️ 답하면 버튼이 사라진다(`responded`). 안 그러면 계약금을 반복 수령할 수 있다.
+ */
+function sponsorCard(ctx: GameContext, mail: Email): HTMLElement | null {
+  const offer = mail.sponsorOffer;
+  if (!offer) return null;
+  if (offer.responded) {
+    return el(
+      "div",
+      { class: "mail__actions" },
+      el("span", { class: "chip", style: "opacity:.6" }, "답신 완료"),
+    );
+  }
+  const answer = (accept: boolean) => () => {
+    let line = "";
+    ctx.update((s) => {
+      line = accept ? acceptSponsor(s, mail.id) : declineSponsor(s, mail.id);
+    });
+    if (line) ctx.toast(line);
+  };
+  return el(
+    "div",
+    { class: "mail__actions" },
+    el(
+      "span",
+      { class: "compose-hint", style: "flex:1" },
+      `계약금 ${formatNumber(offer.money)}원 · 팔로워 +${formatNumber(offer.followers)} · ` +
+        `평판 ${offer.reputation}`,
+    ),
+    el("button", { class: "btn btn--ghost", onclick: answer(false) }, "사양한다"),
+    el("button", { class: "btn", onclick: answer(true) }, "협찬을 받는다"),
+  );
 }
 
 /** 버튼 상태별 라벨 — 판정은 systems의 adOfferStatus()를 그대로 따른다. */
@@ -292,6 +331,7 @@ function emailView(ctx: GameContext, mail: Email | null): HTMLElement {
       : null,
     el("div", { class: "mail__content" }, mail.body),
     mail.adOffer ? offerCard(ctx, mail, mail.adOffer) : null,
+    sponsorCard(ctx, mail),
     // 서던피스 초대장: 본문 아래 경매장 링크. 열람 기간 종료 여부는 경매장(systems)이 판정하므로
     // 여기서는 항상 링크를 띄우고 진입만 시킨다.
     mail.auctionLink

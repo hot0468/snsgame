@@ -244,6 +244,8 @@ export function runSavannaStream(state: GameState): SavannaResult {
   //    시나리오·일반 방송) 중 어디로 빠지든 '방송을 켠 것'은 같기 때문이다.
   //    종착점마다 빼면 시나리오 갈래(효과를 resolve로 미루는 쪽)에서 빠뜨리기 쉽다.
   state.resources.action = clampAction(state, state.resources.action - SAVANNA_ACTION_COST);
+  // 행동력과 **같은 이유로 여기서 한 번만** 센다 — 채널 등급의 근거라 갈래마다 세면 어긋난다.
+  state.savannaCount = (state.savannaCount ?? 0) + 1;
 
   if (chance(SAVANNA_INTRUSION_CHANCE)) {
     if (
