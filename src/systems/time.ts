@@ -1,6 +1,8 @@
 import type { GameState, ScheduleEvent } from "@/core/types";
 import { SLOTS_PER_DAY, SLOT_LABELS, LATE_SLOT, appendSchedule } from "@/core/state";
 import { pick, uid } from "@/utils/random";
+// winEnding은 타입과 state만 읽는 말단 모듈이라 여기서 가져와도 순환이 안 생긴다.
+import { isFrozen } from "./winEnding";
 import { applyDailyCosts, daysUntilRent, settleMonthlyIncome } from "./economy";
 import { settleAuthorMonthly } from "./author";
 import { deliverJobResultEmail } from "./employment";
@@ -18,6 +20,7 @@ import {
   maybeSpawnCrimsonEyeDM,
   maybeStealCrimsonEye,
 } from "./auction";
+import { trimFanDMs } from "./dm";
 import { maybeSpawnSpamEmail } from "./spam";
 import { maybeHauntVisit } from "./haunt";
 import { maybeGetDrunk } from "./drunk";
@@ -139,8 +142,13 @@ export function addSchedule(
 /**
  * 한 슬롯만큼 시간을 진행한다.
  * 하루가 넘어가면 day 증가 + 일일 리소스 소폭 회복 + 광고 카운터 리셋.
+ *
+ * ⚠️ **박제 상태(100만 달성 후 엔딩 대기)면 통째로 무시한다.** 시간이 곧 타임라인이라
+ *    여기만 막으면 새 트윗·일정·정산이 전부 멈춘다. ui의 입력 차단은 화면용 방어선이고,
+ *    상태를 지키는 진짜 방어선은 이 한 줄이다.
  */
 export function advanceTime(state: GameState, slots = 1): void {
+  if (isFrozen(state)) return;
   for (let i = 0; i < slots; i++) {
     state.slot += 1;
     if (state.slot >= SLOTS_PER_DAY) {
@@ -286,6 +294,9 @@ function onNewDay(state: GameState): void {
   deliverPendingStoryNodes(state);
   // 오늘 도래한 트친 생일이 있으면 축하 배너/카톡을 세팅(전날 미축하는 무해하게 흘려보낸다)
   processBirthdayDue(state);
+  // 쌓이기만 하던 팬 DM을 상한까지 정리한다(계정마다 따로 — dms는 계정 소유다).
+  // ⚠️ 스레드를 만드는 곳이 12군데라 push 헬퍼로는 막을 수 없다 → 하루 한 번 여기서 일괄 정리.
+  for (const account of state.accounts) trimFanDMs(account);
 }
 
 /**

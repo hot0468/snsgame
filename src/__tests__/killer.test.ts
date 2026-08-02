@@ -9,7 +9,7 @@ import {
   KILLER_DEAD_REASON,
   KILLER_LEGEND_REASON,
 } from "@/systems/killer";
-import { checkWin } from "@/systems/winEnding";
+import { checkWin, finishWithEnding } from "@/systems/winEnding";
 import { getActiveAccount } from "@/core/state";
 import { KILLER_TARGETS } from "@/data/killerTargets";
 
@@ -78,6 +78,11 @@ describe("killer job", () => {
     s.killerJob = { active: true, fails: 0, completed: 3, assignment: null };
     getActiveAccount(s).followers = 1_000_000;
     checkWin(s);
+    // 100만은 이제 **깃발만 세운다** — 게임은 엔딩을 고른 순간에 끝난다(ui가 축하 팝업을 띄운다).
+    expect(s.winReached).toBe(true);
+    expect(s.gameOver, "도달만으로 끝나면 안 된다").toBeNull();
+
+    finishWithEnding(s);
     expect(s.gameOver).toBe(KILLER_LEGEND_REASON);
   });
 

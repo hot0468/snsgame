@@ -25,6 +25,7 @@ import { renderDexModal } from "./dexModal";
 import { renderMissionsModal } from "./missionsModal";
 import { renderJobLevelModal } from "./jobLevelModal";
 import { renderAvWorkModal } from "./avWorkModal";
+import { finishWithEnding, isFrozen } from "@/systems/winEnding";
 
 /** 세부 스탯 아이콘 */
 const SKILL_ICON: Record<SkillStatId, IconName> = {
@@ -586,12 +587,24 @@ export function renderStatusDock(ctx: GameContext): HTMLElement {
             "AV 촬영 업무",
           )
         : null,
-      el(
-        "button",
-        { class: "life-btn", onclick: () => ctx.openModal(renderOfflineModal) },
-        icon("walk", { size: 18 }),
-        "현생살기",
-      ),
+      // 100만 달성 후 엔딩 대기(박제 상태)면 이 자리가 '엔딩 보기'가 된다 —
+      // 화면 전체가 잠긴 상태에서 유일하게 살아 있는 버튼이라 가장 눈에 띄는 자리에 둔다.
+      isFrozen(ctx.store.getState())
+        ? el(
+            "button",
+            {
+              class: "life-btn life-btn--ending",
+              onclick: () => ctx.update((g) => finishWithEnding(g)),
+            },
+            icon("star", { size: 18 }),
+            "엔딩 보기",
+          )
+        : el(
+            "button",
+            { class: "life-btn", onclick: () => ctx.openModal(renderOfflineModal) },
+            icon("walk", { size: 18 }),
+            "현생살기",
+          ),
     ),
   );
 }

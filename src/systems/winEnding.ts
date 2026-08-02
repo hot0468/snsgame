@@ -143,13 +143,45 @@ export function winEndingTitle(reason: string): string | undefined {
 }
 
 /**
- * 팔로워 100만 달성 판정 — 도달했으면 엔딩을 gameOver에 세운다.
- * 킬러 신분(killerJob.active)이면 스탯 엔딩 대신 '전설의 청부업자' 엔딩이 나온다.
+ * 팔로워 100만 달성 판정 — 도달했으면 **깃발만 세운다**(게임을 끝내지 않는다).
+ *
  * `changeFollowers`가 팔로워 증가마다 호출한다. 이미 끝났으면 아무것도 안 한다.
+ *
+ * ⚠️ 예전엔 여기서 곧장 `state.gameOver`를 세워 100만을 찍는 순간 게임이 끝났다. 지금은
+ *    ui가 축하 팝업(엔딩 보기 / 아직이야)을 띄우고, **엔딩을 고른 그 순간에만** 끝난다
+ *    (`finishWithEnding`). '아직이야'를 고르면 박제 상태로 화면만 둘러본다.
  */
 export function checkWin(state: GameState): void {
+  if (state.gameOver || state.winReached) return;
+  if (totalFollowers(state) >= WIN_FOLLOWERS) state.winReached = true;
+}
+
+/**
+ * 지금 달성 축하 팝업을 띄워야 하는지(도달했고, 아직 고르지 않았고, 안 끝났다).
+ */
+export function shouldOfferWinEnding(state: GameState): boolean {
+  return state.winReached && !state.winOfferDeclined && !state.gameOver;
+}
+
+/**
+ * **박제 상태** — 100만을 찍었지만 아직 엔딩을 안 본 동안.
+ *
+ * 이 동안은 행동도 시간도 멈춘다: ui가 화면 전체의 포인터 입력을 끊고(`app--frozen`),
+ * `systems/time.advanceTime`이 시간 진행을 통째로 무시한다. 남는 건 '엔딩 보기'뿐이다.
+ *
+ * ⚠️ 팝업이 떠 있는 동안도 박제다 — 팝업 뒤에서 타임라인이 계속 흐르면 안 된다.
+ */
+export function isFrozen(state: GameState): boolean {
+  return state.winReached && !state.gameOver;
+}
+
+/** 달성 축하 팝업에서 '아직이야'를 고른다 — 팝업만 닫고 박제 상태로 남는다. */
+export function declineWinEnding(state: GameState): void {
+  state.winOfferDeclined = true;
+}
+
+/** 엔딩을 본다 — 이 순간에만 게임이 끝난다(킬러 신분이면 전설의 청부업자 엔딩). */
+export function finishWithEnding(state: GameState): void {
   if (state.gameOver) return;
-  if (totalFollowers(state) >= WIN_FOLLOWERS) {
-    state.gameOver = state.killerJob?.active ? KILLER_LEGEND_REASON : winEnding(state).text;
-  }
+  state.gameOver = state.killerJob?.active ? KILLER_LEGEND_REASON : winEnding(state).text;
 }
