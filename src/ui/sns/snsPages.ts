@@ -1580,8 +1580,8 @@ function labOfferReplies(ctx: GameContext): HTMLElement {
   );
 }
 
-/** 서사 한 줄 + 닫기 버튼짜리 결과 모달(심리테스트 피싱 결과 등에 재사용). */
-function simpleResultModal(ctx: GameContext, title: string, message: string): HTMLElement {
+/** 서사 한 줄 + 닫기 버튼짜리 결과 모달(심리테스트 피싱 결과·협박 유출 등에 재사용). */
+export function simpleResultModal(ctx: GameContext, title: string, message: string): HTMLElement {
   return el(
     "div",
     { class: "modal" },
@@ -1750,6 +1750,10 @@ function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement 
     if ((e as KeyboardEvent).key === "Enter") sendCustom();
   });
 
+  // 만남/가입/계약 등 액션 버튼은 헤더가 아니라 채팅창 안(메시지 아래)에 배치한다.
+  // ⚠️ **답장 영역보다 먼저 계산한다** — 이게 있으면 잡담 답장을 걷어내야 하기 때문이다(아래 참조).
+  const meetAction = dmMeetButton(ctx, thread);
+
   // 스토리가 끝난 스레드: 답장 UI를 통째로 걷어낸다(선택지·직접 입력 모두). 서사가 닫힌 뒤에도
   // 잡담이 이어지면 결말이 흐려진다 — 차단은 systems/dm.ts에도 걸려 있다(isStoryOver).
   // 링크 DM(소원 가게·푸시타임)·진홍안 거래·터커 조수 부탁 DM: 답장 대신 전용 버튼만.
@@ -1842,20 +1846,27 @@ function dmConversation(ctx: GameContext, thread: DMThread | null): HTMLElement 
             "🔗 결과 보기",
           ),
         )
-      : el(
-        "div",
-        { class: "dm__replies" },
-        el("div", { class: "dm__choices" }, ...toneButtons),
-        el(
-          "div",
-          { class: "dm__send" },
-          input,
-          el("button", { class: "btn", onclick: sendCustom }, "전송"),
-        ),
-      );
-
-  // 만남/가입/계약 등 액션 버튼은 헤더가 아니라 채팅창 안(메시지 아래)에 배치한다.
-  const meetAction = dmMeetButton(ctx, thread);
+      : // 만남 제안·가입·계약 스레드(dmMeetButton이 버튼이든 '계약함' 칩이든 무언가를 돌려주는 경우):
+        // **잡담 답장을 걷어낸다.** 이 대화들이 요구하는 답은 수락/거절이지 친절·무심·대담이
+        // 아니다. 걷어내지 않으면 '계약함' 칩 바로 아래 "오 반가워요~ 대화 통할 것 같아서
+        // 기대되는데요"가 붙어 서사가 통째로 흐려진다(실제로 뤼미에르 계약 뒤에 그랬다).
+        //
+        // ⚠️ **판정은 반드시 meetAction의 존재로 하라.** 스레드 플래그 목록(crew·study·
+        //    authorOffer·savanna·lingerie·cosplay·avOffer·mlmOffer·metOffline·wantsToMeet…)을
+        //    여기 복제하면 새 제안 DM을 추가할 때 한쪽만 갱신돼 조용히 어긋난다.
+        meetAction
+        ? null
+        : el(
+            "div",
+            { class: "dm__replies" },
+            el("div", { class: "dm__choices" }, ...toneButtons),
+            el(
+              "div",
+              { class: "dm__send" },
+              input,
+              el("button", { class: "btn", onclick: sendCustom }, "전송"),
+            ),
+          );
 
   return el(
     "div",

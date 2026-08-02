@@ -1278,32 +1278,86 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
   function showAdultEncounter(act: OfflineActivity, outcome: OfflineOutcome): void {
     const c2 = el("div", { class: "modal modal--adult" });
 
-    /** 선택 결과 문구 화면으로 전환(세 이벤트 공통). 확인 시 닫고 afterAction. */
+    /**
+     * 선택 결과 서사 화면(봉고·벽고·야외노출·성인 조우 공통) — **웹소설 리더로 한 장씩** 읽는다.
+     * 마지막 장에서 확인하면 닫고 afterAction.
+     *
+     * ⚠️ 예전엔 결과 문구를 `<p>` 하나에 통째로 쏟았다. 검은 봉고처럼 여섯 문단짜리 씬은
+     *    그러면 스크롤 벽이 되어 읽히지 않는다("너무 줄글로 되어 있다").
+     *    관계 이벤트(relEventModal)·약속(appointmentModal)과 같은 novel-* 리더를 쓴다.
+     *
+     * ⚠️ **페이지 경계는 빈 줄(`\n\n`)이다** — systems 쪽 씬 문구가 문단을 나누는 그 지점이
+     *    그대로 장 넘김이 된다. 씬을 새로 쓸 때 문단을 뭉치면 한 장이 길어진다.
+     *    문단이 하나뿐인 짧은 조우는 자동으로 1장짜리(넘김 버튼 없음)가 된다.
+     */
     function showEncResult(title: string, msg: string): void {
-      c2.replaceChildren(
-        el(
+      const pages = msg
+        .split(/\n{2,}/)
+        .map((p) => p.trim())
+        .filter(Boolean);
+      // novel 리더는 폭·높이를 따로 잡는다. 분홍(modal--adult) 톤은 그대로 둔다.
+      c2.className = "modal modal--adult modal--novel";
+      let pageIndex = 0;
+
+      const render = (): void => {
+        const isLast = pageIndex === pages.length - 1;
+        const body = el(
           "div",
-          { class: "modal__head" },
-          el("span", { class: "modal__head-title" }, icon("shield", { size: 18 }), title),
-        ),
-        el(
-          "div",
-          { class: "modal__body" },
-          el("p", { class: "life-result__flavor" }, msg),
+          { class: "novel-body" },
+          el("p", { class: "novel-text" }, pages[pageIndex] ?? msg),
+        );
+        c2.replaceChildren(
           el(
-            "button",
-            {
-              class: "btn",
-              style: "margin-top:14px",
-              onclick: () => {
-                ctx.closeModal();
-                ctx.afterAction("offline");
-              },
-            },
-            "확인",
+            "div",
+            { class: "modal__head" },
+            el("span", { class: "modal__head-title" }, icon("shield", { size: 18 }), title),
+            pages.length > 1
+              ? el("span", { class: "novel-head__page" }, `${pageIndex + 1} / ${pages.length}`)
+              : null,
           ),
-        ),
-      );
+          body,
+          el(
+            "div",
+            { class: "novel-footer" },
+            el(
+              "div",
+              { class: "novel-nav" },
+              el(
+                "button",
+                {
+                  class: "btn btn--ghost",
+                  disabled: pageIndex === 0,
+                  onclick: () => {
+                    if (pageIndex > 0) pageIndex--;
+                    render();
+                  },
+                },
+                "이전",
+              ),
+              el("span", { class: "novel-nav__page" }, `${pageIndex + 1} / ${pages.length}`),
+              el(
+                "button",
+                {
+                  class: "btn",
+                  onclick: () => {
+                    if (!isLast) {
+                      pageIndex++;
+                      render();
+                      return;
+                    }
+                    ctx.closeModal();
+                    ctx.afterAction("offline");
+                  },
+                },
+                isLast ? "확인" : "다음",
+              ),
+            ),
+          ),
+        );
+        // 장을 넘기면 항상 새 장의 첫 줄부터 — 앞 장 스크롤이 남으면 중간부터 읽게 된다.
+        body.scrollTop = 0;
+      };
+      render();
     }
 
     const bodyChildren: (HTMLElement | null)[] = [];

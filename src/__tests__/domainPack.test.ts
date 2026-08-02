@@ -14,6 +14,7 @@ import {
 } from "@/systems/marathon";
 import {
   BODY_GAUGE_MAX,
+  STUDIO_NAME,
   BODY_PROFILE_DAYS,
   BODY_PROFILE_FEE,
   BINGE_MENTAL_THRESHOLD,
@@ -163,6 +164,29 @@ describe("바디프로필 도전", () => {
     s.day += BODY_PROFILE_DAYS - 1;
     expect(resolveBodyProfile(s)).toBeNull();
     expect(s.bodyProfile).not.toBeNull();
+  });
+
+  it("성공이든 무산이든 스튜디오에서 결과 카톡이 온다", () => {
+    // ⚠️ 예전엔 addSchedule 한 줄만 남겼다. 일정은 SCHEDULE_MAX(100) 상한이라 30일치
+    //    활동에 금세 밀려나고, 무산일 때는 자동 트윗도 팔로워도 없어서 **화면에 아무 흔적이
+    //    남지 않았다**("기간 끝났는데 아무것도 안 뜬다").
+    //    카톡은 toastPending까지 세워 토스트로 한 번 더 알린다 — 그 두 가지를 여기서 고정한다.
+    for (const gauge of [BODY_GAUGE_MAX, 0]) {
+      const s = started();
+      for (let i = 0; i < gauge / 4; i++) gainBodyGauge(s, 1);
+      const before = s.kakao.length;
+      s.day += BODY_PROFILE_DAYS;
+      const r = resolveBodyProfile(s);
+      expect(s.kakao.length, `게이지 ${gauge}: 결과 카톡이 없다`).toBe(before + 1);
+      const thread = s.kakao[s.kakao.length - 1];
+      expect(thread.sender).toBe(STUDIO_NAME);
+      expect(thread.unread, "안 읽음이어야 배지가 뜬다").toBe(true);
+      expect(thread.toastPending, "토스트로도 알려야 놓치지 않는다").toBe(true);
+      expect(thread.messages.length).toBeGreaterThan(0);
+      // 무산 카톡은 왜 안 됐는지(게이지)를 알려줘야 다음 도전에 쓸모가 있다.
+      const body = thread.messages.map((m) => m.text).join("\n");
+      if (!r!.success) expect(body).toContain(`${gauge}/${BODY_GAUGE_MAX}`);
+    }
   });
 });
 

@@ -1,6 +1,7 @@
 import type { GameState } from "@/core/types";
 import { pick } from "@/utils/random";
 import { changeFollowers } from "./followers";
+import { pushKakao } from "./kakao";
 import { clampMental, clampResource, gainSkill } from "./stats";
 import { postTweet } from "./tweetSystem";
 import { addSchedule } from "./time";
@@ -117,6 +118,38 @@ export function rollBinge(state: GameState): string | null {
   return `${pick(BINGE_LINES)} (바디게이지 -${before - bp.gauge})`;
 }
 
+/** 예약한 스튜디오 — 시작 안내와 결과 카톡이 같은 이름을 쓴다. */
+export const STUDIO_NAME = "스튜디오 원컷";
+
+/**
+ * 촬영일 결과를 스튜디오 카톡으로 알린다.
+ *
+ * ⚠️ **이 알림이 없으면 도전이 조용히 사라진다.** 예전엔 addSchedule 한 줄이 전부였는데,
+ *    일정은 SCHEDULE_MAX(100) 상한이라 30일치 활동에 금세 밀려난다. 무산일 때는 자동 트윗도
+ *    팔로워 증가도 없어서 화면에 흔적이 아예 남지 않았다("기간 끝났는데 아무것도 안 뜬다").
+ *    pushKakao는 toastPending까지 세워 토스트로도 한 번 알린다 — 그게 이 고침의 핵심이다.
+ */
+function sendResultKakao(
+  state: GameState,
+  gauge: number,
+  binges: number,
+  success: boolean,
+): void {
+  const lines = success
+    ? [
+        "촬영 잘 끝났습니다! 오늘 컨디션 최고셨어요 👏",
+        `한 달 전에 오셨을 때랑 완전 다른 몸이에요. 게이지 ${gauge}/${BODY_GAUGE_MAX} 꽉 채우신 분 오랜만입니다.`,
+        "보정본은 일주일 뒤에 드릴게요. 원본 몇 장 먼저 보냅니다 📸",
+      ]
+    : [
+        "오늘 촬영일인데 스튜디오 안 오셨네요 😥",
+        `준비 상태 ${gauge}/${BODY_GAUGE_MAX}로 찍으면 서로 아쉬울 것 같아 일정 접었습니다.` +
+          (binges > 0 ? ` 중간에 ${binges}번 흔들리셨더라고요.` : ""),
+        "예약금은 규정상 환불이 어렵습니다. 다음에 다시 도전하시면 그땐 꼭 찍어드릴게요.",
+      ];
+  pushKakao(state, STUDIO_NAME, lines, { hue: success ? 28 : 220 });
+}
+
 export interface BodyProfileResult {
   success: boolean;
   gauge: number;
@@ -144,6 +177,7 @@ export function resolveBodyProfile(state: GameState): BodyProfileResult | null {
       `바디프로필 촬영 무산 (게이지 ${bp.gauge}/${BODY_GAUGE_MAX} · 유혹 ${bp.binges}회)`,
       "system",
     );
+    sendResultKakao(state, bp.gauge, bp.binges, false);
     return { success: false, gauge: bp.gauge, binges: bp.binges, followers: 0 };
   }
 
@@ -155,6 +189,7 @@ export function resolveBodyProfile(state: GameState): BodyProfileResult | null {
   gainSkill(state, "beauty", BODY_PROFILE_BEAUTY);
   state.resources.reputation = clampResource(state.resources.reputation + BODY_PROFILE_REP);
   addSchedule(state, "바디프로필 촬영 성공! 결과물이 화제가 됐다", "system");
+  sendResultKakao(state, bp.gauge, bp.binges, true);
   return {
     success: true,
     gauge: bp.gauge,

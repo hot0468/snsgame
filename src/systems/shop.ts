@@ -5,6 +5,7 @@ import { COSMETICS } from "@/data/cosmetics";
 import { GOBLIN_ITEMS } from "@/data/goblin";
 import { PEEMANG_ITEMS } from "@/data/peemang";
 import { REL_GIFTS } from "@/data/relationships";
+import { hashInt } from "@/utils/random";
 import { GOODS_ITEMS } from "@/data/goods";
 import { GACHA_ALL_ITEMS } from "@/data/gacha";
 import { getActiveAccount, pushTimeline } from "@/core/state";
@@ -258,4 +259,27 @@ export function advertiseItem(state: GameState, item: ShopItem): AdResult {
 
   advanceTime(state, 1);
   return { revenue, backlash, followerLoss };
+}
+
+/* ─────────────────── 피망마켓 일일 매물 ─────────────────── */
+
+/** 하루에 동네에 올라오는 매물 수. */
+export const PEEMANG_DAILY_COUNT = 6;
+
+/**
+ * 오늘의 피망마켓 매물.
+ *
+ * ⚠️ 예전엔 `PEEMANG_ITEMS` **전체**를 항상 보여줬다(산 물건은 '거래완료'로 회색 처리).
+ *    중고 직거래인데 목록이 영영 안 바뀌니 한 번 훑고 나면 다시 들어올 이유가 없었다.
+ *    이제 매일 새로 뽑고, **이미 산 물건은 목록에서 내려간다**(팔린 매물이 남아 있을 이유가 없다).
+ *
+ * ⚠️ 날짜 해시로 **결정론적**으로 고른다 — 재렌더마다 목록이 바뀌면 누르려던 카드가
+ *    손 밑에서 갈린다(dmReplyOptions가 같은 이유로 무작위 pick을 금지한다).
+ */
+export function todayPeemangItems(state: GameState): ShopItem[] {
+  const unsold = PEEMANG_ITEMS.filter((it) => !state.ownedItems.includes(it.id));
+  const order = unsold
+    .map((_, i) => i)
+    .sort((a, b) => hashInt(`peemang:${state.day}:${a}`) - hashInt(`peemang:${state.day}:${b}`));
+  return order.slice(0, Math.min(PEEMANG_DAILY_COUNT, unsold.length)).map((i) => unsold[i]);
 }

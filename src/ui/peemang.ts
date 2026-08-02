@@ -1,8 +1,7 @@
 import type { GameContext } from "./context";
 import type { ShopItem } from "@/data/shop";
-import { PEEMANG_ITEMS } from "@/data/peemang";
 import { SKILL_STATS } from "@/data/stats";
-import { buyItem, canBuy, effectivePrice, isOwned } from "@/systems/shop";
+import { buyItem, canBuy, effectivePrice, isOwned, todayPeemangItems } from "@/systems/shop";
 import { confirmPurchase } from "./confirmModal";
 import { itemImg } from "./components";
 import { inventoryList } from "./inventory";
@@ -18,7 +17,7 @@ import { icon } from "./icons";
  *
  * ⚠️ 이 화면의 검색바·추천 검색어·좌측 필터(위치/상태/카테고리)는 전부 **장식**이다.
  *    개발자 도구 팝업·로또 카드와 같은 취급 — 패러디의 결을 내는 그릇일 뿐,
- *    매물 목록은 언제나 PEEMANG_ITEMS 전체다. 필터가 안 걸리는 건 버그가 아니다.
+ *    매물 목록은 systems/shop.todayPeemangItems가 정한다(매일 리셋). 필터가 안 걸리는 건 버그가 아니다.
  *    (라디오·체크박스가 눌리는 건 브라우저 기본 동작이다. 게임 상태와 무관하다.)
  *    실제로 동작하는 네비 칩은 `중고거래`(buy)와 `내 물건 팔기`(sell) 둘뿐이다.
  * ============================================================ */
@@ -228,12 +227,20 @@ export function renderPeemang(ctx: GameContext): HTMLElement {
       label,
     );
 
+  // 오늘 올라온 매물만 보여준다(매일 리셋 · 산 물건은 내려간다 — systems/shop.todayPeemangItems).
+  const listings = todayPeemangItems(s);
   const body =
     tab === "buy"
       ? el(
           "div",
           { class: "pm__pane" },
-          el("div", { class: "pm__grid" }, ...PEEMANG_ITEMS.map((it) => listingCard(ctx, it))),
+          listings.length === 0
+            ? el(
+                "p",
+                { class: "compose-hint", style: "margin:0" },
+                "오늘은 동네에 올라온 물건이 없어요. 내일 다시 들러보세요.",
+              )
+            : el("div", { class: "pm__grid" }, ...listings.map((it) => listingCard(ctx, it))),
         )
       : el(
           "div",
