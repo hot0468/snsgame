@@ -1,5 +1,16 @@
 import type { GameState } from "@/core/types";
-import { AUTHOR_ENDING_REASON, DEBUT_ENDING_REASON, LEGEND_BJ_ENDING_REASON } from "@/core/state";
+import {
+  AUTHOR_ENDING_REASON,
+  CALL_CENTER_ENDING_REASON,
+  DEBUT_ENDING_REASON,
+  LEGEND_BJ_ENDING_REASON,
+  MLM_ENDING_REASON,
+  STYLIST_ENDING_REASON,
+  TAXI_ENDING_REASON,
+} from "@/core/state";
+import { TAXI_DELUXE_CERT } from "@/data/taxi";
+import { CALL_MAX_STREAK } from "@/data/callCenter";
+import { REGULAR_BONUS_MAX, REGULAR_FEE_BONUS } from "@/data/stylist";
 import { totalFollowers } from "./economy";
 
 /**
@@ -28,6 +39,40 @@ export const DEBUT_BEAUTY = 600;
 export const AUTHOR_ENDING_MONTHS = 6;
 /** 레전드 BJ 엔딩에 필요한 소지금 */
 export const LEGEND_BJ_ENDING_MONEY = 5_000_000;
+
+/* ─────────────────── 직업 엔딩 ─────────────────── */
+
+/**
+ * 택시·콜센터·다단계·헤어디자이너의 도달점.
+ *
+ * ⚠️ 조건은 **그 직업의 고유 축이 만렙에 닿았을 때**로 잡는다. 근속 일수처럼 아무 직업에나
+ *    붙일 수 있는 숫자로 재면 네 엔딩이 전부 같은 엔딩이 된다.
+ *    - 택시 = 평점(모범택시 자격 + 승객 응대의 결과)
+ *    - 콜센터 = 한 자리에서 받아낸 최다 연속 콜(상한까지 버텼는가)
+ *    - 다단계 = **태운 지인 수**(이 직업이 무엇을 대가로 삼는지 그대로)
+ *    - 헤어 = 단골(단가 배율이 상한에 닿는 인원 = 이 직업의 만렙)
+ *
+ * ⚠️ 제안은 **재직 중일 때만** 뜬다(각 condition이 job을 먼저 본다) — 그만둔 직업의 엔딩이
+ *    나중에 튀어나오면 서사가 어긋난다.
+ */
+
+/** 모범택시 엔딩: 1종 대형 + 평점 이 값 이상 + 누적 운행. */
+export const TAXI_ENDING_RATING = 90;
+export const TAXI_ENDING_RIDES = 100;
+
+/** 콜센터 엔딩: 최다 연속 콜이 상한(CALL_MAX_STREAK)에 닿고, 누적 콜이 이 값 이상. */
+export const CALL_ENDING_TOTAL = 300;
+
+/**
+ * 다단계 엔딩: 태운 지인이 이 값 이상 + 누적 수당.
+ * 관계 캐릭터 28명 중 10명 — "다 태우진 않았지만 돌아갈 자리는 없다"는 지점이다.
+ */
+export const MLM_ENDING_BURNED = 10;
+export const MLM_ENDING_COMMISSION = 20_000_000;
+
+/** 헤어 엔딩: 단골이 단가 배율 상한에 닿는 인원(= 만렙) + 누적 시술. */
+export const STYLIST_ENDING_REGULARS = Math.ceil(REGULAR_BONUS_MAX / REGULAR_FEE_BONUS);
+export const STYLIST_ENDING_CUTS = 120;
 
 export const ENDING_OFFERS: EndingOffer[] = [
   {
@@ -61,6 +106,63 @@ export const ENDING_OFFERS: EndingOffer[] = [
     // 누적 수익을 쌓는 상태가 없어 '지금 가진 돈'으로 판정한다(기존 state만 조합).
     condition: (s) =>
       s.eggs.done.legendBJ && s.savannaJoined && s.money >= LEGEND_BJ_ENDING_MONEY,
+  },
+  {
+    id: "taxiMaster",
+    reason: TAXI_ENDING_REASON,
+    offerTitle: "🚕 이달의 기사",
+    offerLead:
+      "회사 벽에 걸린 액자가 몇 달째 그대로다. 배차실장이 정규직 전환 서류를 내밀었다. " +
+      "여기서 핸들을 계속 잡는 삶으로 정착해볼까?",
+    confirmLabel: "핸들을 계속 잡는다 (엔딩)",
+    declineLabel: "아직은 SNS다",
+    condition: (s) =>
+      !!s.taxiJob &&
+      s.certifications.includes(TAXI_DELUXE_CERT) &&
+      s.taxiJob.rating >= TAXI_ENDING_RATING &&
+      s.taxiJob.totalRides >= TAXI_ENDING_RIDES,
+  },
+  {
+    id: "callMaster",
+    reason: CALL_CENTER_ENDING_REASON,
+    offerTitle: "🎧 교육 담당 제안",
+    offerLead:
+      "센터장이 불렀다. \"신입들한테 그거 어떻게 하는지 좀 알려줄래요?\" " +
+      "받는 자리에서 가르치는 자리로 옮겨앉아볼까?",
+    confirmLabel: "헤드셋을 벗는다 (엔딩)",
+    declineLabel: "조금 더 받아본다",
+    condition: (s) =>
+      !!s.callCenterJob &&
+      s.callCenterJob.bestStreak >= CALL_MAX_STREAK &&
+      s.callCenterJob.totalCalls >= CALL_ENDING_TOTAL,
+  },
+  {
+    id: "mlmDiamond",
+    reason: MLM_ENDING_REASON,
+    offerTitle: "💎 승급 심사 통과",
+    offerLead:
+      "이사님이 어깨를 두드렸다. \"이번 달 시상식, 무대 올라가셔야죠.\" " +
+      "연락처는 많이 비었지만 등급은 남았다. 여기서 자리를 굳혀볼까?",
+    confirmLabel: "무대에 오른다 (엔딩)",
+    declineLabel: "그만 생각해본다",
+    condition: (s) =>
+      !!s.mlmJob &&
+      s.mlmJob.burnedContacts.length >= MLM_ENDING_BURNED &&
+      s.mlmJob.totalCommission >= MLM_ENDING_COMMISSION,
+  },
+  {
+    id: "stylistOwn",
+    reason: STYLIST_ENDING_REASON,
+    offerTitle: "✂️ 자리 하나 나왔어요",
+    offerLead:
+      "원장이 커피를 내밀며 말했다. \"건너편 상가에 자리 하나 났는데, 생각 있어요?\" " +
+      "단골들은 따라오겠다고 한다. 내 이름으로 간판을 걸어볼까?",
+    confirmLabel: "가게를 낸다 (엔딩)",
+    declineLabel: "여기가 아직 편하다",
+    condition: (s) =>
+      !!s.stylistJob &&
+      s.stylistJob.regulars >= STYLIST_ENDING_REGULARS &&
+      s.stylistJob.cuts >= STYLIST_ENDING_CUTS,
   },
 ];
 
