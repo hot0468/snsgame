@@ -16,7 +16,7 @@ import {
 } from "@/data/taxi";
 import { LATE_SLOT } from "@/core/state";
 import { hasAnyJob, inJobGap, quitCurrentJob } from "./employment";
-import { JOB_ID, markJobExperienced } from "./jobExperience";
+import { JOB_ID, markJobExperienced, pastJobCareer } from "./jobExperience";
 import { clampMental, clampResource, gainSkill } from "./stats";
 import { recordMission } from "./missions";
 import { maybeQueueJobScene } from "./jobAdult";
@@ -62,7 +62,7 @@ export function joinTaxi(state: GameState): TaxiJob | null {
   if (hasAnyJob(state)) quitCurrentJob(state);
   state.taxiJob = {
     hiredDay: state.day,
-    totalRides: 0,
+    totalRides: pastJobCareer(state, JOB_ID.taxi), // 이직해도 경력이 이어진다(jobExperience.pastJobCareer)
     totalEarned: 0,
     rating: TAXI_RATING_START,
   };

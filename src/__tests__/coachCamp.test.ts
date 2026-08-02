@@ -23,7 +23,13 @@ import {
   SCENE_LEWD_MIN,
   SCENE_PERVERT_MIN,
 } from "@/data/coachCamp";
-import { COACH_STAT_TARGET, MEET_DATE, NATIONAL_MEET_MONTH } from "@/systems/coach";
+import {
+  COACH_STAT_TARGET,
+  MEET_DATE,
+  NATIONAL_MEET_MONTH,
+  maybeHoldMeet,
+  meetResultFor,
+} from "@/systems/coach";
 import { SLOTS_PER_DAY } from "@/core/state";
 import { dateOf } from "@/systems/calendar";
 import type { GameState } from "@/core/types";
@@ -320,5 +326,72 @@ describe("콘텐츠 경계 — 미성년자는 등장하지 않는다", () => {
       expect(sc.text.length, sc.id).toBeGreaterThan(100);
       expect(sc.title.length, sc.id).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("전국체전 우승 축하 팝업", () => {
+  /**
+   * 우승은 코치 직업에서 가장 큰 사건인데 일정 한 줄과 카톡 두 줄로만 알려서 스크롤에 묻혔다.
+   * 이제 그날 아침에 축하 팝업이 뜨고, 그 팝업이 그대로 뒤풀이 자리로 이어진다.
+   *
+   * ⚠️ 예약은 **연도**다(boolean 아님) — 뒤풀이 도장(nationalPartyYear)과 같은 해를 가리켜야
+   *    축하 팝업에서 곧장 그 해 뒤풀이로 넘어갈 수 있다.
+   */
+  function atNationalMeet(strength: number): GameState {
+    const s = coach();
+    toDate(s, NATIONAL_MEET_MONTH, MEET_DATE);
+    s.coachJob!.teamStat = strength;
+    return s;
+  }
+
+  it("우승하면 축하 팝업이 예약된다", () => {
+    const s = atNationalMeet(COACH_STAT_TARGET);
+    expect(meetResultFor(s.coachJob!.teamStat, true)).toBe("champion");
+    maybeHoldMeet(s);
+    expect(s.pendingCoachChampion, "우승했는데 팝업 예약이 없다").toBe(
+      dateOf(s.day).getFullYear(),
+    );
+  });
+
+  it("우승이 아니면 예약되지 않는다 — 준우승도 팝업은 없다", () => {
+    const s = atNationalMeet(75); // 전국 문턱(85+10)에 한참 못 미친다
+    expect(meetResultFor(s.coachJob!.teamStat, true)).not.toBe("champion");
+    maybeHoldMeet(s);
+    expect(s.pendingCoachChampion).toBeNull();
+  });
+
+  it("지역 대회 우승은 팝업 대상이 아니다 — 전국체전만", () => {
+    const s = coach();
+    toDate(s, 4, MEET_DATE); // 4월 지역 대회
+    s.coachJob!.teamStat = COACH_STAT_TARGET;
+    maybeHoldMeet(s);
+    expect(s.coachJob!.championships, "지역 대회는 통산 우승에 안 들어간다").toBe(0);
+    expect(s.pendingCoachChampion).toBeNull();
+  });
+
+  it("축하 팝업에서 뒤풀이로 넘어가면 다음 날 뒤풀이가 또 열리지 않는다", () => {
+    // 팝업이 renderNationalAfterpartyModal을 열고, 그 '확인'이 holdNationalParty를 부른다.
+    const s = atNationalMeet(COACH_STAT_TARGET);
+    s.adultMode = true;
+    s.skills.lewd = SCENE_LEWD_MIN + 50;
+    s.skills.pervert = SCENE_PERVERT_MIN + 50;
+    maybeHoldMeet(s);
+    expect(s.pendingCoachChampion).not.toBeNull();
+    expect(nationalAfterpartyScene(s), "씬 조건을 채웠는데 뒤풀이 씬이 없다").not.toBeNull();
+
+    holdNationalParty(s); // 팝업 → 뒤풀이 모달 → 확인
+    s.day += 1; // 대회 다음 날 = 원래 뒤풀이가 뜨던 날
+    expect(isNationalAfterDay(s), "우승한 해에 뒤풀이가 두 번 열린다").toBe(false);
+  });
+
+  it("우승하지 않은 해에는 다음 날 뒤풀이가 그대로 열린다", () => {
+    // 축하 팝업 경로를 넣으면서 기존 경로를 막아버리지 않았는지 본다.
+    const s = atNationalMeet(75);
+    s.adultMode = true;
+    s.skills.lewd = SCENE_LEWD_MIN + 50;
+    s.skills.pervert = SCENE_PERVERT_MIN + 50;
+    maybeHoldMeet(s);
+    s.day += 1;
+    expect(isNationalAfterDay(s)).toBe(true);
   });
 });

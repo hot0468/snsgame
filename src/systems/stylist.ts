@@ -23,7 +23,7 @@ import {
 } from "@/data/stylist";
 import { accountsTotalFollowers } from "./followers";
 import { hasAnyJob, inJobGap, quitCurrentJob } from "./employment";
-import { JOB_ID, markJobExperienced } from "./jobExperience";
+import { JOB_ID, markJobExperienced, pastJobCareer } from "./jobExperience";
 import { clampMental, clampResource, gainSkill, skillTo100 } from "./stats";
 import { recordMission } from "./missions";
 import { maybeQueueJobScene } from "./jobAdult";
@@ -61,7 +61,14 @@ export function canApplyStylist(state: GameState): boolean {
 export function joinStylist(state: GameState): StylistJob | null {
   if (!canApplyStylist(state)) return null;
   if (hasAnyJob(state)) quitCurrentJob(state);
-  state.stylistJob = { hiredDay: state.day, cuts: 0, totalEarned: 0, regulars: 0, botched: 0 };
+  // 누적 커트 수가 곧 레벨이라, 재입사해도 경력을 이어받는다(jobExperience.pastJobCareer).
+  state.stylistJob = {
+    hiredDay: state.day,
+    cuts: pastJobCareer(state, JOB_ID.stylist),
+    totalEarned: 0,
+    regulars: 0,
+    botched: 0,
+  };
   markJobExperienced(state, JOB_ID.stylist);
   addSchedule(state, `${"가위손"} 입사`, "system");
   return state.stylistJob;

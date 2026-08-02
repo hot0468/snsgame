@@ -30,6 +30,7 @@ import {
 import {
   renderAlumniModal,
   renderCoachCampModal,
+  renderChampionModal,
   renderNationalAfterpartyModal,
 } from "./coachCampModal";
 import { isMlmWorkNow } from "@/systems/mlm";
@@ -96,11 +97,25 @@ export function createApp(root: HTMLElement, store: Store): void {
   // 스크롤 보존용: 직전 렌더의 '뷰 키'. 같은 뷰에서 재렌더될 때만(영상 모달 열고닫기 등)
   // 스크롤 위치를 복원하고, 탭·페이지가 바뀐 재렌더는 자연히 맨 위에서 시작하게 둔다.
   let lastViewKey = "";
-  // 전체 재렌더는 스크롤 컨테이너를 새 노드로 갈아끼워 scrollTop을 0으로 되돌린다.
-  // 너튜브(.browser__content)·야밤(.yabam__body) 본문 + SNS 피드(.sns__feed)를 보존한다.
-  // .sns__feed는 자체 overflow-y:auto라 별도 스크롤 컨테이너다 — 좋아요·리트윗 재렌더에
-  // 이걸 저장·복원하지 않으면 피드가 매번 최상단으로 튄다.
-  const SCROLL_SELECTORS = [".browser__content", ".yabam__body", ".sns__feed"];
+  /**
+   * 스크롤을 보존할 컨테이너들.
+   *
+   * 전체 재렌더는 컨테이너를 새 노드로 갈아끼워 scrollTop을 0으로 되돌린다. 여기 없는
+   * 컨테이너는 재렌더마다 최상단으로 튄다 — 아이템을 누르면 목록이 맨 위로 올라가 버린다.
+   *
+   * ⚠️ **자체 `overflow-y: auto`를 가진 화면을 새로 만들면 여기 추가하라.**
+   *    `.browser__content` 안에 있다고 자동으로 보존되지 않는다. 안쪽 요소가 스크롤을
+   *    가져가면 바깥은 스크롤이 없어서 저장할 값도 없다(피망마켓 `.pm`이 그 case였다).
+   *    확인 방법: `scrollHeight > clientHeight`인 요소를 콘솔에서 훑어보면 바로 나온다.
+   */
+  const SCROLL_SELECTORS = [
+    ".browser__content",
+    ".yabam__body",
+    ".sns__feed",
+    ".pm", // 피망마켓
+    ".dp", // 다트핀
+    ".auction-site", // 서던피스 경매
+  ];
 
   const ctx: GameContext = {
     store,
@@ -221,8 +236,15 @@ export function createApp(root: HTMLElement, store: Store): void {
         // 여름 합숙 제안 — 8월 대회 다음 날. **평일 훈련(isCoachWorkNow)보다 먼저**다.
         // 뒤에 두면 그날이 평일일 때 훈련 모달이 가져가 제안이 영영 안 뜬다(연 1회뿐이다).
         ui.modal = (c) => renderCoachCampModal(c);
+      } else if (state.pendingCoachChampion != null) {
+        // 전국체전 우승 축하 — 대회 당일 아침(coach.maybeHoldMeet이 예약).
+        // **평일 출근(isCoachWorkNow)보다 먼저**여야 한다. 대회일이 평일이면 훈련 모달이
+        // 그 슬롯을 가져가고, 축하 팝업은 플래그만 든 채 하루 종일 밀린다.
+        // 이 팝업이 그대로 뒤풀이로 이어지므로 아래 isNationalAfterDay보다도 앞이다.
+        ui.modal = (c) => renderChampionModal(c);
       } else if (isNationalAfterDay(state) && nationalAfterpartyScene(state)) {
         // 전국체전 뒤풀이 — 씬 조건(성인 모드·음란)을 만족할 때만 자리를 차지한다.
+        // 우승한 해엔 축하 팝업이 이미 데려갔다(holdNationalParty가 도장을 찍어 여기 안 온다).
         ui.modal = (c) => renderNationalAfterpartyModal(c);
       } else if (isAlumniDay(state)) {
         // 이듬해 2월 졸업생 모임(내부에서 연 1회 도장을 찍는다).

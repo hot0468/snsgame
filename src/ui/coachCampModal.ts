@@ -19,7 +19,7 @@ import {
   nationalAfterpartyScene,
   skipCamp,
 } from "@/systems/coachCamp";
-import { COACH_STAT_TARGET, teamStrength } from "@/systems/coach";
+import { COACH_STAT_TARGET, NATIONAL_CHAMPION_RAISE, teamStrength } from "@/systems/coach";
 import { advanceTime } from "@/systems/time";
 import { el } from "@/utils/dom";
 import { pick } from "@/utils/random";
@@ -223,6 +223,73 @@ function sceneModal(
 export function renderNationalAfterpartyModal(ctx: GameContext): HTMLElement {
   const scene = nationalAfterpartyScene(ctx.store.getState());
   return sceneModal(ctx, scene, (st) => holdNationalParty(st), "회식");
+}
+
+/**
+ * 전국체전 **우승** 축하 팝업 — 우승한 그날 아침에 뜬다(coach.maybeHoldMeet이 예약).
+ *
+ * 대회 결과는 원래 일정 한 줄과 카톡 두 줄로만 알렸다. 코치 직업에서 가장 큰 사건인데
+ * 스크롤에 묻혀 지나가서, 우승만은 화면을 멈춰 세우고 알린다.
+ *
+ * ⚠️ **어느 버튼을 누르든 `pendingCoachChampion`을 비운다.** 안 비우면 매 렌더마다 다시 뜬다.
+ * ⚠️ 뒤풀이로 이어질 때 `holdNationalParty`가 그 해 도장(`nationalPartyYear`)을 찍으므로,
+ *    다음 날 `isNationalAfterDay`가 false가 되어 뒤풀이가 두 번 열리지 않는다.
+ */
+export function renderChampionModal(ctx: GameContext): HTMLElement {
+  const s = ctx.store.getState();
+  const job = s.coachJob;
+  const year = s.pendingCoachChampion;
+  // 뒤풀이 씬이 있으면(성인 모드·음란 문턱) 축하 팝업이 그대로 그 자리로 이어진다.
+  const hasParty = nationalAfterpartyScene(s) !== null;
+
+  const clear = (): void => {
+    ctx.update((st) => {
+      st.pendingCoachChampion = null;
+    });
+  };
+
+  return el(
+    "div",
+    { class: "modal" },
+    el(
+      "div",
+      { class: "modal__head" },
+      el("span", { class: "modal__head-title" }, icon("star", { size: 18 }), "전국체전 우승!"),
+    ),
+    el(
+      "div",
+      { class: "modal__body" },
+      el(
+        "p",
+        { class: "camp__scene" },
+        `마지막 세트가 끝나는 순간 코트 위로 아이들이 쏟아져 나왔다. 벤치에 있던 애들까지 뛰어들어 ` +
+          `서로를 끌어안고 울었다. ${year ?? ""}년 전국체전 우승. 현수막에 학교 이름이 걸리고, ` +
+          `체육부장이 코트 밖에서 두 팔을 번쩍 들어 보였다.\n\n` +
+          `“코치님, 진짜 해냈습니다.” 주장이 땀범벅인 채로 달려와 손을 잡았다. ` +
+          (job ? `통산 ${job.championships}회째 우승이다. ` : "") +
+          `내년부터 월급이 ${NATIONAL_CHAMPION_RAISE.toLocaleString("ko-KR")}원 더 오른다.`,
+      ),
+      el(
+        "div",
+        { class: "compose-actions" },
+        el(
+          "button",
+          {
+            class: "btn",
+            onclick: () => {
+              clear();
+              if (hasParty) {
+                ctx.openModal(renderNationalAfterpartyModal);
+                return;
+              }
+              ctx.closeModal();
+            },
+          },
+          hasParty ? "뒤풀이 자리로 간다" : "확인",
+        ),
+      ),
+    ),
+  );
 }
 
 /** 이듬해 2월 졸업생 모임. 씬이 고정(ALUMNI_SCENE)이라 그대로 쓴다. */

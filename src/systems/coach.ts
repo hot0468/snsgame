@@ -2,12 +2,19 @@ import type { GameState, MeetResult } from "@/core/types";
 import { MORNING_SLOT } from "@/core/state";
 import { dateOf, dateOfMonth, isWeekday, monthKey } from "./calendar";
 import { hasAnyJob, quitCurrentJob } from "./employment";
-import { JOB_ID, markJobExperienced } from "./jobExperience";
+import { JOB_ID, markJobExperienced, pastJobCareer, stashJobCareer } from "./jobExperience";
+import {
+  COACH_FIRED_KAKAO,
+  COACH_INCIDENTS,
+  COACH_INCIDENT_KAKAO,
+  type CoachIncident,
+} from "@/data/coachIncidents";
 import { pushKakao } from "./kakao";
-import { clampAction, clampMental, gainSkill, skillTo100 } from "./stats";
+import { clampAction, clampMental, clampResource, gainSkill, skillTo100 } from "./stats";
 import { recordMission } from "./missions";
 import { rollActivityGrade, type ActivityGrade } from "./condition";
 import { addSchedule } from "./time";
+import { chance, pick } from "@/utils/random";
 
 /**
  * 고등학교 배구부 코치직.
@@ -205,7 +212,7 @@ export function acceptCoachJob(state: GameState): void {
   if (hasAnyJob(state)) quitCurrentJob(state);
   state.coachJob = {
     hiredDay: state.day,
-    totalTrainings: 0,
+    totalTrainings: pastJobCareer(state, JOB_ID.coach), // 이직해도 경력이 이어진다(jobExperience.pastJobCareer)
     teamStat: 0,
     raise: 0,
     pendingRaise: 0,
@@ -227,6 +234,83 @@ export interface TrainingResult {
   /** 훈련 후 완성도 */
   strength: number;
   target: number;
+  /** 도덕성이 낮아 이번 훈련에서 터진 사건. 없으면 null */
+  incident?: CoachIncident | null;
+  /** 이 사건으로 평판이 바닥나 해직됐으면 true */
+  fired?: boolean;
+}
+
+/* ─────────────── 도덕성 사건 ─────────────── */
+
+/**
+ * 사건이 터지기 시작하는 도덕성. 이 값 **이상이면 절대 안 터진다.**
+ *
+ * ⚠️ 낮게 잡은 이유: 코치는 평일 낮마다 강제 출근이라 판정 횟수가 많다. 문턱이 높으면
+ *    어지간한 플레이어가 다 걸려 "코치는 못 해먹는 직업"이 된다. 도덕성을 실제로
+ *    바닥까지 굴린 플레이에만 붙는 대가여야 한다.
+ */
+export const COACH_INCIDENT_MORALITY_MAX = 30;
+/** 도덕성 0일 때의 사건 확률(문턱까지 선형 보간). */
+export const COACH_INCIDENT_CHANCE_MAX = 0.16;
+/** 평판이 이 값 미만으로 떨어지면 학교가 계약을 끊는다. */
+export const COACH_FIRE_REPUTATION = 12;
+
+/**
+ * 지금 훈련에서 사건이 터질 확률(0 ~ COACH_INCIDENT_CHANCE_MAX).
+ * 도덕성 30 이상 → 0% · 15 → 8% · 0 → 16%.
+ */
+export function coachIncidentChance(state: GameState): number {
+  if (!state.coachJob) return 0;
+  const m = clampResource(state.resources.morality);
+  if (m >= COACH_INCIDENT_MORALITY_MAX) return 0;
+  return COACH_INCIDENT_CHANCE_MAX * ((COACH_INCIDENT_MORALITY_MAX - m) / COACH_INCIDENT_MORALITY_MAX);
+}
+
+/**
+ * 사건을 한 번 굴린다. 터지면 효과를 적용하고 사건을 돌려준다.
+ *
+ * 순서 주의: **위로금·평판을 먼저 적용하고 그다음 해직을 본다.** 뒤집으면 그 사건으로
+ * 바닥을 친 평판이 해직 판정에 반영되지 않아 한 턴 늦게 잘린다.
+ */
+export function rollCoachIncident(state: GameState): CoachIncident | null {
+  const job = state.coachJob;
+  if (!job || state.gameOver) return null;
+  if (!chance(coachIncidentChance(state))) return null;
+
+  const incident = pick(COACH_INCIDENTS as CoachIncident[]);
+  state.money -= incident.compensation;
+  state.resources.reputation = clampResource(
+    state.resources.reputation - incident.reputationLoss,
+  );
+  state.resources.mental = clampMental(state, state.resources.mental + incident.mentalDelta);
+  job.teamStat = Math.max(0, job.teamStat - incident.teamStatLoss);
+
+  addSchedule(
+    state,
+    `배구부 사건: ${incident.title} (위로금 -${incident.compensation.toLocaleString("ko-KR")}원)`,
+    "system",
+  );
+  pushKakao(state, COACH_SENDER, [...COACH_INCIDENT_KAKAO[incident.kind]], { hue: 205 });
+  return incident;
+}
+
+/**
+ * 평판이 바닥이면 학교가 계약을 끊는다.
+ *
+ * ⚠️ `quitCurrentJob`을 쓰지 않는다 — 그건 '내가 그만두는' 경로라 문구가 사임이다.
+ *    해직은 다른 사건이므로 여기서 직접 끊되, **경력 보관은 같은 규칙을 지킨다**
+ *    (stashJobCareer — 잘렸다고 지금까지 지도한 횟수가 사라지진 않는다).
+ * @returns 잘렸으면 true
+ */
+export function maybeFireCoach(state: GameState): boolean {
+  const job = state.coachJob;
+  if (!job) return false;
+  if (state.resources.reputation >= COACH_FIRE_REPUTATION) return false;
+  stashJobCareer(state, JOB_ID.coach, job.totalTrainings);
+  state.coachJob = null;
+  addSchedule(state, `${SCHOOL_NAME} 배구부 코치 해직`, "system");
+  pushKakao(state, COACH_SENDER, [...COACH_FIRED_KAKAO], { hue: 205 });
+  return true;
 }
 
 /** 판정별 훈련 서사 — 오른 폭이 왜 다른지 문장으로 보이게 한다. */
@@ -273,12 +357,21 @@ export function doCoachTraining(state: GameState, mode: "drill" | "easy"): Train
   gainSkill(state, "sociability", 4);
 
   addSchedule(state, `배구부 훈련 지도 (완성도 +${gained})`, "system");
+
+  // 도덕성이 낮으면 훈련 중 사건이 터진다. 위로금·평판을 먼저 물고 **그다음** 해직을 본다 —
+  // 뒤집으면 그 사건으로 바닥 친 평판이 해직 판정에 안 잡혀 한 턴 늦게 잘린다.
+  const incident = rollCoachIncident(state);
+  const fired = incident ? maybeFireCoach(state) : false;
+
   return {
     message: DRILL_LINES[grade],
     grade,
     gained,
+    // 사건이 팀 완성도를 깎았을 수 있으니 **사건 뒤 값**을 보여준다.
     strength: job.teamStat,
     target: COACH_STAT_TARGET,
+    incident,
+    fired,
   };
 }
 
@@ -311,6 +404,9 @@ export function maybeHoldMeet(state: GameState): void {
     job.pendingRaise = NATIONAL_CHAMPION_RAISE;
     job.pendingRaiseYear = dateOf(state.day).getFullYear() + 1;
     extra = ` 내년부터 월급이 ${NATIONAL_CHAMPION_RAISE.toLocaleString("ko-KR")}원 더 오른다!`;
+    // 축하 팝업 예약 — 여기서 모달을 열 수 없다(onNewDay 안이다). ui가 다음 렌더에서 띄우고,
+    // 그 팝업이 그대로 뒤풀이 자리로 이어진다(ui/coachCampModal.renderChampionModal).
+    state.pendingCoachChampion = job.pendingRaiseYear - 1;
   }
 
   job.teamStat = 0; // 대회가 끝나면 완성도는 0에서 다시 쌓는다(시즌 리셋)

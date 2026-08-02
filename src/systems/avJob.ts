@@ -5,7 +5,7 @@ import { chance, pick, uid } from "@/utils/random";
 import { clampAction, clampMental, clampResource, gainSkill } from "./stats";
 import { recordMission } from "./missions";
 import { hasAnyJob, quitCurrentJob } from "./employment";
-import { JOB_ID, markJobExperienced } from "./jobExperience";
+import { JOB_ID, markJobExperienced, pastJobCareer } from "./jobExperience";
 import { dateOfMonth } from "./calendar";
 import { addSchedule, advanceTime } from "./time";
 
@@ -78,7 +78,7 @@ export function acceptAvJob(state: GameState, threadId: string): void {
   state.avJob = {
     joinedDay: state.day,
     workDaysThisMonth: 0,
-    totalWorkDays: 0,
+    totalWorkDays: pastJobCareer(state, JOB_ID.av), // 이직해도 경력이 이어진다(jobExperience.pastJobCareer)
     lastWorkDay: -1,
     condomlessThisMonth: 0,
     lastSalaryMonth: -1,

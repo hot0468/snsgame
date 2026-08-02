@@ -28,7 +28,7 @@ import { MORNING_SLOT, getActiveAccount } from "@/core/state";
 import { RELATIONSHIP_CHARS, getRelChar } from "@/data/relationships";
 import { isWeekday } from "./calendar";
 import { hasAnyJob, quitCurrentJob } from "./employment";
-import { JOB_ID, markJobExperienced } from "./jobExperience";
+import { JOB_ID, markJobExperienced, pastJobCareer } from "./jobExperience";
 import { mutableRelOf, relStateOf } from "./relationship";
 import { clampMental, clampResource, gainSkill, skillTo100 } from "./stats";
 import { recordMission } from "./missions";
@@ -75,7 +75,7 @@ export function joinMlm(state: GameState): MlmJob | null {
   if (hasAnyJob(state)) quitCurrentJob(state);
   state.mlmJob = {
     hiredDay: state.day,
-    contracts: 0,
+    contracts: pastJobCareer(state, JOB_ID.mlm), // 이직해도 경력이 이어진다(jobExperience.pastJobCareer)
     totalCommission: 0,
     burnedContacts: [],
     lastSalaryMonth: -1,

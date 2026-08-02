@@ -12,6 +12,8 @@ import {
 } from "@/systems/coach";
 import { advanceTime } from "@/systems/time";
 import { el, formatNumber } from "@/utils/dom";
+import { COACH_FIRED_TEXT, type CoachIncident } from "@/data/coachIncidents";
+import { simpleResultModal } from "./sns/snsPages";
 import { icon } from "./icons";
 
 /**
@@ -30,15 +32,32 @@ export function renderCoachModal(ctx: GameContext): HTMLElement {
 
   const act = (mode: "drill" | "easy") => () => {
     let msg = "";
+    let incident: CoachIncident | null = null;
+    let fired = false;
     ctx.update((st) => {
       const r = doCoachTraining(st, mode);
       if (r) {
         const delta = r.gained > 0 ? ` +${r.gained}` : "";
         msg = `${r.message} (완성도${delta} → ${r.strength}/${r.target})`;
+        incident = r.incident ?? null;
+        fired = !!r.fired;
       }
       advanceTime(st, 1); // 시간 소모는 여기서 — systems는 카운트만 만진다
     });
     ctx.closeModal();
+    // 사건은 토스트로 흘리면 안 된다 — 위로금 수백만원이 빠지고 해직까지 갈 수 있는 일이다.
+    if (incident) {
+      const inc = incident as CoachIncident;
+      const body =
+        `${inc.text}\n\n` +
+        `위로금 -${formatNumber(inc.compensation)}원 · 평판 -${inc.reputationLoss} · ` +
+        `팀 완성도 -${inc.teamStatLoss}` +
+        (fired ? `\n\n${COACH_FIRED_TEXT}` : "");
+      ctx.openModal(() =>
+        simpleResultModal(ctx, fired ? `${inc.title} — 그리고 해직` : inc.title, body),
+      );
+      return;
+    }
     if (msg) ctx.toast(msg);
   };
 

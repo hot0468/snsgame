@@ -430,6 +430,8 @@ export interface KakaoThread {
   loanOffer?: KakaoLoanOffer;
   /** 배구부 코치 섭외 카톡이면 그 응답 상태(수락/거절하면 버튼이 사라진다) */
   coachOffer?: { responded: boolean };
+  /** 협박 카톡이면 이번 요구(보내기/만나기/거절 버튼이 붙는다). resolved면 버튼이 사라진다 */
+  blackmail?: { stage: number; demand: "money" | "meet"; amount: number; resolved: boolean };
   /** 기본 답장 대신 발신자가 지정한 답장 문구(단계별 독촉 등). 없으면 기본 문구 사용. */
   reply?: { me: string; them: string; label?: string };
 }
@@ -471,7 +473,9 @@ export type AppointmentKind =
   | "lingerie"
   | "study"
   | "esthetic"
-  | "birthday";
+  | "birthday"
+  /** 유부남 외도 — 매주 같은 요일 심야. 4회차에서 게임 오버로 끝난다(systems/affair) */
+  | "affair";
 
 /**
  * 미래에 예정된 약속. 해당 (day, slot)이 되면 '할지/말지' 팝업이 뜬다.
@@ -1297,6 +1301,18 @@ export interface GameState {
    * ⚠️ 그만둬도 지우지 않는다 — 회사·AV·강사는 사직 시 상태가 통째로 사라지므로
    *    이 목록이 없으면 도감이 다시 잠긴다. 기록은 `systems/jobExperience.ts`가 한다.
    */
+  /**
+   * 직업별 누적 경력(레벨을 정하는 카운터의 최댓값). 그만둬도 남고, 재취업하면 여기서 이어간다.
+   * 키는 `jobExperience.JOB_ID`. 없으면 그 직업은 아직 경력이 없다.
+   */
+  /**
+   * 굴러가는 중인 외도. 없으면 null(시작 전이거나 이미 끝냈다).
+   *
+   * ⚠️ 매주 약속이 도래할 때 만날지 묻고, 안 만난다고 하면 여기서 끝난다.
+   *    빠져나올 문이 매주 열려 있다는 게 이 서사의 축이다(data/affair.ts 참조).
+   */
+  affair: { meetCount: number; nextDay: number } | null;
+  jobCareer?: Record<string, number>;
   jobsExperienced: string[];
   /** 킬러 직업(없으면 미취직). momo.com 서적요청 → DM 수락으로 생성. 초기 null */
   killerJob: KillerJob | null;
@@ -1464,6 +1480,35 @@ export interface GameState {
    *    id만 세워두고 ui가 다음 렌더에서 띄운다(postSlotIncreasedTo와 같은 패턴).
    */
   pendingJobAdult: string | null;
+  /**
+   * 전국체전에서 **우승한** 해(연도). 없으면 null.
+   *
+   * ⚠️ 대회 판정은 onNewDay 안(economy.applyDailyCosts → coach.maybeHoldMeet)에서 돌아
+   *    그 자리에서 모달을 열 수 없다. 연도만 세워두고 ui가 다음 렌더에서 축하 팝업을 띄운다
+   *    (pendingJobAdult와 같은 패턴).
+   *
+   * ⚠️ boolean이 아니라 **연도**인 이유: 뒤풀이 도장(`nationalPartyYear`)과 같은 해를 가리켜야
+   *    축하 팝업이 그 해 뒤풀이로 곧장 이어질 수 있다. 팝업이 클리어한다.
+   */
+  pendingCoachChampion: number | null;
+  /**
+   * 굴러가는 중인 협박 건. 없으면 null.
+   *
+   * ⚠️ **한 번에 하나만이다.** 여러 건이 겹치면 어느 카드에 답한 건지 추적할 수 없다
+   *    (systems/blackmail.seedBlackmail이 진행 중이면 새 씨를 무시한다).
+   */
+  blackmail: {
+    source: "taxi" | "office" | "savanna" | "street";
+    /** 요구 단계(0부터). 올라갈수록 액수·강도가 커진다 */
+    stage: number;
+    /** 이 날 이후로 다음 연락이 온다 */
+    nextDay: number;
+    demand: "money" | "meet";
+    /** 지금까지 보낸 총액(원) */
+    paidTotal: number;
+    /** 답을 기다리는 카톡 스레드 id. 없으면 아직 안 보냈다 */
+    threadId: string | null;
+  } | null;
   /** 야밤에서 구매한 성인용품 id 목록(중복 구매 방지) */
   yabamProductsOwned: string[];
   /** 감상한(본) 작품 id 목록 — 너튜브 애니 시청/미디북스 만화 감상. 2차창작 대상이 된다. */

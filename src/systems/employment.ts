@@ -2,7 +2,7 @@ import type { Email, GameState, JobTrack, SkillStatId } from "@/core/types";
 import type { JobPosting } from "@/data/jobs";
 import { MORNING_SLOT, pushEmail } from "@/core/state";
 import { TIERS, jobRankOf } from "@/data/jobs";
-import { JOB_ID, markJobExperienced } from "./jobExperience";
+import { JOB_ID, markJobExperienced, pastJobCareer, stashJobCareer } from "./jobExperience";
 import { NIGL_COMPANY, NIGL_REQ_IT, NIGL_REQ_KNOWLEDGE } from "@/data/niglnigl";
 import { chance, uid } from "@/utils/random";
 import { isLastDayOfMonth, isWeekday } from "./calendar";
@@ -311,6 +311,11 @@ export function resignCurrentJob(state: GameState): void {
  * ⚠️ 대가(경력 공백)가 없다. 그냥 그만두는 건 `resignCurrentJob`이다.
  */
 export function quitCurrentJob(state: GameState): void {
+  // ⚠️ **상태 객체를 지우기 전에 경력을 보관한다.** 레벨은 전부 이 객체 안 카운터에서 나오므로
+  //    그냥 null로 만들면 경력이 통째로 사라지고, 재취업하면 신입부터 다시 시작한다
+  //    (회사원은 직급·월급까지 여기 묶여 있다 — economy.salaryOf).
+  //    보관은 최댓값이라 짧게 다시 다니다 그만둬도 예전 경력이 깎이지 않는다.
+  stashAllCareers(state);
   if (state.employment) {
     addSchedule(state, `${state.employment.company} 퇴사`, "system");
     // 퇴사한 회사는 잡플래닛 리뷰 대상이 된다(리뷰 1건당 기업정보 무료 열람권 1장).
@@ -350,6 +355,29 @@ export function quitCurrentJob(state: GameState): void {
     addSchedule(state, "가위손 퇴사", "system");
     state.stylistJob = null;
   }
+}
+
+/**
+ * 지금 재직 중인 모든 직업의 **레벨을 정하는 카운터**를 경력 저장소에 보관한다.
+ *
+ * ⚠️ 여기 빠진 직업은 그만두는 순간 경력이 사라진다. **새 직업을 추가하면 이 표와
+ *    그 직업의 채용 함수(경력 복원) 둘 다 손봐라** — 한쪽만 하면 조용히 어긋난다
+ *    (`jobCareer.test.ts`가 재취업 후 레벨이 유지되는지 감시한다).
+ *
+ * ⚠️ 청부업(killer)·작가(author)는 `quitCurrentJob`이 건드리지 않는 직업이라 여기 없다.
+ *    상태가 그대로 남으므로 경력도 그대로다.
+ */
+function stashAllCareers(state: GameState): void {
+  if (state.employment) stashJobCareer(state, JOB_ID.office, state.employment.perfLevel);
+  if (state.avJob) stashJobCareer(state, JOB_ID.av, state.avJob.totalWorkDays);
+  if (state.lecturerJob) stashJobCareer(state, JOB_ID.lecturer, state.lecturerJob.totalLessons);
+  if (state.coachJob) stashJobCareer(state, JOB_ID.coach, state.coachJob.totalTrainings);
+  if (state.taxiJob) stashJobCareer(state, JOB_ID.taxi, state.taxiJob.totalRides);
+  if (state.callCenterJob) {
+    stashJobCareer(state, JOB_ID.callCenter, state.callCenterJob.totalCalls);
+  }
+  if (state.mlmJob) stashJobCareer(state, JOB_ID.mlm, state.mlmJob.contracts);
+  if (state.stylistJob) stashJobCareer(state, JOB_ID.stylist, state.stylistJob.cuts);
 }
 
 /** 잡플래닛 기업정보 1건 열람 비용(무료 열람권이 없을 때). */
@@ -392,7 +420,7 @@ export function acceptJobOffer(state: GameState, emailId: string): void {
     tier,
     hiredDay: state.day,
     performance: 0,
-    perfLevel: 0,
+    perfLevel: pastJobCareer(state, JOB_ID.office), // 이직해도 직급·월급이 신입으로 안 돌아간다
     overtimeDay: -1,
     lastSalaryMonth: -1,
   };
@@ -430,7 +458,7 @@ export function hireNigl(state: GameState): void {
     tier: "large",
     hiredDay,
     performance: 0,
-    perfLevel: 0,
+    perfLevel: pastJobCareer(state, JOB_ID.office), // 이직해도 직급·월급이 신입으로 안 돌아간다
     overtimeDay: -1,
     lastSalaryMonth: -1,
   };

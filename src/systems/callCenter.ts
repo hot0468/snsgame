@@ -10,7 +10,7 @@ import {
   type CallLine,
 } from "@/data/callCenter";
 import { hasAnyJob, inJobGap, quitCurrentJob } from "./employment";
-import { JOB_ID, markJobExperienced } from "./jobExperience";
+import { JOB_ID, markJobExperienced, pastJobCareer } from "./jobExperience";
 import { clampMental, gainSkill } from "./stats";
 import { recordMission } from "./missions";
 import { maybeQueueJobScene } from "./jobAdult";
@@ -43,7 +43,13 @@ export function canApplyCallCenter(state: GameState): boolean {
 export function joinCallCenter(state: GameState): CallCenterJob | null {
   if (!canApplyCallCenter(state)) return null;
   if (hasAnyJob(state)) quitCurrentJob(state);
-  state.callCenterJob = { hiredDay: state.day, totalCalls: 0, totalEarned: 0, bestStreak: 0 };
+  // 누적 통화 수가 곧 레벨이라, 재입사해도 경력을 이어받는다(jobExperience.pastJobCareer).
+  state.callCenterJob = {
+    hiredDay: state.day,
+    totalCalls: pastJobCareer(state, JOB_ID.callCenter),
+    totalEarned: 0,
+    bestStreak: 0,
+  };
   markJobExperienced(state, JOB_ID.callCenter);
   addSchedule(state, "한소리고객센터 입사", "system");
   return state.callCenterJob;

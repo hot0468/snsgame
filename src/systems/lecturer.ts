@@ -5,7 +5,7 @@ import { clampMental, gainSkill, skillTo100 } from "./stats";
 import { recordMission } from "./missions";
 import { maybeQueueJobScene } from "./jobAdult";
 import { addSchedule } from "./time";
-import { JOB_ID, markJobExperienced } from "./jobExperience";
+import { JOB_ID, markJobExperienced, pastJobCareer } from "./jobExperience";
 import { pushEmail } from "@/core/state";
 
 /**
@@ -196,7 +196,7 @@ function hireLecturer(state: GameState): void {
   state.lecturerJob = {
     hiredDay: state.day,
     lessonsThisMonth: 0,
-    totalLessons: 0,
+    totalLessons: pastJobCareer(state, JOB_ID.lecturer), // 이직해도 경력이 이어진다(jobExperience.pastJobCareer)
     lastSalaryMonth: -1,
   };
   markJobExperienced(state, JOB_ID.lecturer); // 직업 도감 해금(사직해도 남는다)
