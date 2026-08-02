@@ -22,7 +22,7 @@ import {
   type CutStyle,
 } from "@/data/stylist";
 import { accountsTotalFollowers } from "./followers";
-import { hasAnyJob, quitCurrentJob } from "./employment";
+import { hasAnyJob, inJobGap, quitCurrentJob } from "./employment";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { clampMental, clampResource, gainSkill, skillTo100 } from "./stats";
 import { recordMission } from "./missions";
@@ -51,9 +51,9 @@ export function hasStylistLicense(state: GameState): boolean {
   return state.certifications.includes(STYLIST_REQ_CERT);
 }
 
-/** 지금 가위손에 취업할 수 있는지. */
+/** 지금 가위손에 취업할 수 있는지(자격증 없음·경력 공백 중이면 불가). */
 export function canApplyStylist(state: GameState): boolean {
-  return !state.gameOver && !state.stylistJob && hasStylistLicense(state);
+  return !state.gameOver && !state.stylistJob && hasStylistLicense(state) && !inJobGap(state);
 }
 
 /** 입사. 겸직 불가라 기존 직업을 정리한다(호출부가 먼저 확인을 받아야 한다). */

@@ -9,7 +9,7 @@ import {
   CALL_STREAK_BONUS,
   type CallLine,
 } from "@/data/callCenter";
-import { hasAnyJob, quitCurrentJob } from "./employment";
+import { hasAnyJob, inJobGap, quitCurrentJob } from "./employment";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { clampMental, gainSkill } from "./stats";
 import { recordMission } from "./missions";
@@ -30,9 +30,9 @@ import { pick } from "@/utils/random";
  *    여기선 고를 게 없다 — 상담원은 콜을 고르지 못한다. 그게 두 직업이 갈리는 지점이다.
  */
 
-/** 자격 조건이 없다 — 이미 다른 직업이 있는 경우만 막는다. */
+/** 자격 조건이 없다 — 이미 상담원이거나 경력 공백 중인 경우만 막는다. */
 export function canApplyCallCenter(state: GameState): boolean {
-  return !state.gameOver && !state.callCenterJob;
+  return !state.gameOver && !state.callCenterJob && !inJobGap(state);
 }
 
 /**

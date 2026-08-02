@@ -21,7 +21,14 @@ import { postTweet } from "@/systems/tweetSystem";
 import { outdoorShoot, blackVanOrgy, wallHoleOrgy } from "@/systems/events";
 import { getAdultOfflineEncounter } from "@/data/adultOffline";
 import { resolveAdultOfflineEncounter } from "@/systems/adultOffline";
-import { canNiglWork, quitCurrentJob } from "@/systems/employment";
+import {
+  canNiglWork,
+  currentJobLabel,
+  hasAnyJob,
+  jobGapDaysFor,
+  jobGapRemaining,
+  resignCurrentJob,
+} from "@/systems/employment";
 import { confirmPurchase } from "./confirmModal";
 import { renderArcadePickModal } from "./arcadePickModal";
 import { NIGL_COMPANY, NIGL_SHIFT_GOAL } from "@/data/niglnigl";
@@ -1030,6 +1037,42 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
       ctx.openModal((c) => renderJobBoardModal(c, postings));
     };
 
+    /**
+     * 퇴사 버튼 — 어떤 직업이든 같은 자리에서 그만둘 수 있어야 한다.
+     * (회사원만 이 버튼이 있던 탓에 나머지 직업은 '갈아타기'로만 벗어날 수 있었다.)
+     */
+    const resignButton = (label: string, flexNone: boolean): HTMLElement =>
+      el(
+        "button",
+        {
+          class: "btn btn--ghost",
+          style: flexNone ? "flex:none" : "width:100%",
+          onclick: () =>
+            confirmPurchase(ctx, {
+              title: "퇴사",
+              message:
+                `'${label}'을(를) 정말 그만둘까요? 벌이가 끊기고, ` +
+                `${jobGapDaysFor(ctx.store.getState().quitCount)}일간 새로 지원할 수 없어요 ` +
+                "(그만둘수록 공백이 길어집니다). 대신 한숨 돌릴 수 있어요.",
+              confirmLabel: "그만둔다",
+              cancelLabel: "취소",
+              onConfirm: () => {
+                ctx.update((st) => resignCurrentJob(st));
+                ctx.toast(`${label}을(를) 그만뒀어요`);
+                showChoices(); // 이 모달은 refresh로 재렌더 안 됨 — 본문을 직접 다시 그린다
+                ctx.refresh();
+              },
+            }),
+        },
+        "퇴사",
+      );
+
+    // 회사원이 아닌 직업(택시·콜센터·다단계·강사·코치·미용실·AV)은 이직 개념이 없다 —
+    // 그만두는 길만 있으면 된다. 각자의 채용 경로로 다시 들어가면 그게 이직이다.
+    if (!emp && hasAnyJob(s)) {
+      return el("div", { class: "job-section" }, resignButton(currentJobLabel(s), false));
+    }
+
     if (emp) {
       const isNigl = emp.company === NIGL_COMPANY;
 
@@ -1080,27 +1123,7 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
             },
             changeLabel,
           ),
-          el(
-            "button",
-            {
-              class: "btn btn--ghost",
-              style: "flex:none",
-              onclick: () =>
-                confirmPurchase(ctx, {
-                  title: "퇴사",
-                  message: `'${emp.company}'을(를) 정말 퇴사할까요? 월급·복지가 끊기고 무직이 됩니다.`,
-                  confirmLabel: "퇴사한다",
-                  cancelLabel: "취소",
-                  onConfirm: () => {
-                    ctx.update((st) => quitCurrentJob(st));
-                    ctx.toast(`${emp.company}을(를) 퇴사했어요`);
-                    showChoices(); // 이 모달은 refresh로 재렌더 안 됨 — 본문을 직접 다시 그린다
-                    ctx.refresh();
-                  },
-                }),
-            },
-            "퇴사",
-          ),
+          resignButton(emp.company, true),
         ),
       );
     }
@@ -1143,14 +1166,18 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
       );
     }
 
+    // 자발적 퇴사로 생긴 경력 공백 — 남은 일수를 알려준다(왜 못 누르는지 모르면 버그로 보인다).
+    const gap = jobGapRemaining(s);
     const weekday = isWeekday(s.day);
     const appliedToday = s.lastJobBoardDay === s.day;
-    const canApply = weekday && !appliedToday;
-    const label = !weekday
-      ? "취업 (평일에만 지원 가능)"
-      : appliedToday
-        ? "취업 (오늘은 이미 지원함)"
-        : "취업 — 채용공고 보기";
+    const canApply = weekday && !appliedToday && gap === 0;
+    const label = gap > 0
+      ? `취업 (경력 공백 ${gap}일 남음)`
+      : !weekday
+        ? "취업 (평일에만 지원 가능)"
+        : appliedToday
+          ? "취업 (오늘은 이미 지원함)"
+          : "취업 — 채용공고 보기";
 
     return el(
       "div",

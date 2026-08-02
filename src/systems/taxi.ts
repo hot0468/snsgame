@@ -15,7 +15,7 @@ import {
   type TaxiPassenger,
 } from "@/data/taxi";
 import { LATE_SLOT } from "@/core/state";
-import { hasAnyJob, quitCurrentJob } from "./employment";
+import { hasAnyJob, inJobGap, quitCurrentJob } from "./employment";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
 import { clampMental, clampResource, gainSkill } from "./stats";
 import { recordMission } from "./missions";
@@ -47,9 +47,9 @@ export function isDeluxeTaxi(state: GameState): boolean {
   return state.certifications.includes(TAXI_DELUXE_CERT);
 }
 
-/** 지금 달빛운수에 지원할 수 있는지(이미 기사이거나 면허가 없으면 불가). */
+/** 지금 달빛운수에 지원할 수 있는지(이미 기사·면허 없음·경력 공백 중이면 불가). */
 export function canApplyTaxi(state: GameState): boolean {
-  return !state.gameOver && !state.taxiJob && hasTaxiLicense(state);
+  return !state.gameOver && !state.taxiJob && hasTaxiLicense(state) && !inJobGap(state);
 }
 
 /**

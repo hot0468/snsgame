@@ -1,6 +1,6 @@
 import type { Email, GameState } from "@/core/types";
 import { uid } from "@/utils/random";
-import { hasAnyJob, quitCurrentJob } from "./employment";
+import { hasAnyJob, inJobGap, quitCurrentJob } from "./employment";
 import { clampMental, gainSkill, skillTo100 } from "./stats";
 import { addSchedule } from "./time";
 import { JOB_ID, markJobExperienced } from "./jobExperience";
@@ -79,9 +79,9 @@ export function meetsLecturerBar(state: GameState): boolean {
   return state.skills.knowledge >= LECTURER_REQ_KNOWLEDGE;
 }
 
-/** 지금 강사 신청을 넣을 수 있는지(이미 강사이거나 다른 직업이 있으면 불가). */
+/** 지금 강사 신청을 넣을 수 있는지(이미 강사·다른 직업 보유·경력 공백 중이면 불가). */
 export function canApplyLecturer(state: GameState): boolean {
-  return !state.gameOver && !state.lecturerJob && !hasAnyJob(state);
+  return !state.gameOver && !state.lecturerJob && !hasAnyJob(state) && !inJobGap(state);
 }
 
 /* ─────────────────── 지원 → 익일 결과 메일 ─────────────────── */
