@@ -18,6 +18,10 @@ import {
   BODY_PROFILE_DAYS,
   BODY_PROFILE_FEE,
   BINGE_MENTAL_THRESHOLD,
+  BINGE_CHANCE_MAX,
+  BINGE_IDLE_DAYS,
+  bingeChance,
+  idleWorkoutDays,
   gainBodyGauge,
   resolveBodyProfile,
   rollBinge,
@@ -123,26 +127,57 @@ describe("바디프로필 도전", () => {
     expect(poor.bodyProfile).toBeNull();
   });
 
-  it("정신력이 문턱 이상이면 고칼로리 유혹이 절대 뜨지 않는다", () => {
+  /**
+   * ⚠️ 유혹 트리거는 **정신력에서 무운동 일수로 바뀌었다.**
+   *    옛 트리거(정신력 <45)로는 한 판도 안 터졌다 — 도전 30일 동안 알바·물류·교양처럼
+   *    정신력을 깎는 활동을 섞어 돌려도 최저 정신력이 평균 96이었다(아침 회복 +20 ·
+   *    쉬기 +30이 활동당 −8~−14을 압도한다). 정신력은 이 축의 손잡이가 될 수 없다.
+   */
+  it("어제 운동했으면 유혹이 절대 뜨지 않는다 — 정신력이 바닥이어도", () => {
     const s = started();
-    s.resources.mental = BINGE_MENTAL_THRESHOLD;
+    s.resources.mental = 1;
+    gainBodyGauge(s, 1); // 오늘 운동함 → 무운동 0일
+    expect(bingeChance(s)).toBe(0);
     for (let i = 0; i < 200; i++) expect(rollBinge(s)).toBeNull();
     expect(s.bodyProfile?.binges).toBe(0);
   });
 
-  it("정신력이 낮으면 유혹이 뜨고 게이지가 깎인다", () => {
+  it("운동을 이틀 이상 쉬면 유혹이 뜨고 게이지가 깎인다", () => {
     const s = started();
     gainBodyGauge(s, 1);
     gainBodyGauge(s, 1);
     gainBodyGauge(s, 1);
     const before = s.bodyProfile!.gauge;
-    s.resources.mental = 5;
+    s.day += BINGE_IDLE_DAYS; // 이틀 쉼
+    expect(idleWorkoutDays(s)).toBe(BINGE_IDLE_DAYS);
+    expect(bingeChance(s)).toBeGreaterThan(0);
     let fired = 0;
     for (let i = 0; i < 200 && fired === 0; i++) {
       if (rollBinge(s)) fired++;
     }
     expect(fired, "200번 굴려도 유혹이 한 번도 안 떴다").toBe(1);
     expect(s.bodyProfile!.gauge).toBeLessThan(before);
+  });
+
+  it("오래 쉴수록 확률이 오르고, 정신력이 낮으면 더 오른다", () => {
+    const two = started();
+    two.day += BINGE_IDLE_DAYS;
+    const five = started();
+    five.day += BINGE_IDLE_DAYS + 3;
+    expect(bingeChance(five)).toBeGreaterThan(bingeChance(two));
+
+    const drained = started();
+    drained.day += BINGE_IDLE_DAYS;
+    drained.resources.mental = BINGE_MENTAL_THRESHOLD - 1;
+    expect(bingeChance(drained)).toBeGreaterThan(bingeChance(two));
+  });
+
+  it("확률이 1이 되지는 않는다 — 쉬는 순간 무조건이면 선택이 사라진다", () => {
+    const s = started();
+    s.day += 100;
+    s.resources.mental = 0;
+    expect(bingeChance(s)).toBeLessThanOrEqual(BINGE_CHANCE_MAX);
+    expect(BINGE_CHANCE_MAX).toBeLessThan(1);
   });
 
   it("게이지를 다 채우면 성공, 모자라면 무산 — 둘 다 도전이 종료된다", () => {

@@ -423,9 +423,23 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   state.punishTweetsPosted ??= 0;
   state.pendingJobAdult ??= null;
   state.pendingCoachChampion ??= null;
+  state.jobRankSeen ??= {};
+  state.pendingJobRank ??= null;
+  state.careerPeaks ??= [];
   state.blackmail ??= null;
   state.jobCareer ??= {};
   state.affair ??= null;
+  state.pendingDecay ??= null;
+  state.popularity ??= { lastMonth: -1, rank: null, prevRank: null, followers: 0, best: null };
+  state.pendingPopularity ??= false;
+  state.authorRank ??= null;
+  state.pendingAuthorRank ??= false;
+  state.awardsHeld ??= {};
+  state.pendingAwards ??= null;
+  state.pendingYearReview ??= false;
+  state.donatedTotal ??= 0;
+  state.donatedCount ??= 0;
+  state.awardsWon ??= [];
   if (!Array.isArray(state.yabamProductsOwned)) state.yabamProductsOwned = [];
   if (!Array.isArray(state.seenWorks)) state.seenWorks = [];
   state.creationTweetCount ??= 0;
@@ -498,6 +512,7 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   // 산책 장소도 신규 필드 — 구세이브엔 키가 없다(아무것도 발견 안 한 상태가 정답).
   if (!Array.isArray(state.walkPlaces)) state.walkPlaces = [];
   state.streamCount ??= 0;
+  state.savannaCount ??= 0;
   if (!state.streamBests || typeof state.streamBests !== "object") state.streamBests = {};
   if (!state.streamNames || typeof state.streamNames !== "object") state.streamNames = {};
   // 인형 도감·재고도 같은 취급(구세이브엔 키가 없다).

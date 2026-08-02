@@ -903,6 +903,20 @@ export interface AdOffer {
 
 /** 피메일 수신함의 메일 한 통 */
 export interface Email {
+  /**
+   * 갈래 협찬 제안이면 그 내용(수락/거절 버튼이 붙는다). responded면 버튼이 사라진다.
+   * 한 갈래를 깊게 판 사람에게만 온다 — systems/genreSponsor.
+   */
+  sponsorOffer?: {
+    attr: AttributeId;
+    brand: string;
+    label: string;
+    money: number;
+    followers: number;
+    reputation: number;
+    controversyChance: number;
+    responded: boolean;
+  };
   id: string;
   from: string;
   subject: string;
@@ -1312,6 +1326,68 @@ export interface GameState {
    *    빠져나올 문이 매주 열려 있다는 게 이 서사의 축이다(data/affair.ts 참조).
    */
   affair: { meetCount: number; nextDay: number } | null;
+  /**
+   * 오늘 무활동으로 빠진 팔로워(계정 합계)와 가장 오래 쉰 일수. 없으면 null.
+   * ui가 팝업으로 알린 뒤 비운다 — 조용히 줄면 왜 안 느는지 알 수가 없다.
+   */
+  pendingDecay: { days: number; lost: number } | null;
+  /**
+   * 월간 인기 순위(말일 집계). rank는 1~100, 순위권 밖이면 null.
+   * lastMonth는 중복 집계 방지용 달 키(systems/calendar.monthKey).
+   */
+  popularity: {
+    lastMonth: number;
+    rank: number | null;
+    prevRank: number | null;
+    followers: number;
+    /** 역대 최고 순위(숫자가 작을수록 좋다). 아직 순위권에 든 적 없으면 null */
+    best: number | null;
+  };
+  /** 이번 달 순위가 새로 나왔고 아직 안 보여줬으면 true. ui가 발표 팝업을 띄우고 내린다 */
+  pendingPopularity: boolean;
+  /**
+   * 웹툰 플랫폼 월간 연재 순위(정산일 집계). rank는 1~50, 순위권 밖이면 null.
+   * 계약 전이거나 아직 한 번도 집계 안 됐으면 null.
+   */
+  authorRank: {
+    lastMonth: number;
+    rank: number | null;
+    prevRank: number | null;
+    score: number;
+    /** 그 달 연재 성실도 라벨(완주·정상 연재·휴재 등) */
+    diligence: string;
+    /** 역대 최고 순위(작을수록 좋다) */
+    best: number | null;
+  } | null;
+  /** 이번 달 연재 순위가 새로 나왔고 아직 안 보여줬으면 true */
+  pendingAuthorRank: boolean;
+  /** 해가 바뀔 때 찍어둔 분야별 누적치 — 지금과의 차이가 그 해 실적이다(systems/awards) */
+  yearStat?: { year: number; counts: Record<string, number> };
+  /** 시상식별로 마지막에 연 연도(중복 개최 방지) */
+  awardsHeld?: Record<string, number>;
+  /** 아직 안 본 시상식. ui가 팝업을 띄우고 resolveAwards가 비운다 */
+  pendingAwards: "media" | "work" | null;
+  /** 지금까지 기부한 총액(원) */
+  /** 새해 첫날의 팔로워 — 지난해 증감을 재는 기준선 */
+  yearOpenFollowers?: number;
+  /** 지난해 결산(1월 1일 팝업이 읽는다). 첫 해엔 없다 */
+  yearReview?: {
+    year: number;
+    followers: number;
+    followerGain: number;
+    money: number;
+    awards: number;
+    peaks: number;
+    bestRank: number | null;
+    donated: number;
+  };
+  /** 결산을 아직 안 보여줬으면 true */
+  pendingYearReview?: boolean;
+  donatedTotal?: number;
+  /** 기부 횟수(누적). 횟수 제한은 없고 기록·표시용이다 */
+  donatedCount?: number;
+  /** 수상 이력 — 연말에 뭘 받았는지가 그 해의 요약이다 */
+  awardsWon?: { year: number; id: string; label: string; grand: boolean }[];
   jobCareer?: Record<string, number>;
   jobsExperienced: string[];
   /** 킬러 직업(없으면 미취직). momo.com 서적요청 → DM 수락으로 생성. 초기 null */
@@ -1492,6 +1568,15 @@ export interface GameState {
    */
   pendingCoachChampion: number | null;
   /**
+   * 직업별로 이미 알린 경력 등급 계단(승급 감지 스냅샷). 키는 jobExperience.JOB_ID.
+   * ⚠️ 이 값을 임의로 올리면 그 계단의 승급 팝업이 영영 안 뜬다.
+   */
+  jobRankSeen?: Record<string, number>;
+  /** 아직 안 알린 승급. ui가 팝업을 띄우고 resolveJobPromotion이 비운다 */
+  pendingJobRank: { job: string; step: number } | null;
+  /** 정점(최고 등급)에 닿은 직업 id들 — 그만둬도 지워지지 않는 커리어 기록 */
+  careerPeaks?: string[];
+  /**
    * 굴러가는 중인 협박 건. 없으면 null.
    *
    * ⚠️ **한 번에 하나만이다.** 여러 건이 겹치면 어느 카드에 답한 건지 추적할 수 없다
@@ -1547,6 +1632,8 @@ export interface GameState {
   cookedDishes: string[];
   /** 누적 인방(라이브 방송) 횟수. 방송 진행 상태는 모달 지역 변수라 여기 없다 */
   streamCount: number;
+  /** 사바나 여캠 누적 방송 횟수 — 채널 등급(systems/jobRanks)의 근거 */
+  savannaCount?: number;
   /**
    * 방송 타입별 최고 시청자 기록(data/livestream.ts의 STREAM_TYPES id가 키).
    * raceBests(마라톤)와 같은 패턴 — 기록한 타입만 키가 있다.
@@ -1578,7 +1665,18 @@ export interface GameState {
    * 운동으로 gauge를 100까지 채우면 성공, 정신력이 낮을 때 휴식·외출·산책에서
    * 고칼로리 유혹이 터지면 gauge가 깎이고 binges가 는다. 판정은 startDay + BODY_PROFILE_DAYS.
    */
-  bodyProfile: { startDay: number; gauge: number; binges: number } | null;
+  bodyProfile: {
+    startDay: number;
+    gauge: number;
+    binges: number;
+    /**
+     * 마지막으로 운동한 날. 유혹 판정이 이걸 본다(며칠 쉬었나).
+     * 구세이브엔 없어서 읽는 쪽이 startDay로 폴백한다(systems/bodyProfile.idleWorkoutDays).
+     */
+    lastWorkoutDay?: number;
+    /** 마지막으로 유혹에 넘어간 날 — 하루에 한 번만 터지게 막는다(systems/bodyProfile.rollBinge) */
+    lastBingeDay?: number;
+  } | null;
   /** 이스터에그·특수 이벤트 추적 */
   eggs: EggState;
 

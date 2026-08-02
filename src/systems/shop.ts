@@ -269,17 +269,27 @@ export const PEEMANG_DAILY_COUNT = 6;
 /**
  * 오늘의 피망마켓 매물.
  *
- * ⚠️ 예전엔 `PEEMANG_ITEMS` **전체**를 항상 보여줬다(산 물건은 '거래완료'로 회색 처리).
- *    중고 직거래인데 목록이 영영 안 바뀌니 한 번 훑고 나면 다시 들어올 이유가 없었다.
- *    이제 매일 새로 뽑고, **이미 산 물건은 목록에서 내려간다**(팔린 매물이 남아 있을 이유가 없다).
+ * ⚠️ 예전엔 `PEEMANG_ITEMS` **전체**를 항상 보여줬다. 중고 직거래인데 목록이 영영 안 바뀌니
+ *    한 번 훑고 나면 다시 들어올 이유가 없었다. 그래서 매일 새로 뽑는다.
+ *
+ * ⚠️ **매대는 항상 꽉 채운다.** 처음엔 미보유 물건만 뽑았는데, 풀이 얕아서 아홉 개만 사면
+ *    여섯 장이 안 차고 다 사면 매대가 영영 비었다("물품이 안 채워져"). 동네에 내놓을 물건이
+ *    떨어질 리는 없으므로, 살 수 있는 것부터 채우고 **모자란 만큼만 이미 산 물건**으로 메운다
+ *    (화면에서 '거래완료'로 회색 처리되고 눌리지 않는다 — ui/peemang.listingCard).
  *
  * ⚠️ 날짜 해시로 **결정론적**으로 고른다 — 재렌더마다 목록이 바뀌면 누르려던 카드가
  *    손 밑에서 갈린다(dmReplyOptions가 같은 이유로 무작위 pick을 금지한다).
  */
 export function todayPeemangItems(state: GameState): ShopItem[] {
-  const unsold = PEEMANG_ITEMS.filter((it) => !state.ownedItems.includes(it.id));
-  const order = unsold
-    .map((_, i) => i)
-    .sort((a, b) => hashInt(`peemang:${state.day}:${a}`) - hashInt(`peemang:${state.day}:${b}`));
-  return order.slice(0, Math.min(PEEMANG_DAILY_COUNT, unsold.length)).map((i) => unsold[i]);
+  // 날짜 해시로 줄을 세운다(같은 날엔 항상 같은 순서).
+  const byDay = (items: ShopItem[]): ShopItem[] =>
+    [...items].sort(
+      (a, b) =>
+        hashInt(`peemang:${state.day}:${a.id}`) - hashInt(`peemang:${state.day}:${b.id}`),
+    );
+
+  const unsold = byDay(PEEMANG_ITEMS.filter((it) => !state.ownedItems.includes(it.id)));
+  const sold = byDay(PEEMANG_ITEMS.filter((it) => state.ownedItems.includes(it.id)));
+  // 살 수 있는 것부터 채우고, 모자란 만큼만 이미 산 물건으로 메운다.
+  return [...unsold, ...sold].slice(0, PEEMANG_DAILY_COUNT);
 }

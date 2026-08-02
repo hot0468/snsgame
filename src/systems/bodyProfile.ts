@@ -11,8 +11,9 @@ import { addSchedule } from "./time";
  *
  * 시작하면 30일 카운트다운과 바디게이지(0~100)가 생긴다.
  * - **운동**하면 게이지가 찬다(컨디션 등급 배율이 그대로 실린다).
- * - **정신력이 낮은 상태**로 휴식·외출·산책을 하면 고칼로리 유혹이 터져 게이지가 깎인다.
- *   → 컨디션 관리를 못 하면 아무리 운동해도 게이지가 안 는다. 그게 이 도전의 축이다.
+ * - **운동을 이틀 이상 쉰 뒤** 휴식·외출·산책을 하면 고칼로리 유혹이 터져 게이지가 깎인다.
+ *   → 며칠 몰아서 운동하고 나머지를 쉬는 플레이가 손해다. 꾸준함이 이 도전의 축이다.
+ *   (예전엔 '정신력이 낮으면'이었는데 실측상 한 판도 안 터졌다 — BINGE_IDLE_DAYS 주석 참조.)
  * - 30일째 아침(time.onNewDay)에 판정: 게이지가 가득 찼으면 촬영 성공 → 자동 트윗 + 팔로워 급증.
  *
  * 게이지 적립·유혹 롤은 `systems/offline.ts`가 활동 처리 중에 호출한다(단일 지점).
@@ -28,10 +29,31 @@ export const BODY_PROFILE_MIN_FITNESS = 250;
 export const BODY_GAUGE_MAX = 100;
 /** 운동 1회당 게이지 적립분(컨디션 등급 배율이 곱해진다) */
 export const BODY_GAUGE_PER_WORKOUT = 4;
-/** 이 정신력 미만이면 휴식·외출·산책에서 고칼로리 유혹이 뜬다 */
+/**
+ * **운동을 이 일수 이상 쉬면** 휴식·외출·산책에서 고칼로리 유혹이 뜬다.
+ *
+ * ⚠️ 예전 트리거는 정신력(<45)이었는데 **한 판도 안 터졌다.** 실측: 도전 30일 동안
+ *    알바·물류·교양처럼 정신력을 깎는 활동을 섞어 돌려도 최저 정신력이 평균 96이었다
+ *    (아침 회복 +20 · 쉬기 +30이 활동당 −8~−14을 압도한다). 문턱을 90쯤으로 올리지 않는 한
+ *    안 터지고, 90으로 올리면 이번엔 매번 터진다 — 정신력은 이 축의 손잡이가 될 수 없다.
+ *
+ *    그래서 축을 '**얼마나 쉬었나**'로 바꿨다. 바디프로필은 관리의 게임이고, 관리를 놓는 건
+ *    마음이 무너지는 게 아니라 그냥 안 나가는 것이다. 이 값은 실제로 매일 움직인다.
+ */
+export const BINGE_IDLE_DAYS = 2;
+/**
+ * 정신력이 이 값 미만이면 유혹 확률이 가산된다(주 트리거는 위의 무운동 일수).
+ * 컨디션 축을 완전히 버리지 않으려고 남긴 보조 손잡이다.
+ */
 export const BINGE_MENTAL_THRESHOLD = 45;
-/** 유혹이 뜰 확률 */
+/** 무운동 문턱을 막 넘겼을 때의 유혹 확률. */
 export const BINGE_CHANCE = 0.4;
+/** 무운동이 하루 더 길어질 때마다 붙는 확률 가산(상한 BINGE_CHANCE_MAX). */
+export const BINGE_CHANCE_PER_DAY = 0.12;
+/** 정신력이 문턱 미만일 때 붙는 가산. */
+export const BINGE_LOW_MENTAL_BONUS = 0.15;
+/** 유혹 확률 상한 — 1.0이면 쉬는 순간 무조건이라 선택이 사라진다. */
+export const BINGE_CHANCE_MAX = 0.8;
 /** 유혹에 넘어갔을 때 깎이는 게이지 */
 export const BINGE_PENALTY = 12;
 /** 고칼로리를 먹으면 정신력은 오히려 회복된다(그래서 유혹이다) */
@@ -75,7 +97,8 @@ export function startBodyProfile(state: GameState): "ok" | "busy" | "weak" | "po
   const can = canStartBodyProfile(state);
   if (can !== "ok") return can;
   state.money -= BODY_PROFILE_FEE;
-  state.bodyProfile = { startDay: state.day, gauge: 0, binges: 0 };
+  // lastWorkoutDay 초기값은 시작일 — 시작하자마자 "이틀 쉬었다"로 잡히면 억울하다.
+  state.bodyProfile = { startDay: state.day, gauge: 0, binges: 0, lastWorkoutDay: state.day };
   addSchedule(state, `바디프로필 촬영 예약 (${BODY_PROFILE_DAYS}일 뒤 촬영)`, "system");
   return "ok";
 }
@@ -97,20 +120,44 @@ export function gainBodyGauge(state: GameState, gradeMult: number): number {
   if (!bp) return 0;
   const before = bp.gauge;
   bp.gauge = Math.min(BODY_GAUGE_MAX, bp.gauge + Math.round(BODY_GAUGE_PER_WORKOUT * gradeMult));
+  // 운동한 날을 찍는다 — 유혹 판정이 이 값을 본다(며칠 쉬었나).
+  bp.lastWorkoutDay = state.day;
   return bp.gauge - before;
+}
+
+/** 운동을 며칠 쉬었는지(도전 중이 아니면 0). */
+export function idleWorkoutDays(state: GameState): number {
+  const bp = state.bodyProfile;
+  if (!bp) return 0;
+  return Math.max(0, state.day - (bp.lastWorkoutDay ?? bp.startDay));
+}
+
+/**
+ * 지금 쉬는 계열 활동을 하면 유혹이 터질 확률(0 ~ BINGE_CHANCE_MAX).
+ * 문턱 미만이면 0 — 어제 운동했으면 오늘 야식은 안 부른다.
+ */
+export function bingeChance(state: GameState): number {
+  const idle = idleWorkoutDays(state);
+  if (!state.bodyProfile || idle < BINGE_IDLE_DAYS) return 0;
+  const overdue = (idle - BINGE_IDLE_DAYS) * BINGE_CHANCE_PER_DAY;
+  const lowMental = state.resources.mental < BINGE_MENTAL_THRESHOLD ? BINGE_LOW_MENTAL_BONUS : 0;
+  return Math.min(BINGE_CHANCE_MAX, BINGE_CHANCE + overdue + lowMental);
 }
 
 /**
  * 고칼로리 유혹 판정(휴식·외출·산책 활동에서 호출).
- * 정신력이 BINGE_MENTAL_THRESHOLD 미만일 때만, BINGE_CHANCE로 터진다.
+ * **운동을 BINGE_IDLE_DAYS 이상 쉬었을 때** 터지고, 쉰 날이 길수록·정신력이 낮을수록 잦다.
  * 터지면 게이지가 깎이고 정신력이 조금 오른다 — 그래서 이게 '유혹'이다.
  * @returns 유혹 문구(안 터졌거나 도전 중이 아니면 null)
  */
 export function rollBinge(state: GameState): string | null {
   const bp = state.bodyProfile;
   if (!bp) return null;
-  if (state.resources.mental >= BINGE_MENTAL_THRESHOLD) return null;
-  if (Math.random() >= BINGE_CHANCE) return null;
+  // 하루에 한 번만. 하루 두 슬롯에서 다 터지면 게이지 24가 빠져 이중 처벌이 된다 —
+  // 실측상 그 상태로는 사흘에 한 번 운동하는 플레이가 최종 게이지 6으로 끝났다(사실상 몰수).
+  if (bp.lastBingeDay === state.day) return null;
+  if (Math.random() >= bingeChance(state)) return null;
+  bp.lastBingeDay = state.day;
   const before = bp.gauge;
   bp.gauge = Math.max(0, bp.gauge - BINGE_PENALTY);
   bp.binges += 1;
