@@ -407,6 +407,14 @@ export const ACHIEVEMENTS: Achievement[] = [
     condition: (s) => (s.callCenterJob?.bestStreak ?? 0) >= 8,
   },
   {
+    // 연속 기록(call_streak)이 '하루의 한계'라면 이건 '쌓인 시간'이다 — 다른 축이라 겹치지 않는다.
+    id: "call_200",
+    name: "목소리로 기억되는 사람",
+    desc: "콜센터에서 200통을 받아냈다. 이제 첫 마디만 들어도 무슨 말이 나올지 안다.",
+    emoji: "🎧",
+    condition: (s) => (s.callCenterJob?.totalCalls ?? 0) >= 200,
+  },
+  {
     id: "mlm_10",
     name: "실적판의 이름",
     desc: "제품을 10건 팔았다. 이사님이 처음으로 이름을 불러줬다.",
