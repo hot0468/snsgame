@@ -56,6 +56,7 @@ SNS로 팔로워 100만명을 모으는 TypeScript + Vite 텍스트 브라우저
 - 이미 이 대화에서 확인한 사실을 서브에이전트에 재발견시키지 말고, 프롬프트에 요약해 넘겨라.
 - **vitest는 `npx vitest run --pool=forks`로 실행하라.** 기본 pool은 간헐적으로 `Cannot read ... 'config'` 오탐을 낸다 — 그 에러로 "테스트 깨졌다" 단정 금지, forks로 재실행해 실제 숫자를 봐라.
 - **작업 중엔 파일을 지정해 돌리고(`npx vitest run --pool=forks src/__tests__/foo.test.ts`), 전체 스위트는 마무리 1회만.** 한 파일 고치고 47파일을 다시 돌리는 걸 반복하면 그것만으로 샌다.
+- **테스트 픽스처에 `as` 캐스팅을 쓰지 마라.** 직업·계약 상태(`Employment`·`CoachJob` 등)를 지어낼 때 `{...} as GameState["employment"]`로 쓰면 필드가 틀려도 typecheck를 통과하고 **런타임에서야 터진다**(`tier: 0`으로 썼다가 실제 타입은 `CompanyTier` 문자열이라 `TIERS[tier]`가 undefined). 전 필드를 실제 shape대로 채워라 — 그러면 타입이 오타를 대신 잡아준다.
 - **기존 계약을 먼저 확인하고 데이터를 늘려라.** 같은 종류의 데이터(고정 계정 문구·스탯·아이템)를 추가하기 전에 `src/__tests__/`에 그걸 감시하는 테스트가 있는지 본다 — 문구 30줄 하한 같은 계약을 모르고 14줄만 써서 실패-수정을 한 바퀴 더 돈 전적이 있다.
 
 **변경 이력:** 전문은 [docs/harness-changelog.md](docs/harness-changelog.md)에 있다(하네스를 수정하면 **그 파일 맨 위에** 기록하라). 최근 요약:
