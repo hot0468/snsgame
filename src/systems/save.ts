@@ -9,6 +9,7 @@ import {
   MORNING_SLOT,
   SLOTS_PER_DAY,
 } from "@/core/state";
+import { scheduleNextPrivateClub } from "./appointments";
 import { grantAttributeUnlockFloor, syncUnlockedAttributes } from "./attributeUnlock";
 import { backfillClaimedMilestones } from "./milestones";
 import { ensureMissions } from "./missions";
@@ -227,6 +228,12 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   state.estheticMember ??= false;
   state.estheticScamDay ??= 0;
   state.privateCrewJoined ??= false;
+  // 클럽 세션은 예전엔 러닝 정기런 자리에서 돌아 전용 일정이 없었다. 그때 가입한 세이브는
+  // 지금 코드에선 모임이 영영 안 열리므로(가입 시점에만 일정을 잡는다) 여기서 되살린다.
+  // ⚠️ 신규 가입은 joinPrivateCrew가 잡는다 — 여긴 **구세이브 백필 전용**이다.
+  if (state.privateCrewJoined && !state.appointments.some((a) => a.kind === "privateClub")) {
+    scheduleNextPrivateClub(state);
+  }
   state.groupRoomJoined ??= false;
   state.savannaJoined ??= false;
   state.lingerieContract ??= false;
