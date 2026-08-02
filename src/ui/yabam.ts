@@ -1,7 +1,6 @@
 import type { GameContext } from "./context";
 import type { YabamVideo, YabamProduct } from "@/data/yabam";
 import {
-  YABAM_VIDEOS,
   YABAM_PRODUCTS,
   YABAM_TOTO_BETS,
   YABAM_VIDEO_COST,
@@ -11,6 +10,7 @@ import {
   playYabamToto,
   buyYabamProduct,
   reviewYabamProduct,
+  visibleYabamVideos,
 } from "@/systems/yabam";
 import { getActiveAccount } from "@/core/state";
 import { imageForYabamVideo } from "@/data/yabamImages";
@@ -194,7 +194,12 @@ function videoSection(ctx: GameContext): HTMLElement {
       { class: "compose-hint", style: "margin:0 2px 12px" },
       "19세 미만 이용 불가. 영상을 결제하면 감상할 수 있어요. (음란·정신력↑, 도덕성↓)",
     ),
-    el("div", { class: "yabam__grid" }, ...YABAM_VIDEOS.map((v) => videoCard(ctx, v))),
+    // 취향 계열(minPervert)은 변태력이 열려야 목록에 뜬다 — 키우면 늘어나는 게 보여야 한다.
+    el(
+      "div",
+      { class: "yabam__grid" },
+      ...visibleYabamVideos(ctx.store.getState()).map((v) => videoCard(ctx, v)),
+    ),
   );
 }
 

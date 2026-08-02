@@ -18,6 +18,16 @@ export interface YabamVideo {
   tags: string[];
   /** 장식용 색상(hue 0~360) */
   hue: number;
+  /**
+   * 이 영상이 올려주는 **변태력**(없으면 0 — 음란만 오른다).
+   *
+   * ⚠️ 변태력은 '얼마나 야한가'가 아니라 '어느 방향인가'다. 그래서 아무 영상이나 준다고
+   *    올려선 안 되고, **취향이 뚜렷한 물건**에만 붙인다. 이게 없어서 변태력을 올릴
+   *    창구가 사실상 없었다(오프라인 조우·도서 정도뿐이었다).
+   */
+  pervert?: number;
+  /** 이 영상을 보려면 필요한 최소 변태력(취향이 안 맞으면 목록에 안 뜬다). */
+  minPervert?: number;
 }
 
 export interface YabamProduct {
@@ -43,6 +53,12 @@ export const YABAM_VIDEOS: YabamVideo[] = [
   { id: "yv6", title: "옆방이 너무 시끄러워", uploader: "벽너머채널", excerpt: "얇은 벽 너머로 들려오는 소리에 잠이 확 달아났다.", tags: ["상황극", "ASMR", "자극"], hue: 0 },
   { id: "yv7", title: "한여름 밤의 캠핑", uploader: "여름의끝", excerpt: "텐트 안, 땀이 밸 만큼 뜨거웠던 그날 밤의 기록.", tags: ["커플", "여름"], hue: 150 },
   { id: "yv8", title: "새벽 세 시의 초대", uploader: "심야초대장", excerpt: "잠들기 아까운 밤, 조용히 건네온 은근한 초대.", tags: ["상황극", "달달", "자극"], hue: 300 },
+  // ── 취향 계열(변태력이 오른다) ─────────────────────────────
+  // 앞의 8편은 음란만 올린다. 아래는 방향이 뚜렷한 물건이라 변태력을 준다.
+  { id: "yv9", title: "규율의 방", uploader: "가죽과사슬", excerpt: "무릎 꿇는 법부터 배웠다. 세는 소리가 틀리면 처음부터 다시.", tags: ["SM", "훈육", "하드"], hue: 340, pervert: 9 },
+  { id: "yv10", title: "목줄의 규칙", uploader: "계약서스튜디오", excerpt: "이름 대신 번호로 불린 하루. 허락 없이는 눈도 마주치지 못한다.", tags: ["주종", "복종", "하드"], hue: 260, pervert: 11 },
+  { id: "yv11", title: "묶인 채로 세 시간", uploader: "매듭공방", excerpt: "밧줄 자국이 사라질 때까지 그 자세를 기억하게 만든다.", tags: ["결박", "인내", "하드"], hue: 200, pervert: 12, minPervert: 60 },
+  { id: "yv12", title: "관객이 있는 방", uploader: "유리벽채널", excerpt: "보는 사람이 늘수록 얼굴이 붉어지는데, 멈춰달라는 말은 나오지 않았다.", tags: ["노출", "다수", "하드"], hue: 20, pervert: 14, minPervert: 120 },
 ];
 
 /** 성인용품 목록(6개, 완곡·유머 톤) */

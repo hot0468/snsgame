@@ -15,7 +15,7 @@ import {
 } from "@/systems/dm";
 import { isStoryOver, isStoryPending } from "@/systems/dmStory";
 import { canMeet, MEETING_ACTION_COST } from "@/systems/meeting";
-import { joinCrew } from "@/systems/crew";
+import { acceptPrivateClub, declinePrivateClub, joinCrew } from "@/systems/crew";
 import { joinGroupRoom } from "@/systems/groupRoom";
 import { canJoinGroupBuy, joinGroupBuy } from "@/systems/groupBuy";
 import { joinSavanna } from "@/systems/savanna";
@@ -1341,6 +1341,35 @@ function dmMeetButton(ctx: GameContext, thread: DMThread): HTMLElement | null {
           class: "btn btn--ghost",
           onclick: () => {
             ctx.update((s) => declineAvJob(s, thread.id));
+            ctx.toast("제의를 거절했어요.");
+          },
+        },
+        "거절한다",
+      ),
+    );
+  }
+  // 비공개 클럽(SM 규율) 초대: 가입/거절. 수락하면 매주 목요일 규율 세션이 열린다.
+  if (thread.privateClub) {
+    return el(
+      "div",
+      { class: "compose-actions", style: "gap:8px" },
+      el(
+        "button",
+        {
+          class: "btn",
+          onclick: () => {
+            ctx.update((s) => acceptPrivateClub(s, thread));
+            ctx.toast("비공개 클럽 가입 🔞 매주 목요일 세션이 열려요");
+          },
+        },
+        "들어간다",
+      ),
+      el(
+        "button",
+        {
+          class: "btn btn--ghost",
+          onclick: () => {
+            ctx.update((s) => declinePrivateClub(s, thread));
             ctx.toast("제의를 거절했어요.");
           },
         },

@@ -2,6 +2,7 @@ import type { AdultKind, GameState, PlayerAccount } from "@/core/types";
 import type { YabamVideo, YabamProduct } from "@/data/yabam";
 import {
   YABAM_VIDEO_COST,
+  YABAM_VIDEOS,
   YABAM_TOTO_WIN_CHANCE,
   TOTO_WIN_LINES,
   TOTO_LOSE_LINES,
@@ -45,13 +46,27 @@ export function viewYabamVideo(state: GameState, video: YabamVideo): YabamVideoR
   // 반복 감상 육성 — gainSkill 관문(정신력 배율·감쇠)을 거친다.
   // ⚠️ 문구에는 선언값(10)이 아니라 **실제 반영 델타**를 쓴다.
   const lewdGain = gainSkill(state, "lewd", YABAM_VIDEO_LEWD_GAIN);
+  // 취향 계열 영상만 변태력을 준다(video.pervert). 일반 영상은 0이라 문구에도 안 붙는다.
+  const pervertGain = video.pervert ? gainSkill(state, "pervert", video.pervert) : 0;
   state.resources.mental = clampMental(state, state.resources.mental + 5);
   state.resources.morality = clampResource(state.resources.morality - 2);
   // 한 편 감상에 시간 블록 1개를 소모한다(오프라인 활동·근무와 같은 결).
   advanceTime(state, 1);
   return {
-    message: `『${video.title}』을(를) 결제하고 몰래 감상했다. 야밤의 밤은 짧고 뜨겁다. 어느새 시간이 훌쩍 지났다. (음란 +${lewdGain} · 정신력 +5 · 도덕성 -2)`,
+    message:
+      `『${video.title}』을(를) 결제하고 몰래 감상했다. 야밤의 밤은 짧고 뜨겁다. 어느새 시간이 훌쩍 지났다. ` +
+      `(음란 +${lewdGain}${pervertGain > 0 ? ` · 변태력 +${pervertGain}` : ""} · 정신력 +5 · 도덕성 -2)`,
   };
+}
+
+/**
+ * 지금 목록에 보여줄 영상들 — `minPervert`가 걸린 취향 물건은 그만큼 열려야 뜬다.
+ *
+ * ⚠️ 안 뜨는 게 아니라 **아직 안 열린 것**이다. 변태력이 오르면 목록이 늘어나는 게
+ *    보여야 "이 축을 키우면 뭐가 나온다"는 감각이 생긴다.
+ */
+export function visibleYabamVideos(state: GameState): YabamVideo[] {
+  return YABAM_VIDEOS.filter((v) => state.skills.pervert >= (v.minPervert ?? 0));
 }
 
 export interface TotoResult {

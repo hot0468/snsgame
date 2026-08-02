@@ -1,7 +1,7 @@
 import type { GameContext } from "./context";
 import type { PushWork } from "@/data/pushtime";
 import { PUSH_VIEW_COST, PUSH_WORKS } from "@/data/pushtime";
-import { viewPushWork } from "@/systems/pushtime";
+import { viewPushWork, visiblePushWorks } from "@/systems/pushtime";
 import { el, formatNumber } from "@/utils/dom";
 import { icon } from "./icons";
 
@@ -174,7 +174,8 @@ function feed(ctx: GameContext): HTMLElement {
       { class: "pt__notice" },
       "19세 미만 이용 불가. 포스트를 결제하면 열람할 수 있어요. (음란·정신력↑, 도덕성↓)",
     ),
-    ...PUSH_WORKS.map((w) => postEntry(ctx, w)),
+    // 취향 계열(minPervert)은 변태력이 열려야 목록에 뜬다(야밤과 같은 규칙).
+    ...visiblePushWorks(ctx.store.getState()).map((w) => postEntry(ctx, w)),
   );
 }
 

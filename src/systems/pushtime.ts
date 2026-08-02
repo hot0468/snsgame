@@ -1,6 +1,6 @@
 import type { GameState } from "@/core/types";
 import type { PushWork } from "@/data/pushtime";
-import { PUSH_VIEW_COST } from "@/data/pushtime";
+import { PUSH_VIEW_COST, PUSH_WORKS } from "@/data/pushtime";
 import { getActiveAccount } from "@/core/state";
 import { chance, pick, uid } from "@/utils/random";
 import { clampMental, clampResource, gainSkill } from "./stats";
@@ -76,9 +76,18 @@ export function viewPushWork(state: GameState, work: PushWork): PushViewResult |
   state.money -= PUSH_VIEW_COST;
   // 반복 감상 육성 — gainSkill 관문을 거치고, 문구에는 실제 반영 델타를 쓴다.
   const lewdGain = gainSkill(state, "lewd", PUSH_VIEW_LEWD_GAIN);
+  // 취향 계열 작품만 변태력을 준다(야밤과 같은 규칙).
+  const pervertGain = work.pervert ? gainSkill(state, "pervert", work.pervert) : 0;
   state.resources.mental = clampMental(state, state.resources.mental + 5);
   state.resources.morality = clampResource(state.resources.morality - 2);
   return {
-    message: `『${work.title}』을(를) 결제하고 몰래 감상했다. 은밀한 만족감에 밤이 짧게 느껴진다. (음란 +${lewdGain} · 정신력 +5 · 도덕성 -2)`,
+    message:
+      `『${work.title}』을(를) 결제하고 몰래 감상했다. 은밀한 만족감에 밤이 짧게 느껴진다. ` +
+      `(음란 +${lewdGain}${pervertGain > 0 ? ` · 변태력 +${pervertGain}` : ""} · 정신력 +5 · 도덕성 -2)`,
   };
+}
+
+/** 지금 목록에 보여줄 작품들 — `minPervert`가 걸린 취향 물건은 그만큼 열려야 뜬다. */
+export function visiblePushWorks(state: GameState): PushWork[] {
+  return PUSH_WORKS.filter((w) => state.skills.pervert >= (w.minPervert ?? 0));
 }

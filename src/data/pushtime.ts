@@ -14,6 +14,10 @@ export interface PushWork {
   tags: string[];
   /** 장식용 색상(hue) */
   hue: number;
+  /** 이 작품이 올려주는 **변태력**(없으면 0 — 음란만 오른다). 야밤과 같은 규칙이다. */
+  pervert?: number;
+  /** 감상에 필요한 최소 변태력(취향이 안 맞으면 목록에 안 뜬다). */
+  minPervert?: number;
 }
 
 export const PUSH_WORKS: PushWork[] = [
@@ -25,6 +29,11 @@ export const PUSH_WORKS: PushWork[] = [
   { id: "pw6", title: "그의 손끝에서", circle: "오후세시", excerpt: "노곤한 오후, 낯선 그의 손길에 몸도 마음도 무너진다.", tags: ["BL", "상황극", "자극"], hue: 30 },
   { id: "pw7", title: "룸메이트와의 밤", circle: "심야방송국", excerpt: "한 방을 쓰는 남자 룸메이트. 밤이 깊을수록 둘 사이 거리도 좁아진다.", tags: ["BL", "동거", "슬로우번"], hue: 300 },
   { id: "pw8", title: "달아오른 여름 합숙", circle: "여름의끝", excerpt: "땀이 배도록 뜨거웠던, 그 녀석과의 그해 여름 합숙.", tags: ["BL", "여름", "청춘"], hue: 200 },
+  // ── 취향 계열(변태력이 오른다) ─────────────────────────────
+  { id: "pw9", title: "복종의 계절", circle: "붉은노트", excerpt: "형이라 부르던 사람 앞에 무릎을 꿇는 데 익숙해졌다.", tags: ["BL", "주종", "하드"], hue: 350, pervert: 9 },
+  { id: "pw10", title: "손끝의 규율", circle: "가죽과사슬", excerpt: "잘못을 세는 건 언제나 그의 몫이었고, 세는 소리는 늘 열을 넘겼다.", tags: ["BL", "훈육", "하드"], hue: 280, pervert: 11 },
+  { id: "pw11", title: "묶인 밤의 기록", circle: "매듭공방", excerpt: "풀어달라고 말할 수 있었는데, 끝까지 말하지 않았다.", tags: ["BL", "결박", "하드"], hue: 210, pervert: 12, minPervert: 60 },
+  { id: "pw12", title: "셋이서 나눈 겨울", circle: "심야방송국", excerpt: "한 명으로는 부족하다는 걸 그 겨울에 알았다.", tags: ["BL", "다수", "하드"], hue: 240, pervert: 14, minPervert: 120 },
 ];
 
 /** 작품 1편 감상(결제) 비용 */
