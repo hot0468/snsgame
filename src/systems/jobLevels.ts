@@ -4,6 +4,7 @@ import { COACH_STAT_TARGET, coachLevel, coachSalaryOf, teamStrength } from "./co
 import { avSalaryOf, AV_PAY_PER_DAY } from "./avJob";
 import { authorPayPerWork } from "./author";
 import { salaryOf } from "./employment";
+import { isDeluxeTaxi } from "./taxi";
 import { hasJobExperience } from "./jobExperience";
 import { jobRankOf, nextRankIn } from "@/data/jobs";
 
@@ -16,7 +17,12 @@ import { jobRankOf, nextRankIn } from "@/data/jobs";
  * 레벨의 근거는 직업마다 **이미 저장돼 있던 누적값**이다(레벨용 새 필드를 만들지 않는다):
  * - 회사원: 성과 레벨(`employment.perfLevel`) = 직급. 유일하게 월급에 직접 연동된 기존 레벨.
  * - 강사: 누적 수업 ÷ 5 · AV배우: 누적 근무 ÷ 5 · 청부업: 완료 임무 ÷ 5
+ * - 택시: 누적 운행 ÷ 5 · 콜센터: 누적 콜 ÷ 5 · 다단계: 판매 건수 ÷ 5 · 헤어: 누적 시술 ÷ 5
  * - 웹툰작가: 정산 개월수(연차)
+ *
+ * ⚠️ **새 직업을 만들면 여기 카탈로그와 `unlockedDetail` 케이스를 같이 추가하라.**
+ *    `JOB_ID`에 넣고 `markJobExperienced`만 부르면 이력은 쌓이는데 도감엔 칸조차 안 생긴다
+ *    (택시·콜센터·다단계·헤어 넷이 실제로 그 상태로 방치돼 있었다). 회귀 테스트가 감시한다.
  *
  * ⚠️ **알바는 여기 넣지 않는다.** 알바는 계약도 재직도 없는 단발 활동이라 '직업'이 아니고,
  *    넣으면 도감의 절반이 알바로 채워져 진짜 직업 진행도가 묻힌다(사용자 확정).
@@ -91,6 +97,30 @@ export const JOB_CATALOG: JobCatalogEntry[] = [
     emoji: "🏐",
     label: "배구부 코치",
     hint: "몸을 꾸준히 만들면 학교에서 섭외 카톡이 온다",
+  },
+  {
+    id: "taxi",
+    emoji: "🚕",
+    label: "택시 기사",
+    hint: "면허를 딴 뒤 네이놈에서 '택시'를 찾아 지원한다",
+  },
+  {
+    id: "callCenter",
+    emoji: "🎧",
+    label: "콜센터 상담원",
+    hint: "네이놈에서 '콜센터'를 찾아 지원한다 (자격 조건이 없다)",
+  },
+  {
+    id: "mlm",
+    emoji: "💎",
+    label: "다단계 사업자",
+    hint: "어떤 계정이 보내온 사업 설명회 제의를 받아들이면 시작된다",
+  },
+  {
+    id: "stylist",
+    emoji: "✂️",
+    label: "헤어디자이너",
+    hint: "자격증을 딴 뒤 미용실에 들러 디자이너로 지원한다",
   },
   {
     id: "killer",
@@ -177,6 +207,53 @@ function unlockedDetail(state: GameState, id: string): { level: number; detail: 
         level: levelFromCount(k.completed),
         active: !!k.active,
         detail: `완료 ${k.completed}건 · 실패 ${k.fails}건 (건당 정산)`,
+      };
+    }
+    // 아래 넷은 레벨의 근거가 각자 다르다 — 그 직업이 '무엇을 쌓는가'를 그대로 쓴다.
+    // (운행 횟수 / 받아낸 콜 / 판매 건수 / 시술 횟수)
+    case "taxi": {
+      const t = state.taxiJob;
+      if (!t) return { level: 0, detail: "지금은 핸들을 놓았다 (이력 있음)", active: false };
+      return {
+        level: levelFromCount(t.totalRides),
+        active: true,
+        detail:
+          `누적 운행 ${t.totalRides}회 · 평점 ${Math.round(t.rating)}/100 · ` +
+          `누적 ${won(t.totalEarned)}` +
+          (isDeluxeTaxi(state) ? " · 모범택시" : ""),
+      };
+    }
+    case "callCenter": {
+      const c = state.callCenterJob;
+      if (!c) return { level: 0, detail: "헤드셋을 내려놓았다 (이력 있음)", active: false };
+      return {
+        level: levelFromCount(c.totalCalls),
+        active: true,
+        detail:
+          `누적 ${c.totalCalls}콜 · 최다 연속 ${c.bestStreak}콜 · 누적 ${won(c.totalEarned)}`,
+      };
+    }
+    case "mlm": {
+      const m = state.mlmJob;
+      if (!m) return { level: 0, detail: "그 일에서 손을 뗐다 (이력 있음)", active: false };
+      return {
+        level: levelFromCount(m.contracts),
+        active: true,
+        // 태운 지인 수를 숨기지 않는다 — 이 직업이 무엇을 대가로 삼는지가 곧 진행도다.
+        detail:
+          `판매 ${m.contracts}건 · 누적 ${won(m.totalCommission)} · ` +
+          `연락 끊긴 지인 ${m.burnedContacts.length}명`,
+      };
+    }
+    case "stylist": {
+      const st = state.stylistJob;
+      if (!st) return { level: 0, detail: "가위를 내려놓았다 (이력 있음)", active: false };
+      return {
+        level: levelFromCount(st.cuts),
+        active: true,
+        detail:
+          `누적 시술 ${st.cuts}회 · 단골 ${st.regulars}명 · 누적 ${won(st.totalEarned)}` +
+          (st.botched > 0 ? ` · 망친 시술 ${st.botched}회` : ""),
       };
     }
     default:
