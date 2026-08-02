@@ -1,4 +1,13 @@
 import type { GameContext } from "./context";
+import {
+  AFFAIR_ACTION_COST,
+  endAffair,
+  goAffairMeet,
+  type AffairMeetResult,
+} from "@/systems/affair";
+import { simpleResultModal } from "./sns/snsPages";
+import { clampAction } from "@/systems/stats";
+import { advanceTime } from "@/systems/time";
 import type { Appointment } from "@/core/types";
 import {
   CREW_RUN_ACTION_COST,
@@ -135,6 +144,8 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
           ? CLUB_SESSION_ACTION_COST
           : appt.kind === "groupRoom"
             ? GROUP_NIGHT_ACTION_COST
+            : appt.kind === "affair"
+              ? AFFAIR_ACTION_COST
             : 10;
     const canGo = action >= needAction;
 
@@ -153,6 +164,8 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
               ? "이번 주 에스테틱 방문일이다. 1만원 내고 관리받으면 꾸미기 매력이 더 잘 오른다. 오늘 다녀올까?"
               : appt.kind === "event"
               ? `오늘은 「${appt.title}」 날이다. 행사에 참여하러 갈까?`
+              : appt.kind === "affair"
+              ? affairPrompt(ctx)
               : `${appt.partnerName ?? "친구"}와 만나기로 한 날이다. 오늘 만나러 갈까?`;
 
     container.replaceChildren(
@@ -177,6 +190,7 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
               if (appt.kind === "lingerie") return handleLingerieGo();
               if (appt.kind === "study") return handleStudyGo(appt);
               if (appt.kind === "esthetic") return handleEstheticGo(appt);
+              if (appt.kind === "affair") return handleAffairGo();
               resolve(appt, true);
             },
           },
@@ -184,8 +198,12 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
         ),
         el(
           "button",
-          { class: "event-choice", onclick: () => resolve(appt, false) },
-          "오늘은 안 간다",
+          {
+            class: "event-choice",
+            // 외도의 '안 간다'는 단순 불참이 아니라 **관계를 끊는 선택**이다. 다시 안 잡힌다.
+            onclick: () => (appt.kind === "affair" ? handleAffairSkip() : resolve(appt, false)),
+          },
+          appt.kind === "affair" ? "안 나간다 (여기서 끝낸다)" : "오늘은 안 간다",
         ),
       ),
     );
@@ -504,6 +522,44 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
 
   /**
    * 에스테틱 정기 방문 "간다" 분기.
+   * 유부남 외도 — 회차마다 문구가 다르다. 몇 번째인지 보여줘야 "이제 그만"이 선택이 된다.
+   *
+   * ⚠️ 남은 횟수를 숫자로 알려주지 않는다. 4번째에 무슨 일이 나는지 미리 알려주면
+   *    그건 경고지 갈림길이 아니다. 대신 회차가 쌓일수록 문구가 무거워진다.
+   */
+  function affairPrompt(c: GameContext): string {
+    const next = (c.store.getState().affair?.meetCount ?? 0) + 1;
+    if (next === 1) return "그 사람이 잡은 첫 약속 날이다. 심야, 그가 보낸 방 번호가 문자로 와 있다. 나갈까?";
+    if (next === 2) return "또 그 요일이다. 문자는 방 번호 네 자리뿐이었다. 오늘도 나갈까?";
+    if (next === 3)
+      return "세 번째다. 이제 묻지 않아도 시간과 장소를 안다. 그만둘 거면 오늘이 나을 텐데, 나갈까?";
+    return "또 목요일이다. 이쯤 되면 이게 무엇으로 끝날지 스스로도 알고 있다. 그래도 나갈까?";
+  }
+
+  /** 외도 약속에 나간다 — 회차 씬을 보여주고, 4회차면 그대로 게임 오버로 이어진다. */
+  function handleAffairGo(): void {
+    let result: AffairMeetResult | null = null;
+    ctx.update((st) => {
+      st.resources.action = clampAction(st, st.resources.action - AFFAIR_ACTION_COST);
+      result = goAffairMeet(st);
+      advanceTime(st, 1);
+    });
+    if (!result) return ctx.closeModal();
+    const r = result as AffairMeetResult;
+    // 발각(게임 오버)이면 app이 게임 오버 화면을 띄우므로 여기선 씬만 보여주고 닫는다.
+    ctx.openModal(() => simpleResultModal(ctx, r.scene.title, r.scene.text));
+  }
+
+  /** 외도를 끊는다 — 다음 약속이 다시 잡히지 않는다. */
+  function handleAffairSkip(): void {
+    let line = "";
+    ctx.update((st) => {
+      line = endAffair(st);
+    });
+    ctx.openModal(() => simpleResultModal(ctx, "그만두기로 했다", line));
+  }
+
+  /**
    * resolveEsthetic이 방문비·매력·시간진행·다음 주 재예약을 모두 처리한다(study 패턴).
    */
   function handleEstheticGo(appt: Appointment): void {

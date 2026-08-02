@@ -1,3 +1,4 @@
+import { startAffair } from "./affair";
 import type { GameState, SkillStatId, Tweet } from "@/core/types";
 import { dominantAttribute, getActiveAccount, MORNING_SLOT, pushTimeline } from "@/core/state";
 import {
@@ -442,6 +443,11 @@ const CUSTOM_EFFECTS: Record<NonNullable<EventEffect["customKey"]>, (s: GameStat
   blackVanOrgy,
   crewGangDrill,
   mutualFollowDM,
+  // 유부남 외도 시작 — 매주 같은 요일 약속이 잡힌다. 로직은 systems/affair가 소유한다.
+  startAffair: (st) => {
+    startAffair(st);
+    return "";
+  },
 };
 
 /** 선언형 효과를 상태에 적용. customKey가 있으면 동적 결과 문구를 반환한다. */

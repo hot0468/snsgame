@@ -8,6 +8,13 @@ import { acceptCoachJob, SCHOOL_NAME } from "@/systems/coach";
 import { dateLabel } from "@/systems/time";
 import { el, formatNumber } from "@/utils/dom";
 import { avatar, icon } from "./icons";
+import {
+  acceptBlackmailMeet,
+  payBlackmail,
+  refuseBlackmail,
+} from "@/systems/blackmail";
+import type { BlackmailMeetScene } from "@/data/blackmail";
+import { simpleResultModal } from "./sns/snsPages";
 import { uid } from "@/utils/random";
 
 /** 카톡 토스트/모달에서 스레드를 찾는다. */
@@ -193,6 +200,68 @@ export function renderKakaoModal(ctx: GameContext, threadId: string): HTMLElemen
         "다음에...",
       );
       return [decline, accept];
+    }
+
+    /**
+     * 협박 카톡 — 요구가 돈이면 [보낸다], 만남이면 [만나러 간다], 공통으로 [거절한다].
+     *
+     * ⚠️ 거절은 **되돌릴 수 없다**(그 자리에서 유출된다). 그래서 확인 문구를 버튼 옆
+     *    hint로 붙이지 말고 결과 화면으로 보여준다 — 잘못 눌러 팔로워 25%가 날아가면
+     *    되돌릴 방법이 없다.
+     */
+    if (thread.blackmail) {
+      if (thread.blackmail.resolved) return [];
+      const demand = thread.blackmail.demand;
+      const amount = thread.blackmail.amount;
+
+      const comply = el(
+        "button",
+        {
+          class: "btn",
+          onclick: () => {
+            if (demand === "money") {
+              let ok = false;
+              ctx.update((s) => {
+                ok = payBlackmail(s, threadId);
+              });
+              if (!ok) {
+                ctx.toast(`소지금이 부족해요 (필요 ${formatNumber(amount)}원)`);
+                return;
+              }
+              ctx.toast(`${formatNumber(amount)}원을 보냈어요…`);
+              render();
+              return;
+            }
+            let scene: BlackmailMeetScene | null = null;
+            ctx.update((s) => {
+              scene = acceptBlackmailMeet(s, threadId);
+            });
+            if (scene) {
+              const sc = scene as BlackmailMeetScene;
+              ctx.openModal(() => simpleResultModal(ctx, sc.title, sc.text));
+              return;
+            }
+            render();
+          },
+        },
+        demand === "money" ? `${formatNumber(amount)}원을 보낸다` : "만나러 간다",
+      );
+
+      const refuse = el(
+        "button",
+        {
+          class: "btn btn--ghost",
+          onclick: () => {
+            let line = "";
+            ctx.update((s) => {
+              line = refuseBlackmail(s, threadId);
+            });
+            ctx.openModal(() => simpleResultModal(ctx, "유출", line));
+          },
+        },
+        "거절한다",
+      );
+      return [refuse, comply];
     }
 
     // 배구부 코치 섭외 — 수락하면 그 자리에서 부임한다(겸직 중이면 systems가 기존 직업을 정리한다).

@@ -13,6 +13,7 @@ import { deliverExamResultEmail } from "./certification";
 import { resolveContest } from "./contest";
 import { resolveRace } from "./marathon";
 import { resolveBodyProfile } from "./bodyProfile";
+import { maybeSpawnBlackmailDM } from "./blackmail";
 import { maybeSpawnTuckerDM, maybeStartTuckerLine } from "./lab";
 import {
   maybeOpenConsoleReview,
@@ -263,6 +264,8 @@ function onNewDay(state: GameState): void {
   maybeStealCrimsonEye(state);
   // 낡은 게임기 보유 + 9월 10일이면 리뷰 트윗 선택창 예약
   maybeOpenConsoleReview(state);
+  // 협박 카톡 도착일(강압 씬에서 씨가 심긴 뒤 며칠 후) — 돈/만남/거절 카드가 붙어 온다
+  maybeSpawnBlackmailDM(state);
   // 스팸(피싱) 메일이 간간이 온다
   maybeSpawnSpamEmail(state);
   // 쇼핑몰 광고 메일(50% 특가, 당일 한정)이 드물게 온다

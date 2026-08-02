@@ -5,6 +5,8 @@ import {
   type JobAdultId,
   type JobAdultScene,
 } from "@/data/jobAdult";
+import { PERVERT_COERCIVE_MIN } from "./adultOffline";
+import { seedBlackmail } from "./blackmail";
 import { clampMental, clampResource, gainSkill } from "./stats";
 import { addSchedule } from "./time";
 import { chance } from "@/utils/random";
@@ -37,11 +39,25 @@ export function jobSceneFor(state: GameState, job: JobAdultId): JobAdultScene | 
   if (!state.adultMode) return null;
   for (const s of JOB_ADULT_SCENES) {
     if (s.job !== job) continue;
+    // '강압/범죄 안 보기'를 켜면 비합의 씬은 통째로 건너뛴다 — 풀이 강도 내림차순이라
+    // 자연히 그 아래 합의 씬으로 내려간다(현생 성인 조우와 같은 규칙).
+    if (s.coercive && state.adultNoCoercion) continue;
     if (state.skills.lewd < s.minLewd) continue;
-    if (state.skills.pervert < (s.minPervert ?? 0)) continue;
+    if (state.skills.pervert < pervertGate(s)) continue;
     return s;
   }
   return null;
+}
+
+/**
+ * 이 씬이 요구하는 변태력. 명시된 `minPervert`가 최우선이고, 없으면 강압 씬은
+ * 현생 성인 조우와 **같은** 기본 문턱을, 일반 씬은 0을 쓴다.
+ *
+ * ⚠️ 문턱을 data에 적지 않고 여기서 거는 이유: 두 축(현생 조우·직업 씬)이 갈라지면
+ *    "택시 강압은 250인데 골목 강압은 300"처럼 플레이어가 외워야 할 게 늘어난다.
+ */
+export function pervertGate(s: JobAdultScene): number {
+  return s.minPervert ?? (s.coercive ? PERVERT_COERCIVE_MIN : 0);
 }
 
 /**
@@ -78,5 +94,7 @@ export function resolveJobScene(state: GameState): void {
   state.resources.mental = clampMental(state, state.resources.mental + scene.mentalDelta);
   state.resources.morality = clampResource(state.resources.morality + scene.moralityDelta);
   if (scene.money) state.money += scene.money;
+  // 촬영이 언급된 씬이면 협박의 씨를 심는다 — 며칠 뒤 카톡으로 돌아온다.
+  if (scene.filmed) seedBlackmail(state, scene.filmed);
   addSchedule(state, scene.title.replace("🔞 ", ""), "offline");
 }

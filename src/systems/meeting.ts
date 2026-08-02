@@ -1,3 +1,4 @@
+import { AFFAIR_SCENARIO_ID } from "@/data/affair";
 import type { AdultKind, DMThread, GameState } from "@/core/types";
 import { getActiveAccount } from "@/core/state";
 import { MEETING_SCENARIOS, type MeetingScenario } from "@/data/meetings";
@@ -413,6 +414,12 @@ export function pickMeetingScenario(state: GameState, thread: DMThread): Meeting
     if (sc.adultOnly && !allowAdult) return false;
     if (sc.attribute && sc.attribute !== thread.attribute) return false;
     if (sc.minAdultTweets && state.adultTweetsPosted < sc.minAdultTweets) return false;
+    // 음란 높음 + 도덕성 낮음 두 게이트. 선을 넘는 갈림길이 붙은 시나리오 전용이다 —
+    // 한쪽만 보면 "야한 플레이어면 누구나 걸리는 함정"이 되어 도덕성 축이 죽는다.
+    if (sc.minLewd != null && state.skills.lewd < sc.minLewd) return false;
+    if (sc.maxMorality != null && state.resources.morality > sc.maxMorality) return false;
+    // 외도는 **한 번만** 굴러간다 — 이미 진행 중이면 입구를 다시 열지 않는다.
+    if (sc.id === AFFAIR_SCENARIO_ID && state.affair) return false;
     return true;
   });
 

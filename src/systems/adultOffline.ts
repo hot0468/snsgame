@@ -11,6 +11,7 @@ import {
   type AdultOfflineEncounterId,
   type OfflineActivityId,
 } from "@/data/adultOffline";
+import { seedBlackmail } from "./blackmail";
 import { applyEffect } from "./events";
 import { gainSkill } from "./stats";
 import { addSchedule } from "./time";
@@ -38,6 +39,19 @@ function pervertGate(e: { minPervert?: number; coercive?: boolean }): number {
 }
 
 /**
+ * `requires`가 요구하는 처지를 지금 만족하는가.
+ *
+ * ⚠️ **data의 `requires` 유니온에 값을 추가하면 여기 분기도 같이 추가하라.**
+ *    빠뜨리면 그 조우는 typecheck를 통과한 채 영영 후보에 안 들어간다
+ *    (`adultOffline.test.ts`가 유니온과 이 함수의 짝을 감시한다).
+ */
+export function meetsRequirement(state: GameState, requires?: "savanna"): boolean {
+  if (!requires) return true;
+  if (requires === "savanna") return state.savannaJoined;
+  return false;
+}
+
+/**
  * 현재 상태·활동에 맞는 성인 조우 하나를 확률적으로 고른다.
  * 성인 모드가 아니거나 후보/확률 실패 시 null.
  */
@@ -50,6 +64,7 @@ export function rollAdultOfflineEncounter(
 
   const candidates = ADULT_OFFLINE_ENCOUNTERS.filter((e) => {
     if (!e.activities.includes(activityId as OfflineActivityId)) return false;
+    if (!meetsRequirement(state, e.requires)) return false;
     // 2축 게이트: 음란(얼마나 야한가)과 변태력(어느 방향인가)을 **둘 다** 넘어야 뜬다.
     if (state.skills.lewd < e.minLewd) return false;
     if (state.skills.pervert < pervertGate(e)) return false;
@@ -96,6 +111,8 @@ export function resolveAdultOfflineEncounter(
   if (choice.unlockGroup) {
     getActiveAccount(state).groupUnlocked = true;
   }
+  // 촬영이 언급된 선택이면 협박의 씨를 심는다 — 며칠 뒤 카톡으로 돌아온다(systems/blackmail).
+  if (choice.filmed) seedBlackmail(state, choice.filmed);
   addSchedule(state, `현생 조우: ${enc.title}`, "offline");
   // customKey가 동적 문구를 주면 그쪽 우선(현재 성인 조우는 정적 result 위주)
   if (typeof dynamic === "string" && dynamic.length > 0) return dynamic;

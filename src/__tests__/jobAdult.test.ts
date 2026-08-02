@@ -10,8 +10,10 @@ import {
   jobAdultSceneById,
   jobSceneFor,
   maybeQueueJobScene,
+  pervertGate,
   resolveJobScene,
 } from "@/systems/jobAdult";
+import { PERVERT_COERCIVE_MIN } from "@/systems/adultOffline";
 import { JOB_CATALOG } from "@/systems/jobLevels";
 import type { GameState } from "@/core/types";
 
@@ -97,11 +99,66 @@ describe("게이트", () => {
   });
 
   it("각 직업 풀이 강도 내림차순이다", () => {
+    // ⚠️ **선언된 minPervert가 아니라 `pervertGate`(실효 문턱)로 잰다.** 강압 씬은 문턱을
+    //    data에 안 적고 systems가 PERVERT_COERCIVE_MIN을 건다 — 선언값만 보면 0으로 읽혀
+    //    "가장 약한 씬이 맨 앞"으로 오해된다(실제로 그렇게 짰다가 이 테스트가 잡았다).
     for (const job of JOBS) {
       const keys = JOB_ADULT_SCENES.filter((s) => s.job === job).map(
-        (s) => s.minLewd + (s.minPervert ?? 0),
+        (s) => s.minLewd + pervertGate(s),
       );
       expect(keys, job).toEqual([...keys].sort((a, b) => b - a));
+    }
+  });
+});
+
+describe("강압 씬", () => {
+  /**
+   * 강압(coercive) 씬은 현생 성인 조우와 **같은 두 규칙**을 따라야 한다:
+   *  1) '강압/범죄 안 보기'(adultNoCoercion)를 켜면 안 뜬다.
+   *  2) 변태력 문턱은 PERVERT_COERCIVE_MIN — 음란만 높다고 굴러오지 않는다.
+   * 직업 씬만 규칙이 다르면 "택시는 250인데 골목은 300"을 외워야 한다.
+   */
+  const coerciveJobs = [...new Set(JOB_ADULT_SCENES.filter((s) => s.coercive).map((s) => s.job))];
+
+  it("여섯 직업 전부에 강압 씬이 있다", () => {
+    expect(coerciveJobs.sort()).toEqual([...JOBS].sort());
+  });
+
+  it("변태력이 강압 문턱에 못 미치면 안 뜬다 — 음란이 만렙이어도", () => {
+    const s = adult(999, PERVERT_COERCIVE_MIN - 1);
+    for (const job of JOBS) {
+      expect(jobSceneFor(s, job)?.coercive ?? false, job).toBe(false);
+    }
+  });
+
+  it("문턱을 넘으면 강압 씬이 가장 먼저 잡힌다 — 풀의 맨 위 등급이다", () => {
+    const s = adult(999, 999);
+    for (const job of JOBS) {
+      expect(jobSceneFor(s, job)?.coercive, job).toBe(true);
+    }
+  });
+
+  it("'강압/범죄 안 보기'를 켜면 합의 씬으로 내려간다 — 씬이 통째로 사라지지 않는다", () => {
+    const s = adult(999, 999);
+    s.adultNoCoercion = true;
+    for (const job of JOBS) {
+      const scene = jobSceneFor(s, job);
+      expect(scene, `${job}: 강압을 껐더니 씬이 아예 없어졌다`).not.toBeNull();
+      expect(scene!.coercive ?? false, job).toBe(false);
+    }
+  });
+
+  it("강압 씬은 돈을 벌어다 주지 않는다 — 대가로 받는 자리가 아니다", () => {
+    for (const s of JOB_ADULT_SCENES.filter((x) => x.coercive)) {
+      expect(s.money ?? 0, s.id).toBe(0);
+    }
+  });
+
+  it("강압 씬은 정신력을 크게 깎는다 — 합의 씬보다 무겁다", () => {
+    const consent = JOB_ADULT_SCENES.filter((s) => !s.coercive);
+    const worstConsent = Math.min(...consent.map((s) => s.mentalDelta));
+    for (const s of JOB_ADULT_SCENES.filter((x) => x.coercive)) {
+      expect(s.mentalDelta, s.id).toBeLessThan(worstConsent);
     }
   });
 });

@@ -91,7 +91,37 @@ describe("시나리오 풀", () => {
     // 두 모임의 시나리오가 한쪽만 얇으면 같은 게임 안에서 밀도가 튄다.
     const avg =
       CLUB_SCENARIOS.reduce((a, s) => a + s.pages.join("").length, 0) / CLUB_SCENARIOS.length;
-    expect(Math.round(avg), "편당 평균 본문이 800자는 넘어야 한다").toBeGreaterThan(800);
+    // 800 → 1000: 도구·착탄 묘사를 넣으면서 실측 평균이 889 → 1174가 됐다.
+    // 새 편이 그 밑으로 오면 묘사를 빼먹은 것이다.
+    expect(Math.round(avg), "편당 평균 본문이 1000자는 넘어야 한다").toBeGreaterThan(1000);
+  });
+
+  it("편마다 도구를 이름으로 세운다 — '도구가 닿았다'로 뭉개지 않는다", () => {
+    // "도구묘사와 맞는 순간 묘사가 거의 없다"는 지적 뒤에 넣은 계약이다. 도구를 추상명사
+    // '도구'로만 부르면 20편이 전부 같은 글이 된다. 어휘는 data/privateClub.ts 상단 목록을
+    // 재사용하라 — 새 이름을 남발하면 같은 방이라는 감각이 깨진다.
+    const TOOLS = [
+      "패들", "회초리", "스트랩", "태우스", "크롭", "플로거",
+      "벨트", "브러시", "맨손", "손바닥", "나무 자", "얼음",
+    ];
+    for (const sc of CLUB_SCENARIOS) {
+      const body = sc.pages.join("") + sc.choices.map((c) => c.result).join("");
+      expect(
+        TOOLS.some((t) => body.includes(t)),
+        `${sc.id}: 도구를 이름으로 부르는 대목이 없다`,
+      ).toBe(true);
+    }
+  });
+
+  it("도구가 한쪽에 몰리지 않는다 — 매주 같은 걸 맞으면 정기 세션이 아니다", () => {
+    const named = new Set<string>();
+    for (const sc of CLUB_SCENARIOS) {
+      const body = sc.pages.join("");
+      for (const t of ["패들", "회초리", "스트랩", "태우스", "크롭", "플로거", "브러시", "얼음"]) {
+        if (body.includes(t)) named.add(t);
+      }
+    }
+    expect(named.size, "20편이 쓰는 도구가 너무 적다").toBeGreaterThanOrEqual(6);
   });
 
   it("모든 선택지가 음란을 올린다 — 변태력 파생이 lewd에 걸려 있다", () => {

@@ -39,6 +39,8 @@ export interface EventEffect {
     | "lottery"
     | "sponsorDeal"
     | "taxPay"
+    /** 유부남 외도 시작 — 매주 같은 요일 약속이 잡힌다(systems/affair.startAffair) */
+    | "startAffair"
     | "taxDodge"
     | "whaleOrgy"
     | "blackVanOrgy"
