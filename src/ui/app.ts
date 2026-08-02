@@ -20,6 +20,17 @@ import { renderLoanModal } from "./loanModal";
 import { isWorkNow } from "@/systems/employment";
 import { renderWorkModal } from "./workModal";
 import { isCoachWorkNow } from "@/systems/coach";
+import {
+  isAlumniDay,
+  isCampOfferDay,
+  isNationalAfterDay,
+  nationalAfterpartyScene,
+} from "@/systems/coachCamp";
+import {
+  renderAlumniModal,
+  renderCoachCampModal,
+  renderNationalAfterpartyModal,
+} from "./coachCampModal";
 import { isMlmWorkNow } from "@/systems/mlm";
 import { renderMlmModal } from "./mlmModal";
 import { renderCoachModal } from "./coachModal";
@@ -205,6 +216,16 @@ export function createApp(root: HTMLElement, store: Store): void {
         ui.modal = (c) => renderLabModal(c);
       } else if (isWorkNow(state)) {
         ui.modal = (c) => renderWorkModal(c);
+      } else if (isCampOfferDay(state)) {
+        // 여름 합숙 제안 — 8월 대회 다음 날. **평일 훈련(isCoachWorkNow)보다 먼저**다.
+        // 뒤에 두면 그날이 평일일 때 훈련 모달이 가져가 제안이 영영 안 뜬다(연 1회뿐이다).
+        ui.modal = (c) => renderCoachCampModal(c);
+      } else if (isNationalAfterDay(state) && nationalAfterpartyScene(state)) {
+        // 전국체전 뒤풀이 — 씬 조건(성인 모드·음란)을 만족할 때만 자리를 차지한다.
+        ui.modal = (c) => renderNationalAfterpartyModal(c);
+      } else if (isAlumniDay(state)) {
+        // 이듬해 2월 졸업생 모임(내부에서 연 1회 도장을 찍는다).
+        ui.modal = (c) => renderAlumniModal(c);
       } else if (isCoachWorkNow(state)) {
         // 배구부 코치도 평일 낮 강제 출근 — 회사 근무와 같은 자리(둘은 겸직이 안 되므로 순서 무관).
         ui.modal = (c) => renderCoachModal(c);

@@ -15295,6 +15295,20 @@ button.np-menu__item:hover {
   border: 1px solid var(--border);
 }
 
+/* 합숙·뒤풀이 성인 씬 본문 — 문단이 여럿이라 taxi__scene보다 여유를 준다.
+   길어서 모달을 넘칠 수 있으므로 자체 스크롤을 갖는다. */
+.camp__scene {
+  white-space: pre-line;
+  line-height: 1.85;
+  padding: 16px 18px;
+  margin: 4px 0 14px;
+  max-height: 52vh;
+  overflow-y: auto;
+  border-radius: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+}
+
 .taxi__choices {
   display: flex;
   flex-direction: column;

@@ -295,6 +295,8 @@ export function maybeHoldMeet(state: GameState): void {
   job.lastMeetMonth = mk;
 
   const national = dateOf(state.day).getMonth() + 1 === NATIONAL_MEET_MONTH;
+  // 대회를 치른 해를 남긴다 — 이듬해 2월 졸업생 모임의 전제다(systems/coachCamp.isAlumniDay).
+  job.lastMeetYear = dateOf(state.day).getFullYear();
   const strength = teamStrength(state);
   const result = meetResultFor(strength, national);
   const label = MEET_LABEL[result];
