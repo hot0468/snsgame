@@ -48,10 +48,11 @@ SNS로 팔로워 100만명을 모으는 TypeScript + Vite 텍스트 브라우저
 - **CSS는 grep-우선.** 새 클래스를 만들기 전 유사 클래스명을 Grep으로 찾고, 그 정의 ±30줄만 읽는다.
 - **스크린샷은 검증 대상 화면만 최소 장수.** 이미지는 텍스트보다 훨씬 비싸다.
 - **헤드리스 브라우저는 사용자 머신을 멈추게 한다 — 띄우는 횟수를 줄이고, 우선순위를 낮춰라.** 원인은 메모리가 아니라 **순간 CPU/IO 경합**이다(측정: 총 31.6GB 중 14.7GB 여유, 좀비 프로세스 0). 크롬 하나가 뜰 때 자식 프로세스 여러 개가 생기고, 각자 dev 서버에 **모듈 요청 928건**을 동시에 던진다(빌드본은 34건). 사용자가 "브라우저 띄울 때 멈춘다"고 확인해 준 사항이다. 지킬 것:
-  - **드라이버는 `cmd //c start /low /b node driver.mjs`로 띄운다.** 자식(크롬)이 낮은 우선순위를 상속해 사용자 작업이 안 밀린다.
+  - **낮은 우선순위로 띄우려면 PowerShell을 쓰고, 대신 대기를 전부 늘려라.** Git Bash의 `cmd //c start /low`는 "액세스가 거부되었습니다"로 실패한다. 되는 방법은 `Start-Process node -NoNewWindow -PassThru -RedirectStandardOutput out.txt` 뒤 `$p.PriorityClass='BelowNormal'`이다. **단 느려지므로 `puppeteer.launch`에 `protocolTimeout: 600000`을 주고 wait를 2배로 늘려야 하며, 그래도 `Navigating frame was detached`가 잦다.** 낮은 우선순위는 사용자 체감을 위한 것이지 공짜가 아니다 — 안 되면 우선순위를 포기하고 **실행 횟수를 줄이는 쪽**을 택하라.
   - **한 번 띄워 여러 화면을 훑는다.** 화면 하나에 실행 하나씩 쪼개지 마라(한 세션에 10번 넘게 띄워 사용자가 멈춤을 호소한 전적).
   - 실행 사이에 간격을 둔다. 연속으로 새 탭을 열면 `ERR_INSUFFICIENT_RESOURCES`(소켓 고갈)로 **앱이 아예 로드되지 않고**, 그걸 코드 버그로 오진하게 된다(실제로 오진해 원인을 두 번 더 팠다).
-  - `try/finally`로 반드시 닫는다. 닫아도 `%TEMP%\scoped_dir*`가 남으니 가끔 치운다.
+  - `try/finally`로 반드시 닫는다. 닫아도 `%TEMP%\scoped_dir*`가 남으니 가끔 치운다. 드라이버가 중간에 죽으면 크롬이 남으니, 실패로 끝난 뒤엔 `Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" | Where-Object { $_.CommandLine -match 'puppeteer|scoped_dir|--headless' }`로 **자동화 크롬만** 골라 정리하라(사용자 크롬을 닫은 전적이 있다 — `taskkill /IM chrome.exe` 금지).
+  - **로직 변경은 브라우저로 확인하지 마라.** 도감 행·문구·업적처럼 순수 데이터/규칙은 vitest가 더 정확하고 싸다. 브라우저는 여백·정렬·색·클릭 흐름처럼 **테스트가 볼 수 없는 것**에만 쓴다.
 - 이미 이 대화에서 확인한 사실을 서브에이전트에 재발견시키지 말고, 프롬프트에 요약해 넘겨라.
 - **vitest는 `npx vitest run --pool=forks`로 실행하라.** 기본 pool은 간헐적으로 `Cannot read ... 'config'` 오탐을 낸다 — 그 에러로 "테스트 깨졌다" 단정 금지, forks로 재실행해 실제 숫자를 봐라.
 - **작업 중엔 파일을 지정해 돌리고(`npx vitest run --pool=forks src/__tests__/foo.test.ts`), 전체 스위트는 마무리 1회만.** 한 파일 고치고 47파일을 다시 돌리는 걸 반복하면 그것만으로 샌다.
