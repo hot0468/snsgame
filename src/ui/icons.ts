@@ -198,6 +198,11 @@ export const ACTIVITY_ICON: Record<string, IconName> = {
   study: "book",
   art: "pen",
   coding: "grid",
+  // 운동 2종 — 헬스장은 기존 dumbbell(기구) 유지. 홈트는 기구가 없으니 맨몸을 뜻하는 walk를 쓴다.
+  // ⚠️ sparkle을 쓰지 마라. beauty(꾸미기)가 이미 sparkle이고, 매핑이 없는 활동은 `?? "star"`로
+  //    떨어져 화면에 별이 깔린다 — 실제로 홈트가 봉사·꾸미기와 구분이 안 됐다(브라우저 확인).
+  //    goout도 walk지만 그쪽은 '휴식' 탭이라 같은 목록에 나란히 놓이지 않는다.
+  homeWorkout: "walk",
   workout: "dumbbell",
   youtube: "youtube",
   // 취향 탐구(변태력 육성) — 남들에겐 잠긴 서랍. 물류(drawer)와 겹치지 않게 lock.

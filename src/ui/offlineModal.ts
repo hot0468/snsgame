@@ -16,6 +16,15 @@ import {
   type OfflineOffer,
   creatureById,
   collectCreature,
+  GYM_DAY_FEE,
+  GYM_PASS_FEE,
+  GYM_PASS_BREAKEVEN_DAYS,
+  hasGymPass,
+  gymTodayFee,
+  canUseGym,
+  canBuyGymPass,
+  gymPassDaysLeft,
+  buyGymPass,
 } from "@/systems/offline";
 import { postTweet } from "@/systems/tweetSystem";
 import { outdoorShoot, blackVanOrgy, wallHoleOrgy } from "@/systems/events";
@@ -138,6 +147,17 @@ function partTimeHint(state: GameState, act: OfflineActivity): string | null {
 }
 
 /**
+ * 헬스장 카드 힌트 — 정기권 이용 중이거나 오늘 이미 냈으면 "오늘 무료"를,
+ * 아니면 오늘 낼 요금을 미리 알려준다(막상 눌렀을 때 놀라지 않게).
+ */
+function gymFeeHint(state: GameState, act: OfflineActivity): string | null {
+  if (!act.gym) return null;
+  const fee = gymTodayFee(state);
+  if (fee <= 0) return hasGymPass(state) ? "월 정기권 이용 중 — 오늘 무료" : "오늘 이용료는 이미 냈어요";
+  return `오늘 이용료 ${formatNumber(fee)}원`;
+}
+
+/**
  * 델타 파트를 ` · ` 구분자로 잇되 **감소분만 하락색**으로 렌더한다.
  *
  * ⚠️ 한 문자열로 합쳐 넘기면 안 된다 — `.life-item__delta`가 전체를 `var(--good)`(초록)으로
@@ -204,10 +224,12 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
     const nightVacation = !!act.vacation && state.slot === LATE_SLOT;
     // 휴가는 10만원이 있어야 갈 수 있다 — 소지금 부족이면 비활성.
     const cantAfford = !!act.vacation && !canAffordVacation(state);
+    // 헬스장은 오늘치 요금(일일권 또는 정기권 면제)을 낼 돈이 없으면 막는다 — 안 막으면 돈 없이 입장해 버린다.
+    const cantAffordGym = !!act.gym && !canUseGym(state);
     // 행동력을 쓰는 활동(act.action<0)은 잔여 행동력이 비용보다 적으면 막는다(마이너스 방지).
     const notEnoughAction = act.action < 0 && !hasAction(state, -act.action);
-    const blocked = nightVacation || cantAfford || notEnoughAction;
-    const hint = blocked ? null : partTimeHint(state, act);
+    const blocked = nightVacation || cantAfford || cantAffordGym || notEnoughAction;
+    const hint = blocked ? null : (partTimeHint(state, act) ?? gymFeeHint(state, act));
     return el(
       "button",
       {
@@ -252,9 +274,11 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
             ? ["심야에는 휴가를 떠날 수 없어요"]
             : cantAfford
               ? ["소지금이 부족해요 (10만원 필요)"]
-              : notEnoughAction
-                ? [`행동력이 부족해요 (${-act.action} 필요)`]
-                : renderDeltaParts(activityDeltaParts(state, act))),
+              : cantAffordGym
+                ? [`소지금이 부족해요 (오늘 이용료 ${formatNumber(gymTodayFee(state))}원 필요)`]
+                : notEnoughAction
+                  ? [`행동력이 부족해요 (${-act.action} 필요)`]
+                  : renderDeltaParts(activityDeltaParts(state, act))),
         ),
         // 아르바이트 숙련도 힌트 — 시급 상한에 도달한 알바에만 붙는다(없으면 빈 span도 만들지 않음).
         hint ? el("span", { class: "life-item__hint" }, hint) : null,
@@ -706,8 +730,9 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
         el("div", { class: "offline-grid" }, ...items),
         // 일 탭: 킬러면 작업하기(청부), 취업 섹션도 이 탭으로 모은다.
         lifeTab === "work" ? killerWorkSection() : null,
-        // 자기개발 탭: 미용실 → 바디프로필 도전 → 마라톤 대회 순.
+        // 자기개발 탭: 미용실 → 헬스장 정기권 → 바디프로필 도전 → 마라톤 대회 순.
         lifeTab === "growth" ? salonSection() : null,
+        lifeTab === "growth" ? gymPassSection() : null,
         lifeTab === "growth" ? bodyProfileSection() : null,
         lifeTab === "growth" ? raceSection() : null,
         // 기부 — 돈을 평판·도덕성으로 바꾸는 유일한 창구(후반에 고이는 돈의 출구).
@@ -752,6 +777,56 @@ export function renderOfflineModal(ctx: GameContext): HTMLElement {
           onclick: () => can && ctx.openModal(renderSalonMenuModal),
         },
         can ? "미용실 가기" : "소지금 또는 행동력 부족",
+      ),
+    );
+  }
+
+  /**
+   * 헬스장 월 정기권 섹션(자기개발 탭, 미용실 바로 아래) — 운동 카드와 붙어 있어야
+   * "오늘 5,000원 낼래, 아니면 정기권 살래"를 그 자리에서 비교할 수 있다.
+   * 보유 중이면 남은 일수를, 아니면 손익분기 안내와 구매 버튼을 보여준다.
+   */
+  function gymPassSection(): HTMLElement {
+    const s = ctx.store.getState();
+    if (hasGymPass(s)) {
+      const left = gymPassDaysLeft(s);
+      return el(
+        "div",
+        { class: "goal-section" },
+        el("div", { class: "goal-section__title" }, "🏋️ 헬스장 월 정기권"),
+        el(
+          "div",
+          { class: "goal-section__meta" },
+          `이번 달 이용 중 — 남은 ${left}일 동안 방문 요금이 없어요.`,
+        ),
+      );
+    }
+    const purchasable = canBuyGymPass(s) === "ok";
+    return el(
+      "div",
+      { class: "goal-section" },
+      el("div", { class: "goal-section__title" }, "🏋️ 헬스장 월 정기권"),
+      el(
+        "div",
+        { class: "goal-section__meta" },
+        `${formatNumber(GYM_PASS_FEE)}원 · 일일 요금 ${formatNumber(GYM_DAY_FEE)}원이 이번 달 내내 면제돼요. ` +
+          `이번 달에 ${GYM_PASS_BREAKEVEN_DAYS}일 넘게 갈 계획이면 정기권이 이득이에요.`,
+      ),
+      el(
+        "button",
+        {
+          class: "life-btn" + (purchasable ? "" : " life-btn--off"),
+          disabled: !purchasable,
+          onclick: () => {
+            let result: ReturnType<typeof buyGymPass> = "poor";
+            ctx.update((st) => {
+              result = buyGymPass(st);
+            });
+            if (result === "poor") ctx.toast("소지금이 부족해요");
+            else if (result === "ok") ctx.toast("헬스장 월 정기권을 결제했어요");
+          },
+        },
+        purchasable ? `정기권 구매 (${formatNumber(GYM_PASS_FEE)}원)` : "소지금 부족",
       ),
     );
   }

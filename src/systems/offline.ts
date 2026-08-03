@@ -7,6 +7,8 @@ import { pick } from "@/utils/random";
 import { STAMINA_MAX_CAP, clampAction, clampMental, clampResource, gainSkill, gainStamina } from "./stats";
 import { REST_STAMINA, WORKOUT_STAMINA, WORKOUT_STAMINA_MAX_GAIN, AUTHOR_WORK_STAMINA } from "./health";
 import { addSchedule, advanceTime } from "./time";
+// monthKey는 calendar에서 직접 가져온다(adMail과 같은 이유 — time.ts 경유는 순환 위험).
+import { monthKey } from "./calendar";
 import { doAuthorWork } from "./author";
 import { doLecture } from "./lecturer";
 import { maybeOfferCoach } from "./coach";
@@ -58,6 +60,20 @@ export interface OfflineActivity {
   randomSkillPool?: { pool: SkillStatId[]; amount: number };
   /** 산책: 낮은 확률로 길 잃은 강아지/고양이를 만나는 이벤트가 뜬다 */
   petWalk?: boolean;
+  /**
+   * **운동 계열 활동인지.** 홈트(`homeWorkout`)와 헬스장(`workout`) 둘 다 true다.
+   *
+   * ⚠️ 운동에 걸린 훅은 전부 이 표식으로 판정한다 — `activity.id === "workout"`으로 쓰지 마라.
+   *    id로 판정하면 홈트가 "운동 안 함"으로 새어 바디게이지·무운동 일수·제안·체력이 통째로 빠진다.
+   *    걸려 있는 훅: 바디프로필 게이지 적립(gainBodyGauge) · 무운동 일수 리셋 · 바디프로필/마라톤
+   *    제안(rollOffer) · 체력 한계치 상승 · 배구부 코치 섭외(maybeOfferCoach).
+   */
+  workout?: boolean;
+  /**
+   * 헬스장 이용 활동인지 — 실행하려면 **오늘치 요금**(일일권 또는 월 정기권)이 필요하다.
+   * 요금은 활동 선언의 `money`가 아니라 `payGymFee`가 처리한다(하루에 두 번 가도 한 번만 낸다).
+   */
+  gym?: boolean;
   /** 작가 계약 원고 작업 — 작업량 게이지를 채운다(계약 중일 때만 노출) */
   authorWork?: boolean;
   /** 이비에듀 강사 수업 — 이번 달 수업 횟수를 채운다(강사 채용 중일 때만 노출) */
@@ -123,6 +139,11 @@ export interface OfflineOutcome {
   unlockedAttribute: AttributeId | null;
   /** 아르바이트로 번 금액(없으면 null) */
   earnedMoney: number | null;
+  /**
+   * 이번 헬스장 이용으로 실제 빠져나간 요금. 헬스장이 아니거나
+   * (정기권·오늘 이미 결제로) 안 냈으면 0. UI가 결과 팝업에 지출을 표시할 때 쓴다.
+   */
+  gymFee: number;
   /** 랜덤으로 오른 스탯 라벨(없으면 null) */
   randomSkillLabel: string | null;
   /** 산책 중 마주친 길동물(데려갈지 선택). 없으면 null */
@@ -384,6 +405,127 @@ export function partTimeActivities(): OfflineActivity[] {
  * "몸을 만드는 중인데 마음이 무너지는" 순간이라 **쉬는 계열에만** 붙는다(운동·알바엔 안 붙는다).
  */
 export const BINGE_ACTIVITY_IDS = ["rest", "goout", "walk"];
+
+/* ─────────────────── 헬스장 요금(일일권 · 월 정기권) ─────────────────── */
+
+/**
+ * 헬스장 **일일 이용권** 요금. 하루 단위라 같은 날 두 번 가도 한 번만 낸다
+ * (`state.gymDayPassDay`가 오늘이면 이미 낸 것).
+ */
+export const GYM_DAY_FEE = 5_000;
+/**
+ * 헬스장 **월 정기권** 요금. 결제한 달(monthKey) 동안 일일 요금이 면제된다.
+ *
+ * 손익분기는 `GYM_PASS_FEE / GYM_DAY_FEE` = **10일**이다 — 한 달에 10일 넘게 갈 계획이면 이득이고,
+ * 띄엄띄엄 갈 거면 손해다. "지금 얼마나 다닐 셈인가"를 플레이어에게 묻는 것이 이 가격의 목적이라
+ * 두 값은 반드시 함께 조정하라(한쪽만 만지면 선택이 자명해져 의미가 사라진다).
+ */
+export const GYM_PASS_FEE = 50_000;
+/** 정기권 손익분기 일수 — UI 안내 문구가 이 값을 그대로 쓴다(하드코딩 금지). */
+export const GYM_PASS_BREAKEVEN_DAYS = Math.ceil(GYM_PASS_FEE / GYM_DAY_FEE);
+
+/**
+ * 이번 달 헬스장 월 정기권이 살아 있는지.
+ * **달이 바뀌면 자동으로 false**가 된다 — 별도 만료 처리가 없다(goblinShopMonth와 같은 계약).
+ */
+export function hasGymPass(state: GameState): boolean {
+  return state.gymPassMonth !== null && state.gymPassMonth === monthKey(state.day);
+}
+
+/** 오늘 헬스장 일일 요금을 이미 냈는지(같은 날 두 번째 운동은 공짜). */
+export function paidGymToday(state: GameState): boolean {
+  return state.gymDayPassDay === state.day;
+}
+
+/**
+ * 지금 헬스장에 들어가려면 내야 하는 금액. 정기권이 있거나 오늘 이미 냈으면 0.
+ * UI가 활동 카드에 "오늘 요금 5,000원 / 정기권 이용 중" 같은 표시를 할 때 쓴다.
+ */
+export function gymTodayFee(state: GameState): number {
+  if (hasGymPass(state) || paidGymToday(state)) return 0;
+  return GYM_DAY_FEE;
+}
+
+/** 지금 헬스장에 갈 수 있는지(오늘 요금을 낼 돈이 있는지). UI 버튼 게이트가 쓴다. */
+export function canUseGym(state: GameState): boolean {
+  return state.money >= gymTodayFee(state);
+}
+
+/**
+ * 헬스장 오늘치 요금을 정산한다(`doOfflineActivity`의 gym 분기에서만 호출).
+ * @returns 실제로 빠져나간 금액(정기권·기납부면 0). 돈이 모자라면 아무것도 바꾸지 않고 null.
+ */
+export function payGymFee(state: GameState): number | null {
+  const fee = gymTodayFee(state);
+  if (state.money < fee) return null;
+  if (fee > 0) {
+    state.money -= fee;
+    state.gymDayPassDay = state.day;
+  }
+  return fee;
+}
+
+/** 월 정기권 결제 결과. `"ok"` 외에는 상태를 전혀 바꾸지 않는다. */
+export type GymPassPurchase = "ok" | "already" | "poor";
+
+/** 이번 달 정기권을 살 수 있는지(이미 있거나 돈이 모자라면 그 사유). UI 버튼 게이트가 쓴다. */
+export function canBuyGymPass(state: GameState): GymPassPurchase {
+  if (hasGymPass(state)) return "already";
+  if (state.money < GYM_PASS_FEE) return "poor";
+  return "ok";
+}
+
+/**
+ * 헬스장 월 정기권을 결제한다. 결제하면 **이번 달 남은 기간** 일일 요금이 면제된다.
+ * 달 중간에 사면 그만큼 손해라, 월초에 사느냐가 또 하나의 판단이 된다(일할 계산은 하지 않는다).
+ */
+export function buyGymPass(state: GameState): GymPassPurchase {
+  const can = canBuyGymPass(state);
+  if (can !== "ok") return can;
+  state.money -= GYM_PASS_FEE;
+  state.gymPassMonth = monthKey(state.day);
+  addSchedule(state, `헬스장 월 정기권 결제 (-${GYM_PASS_FEE.toLocaleString("ko-KR")}원)`, "system");
+  return "ok";
+}
+
+/** 이번 달 정기권이 남은 일수(0이면 정기권 없음). UI가 "이번 달 n일 남음"을 표시할 때 쓴다. */
+export function gymPassDaysLeft(state: GameState): number {
+  if (!hasGymPass(state)) return 0;
+  let d = state.day;
+  while (monthKey(d + 1) === monthKey(state.day)) d++;
+  return d - state.day + 1; // 오늘 포함
+}
+
+/* ─────────────────── 운동 강도(홈트 vs 헬스장) ─────────────────── */
+
+/**
+ * 홈트의 강도 배율(헬스장 = 1.0 기준).
+ *
+ * 체력 한계치 상승·현재 체력 회복·바디게이지 적립이 전부 이 배율로 깎인다.
+ * 스킬 상승분은 활동 선언(`skillGains`)에 이미 반영돼 있어 여기서 또 곱하지 않는다 —
+ * **두 번 깎으면 홈트가 사실상 무의미해진다.**
+ *
+ * 0.6인 이유: 행동력이 18 대 25(=0.72)라, 강도를 그보다 낮게 둬야
+ * "행동력당 효율"에서도 헬스장이 앞선다(그래야 요금을 낼 이유가 생긴다).
+ * 그래도 0에 가깝지 않아서, 돈이 없는 초반엔 홈트만으로도 바디프로필을 완주할 수 있다.
+ */
+export const HOME_WORKOUT_INTENSITY = 0.6;
+
+/** 이 운동의 강도 배율(헬스장 1.0 · 홈트 HOME_WORKOUT_INTENSITY). 운동이 아니면 0. */
+export function workoutIntensity(activity: OfflineActivity): number {
+  if (!activity.workout) return 0;
+  return activity.gym ? 1 : HOME_WORKOUT_INTENSITY;
+}
+
+/**
+ * 바디게이지 적립에 곱할 배율. `gainBodyGauge`가 받는 배율 자리에 들어가며,
+ * 여기에 컨디션 등급 배율이 다시 곱해진다(`applyGradeToGain`).
+ */
+export function workoutGaugeMult(activity: OfflineActivity): number {
+  return workoutIntensity(activity);
+}
+
+/* ─────────────────── 운동 제안 ─────────────────── */
 
 /** 운동 1회당 제안(바디프로필·마라톤)이 들어올 확률 */
 export const OFFER_CHANCE = 0.3;
@@ -668,15 +810,49 @@ export const OFFLINE_ACTIVITIES: OfflineActivity[] = [
       "작은 손길이라도 보태니 마음이 꽉 차는 기분",
     ],
   },
+  // ── 운동 2종: 홈트(공짜·약함) vs 헬스장(유료·강함) ──
+  // 둘 다 `workout: true`라 바디프로필 게이지·무운동 일수·제안·체력 훅이 똑같이 걸린다.
+  // 갈리는 건 **돈과 효율**뿐이다 — 돈이 없으면 홈트로 버티고, 여유가 생기면 헬스장으로 갈아탄다.
   {
-    id: "workout",
-    label: "운동",
+    id: "homeWorkout",
+    label: "홈트",
     emoji: "",
     group: "growth",
-    description: "땀 흘리며 몸을 단련한다.",
+    workout: true,
+    description: "매트 깔고 맨몸 운동. 돈은 안 들지만 한계가 있다.",
+    action: -18,
+    mental: +4,
+    skillGains: { fitness: 6, beauty: 1, vocabulary: -2 },
+    unlockAttributePool: ["fitness", "sports"],
+    results: [
+      "거실 매트 위에서 땀을 쭉 뺐다. 돈 한 푼 안 들었다.",
+      "영상 보고 따라 했더니 다리가 후들거린다.",
+      "층간소음이 신경 쓰여 점프는 뺐지만, 그래도 하긴 했다.",
+    ],
+    failResults: [
+      "매트만 깔아두고 결국 휴대폰만 보다 접었다.",
+      "몇 개 하다가 소파에 눕는 바람에 그대로 끝났다.",
+    ],
+    greatResults: [
+      "장비 없이도 세트를 계속 이어갔다. 몸이 가벼운 날이다.",
+      "영상 하나를 끝까지 다 따라 했다. 오늘은 좀 됐다.",
+    ],
+    tweetAttr: "fitness",
+    tweetLines: ["홈트 완료! 장비 없어도 되긴 되네", "거실이 곧 헬스장 #홈트일지"],
+  },
+  {
+    id: "workout",
+    label: "헬스장",
+    emoji: "",
+    group: "growth",
+    workout: true,
+    gym: true,
+    description: "기구를 제대로 쓰며 몸을 단련한다. 이용료가 든다.",
     action: -25,
     mental: +5,
-    skillGains: { fitness: 10, beauty: 2, vocabulary: -3 },
+    // ⚠️ 이용료는 여기 `money`로 선언하지 않는다 — 요금은 **하루 단위**라
+    //    같은 날 두 번째 방문은 공짜다. 정산은 doOfflineActivity의 gym 분기(payGymFee)가 한다.
+    skillGains: { fitness: 13, beauty: 3, vocabulary: -3 },
     unlockAttributePool: ["fitness", "sports"],
     results: [
       "땀을 쫙 빼고 나니 상쾌하다.",
@@ -1023,8 +1199,10 @@ export function doOfflineActivity(
   let bingeLine: string | null = null;
   // 바디프로필 촬영·마라톤 대회 제안은 **운동 중에만** 들어온다(상시 메뉴가 아니다).
   let offer: OfflineOffer | null = null;
-  if (activity.id === "workout") {
-    bodyGaugeGain = gainBodyGauge(state, applyGradeToGain(1, grade));
+  // ⚠️ id가 아니라 `workout` 표식으로 판정한다 — 홈트·헬스장 **둘 다** "운동함"으로 쳐야
+  //    게이지·무운동 일수·제안이 한쪽으로 새지 않는다. 게이지 적립분은 강도에 비례해 갈린다.
+  if (activity.workout) {
+    bodyGaugeGain = gainBodyGauge(state, applyGradeToGain(workoutGaugeMult(activity), grade));
     offer = rollOffer(state);
   } else if (BINGE_ACTIVITY_IDS.includes(activity.id)) {
     bingeLine = rollBinge(state);
@@ -1038,10 +1216,21 @@ export function doOfflineActivity(
   }
   if (activity.money) state.money += activity.money;
 
+  // 헬스장 이용료: 하루 단위 정산이라 활동 선언의 money가 아니라 여기서 처리한다.
+  // (UI가 canUseGym으로 이미 막지만, 다른 경로로 들어와도 돈이 마이너스로 가지 않게 여기서도 확인한다.)
+  let gymFeePaid = 0;
+  if (activity.gym) {
+    gymFeePaid = payGymFee(state) ?? 0;
+  }
+
   // 체력: 운동은 한계치를 올리고(현재 체력도 소량 회복), 쉬기는 체력을 회복한다.
-  if (activity.id === "workout") {
-    state.staminaMax = Math.min(STAMINA_MAX_CAP, state.staminaMax + WORKOUT_STAMINA_MAX_GAIN);
-    gainStamina(state, WORKOUT_STAMINA);
+  // ⚠️ 홈트도 운동이다 — id가 아니라 `workout` 표식으로 판정한다.
+  if (activity.workout) {
+    state.staminaMax = Math.min(
+      STAMINA_MAX_CAP,
+      state.staminaMax + Math.round(WORKOUT_STAMINA_MAX_GAIN * workoutIntensity(activity)),
+    );
+    gainStamina(state, Math.round(WORKOUT_STAMINA * workoutIntensity(activity)));
     // 몸이 만들어졌으면 배구부 섭외 카톡이 온다(내부 가드로 중복·겸직·문턱 미달을 전부 막는다).
     maybeOfferCoach(state);
   } else if (activity.id === "rest") {
@@ -1255,6 +1444,15 @@ export function doOfflineActivity(
   } else if (bodyGaugeGain > 0 && state.bodyProfile) {
     message = `${message} (바디게이지 +${bodyGaugeGain} → ${state.bodyProfile.gauge}/${BODY_GAUGE_MAX})`;
   }
+  // 헬스장 지출은 결과 문구에도 남긴다 — 정기권으로 면제된 날은 그 사실을 알려야 정기권 값을 체감한다.
+  if (activity.gym) {
+    message =
+      gymFeePaid > 0
+        ? `${message} (이용료 -${gymFeePaid.toLocaleString("ko-KR")}원)`
+        : hasGymPass(state)
+          ? `${message} (월 정기권 이용 중 — 오늘 이용료 없음)`
+          : `${message} (오늘 이용료는 이미 냈다)`;
+  }
   if (activity.authorWork) {
     const r = doAuthorWork(state);
     if (r) {
@@ -1285,6 +1483,7 @@ export function doOfflineActivity(
     skillDeltas,
     unlockedAttribute,
     earnedMoney,
+    gymFee: gymFeePaid,
     randomSkillLabel,
     petEncounter,
     nudeExposure,
