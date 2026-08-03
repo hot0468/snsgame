@@ -205,6 +205,14 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   if (!Array.isArray(state.kakao)) state.kakao = [];
   if (!Array.isArray(state.workMsgs)) state.workMsgs = [];
   if (!Array.isArray(state.appointments)) state.appointments = [];
+  // 음원CD 추첨 기준일. 최상위 merge가 키 부재는 -1로 메꾸지만, NaN/null은 통과하므로 여기서 잡는다
+  // (NaN이면 `lastCdDrawDay === state.day`가 영원히 false라 중복 추첨 가드가 무력해진다).
+  // 구세이브에 이미 들어 있던 음원CD는 다음 날 아침 첫 추첨에 그대로 응모된다(의도된 동작).
+  if (typeof state.lastCdDrawDay !== "number" || !Number.isFinite(state.lastCdDrawDay)) {
+    state.lastCdDrawDay = -1;
+  }
+  // 결과 알림은 하루짜리 휘발성이다 — 저장본에서 되살아나 옛 결과를 다시 띄우지 않게 비운다.
+  state.cdLotteryResult = undefined;
   // 코믹콘은 낮 행사로 바뀌었다 — 구세이브에 심야로 잡힌 코믹콘 약속을 낮 슬롯으로 옮긴다.
   for (const appt of state.appointments) {
     if (appt.variant === "comiccon" && appt.slot !== MORNING_SLOT) appt.slot = MORNING_SLOT;
@@ -388,6 +396,16 @@ function sanitize(state: GameState, parsed: Partial<GameState> = state): GameSta
   if (!Array.isArray(state.ownedItems)) state.ownedItems = [];
   if (!Array.isArray(state.pendingGoods)) state.pendingGoods = [];
   state.goblinShopMonth ??= null;
+  // 헬스장 정기권/일일권은 신규 필드 — **키 부재는 loadGame의 최상위 merge가 이미 초기값으로 메꾼다**
+  // (`gymPassMonth: null` · `gymDayPassDay: 0`). 그래서 `??=`는 죽은 폴백이라 두지 않았다.
+  // 여기서 막는 건 '키는 있는데 값이 깨진' 경우다 — NaN은 JSON에서 null로 직렬화돼 merge를 통과하고,
+  // 그대로 두면 `monthKey` 비교가 영영 어긋나거나(정기권이 안 먹힘) `state.day` 비교가 NaN이 된다.
+  if (typeof state.gymPassMonth !== "number" || !Number.isFinite(state.gymPassMonth)) {
+    state.gymPassMonth = null;
+  }
+  if (typeof state.gymDayPassDay !== "number" || !Number.isFinite(state.gymDayPassDay)) {
+    state.gymDayPassDay = 0;
+  }
   state.pushtimeUnlocked ??= false;
   state.yabamUnlocked ??= false;
   // youtubeUnlocked/medibooksUnlocked는 loadGame에서 parsed 원본 기준으로 결정한다

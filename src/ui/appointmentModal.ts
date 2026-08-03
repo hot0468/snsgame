@@ -21,6 +21,15 @@ import {
   type ComicconMode,
 } from "@/systems/appointments";
 import {
+  appointmentFee,
+  canAffordComiccon,
+  canAffordEventFee,
+  comicconFee,
+  payComicconFee,
+  payEventFee,
+  type ComicconFeeMode,
+} from "@/systems/eventFees";
+import {
   REL_STAGE_THRESHOLDS,
   meetSuccessChance,
   relStateOf,
@@ -147,7 +156,10 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
             : appt.kind === "affair"
               ? AFFAIR_ACTION_COST
             : 10;
-    const canGo = action >= needAction;
+    const s0 = ctx.store.getState();
+    const eventFeeAmount = appointmentFee(appt);
+    const cantAffordFee = appt.kind === "event" && !canAffordEventFee(s0, appt);
+    const canGo = action >= needAction && !cantAffordFee;
 
     const prompt =
       appt.kind === "crew"
@@ -191,10 +203,17 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
               if (appt.kind === "study") return handleStudyGo(appt);
               if (appt.kind === "esthetic") return handleEstheticGo(appt);
               if (appt.kind === "affair") return handleAffairGo();
+              if (appt.kind === "event") return resolveEventGo(appt);
               resolve(appt, true);
             },
           },
-          canGo ? `간다 (행동력 -${needAction})` : "행동력이 부족해 못 감",
+          !canGo && cantAffordFee
+            ? `소지금이 부족해 못 감 (${eventFeeAmount.toLocaleString("ko-KR")}원 필요)`
+            : eventFeeAmount > 0
+              ? `간다 (행동력 -${needAction} · ${eventFeeAmount.toLocaleString("ko-KR")}원)`
+              : canGo
+                ? `간다 (행동력 -${needAction})`
+                : "행동력이 부족해 못 감",
         ),
         el(
           "button",
@@ -426,8 +445,15 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
     const action = s.resources.action;
     const lewdOk = canLewdCosplay(s);
 
-    const choice = (label: string, need: number, onPick: () => void, sub?: string) => {
-      const enough = action >= need;
+    const choice = (
+      label: string,
+      need: number,
+      mode: ComicconFeeMode,
+      onPick: () => void,
+      sub?: string,
+    ) => {
+      const fee = comicconFee(mode);
+      const enough = action >= need && canAffordComiccon(s, mode);
       return el(
         "button",
         {
@@ -437,7 +463,11 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
             if (enough) onPick();
           },
         },
-        el("div", { style: "font-weight:700" }, `${label} (행동력 -${need})`),
+        el(
+          "div",
+          { style: "font-weight:700" },
+          `${label} (행동력 -${need} · ${fee.toLocaleString("ko-KR")}원)`,
+        ),
         sub ? el("div", { class: "compose-hint", style: "margin:2px 0 0" }, sub) : null,
       );
     };
@@ -456,13 +486,26 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
           { style: "font-size:15px;line-height:1.6;margin:0 0 14px" },
           "코믹콘 현장에 도착했다! 오늘은 어떻게 참여할까?",
         ),
-        choice("참관객으로 즐긴다", 8, () => resolveMode(appt, "visitor"), "굿즈를 구경하고 구매하며 즐긴다"),
-        choice("부스를 차린다", 15, () => resolveMode(appt, "booth"), "직접 만든 창작물을 판매한다"),
-        choice("코스프레로 참가한다", 12, () => resolveMode(appt, "cosplay"), "의상을 갖춰 입고 현장을 누빈다"),
+        choice(
+          "참관객으로 즐긴다",
+          8,
+          "visitor",
+          () => resolveMode(appt, "visitor"),
+          "굿즈를 구경하고 구매하며 즐긴다",
+        ),
+        choice("부스를 차린다", 15, "booth", () => resolveMode(appt, "booth"), "직접 만든 창작물을 판매한다"),
+        choice(
+          "코스프레로 참가한다",
+          12,
+          "cosplay",
+          () => resolveMode(appt, "cosplay"),
+          "의상을 갖춰 입고 현장을 누빈다",
+        ),
         lewdOk
           ? choice(
               "노출 심한 코스프레로 참가한다",
               12,
+              "cosplayLewd",
               () => resolveMode(appt, "cosplayLewd"),
               "과감한 노출 의상으로 시선을 사로잡는다",
             )
@@ -478,10 +521,27 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
 
   function resolveMode(appt: Appointment, mode: ComicconMode): void {
     let msg = "";
+    let poor = false;
     ctx.update((s) => {
+      // ⚠️ **약속 존재를 요금보다 먼저 확인한다.** 순서가 바뀌면 모달이 열려 있는 사이
+      //    약속이 사라졌을 때(removeAppointment·날짜 경과) 돈만 빠지고 행사는 진행되지 않는다.
       const live = s.appointments.find((a) => a.id === appt.id);
-      if (live) msg = resolveComiccon(s, live, mode).message;
+      if (!live) return;
+      if (!payComicconFee(s, mode)) {
+        poor = true;
+        return;
+      }
+      msg = resolveComiccon(s, live, mode).message;
     });
+    if (poor) {
+      ctx.toast("소지금이 부족해요");
+      return;
+    }
+    if (!msg) {
+      ctx.toast("이미 지난 일정이에요");
+      ctx.closeModal();
+      return;
+    }
     showResult(msg, appt); // 코믹콘 참가 = 다녀옴 → 후기 트윗 가능
   }
 
@@ -664,6 +724,31 @@ export function renderAppointmentModal(ctx: GameContext): HTMLElement {
       );
     };
     render();
+  }
+
+  /** 일반 행사(무대인사·팬사인회 등) '간다' — 참가비를 먼저 뗀 뒤 기존 resolve 흐름을 탄다. */
+  function resolveEventGo(appt: Appointment): void {
+    let paid = false;
+    let gone = false;
+    ctx.update((s) => {
+      // ⚠️ **약속 존재를 요금보다 먼저 확인한다.** 아래 resolve()도 live를 못 찾으면 조용히
+      //    아무것도 안 하므로, 먼저 걸러내지 않으면 돈만 나가고 행사는 진행되지 않는다.
+      if (!s.appointments.some((a) => a.id === appt.id)) {
+        gone = true;
+        return;
+      }
+      paid = payEventFee(s, appt);
+    });
+    if (gone) {
+      ctx.toast("이미 지난 일정이에요");
+      ctx.closeModal();
+      return;
+    }
+    if (!paid) {
+      ctx.toast("소지금이 부족해요");
+      return;
+    }
+    resolve(appt, true);
   }
 
   function resolve(appt: Appointment, go: boolean): void {

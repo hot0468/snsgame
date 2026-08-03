@@ -296,7 +296,11 @@ export function createInitialState(): GameState {
     market: initialMarket(),
     ownedItems: [],
     pendingGoods: [],
+    // 음원CD 팬사인회 추첨 — 아직 한 번도 안 돌림(-1). 결과는 추첨이 돌아야 생긴다.
+    lastCdDrawDay: -1,
     goblinShopMonth: null,
+    gymPassMonth: null,
+    gymDayPassDay: 0,
     pushtimeUnlocked: false,
     yabamUnlocked: false,
     youtubeUnlocked: false,

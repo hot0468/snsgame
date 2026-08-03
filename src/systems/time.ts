@@ -40,6 +40,7 @@ import { updateMarket } from "./market";
 import { expireSuspensions } from "./ban";
 import { checkStatEggs, maybeCatPowerButton } from "./eggs";
 import { deliverPendingGoods } from "./groupBuy";
+import { runCdLottery } from "./cdLottery";
 import { maybeSpawnWorkMsg } from "./workMessenger";
 import { checkAchievements } from "./achievements";
 import { ensureMissions } from "./missions";
@@ -323,6 +324,8 @@ function onNewDay(state: GameState): void {
   expireSuspensions(state);
   // 도착일이 된 굿즈 공구 배송분을 인벤토리로 옮긴다
   deliverPendingGoods(state);
+  // 어제까지 사둔 음원CD를 한 번에 응모 처리(당첨 시 팬사인회/팬미팅 일정 등록, CD는 전량 소모).
+  runCdLottery(state);
   // 일 단위 상태 업적 판정(소지금·자격증·집·연속 밤샘 등)
   checkAchievements(state);
   // 스탯 마일스톤 판정(하루 중 여러 경로로 오른 스킬을 일괄 인정)

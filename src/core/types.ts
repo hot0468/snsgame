@@ -506,6 +506,25 @@ export interface Appointment {
   };
 }
 
+/**
+ * 음원CD 팬사인회 추첨의 하루치 결과(systems/cdLottery가 채우고 ui가 아침에 알린다).
+ * 알림을 띄운 뒤에는 `clearCdLotteryResult`로 지운다.
+ */
+export interface CdLotteryResult {
+  /** 이번 추첨에 들어간(그리고 소모된) CD 장수 */
+  entries: number;
+  /** 적용된 당첨 확률(0~1) */
+  chance: number;
+  /** 당첨 여부 */
+  won: boolean;
+  /** 당첨 시 잡힌 행사명(팬사인회·팬미팅) */
+  eventTitle?: string;
+  /** 당첨 시 행사일(일차) */
+  eventDay?: number;
+  /** 당첨 시 행사 슬롯 */
+  eventSlot?: number;
+}
+
 /** 회사 규모(뒤로 갈수록 야근 확률↑, 복지↑) */
 export type CompanyTier = "micro" | "small" | "medium" | "large";
 
@@ -1476,8 +1495,33 @@ export interface GameState {
   ownedItems: string[];
   /** 참여한 굿즈 공구 중 배송 대기분(arriveDay 도달 시 ownedItems로 이동) */
   pendingGoods: { itemId: string; arriveDay: number }[];
+  /**
+   * 음원CD 팬사인회 추첨을 마지막으로 돌린 날(일차). -1이면 아직 한 번도 안 돌림.
+   * 같은 날 두 번 추첨하는 것을 막는 가드다(systems/cdLottery.runCdLottery).
+   */
+  lastCdDrawDay: number;
+  /**
+   * 오늘 아침 추첨 결과(있으면 UI가 알림을 띄우고 확인 후 지운다).
+   * undefined면 오늘 알릴 결과가 없다.
+   */
+  cdLotteryResult?: CdLotteryResult;
   /** 도깨비 상점에 마지막으로 들어간 달(monthKey). 없으면 null. 월 1회 접속 제한용 */
   goblinShopMonth: number | null;
+  /**
+   * 헬스장 월 정기권을 결제한 달(monthKey). null이면 미결제.
+   *
+   * **달이 바뀌면 자동 만료**된다 — 별도의 만료 처리가 없고, 판정할 때마다
+   * `monthKey(state.day)`와 비교한다(`systems/offline.hasGymPass`). goblinShopMonth와 같은 계약이라
+   * onNewDay에 만료 훅을 달 필요가 없다(달을 건너뛰는 세이브 로드에서도 자동으로 맞는다).
+   */
+  gymPassMonth: number | null;
+  /**
+   * 헬스장 **일일권**을 마지막으로 결제한 날(day). 0이면 없음.
+   *
+   * 요금은 '1일 5천원'이라 하루에 두 번 가도 한 번만 낸다 — 그래서 활동 선언(`money`)이 아니라
+   * 이 필드로 판정한다(`systems/offline.gymTodayFee`).
+   */
+  gymDayPassDay: number;
   /** '푸시타임' 탭이 해금됐는지(애니덕+성인+음란 DM 링크로 해금) */
   pushtimeUnlocked: boolean;
   /** '야밤'(성인 사이트) 탭이 해금됐는지(성인 트윗 누적 시 DM 링크로 해금) */
