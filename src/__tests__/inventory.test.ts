@@ -58,13 +58,19 @@ describe("보유 아이템 리졸버", () => {
 
 describe("sellOwnedItem", () => {
   it("정가의 50%를 주고 스탯을 회수한다", () => {
+    // ⚠️ 가격을 하드코딩하지 마라 — SHOP_ITEMS에서 끌어온다.
+    //    예전엔 18만원이 박혀 있어서 명품 원피스 가격을 올리자마자 이 테스트가 깨졌다.
+    //    검증 대상은 "정가의 50%"라는 규칙이지 특정 금액이 아니다.
+    const dress = SHOP_ITEMS.find((i) => i.id === "dress")!;
+    const expected = Math.floor(dress.price / 2);
+
     const s = createInitialState();
-    s.ownedItems.push("dress"); // 18만원 / beauty +50
+    s.ownedItems.push("dress"); // beauty +50
     s.skills.beauty = 100;
     s.money = 0;
 
-    expect(sellOwnedItem(s, "dress")).toBe(90_000);
-    expect(s.money).toBe(90_000);
+    expect(sellOwnedItem(s, "dress")).toBe(expected);
+    expect(s.money).toBe(expected);
     expect(s.skills.beauty).toBe(50);
     expect(s.ownedItems).not.toContain("dress");
   });
